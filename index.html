@@ -5339,9 +5339,20 @@ function buildOutdoorSpace(){
   const rondZ = doorZ - 13.0;            // roundabout centre — first thing seen
   const pondZ = z0 + depth*.40;          // round reflecting pond
 
-  const lawnMat = new THREE.MeshStandardMaterial({color:0x8caf52, roughness:.97, metalness:0});
-  const lawnAltMat = new THREE.MeshStandardMaterial({color:0x6f8d3e, roughness:.98, metalness:0});
-  const gravelMat = new THREE.MeshStandardMaterial({color:0xcdb289, roughness:.98, metalness:0});
+  // Ground textures (batch: visual improvement phase 10 cleanup). Only the
+  // lawn and gravel grounds get textured -- tree bark stays flat, consistent
+  // with how small accent materials (steel/brass/iron trim) are left
+  // untextured throughout the rest of this pass.
+  const lawnTex = makeStoneTexture('#8caf52','rgba(110,140,70,.14)','rgba(60,80,40,.12)');
+  lawnTex.repeat.set((hw*2+34)/5, (depth+34)/5);
+  const lawnAltTex = makeStoneTexture('#6f8d3e','rgba(94,122,58,.14)','rgba(50,68,32,.12)');
+  lawnAltTex.repeat.set((hw*2+18)/5, (depth+18)/5);
+  const gravelTex = makeStoneTexture('#cdb289','rgba(180,150,110,.16)','rgba(120,95,65,.13)');
+  gravelTex.repeat.set(6,6);
+
+  const lawnMat = new THREE.MeshStandardMaterial({map:lawnTex, roughness:.97, metalness:0});
+  const lawnAltMat = new THREE.MeshStandardMaterial({map:lawnAltTex, roughness:.98, metalness:0});
+  const gravelMat = new THREE.MeshStandardMaterial({map:gravelTex, roughness:.98, metalness:0});
   const barkMat = new THREE.MeshStandardMaterial({color:0x574634, roughness:.92, metalness:0});
   const corkBarkMat = new THREE.MeshStandardMaterial({color:0x6b5a44, roughness:.98, metalness:0});
   const leafMat = new THREE.MeshStandardMaterial({color:0x5f7d35, roughness:.90, metalness:0});
@@ -7647,7 +7658,6 @@ function buildMazeGarden(){
   const loader = new THREE.TextureLoader();
   loader.crossOrigin = 'anonymous';
 
-  function addWallBand(){ return null; }
 
   function addWallTitle(title, meta, side, z, y=6.95, w=3.2){
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w,.34), new THREE.MeshBasicMaterial({map:labelTexture(title, meta, 'small'), transparent:true, side:THREE.DoubleSide}));
@@ -7805,7 +7815,6 @@ function buildMazeGarden(){
     const spacing = 8.6;
     [-1,1].forEach((side,w)=>{
       const zc = midZ + 1.5;
-      addWallBand(side, zc, perWall*spacing - 2.0, 3.85, 5.4);
       const startZ = zc + ((perWall-1)*spacing)/2;
       for(let i2=0;i2<perWall;i2++){
         const a = picks[w*perWall + i2];
@@ -7935,10 +7944,15 @@ function buildMapGallery(){
   floorTex.repeat.set(hw*2/4.8, depth/4.8);
   const wallTex = makeGridTexture('manymapswall_v29','#eadfce','rgba(126,104,77,.03)');
   wallTex.repeat.set(depth/12, h/5.6);
+  // Ceiling was the one flat surface left in this room (batch: visual
+  // improvement phase 10 cleanup) -- matching the floor/wall convention
+  // here of a texture base a touch lighter than the material's own color.
+  const ceilingTex = makeGridTexture('manymapsceiling_v1','#f6f2e9','rgba(126,104,77,.025)');
+  ceilingTex.repeat.set(hw*2/4.8, depth/4.8);
 
   const floorMat = new THREE.MeshStandardMaterial({map:floorTex, color:0xe4d6c1, roughness:.95, metalness:0});
   const wallMat = new THREE.MeshStandardMaterial({map:wallTex, color:0xe6ddcf, roughness:.96, metalness:0});
-  const ceilingMat = new THREE.MeshStandardMaterial({color:0xf3eee6, roughness:.92, metalness:0});
+  const ceilingMat = new THREE.MeshStandardMaterial({map:ceilingTex, color:0xf3eee6, roughness:.92, metalness:0});
   const trimMat = new THREE.MeshStandardMaterial({color:0xcab18d, roughness:.72, metalness:.04});
   const frameMat = new THREE.MeshStandardMaterial({color:0x2a211b, roughness:.72, metalness:.09});
   const timberMat = new THREE.MeshStandardMaterial({color:0x6d5135, roughness:.82, metalness:.03});
@@ -9629,7 +9643,7 @@ function buildThinkingRoom(){
   const ceilingMat = new THREE.MeshStandardMaterial({color:0xc7b493, roughness:.76, metalness:.02});
   const shelfMat = new THREE.MeshStandardMaterial({color:0x202b31, roughness:.46, metalness:.12});
   const shelfDark = new THREE.MeshStandardMaterial({color:0x0e151a, roughness:.50, metalness:.14});
-  const woodMat = new THREE.MeshStandardMaterial({color:0x4b3326, roughness:.56, metalness:.07});
+  const woodMat = new THREE.MeshStandardMaterial({map:makeWoodTexture('#4b3326'), roughness:.56, metalness:.07});
   const paperMat = new THREE.MeshStandardMaterial({color:0xf4eadb, roughness:.80, metalness:.01});
   const metalMat = new THREE.MeshStandardMaterial({color:0xb7904e, roughness:.36, metalness:.62});
 
