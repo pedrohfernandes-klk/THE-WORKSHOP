@@ -7046,10 +7046,25 @@ function buildTheatre(){
   const z1 = theatreOrigin.z + theatreDepth;
   const midZ = (z0 + z1)/2;
 
-  const floorMat = new THREE.MeshStandardMaterial({color:0x544338, roughness:.82, metalness:.03});
-  const wallMat = new THREE.MeshStandardMaterial({color:0xeadfd1, roughness:.90, metalness:0});
-  const sideMat = new THREE.MeshStandardMaterial({color:0xe4d7c7, roughness:.92, metalness:0});
-  const ceilMat = new THREE.MeshStandardMaterial({color:0xd8c6af, roughness:.92});
+  // Textured shell (batch: visual improvement phase 7). Floor/walls/ceiling
+  // were flat MeshStandardMaterial despite rich geometry (recliners,
+  // proscenium arch, framed posters) -- second-biggest texture gap in the
+  // museum after the Tunnel passage. Seat upholstery stays flat: none of
+  // the house-style generators are fabric generators, and inventing one
+  // just for this would break from the established texture-generator set.
+  const floorTex = makeWoodTexture('#544338');
+  floorTex.repeat.set(hw*2/5, theatreDepth/5);
+  const wallTex = makeGridTexture('theatre_wall_v1','#eadfd1','rgba(23,18,13,.05)');
+  wallTex.repeat.set(hw*2/9, theatreHeight/3.4);
+  const sideTex = makeGridTexture('theatre_sidewall_v1','#e4d7c7','rgba(23,18,13,.05)');
+  sideTex.repeat.set(theatreDepth/9, theatreHeight/3.4);
+  const ceilTex = makeGridTexture('theatre_ceiling_v1','#d8c6af','rgba(23,18,13,.045)');
+  ceilTex.repeat.set(hw*2/5, theatreDepth/5);
+
+  const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:.82, metalness:.03});
+  const wallMat = new THREE.MeshStandardMaterial({map:wallTex, roughness:.90, metalness:0});
+  const sideMat = new THREE.MeshStandardMaterial({map:sideTex, roughness:.92, metalness:0});
+  const ceilMat = new THREE.MeshStandardMaterial({map:ceilTex, roughness:.92});
 
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(hw*2, theatreDepth), floorMat);
   floor.rotation.x = -Math.PI/2;
