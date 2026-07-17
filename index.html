@@ -118,12 +118,18 @@ button:focus-visible,input:focus-visible{outline:2px solid rgba(169,76,68,.62);o
   touch-action:none;
 }
 
-/* Entry portal (batch: visual improvement phase 4). A dark cinematic
-   threshold re-tinted to the museum's own warm brass/amber accent family
-   (derived from --paper/--paper3) instead of generic white, so the black
-   doorway visually promises the warm interior beyond rather than reading as
-   a stock template. The parent's opacity/clip-path are driven per-frame
-   from JS in lockstep with the camera's forward dolly (see
+/* Entry portal (batch: visual improvement phase 4; redesigned again per
+   direct feedback for a more original "retro/indie portal to a different
+   dimension" feel). Still a dark cinematic threshold in the museum's own
+   warm brass/amber family (derived from --paper/--paper3) so it stays
+   recognisably "workshop" — but now duotoned with the --cyan accent that
+   was defined at :root from the start and never actually used anywhere in
+   the poster. The idea: a physical, warmly-lit workshop door that's holding
+   back something otherworldly glimpsed at its seams and threshold, rather
+   than either a plain black box or a loud sci-fi effect. Kept deliberately
+   restrained (low opacities, slow motion, no glitch/chromatic-aberration
+   gimmicks) per "not too flashy." The parent's opacity/clip-path are driven
+   per-frame from JS in lockstep with the camera's forward dolly (see
    updatePosterReveal/beginPosterOpen) while opening; the CSS transition
    below only governs the plain, non-interactive fallback fade. */
 #poster{
@@ -136,6 +142,7 @@ button:focus-visible,input:focus-visible{outline:2px solid rgba(169,76,68,.62);o
   background:
     radial-gradient(circle at 50% 24%, rgba(255,226,168,.08), transparent 17%),
     radial-gradient(circle at 50% 60%, rgba(255,226,168,.025), transparent 42%),
+    radial-gradient(ellipse at 50% 102%, rgba(116,232,255,.05), transparent 52%),
     linear-gradient(180deg, #020202 0%, #000 55%, #030303 100%);
   color:var(--paper);
   transition:opacity .55s ease, visibility .55s ease;
@@ -152,7 +159,8 @@ button:focus-visible,input:focus-visible{outline:2px solid rgba(169,76,68,.62);o
   background:
     linear-gradient(90deg, transparent 0, rgba(255,244,222,.016) 50%, transparent 100%),
     linear-gradient(0deg, transparent 0, rgba(255,244,222,.012) 50%, transparent 100%),
-    radial-gradient(circle at 50% 82%, rgba(255,226,168,.04), transparent 24%);
+    radial-gradient(circle at 50% 82%, rgba(255,226,168,.04), transparent 24%),
+    repeating-linear-gradient(0deg, rgba(116,232,255,.05) 0px, rgba(116,232,255,.05) 1px, transparent 1px, transparent 3px);
   opacity:.22;
   pointer-events:none;
 }
@@ -220,6 +228,7 @@ button:focus-visible,input:focus-visible{outline:2px solid rgba(169,76,68,.62);o
   text-indent:.22em;
   text-transform:uppercase;
   color:var(--paper);
+  text-shadow:0 0 46px rgba(116,232,255,.10);
 }
 #posterSubtitle{
   margin:6px 0 0;
@@ -244,9 +253,31 @@ button:focus-visible,input:focus-visible{outline:2px solid rgba(169,76,68,.62);o
   width:min(300px, 60vw);
   height:34px;
   transform:translateX(-50%);
-  background:radial-gradient(ellipse at center, rgba(255,196,120,.12), rgba(255,196,120,.03) 42%, transparent 70%);
+  background:radial-gradient(ellipse at center, rgba(255,196,120,.11), rgba(116,232,255,.06) 34%, rgba(255,196,120,.02) 54%, transparent 74%);
   filter:blur(5px);
   pointer-events:none;
+}
+/* Slow "sonar" pulse behind the door — the one clearly "portal" motion cue,
+   kept to a single restrained ring rather than a busy multi-ring animation,
+   and turned off entirely under prefers-reduced-motion. */
+#posterPortalPulse{
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:56%;
+  height:56%;
+  transform:translate(-50%,-50%);
+  border-radius:50%;
+  pointer-events:none;
+  box-shadow:0 0 0 0 rgba(116,232,255,.16);
+}
+@media (prefers-reduced-motion: no-preference){
+  #posterPortalPulse{ animation:posterPulse 4.6s ease-out infinite; }
+}
+@keyframes posterPulse{
+  0%{ box-shadow:0 0 0 0 rgba(116,232,255,.16); }
+  70%{ box-shadow:0 0 0 32px rgba(116,232,255,0); }
+  100%{ box-shadow:0 0 0 32px rgba(116,232,255,0); }
 }
 #posterDoor{
   position:relative;
@@ -267,7 +298,8 @@ button:focus-visible,input:focus-visible{outline:2px solid rgba(169,76,68,.62);o
   box-shadow:
     0 0 0 1px rgba(199,170,112,.08) inset,
     0 18px 50px rgba(0,0,0,.28),
-    0 0 30px rgba(255,196,120,.04);
+    0 0 30px rgba(255,196,120,.04),
+    0 0 44px rgba(116,232,255,.05);
 }
 #posterDoorInner{
   position:absolute;
@@ -335,8 +367,8 @@ button:focus-visible,input:focus-visible{outline:2px solid rgba(169,76,68,.62);o
   position:absolute;
   inset:24px 28px 30px;
   background:
-    radial-gradient(circle at 50% 54%, rgba(255,196,120,.22), rgba(255,196,120,.05) 34%, transparent 64%),
-    linear-gradient(180deg, rgba(255,196,120,.02), transparent 60%);
+    radial-gradient(circle at 50% 54%, rgba(255,196,120,.19), rgba(116,232,255,.08) 30%, rgba(255,196,120,.03) 50%, transparent 68%),
+    linear-gradient(180deg, rgba(116,232,255,.025), transparent 60%);
   opacity:.14;
   transition:opacity .8s ease;
   pointer-events:none;
@@ -348,8 +380,8 @@ button:focus-visible,input:focus-visible{outline:2px solid rgba(169,76,68,.62);o
   width:160px;
   height:2px;
   transform:translateX(-50%);
-  background:linear-gradient(90deg, transparent, rgba(255,196,120,.7), transparent);
-  box-shadow:0 0 16px rgba(255,196,120,.22);
+  background:linear-gradient(90deg, transparent, rgba(255,196,120,.6), rgba(116,232,255,.6), transparent);
+  box-shadow:0 0 14px rgba(116,232,255,.18), 0 0 10px rgba(255,196,120,.14);
   pointer-events:none;
 }
 #posterOpenHint{
@@ -370,7 +402,8 @@ button:focus-visible,input:focus-visible{outline:2px solid rgba(169,76,68,.62);o
 #poster.opening #posterCard::after,
 #poster.opening #posterSignature,
 #poster.opening h1,
-#poster.opening #posterSubtitle{ opacity:.06; transition:opacity .45s ease; }
+#poster.opening #posterSubtitle,
+#poster.opening #posterPortalPulse{ opacity:.06; transition:opacity .45s ease; }
 
 @media (max-width:700px){
   #posterCard{padding:18px 16px 22px}
@@ -1774,6 +1807,7 @@ body.rpgMode #rpgModeBadge{display:block}
       <h1>THE WORKSHOP</h1>
       <div id="posterSubtitle">museum of rooms · images · machines</div>
       <div id="posterDoorWrap">
+        <div id="posterPortalPulse"></div>
         <div id="posterDoor" role="button" aria-label="Open the workshop door" tabindex="0">
           <div id="posterDoorFrame"></div>
           <div id="posterDoorInner">
