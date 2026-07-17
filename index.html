@@ -413,6 +413,66 @@ button:focus-visible,input:focus-visible{outline:2px solid rgba(169,76,68,.62);o
   #posterDoorTransom{grid-template-rows:none}
 }
 
+/* Lightweight opening: a true full-screen title page with one clear action.
+   The former miniature 3-D door used nested transforms, glow layers, a pulse
+   animation and a per-frame clip-path reveal while WebGL was also compiling.
+   This flat editorial threshold is calmer, brighter and costs almost nothing
+   to composite. */
+#poster{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:clamp(24px,6vw,84px);
+  background:#f2efe7;
+  color:#171815;
+  contain:strict;
+  transition:opacity .18s linear,visibility .18s linear;
+}
+#poster::before,#poster::after,#posterCard::before,#posterCard::after,#posterDoorWrap::before{display:none}
+#posterCard{
+  width:min(1040px,100%);
+  padding:0;
+  border:0;
+  background:transparent;
+  box-shadow:none;
+  overflow:visible;
+}
+#posterIntroTopline{margin:0 0 20px;color:#926a42;font-size:10px;letter-spacing:.44em}
+#posterSignature{width:min(176px,34vw);margin:0 auto 26px;opacity:.78;filter:none}
+#posterCard h1{
+  color:#161714;
+  font-size:clamp(54px,10vw,138px);
+  line-height:.84;
+  letter-spacing:.12em;
+  text-indent:.12em;
+  text-shadow:none;
+}
+#posterSubtitle{margin-top:20px;color:#6f6b63;font-size:10px;letter-spacing:.28em}
+#posterDoorWrap{margin-top:44px;gap:15px}
+#posterDoor{
+  width:auto;
+  aspect-ratio:auto;
+  min-width:142px;
+  padding:15px 28px;
+  border:1px solid #171815;
+  border-radius:999px;
+  background:#171815;
+  color:#f7f3ea;
+  font:800 10px/1 ui-sans-serif,system-ui,sans-serif;
+  letter-spacing:.28em;
+  text-transform:uppercase;
+  transition:transform .15s ease,background .15s ease;
+}
+#posterDoor:hover,#posterDoor:focus-visible{transform:translateY(-1px);background:#3a3127}
+#posterOpenHint{color:#777167;font-size:8px;letter-spacing:.24em}
+#poster.opening{opacity:0;visibility:hidden;pointer-events:none}
+@media(max-width:700px){
+  #poster{padding:24px}
+  #posterCard{padding:0}
+  #posterCard h1{font-size:clamp(48px,15vw,82px);letter-spacing:.09em;text-indent:.09em}
+  #posterDoor{width:auto;min-width:136px}
+}
+
 #topbar{
   position:absolute;
   left:16px;
@@ -1802,23 +1862,13 @@ body.rpgMode #rpgModeBadge{display:block}
 
   <div id="poster">
     <div id="posterCard">
-      <div id="posterIntroTopline">HrM</div>
+      <div id="posterIntroTopline">HrM presents</div>
       <img id="posterSignature" alt="HrM signature">
       <h1>THE WORKSHOP</h1>
-      <div id="posterSubtitle">museum of rooms · images · machines</div>
+      <div id="posterSubtitle">rooms · images · sound · experiments</div>
       <div id="posterDoorWrap">
-        <div id="posterPortalPulse"></div>
-        <div id="posterDoor" role="button" aria-label="Open the workshop door" tabindex="0">
-          <div id="posterDoorFrame"></div>
-          <div id="posterDoorInner">
-            <div id="posterDoorTransom"></div>
-            <div class="posterDoorLeaf" id="posterDoorLeft"><span class="posterKnob"></span></div>
-            <div class="posterDoorLeaf" id="posterDoorRight"><span class="posterKnob"></span></div>
-          </div>
-          <div id="posterDoorGlow"></div>
-          <div id="posterThreshold"></div>
-        </div>
-        <div id="posterOpenHint">Enter</div>
+        <button id="posterDoor" type="button" aria-label="Enter The Workshop">Enter</button>
+        <div id="posterOpenHint">WASD to move · mouse to look</div>
       </div>
     </div>
   </div>
@@ -2567,6 +2617,10 @@ const studioHeight = 7.8;
 const hoodOrigin = new THREE.Vector3(1880,0,-1540);
 const hoodHalfWidth = 115;
 const hoodDepth = 370;
+// A real arrival forecourt, clear of the return portal. From here the visitor
+// faces east across the freestyle square toward the projects and warehouse.
+const hoodArrivalPos = new THREE.Vector3(hoodOrigin.x-49,cameraHeight,hoodOrigin.z+29);
+const hoodArrivalYaw = -Math.PI/2;
 
 // THE HOOD is one continuous district at ground level, with genuinely stacked
 // warehouse/tower floors above and a basement below.  The lift changes room
@@ -2701,8 +2755,36 @@ function cycleLightBoost(){
   if(btn){ btn.textContent = lv.label; btn.classList.toggle('active', lightLevelIndex !== 0); }
   msg(lightLevelIndex === 0 ? 'Room lighting · normal' : `Room lighting · ${lv.label}`);
 }
+// A room may contain scores of decorative fixtures, but forwarding every one
+// to every material creates enormous light-count shaders. Keep architectural
+// sun/sky lights and a stable nearest-fixture budget per light type. The fixed
+// counts avoid shader recompiles while walking; only the identities move.
+const ROOM_LIGHT_CAPS={PointLight:12,SpotLight:6,RectAreaLight:5,DirectionalLight:3,HemisphereLight:2,AmbientLight:2};
+const lightBudgetPos=new THREE.Vector3(1e9,1e9,1e9);
+const lightBudgetWorld=new THREE.Vector3();
+let lightBudgetRoom='';
+function refreshRoomLightBudget(force=false){
+  if(!camera)return;
+  const visitor=getVisitorPosition();
+  if(!force&&lightBudgetRoom===currentRoom&&visitor.distanceToSquared(lightBudgetPos)<64)return;
+  lightBudgetRoom=currentRoom;lightBudgetPos.copy(visitor);
+  for(const r in roomLights)(roomLights[r]||[]).forEach(l=>{if(l)l.visible=false;});
+  const buckets={};
+  (roomLights[currentRoom]||[]).forEach(l=>{
+    if(!l)return;
+    const key=l.type||'Light';
+    if(!buckets[key])buckets[key]=[];
+    l.getWorldPosition(lightBudgetWorld);
+    buckets[key].push({l,d:lightBudgetWorld.distanceToSquared(visitor)});
+  });
+  Object.entries(buckets).forEach(([key,list])=>{
+    list.sort((a,b)=>a.d-b.d);
+    const cap=ROOM_LIGHT_CAPS[key]??4;
+    list.slice(0,cap).forEach(entry=>{entry.l.visible=true;});
+  });
+}
 function applyRoomLighting(){
-  for(const r in roomLights) (roomLights[r]||[]).forEach(l=>{ if(l) l.visible = (r === currentRoom); });
+  refreshRoomLightBudget(true);
   // The Lab artwork circuit is intentionally independent from normal room
   // lighting. Its photographs remain completely dark until the visitor uses
   // the physical spotlight switch.
@@ -2987,42 +3069,22 @@ function msg(t){
 }
 let posterOpening = false;
 let worldReady = false;
-let posterDoorRect = null;
 function hidePoster(){ poster.classList.add('hide'); }
-// Grows a clip-path window on the door's own screen position, and fades
-// opacity, both driven by the same eased progress value the camera dolly
-// uses (see updateCameraTransition) -- so the door visibly opens onto a
-// world that's already moving, instead of a static frame cross-fading in.
-function updatePosterReveal(eased){
-  if(!posterDoorRect) return;
-  const vw = innerWidth, vh = innerHeight;
-  const top = posterDoorRect.top * eased;
-  const left = posterDoorRect.left * eased;
-  const right = (vw - posterDoorRect.right) * eased;
-  const bottom = (vh - posterDoorRect.bottom) * eased;
-  poster.style.clipPath = `inset(${top}px ${right}px ${bottom}px ${left}px)`;
-  poster.style.opacity = String(1 - eased);
-}
 function beginPosterOpen(){
   if(!poster || poster.classList.contains('hide')) return;
   if(posterOpening || !worldReady) return;
   posterOpening = true;
   exitScreenControl();
   poster.classList.add('opening');
-  poster.style.transition = 'none';
-  posterDoorRect = posterDoor ? posterDoor.getBoundingClientRect() : null;
-  startCameraTransition(posterRestPos, 0, 0, .95);
+  cameraTransition.active=false;
+  camera.position.copy(posterRestPos);yaw=0;pitch=0;roll=0;bodyBob=0;
+  updateCameraRotation();
   setTimeout(()=>{
-    if(cameraTransition.active) finishCameraTransition();
     hidePoster();
     poster.classList.remove('opening');
-    poster.style.transition = '';
-    poster.style.clipPath = '';
-    poster.style.opacity = '';
-    posterDoorRect = null;
     if(!isCoarsePointer && canvas.requestPointerLock) canvas.requestPointerLock();
     posterOpening = false;
-  }, 950);
+  }, 180);
 }
 
 function makeGridTexture(name, base='#f6efe0', line='rgba(23,18,13,.13)'){
@@ -4118,12 +4180,12 @@ function updateHallWindow(dt){
 }
 
 function init(){
-  // Adaptive DPR (batch 127): desktop keeps the 1.32 cap; touch devices cap at
-  // 1.15, and low-memory phones (<=4 GB) at 1.0 to protect load and framerate.
+  // Start conservatively. The project is geometry-rich; a slightly lower DPR
+  // is far less noticeable than input latency, especially in the Hood.
   const memGB = navigator.deviceMemory || 8;
-  const dprCap = isCoarsePointer ? (memGB <= 4 ? 1.0 : 1.15) : 1.32;
+  const dprCap = isCoarsePointer ? (memGB <= 4 ? .88 : 1.0) : (memGB<=4?1.0:1.15);
   const dpr = Math.min(window.devicePixelRatio || 1, dprCap);
-  renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:false, powerPreference:'high-performance'});
+  renderer = new THREE.WebGLRenderer({canvas, antialias:!isCoarsePointer&&memGB>4, alpha:false, powerPreference:'high-performance'});
   renderer.setPixelRatio(dpr);
   renderer.setSize(innerWidth, innerHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -4198,18 +4260,20 @@ function runWorkshopSelfTest(){
   check(!!hoodHorizon && hoodHorizon.material?.fog === false, 'Hood ocean horizon bypasses global fog', hoodHorizon?.material?.fog);
   check(!!hoodCaveWallScreen && screens.includes(hoodCaveWallScreen), 'Hood wide projection registered', hoodCaveWallScreen?.title || 'missing');
   {
-    const caveSeats=[],caveEntrances=[],monumentalWorks=[];
+    const caveSeatBatches=[],caveEntrances=[],monumentalWorks=[];
     scene.traverse(obj=>{
-      if(obj.userData?.hoodCaveSeat)caveSeats.push(obj);
+      if(obj.userData?.hoodCaveSeatCount)caveSeatBatches.push(obj);
       if(obj.userData?.hoodCaveEntrance)caveEntrances.push(obj);
       if(obj.userData?.monumentalHoodArt)monumentalWorks.push(obj);
     });
+    const caveSeatCount=caveSeatBatches.reduce((n,o)=>n+(o.userData.hoodCaveSeatCount||0),0);
+    const caveSeatViews=caveSeatBatches.flatMap(o=>o.userData.hoodCaveSeatViews||[]);
     check(caveEntrances.length===1,'Hood Cave has one legible entrance',`${caveEntrances.length} entrance markers`);
-    check(caveSeats.length===100,'Hood Cave seating count','100 seats expected · '+caveSeats.length+' found');
-    check(caveSeats.every(s=>s.userData.viewerYaw===Math.PI),'Hood Cave seats face the screen','all seated cameras look north');
+    check(caveSeatCount===100,'Hood Cave seating count','100 seats expected · '+caveSeatCount+' found');
+    check(caveSeatBatches.every(s=>s.userData.viewerYaw===Math.PI),'Hood Cave seats face the screen','all seated cameras look north');
     if(hoodCaveWallScreen?.mesh){
       const screenZ=hoodCaveWallScreen.mesh.getWorldPosition(new THREE.Vector3()).z;
-      check(caveSeats.every(s=>s.getWorldPosition(new THREE.Vector3()).z<screenZ),'Hood Cave screen is beyond every seat',`screen z ${screenZ.toFixed(2)}`);
+      check(caveSeatViews.every(v=>v.pos.z<screenZ),'Hood Cave screen is beyond every seat',`screen z ${screenZ.toFixed(2)}`);
     }
     check(monumentalWorks.length===4,'Hood hall monumental art sequence',`${monumentalWorks.length} upper-wall works`);
     check(monumentalWorks.every(w=>w.position.y>17),'Hood hall art clears furniture and mezzanine rails','all centres above 17 m');
@@ -6238,8 +6302,8 @@ function buildOutdoorSpace(){
     const portalLight=new THREE.PointLight(0xd7f2ff,2.8,18,1.5);portalLight.position.set(0,3.2,1.6);portal.add(portalLight);regLight('outdoor',portalLight);
     registerPortal({
       mesh:field, room:'hood', fromRoom:'outdoor', label:'Headquarters',
-      targetPos:new THREE.Vector3(hoodOrigin.x-72, cameraHeight, hoodOrigin.z+72),
-      targetYaw:Math.PI/2
+      targetPos:hoodArrivalPos.clone(),
+      targetYaw:hoodArrivalYaw
     });
   }
 
@@ -6333,14 +6397,20 @@ function buildHood(){
   // District sky: a high-resolution painted atmosphere with cloud depth,
   // warm coastal haze and a clear sun direction. It surrounds the Hood and is
   // also what the tower windows look into.
-  const hoodSkyCanvas=document.createElement('canvas');hoodSkyCanvas.width=2048;hoodSkyCanvas.height=1024;
+  const hoodSkyCanvas=document.createElement('canvas');hoodSkyCanvas.width=1536;hoodSkyCanvas.height=768;
   {
-    const q=hoodSkyCanvas.getContext('2d'),g=q.createLinearGradient(0,0,0,1024);
-    g.addColorStop(0,'#3f86bc');g.addColorStop(.42,'#8fc6df');g.addColorStop(.72,'#e7d1b2');g.addColorStop(1,'#c68e69');q.fillStyle=g;q.fillRect(0,0,2048,1024);
-    const sun=q.createRadialGradient(1550,235,10,1550,235,180);sun.addColorStop(0,'rgba(255,249,220,.98)');sun.addColorStop(.20,'rgba(255,228,175,.54)');sun.addColorStop(1,'rgba(255,210,160,0)');q.fillStyle=sun;q.fillRect(1320,5,460,460);
+    const q=hoodSkyCanvas.getContext('2d'),g=q.createLinearGradient(0,0,0,768);
+    g.addColorStop(0,'#397fb0');g.addColorStop(.34,'#78b4d2');g.addColorStop(.64,'#c9dce2');g.addColorStop(.82,'#f0d7bd');g.addColorStop(1,'#d6a67d');q.fillStyle=g;q.fillRect(0,0,1536,768);
+    const sun=q.createRadialGradient(1160,166,7,1160,166,150);sun.addColorStop(0,'rgba(255,253,230,1)');sun.addColorStop(.13,'rgba(255,239,194,.75)');sun.addColorStop(1,'rgba(255,213,163,0)');q.fillStyle=sun;q.fillRect(980,0,370,370);
     let seed=913;const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
-    for(let i=0;i<42;i++){const x=rnd()*2048,y=80+rnd()*440,w=100+rnd()*330,h=24+rnd()*62;const cg=q.createRadialGradient(x,y,2,x,y,w*.55);cg.addColorStop(0,'rgba(255,255,255,.62)');cg.addColorStop(.48,'rgba(243,247,247,.28)');cg.addColorStop(1,'rgba(210,224,231,0)');q.save();q.scale(1,h/w);q.fillStyle=cg;q.beginPath();q.arc(x,y*w/h,w*.58,0,Math.PI*2);q.fill();q.restore();}
-    q.fillStyle='rgba(65,78,86,.20)';q.fillRect(0,785,2048,55);
+    // Soft cloud families: shadow shelf first, then overlapping illuminated
+    // lobes. Fewer, larger forms read as atmosphere rather than white noise.
+    for(let i=0;i<15;i++){
+      const x=rnd()*1536,y=120+rnd()*300,w=105+rnd()*220,h=24+rnd()*45;
+      q.fillStyle='rgba(87,118,137,.13)';q.beginPath();q.ellipse(x,y+h*.28,w*.58,h*.72,0,0,Math.PI*2);q.fill();
+      for(let k=0;k<4;k++){q.fillStyle=`rgba(255,255,250,${(.16+rnd()*.22).toFixed(2)})`;q.beginPath();q.ellipse(x+(k-1.5)*w*.18,y-rnd()*h*.35,w*(.24+rnd()*.18),h*(.58+rnd()*.32),0,0,Math.PI*2);q.fill();}
+    }
+    const haze=q.createLinearGradient(0,560,0,715);haze.addColorStop(0,'rgba(255,239,217,0)');haze.addColorStop(1,'rgba(255,225,193,.38)');q.fillStyle=haze;q.fillRect(0,560,1536,155);
   }
   const hoodSkyTex=new THREE.CanvasTexture(hoodSkyCanvas);hoodSkyTex.colorSpace=THREE.SRGBColorSpace;
   hoodSky=new THREE.Mesh(new THREE.SphereGeometry(500,64,32),new THREE.MeshBasicMaterial({map:hoodSkyTex,side:THREE.BackSide,toneMapped:false,fog:false,depthWrite:false}));hoodSky.position.set(x0,72,mid);hoodSky.renderOrder=-100;scene.add(hoodSky);
@@ -6361,8 +6431,15 @@ function buildHood(){
   for(let i=0;i<42;i++){const stone=new THREE.Mesh(new THREE.DodecahedronGeometry(.10+Math.random()*.17,0),new THREE.MeshStandardMaterial({color:i%3?0x9b8c75:0x665d50,roughness:1}));stone.position.set(x0-76+Math.random()*8,.08,z0+4+Math.random()*144);scene.add(stone);}
 
   // Ocean horizon and project district.
-  const seaC=document.createElement('canvas');seaC.width=1024;seaC.height=512;{const q=seaC.getContext('2d'),g=q.createLinearGradient(0,0,0,512);g.addColorStop(0,'#b7dceb');g.addColorStop(.42,'#efc7a2');g.addColorStop(.47,'#7aa7b5');g.addColorStop(1,'#244d5e');q.fillStyle=g;q.fillRect(0,0,1024,512);q.fillStyle='rgba(255,255,255,.54)';q.fillRect(0,242,1024,3);}
-  const seaTex=new THREE.CanvasTexture(seaC);seaTex.colorSpace=THREE.SRGBColorSpace;hoodHorizon=new THREE.Mesh(new THREE.PlaneGeometry(230,62),new THREE.MeshBasicMaterial({map:seaTex,toneMapped:false,fog:false,depthWrite:false}));hoodHorizon.position.set(x0,24,z0-7);hoodHorizon.renderOrder=-80;scene.add(hoodHorizon);
+  const seaC=document.createElement('canvas');seaC.width=1536;seaC.height=384;{
+    const q=seaC.getContext('2d'),g=q.createLinearGradient(0,0,0,384);
+    g.addColorStop(0,'#dce6e5');g.addColorStop(.10,'#9dbfca');g.addColorStop(.48,'#4e879b');g.addColorStop(1,'#214c60');q.fillStyle=g;q.fillRect(0,0,1536,384);
+    q.fillStyle='rgba(255,248,225,.72)';q.fillRect(0,34,1536,2);
+    let seed=271;const rnd=()=>{seed=(seed*48271)%2147483647;return seed/2147483647;};
+    for(let i=0;i<125;i++){const y=46+rnd()*320,x=rnd()*1536,w=18+rnd()*120;q.strokeStyle=`rgba(222,241,240,${(.025+rnd()*.12).toFixed(3)})`;q.lineWidth=.5+rnd()*1.4;q.beginPath();q.moveTo(x,y);q.lineTo(Math.min(1536,x+w),y);q.stroke();}
+    const reflection=q.createLinearGradient(600,0,930,0);reflection.addColorStop(0,'rgba(255,225,177,0)');reflection.addColorStop(.5,'rgba(255,225,177,.18)');reflection.addColorStop(1,'rgba(255,225,177,0)');q.fillStyle=reflection;q.fillRect(600,30,330,340);
+  }
+  const seaTex=new THREE.CanvasTexture(seaC);seaTex.colorSpace=THREE.SRGBColorSpace;hoodHorizon=new THREE.Mesh(new THREE.PlaneGeometry(270,34),new THREE.MeshBasicMaterial({map:seaTex,toneMapped:false,fog:false,depthWrite:false}));hoodHorizon.position.set(x0,11,z0-11);hoodHorizon.renderOrder=-80;scene.add(hoodHorizon);
   function graffitiTexture(seed,word){const c=document.createElement('canvas');c.width=1024;c.height=512;const q=c.getContext('2d');q.fillStyle='#5c5b56';q.fillRect(0,0,1024,512);let r=seed*983+11;const rnd=()=>{r=Math.sin(r*12.9898)*43758.5453;return Math.abs(r)%1;};q.globalAlpha=.34;for(let i=0;i<170;i++){q.fillStyle=['#d64337','#258e9d','#e6bd45','#181719'][i%4];q.fillRect(rnd()*1024,rnd()*512,30+rnd()*180,4+rnd()*17);}q.globalAlpha=1;q.translate(512,275);q.rotate((seed-.5)*.14);q.textAlign='center';q.font='900 170px Arial Black';q.lineWidth=21;q.strokeStyle='#171719';q.strokeText(word,0,0);q.fillStyle=seed>.5?'#e64b3d':'#e9cf45';q.fillText(word,0,0);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;}
   for(const side of [-1,1])for(let i=0;i<5;i++){
     const h=12+(i%3)*4.1,w=15+(i%2)*4,d=13;const bx=x0+side*(31+i*4.3),bz=z0+22+i*14.2;
@@ -6546,17 +6623,30 @@ function buildHood(){
   const caveRockMat=new THREE.MeshStandardMaterial({map:caveRockTex,roughness:1,metalness:0});
   const caveEntryX=veX+caveW/2-.42;
   const caveEntryZ=caveZ-caveD/2+3.0;
-  // Leave an actual opening in the east rock wall. Previously the passage
-  // sign sat in front of a continuous stack of boulders, so the Cave read as
-  // scenery rather than a destination with a usable entrance.
+  // One instanced geological wall replaces dozens of independent boulder draw
+  // calls. The east-side opening remains genuinely clear for the entrance.
+  const caveRockData=[];
   for(let i=0;i<56;i++){
     const side=i%2?-1:1;
     const rockZ=caveZ-caveD/2+1+(i%28)*(caveD-2)/27;
     if(side>0&&Math.abs(rockZ-caveEntryZ)<4.25)continue;
-    const rock=new THREE.Mesh(new THREE.DodecahedronGeometry(2.1+(i%5)*.38,1),caveRockMat);
-    rock.scale.set(1.1,1.45+(i%3)*.12,1.35);
-    rock.position.set(veX+side*(caveW/2-.8+(i%3)*.35),2.1+(i%4)*2.25,rockZ);
-    rock.rotation.set(i*.17,i*.31,i*.11);scene.add(rock);
+    const size=2.1+(i%5)*.38;
+    caveRockData.push({
+      p:new THREE.Vector3(veX+side*(caveW/2-.8+(i%3)*.35),2.1+(i%4)*2.25,rockZ),
+      q:new THREE.Quaternion().setFromEuler(new THREE.Euler(i*.17,i*.31,i*.11)),
+      s:new THREE.Vector3(size*1.1,size*(1.45+(i%3)*.12),size*1.35)
+    });
+  }
+  const caveRocks=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1,1),caveRockMat,caveRockData.length);
+  caveRockData.forEach((d,i)=>caveRocks.setMatrixAt(i,new THREE.Matrix4().compose(d.p,d.q,d.s)));
+  caveRocks.instanceMatrix.setUsage(THREE.StaticDrawUsage);caveRocks.instanceMatrix.needsUpdate=true;caveRocks.computeBoundingSphere();scene.add(caveRocks);
+  // Restored stone ribs make the room read as one excavated volume rather
+  // than a flat ceiling between two piles of rocks.
+  const caveRibMat=new THREE.MeshStandardMaterial({color:0x71675b,roughness:.93,metalness:.01});
+  for(let i=0;i<7;i++){
+    const rz=caveZ-caveD/2+4.5+i*5.0;
+    const rib=new THREE.Mesh(new THREE.TorusGeometry(10.1,.30,8,42,Math.PI),caveRibMat);rib.scale.x=1.72;rib.position.set(veX,1.55,rz);scene.add(rib);
+    for(const sx of [-1,1]){const pier=new THREE.Mesh(new THREE.BoxGeometry(.55,3.5,.55),caveRibMat);pier.position.set(veX+sx*17.35,1.78,rz);scene.add(pier);}
   }
   {
     const ax=wx-W/2-1.1,az=caveGapZ,bx=caveEntryX+2.2,bz=caveEntryZ;
@@ -6588,6 +6678,9 @@ function buildHood(){
   const caveStage=new THREE.Mesh(new THREE.BoxGeometry(25,.58,5.8),new THREE.MeshStandardMaterial({color:0x17191a,roughness:.52,metalness:.35}));caveStage.position.set(veX,.34,caveStageZ-1.4);scene.add(caveStage);
   for(const sx of [-1,1]){const jamb=new THREE.Mesh(new THREE.BoxGeometry(.65,9.2,.65),steel);jamb.position.set(veX+sx*13.2,5.7,caveStageZ+.8);scene.add(jamb);}for(const yy of [1.1,10.3]){const beam=new THREE.Mesh(new THREE.BoxGeometry(27,.65,.65),steel);beam.position.set(veX,yy,caveStageZ+.8);scene.add(beam);}
   const caveRecess=new THREE.Mesh(new THREE.BoxGeometry(25.7,7.9,.82),new THREE.MeshStandardMaterial({color:0x080909,roughness:.85}));caveRecess.position.set(veX,5.7,caveStageZ+.62);scene.add(caveRecess);
+  const caveCurtainMat=new THREE.MeshStandardMaterial({color:0x542728,roughness:.94,metalness:0});
+  for(const sx of [-1,1]){const curtain=new THREE.Mesh(new THREE.BoxGeometry(1.65,8.25,.48),caveCurtainMat);curtain.position.set(veX+sx*12.0,5.55,caveStageZ+.08);scene.add(curtain);}
+  const caveValance=new THREE.Mesh(new THREE.BoxGeometry(25.6,.82,.48),caveCurtainMat);caveValance.position.set(veX,9.72,caveStageZ+.08);scene.add(caveValance);
   const caveScreenSurface=new THREE.Mesh(new THREE.PlaneGeometry(24.8,7.2),new THREE.MeshBasicMaterial({color:0x050606,toneMapped:false,side:THREE.DoubleSide}));caveScreenSurface.position.set(veX,5.7,caveStageZ+.17);caveScreenSurface.rotation.y=Math.PI;caveScreenSurface.userData.hoodCaveScreen=true;scene.add(caveScreenSurface);
   const caveLive=createPassiveWallIframe(CHANNEL_URLS.saywhat,'Headquarters Cave wide projection',24.8,7.2);caveLive.position.set(veX,5.7,caveStageZ+.15);caveLive.rotation.y=Math.PI;scene.add(caveLive);
   hoodCaveWallScreen=registerScreen({
@@ -6596,25 +6689,36 @@ function buildHood(){
   });
   const caveGlow=new THREE.PointLight(0xb8d9e7,2.3,30,1.55);caveGlow.position.set(veX,7.8,caveStageZ-4.5);scene.add(caveGlow);regLight('hood',caveGlow);
 
-  const caveSeatMat=new THREE.MeshStandardMaterial({color:0x6d302d,roughness:.72});
-  const caveSeatWood=new THREE.MeshStandardMaterial({color:0x6b4931,roughness:.76});
+  const caveSeatMat=new THREE.MeshStandardMaterial({color:0x743b36,roughness:.78});
+  const caveSeatWood=new THREE.MeshStandardMaterial({color:0x765238,roughness:.78});
+  const caveTierMats=[new THREE.MeshStandardMaterial({color:0x635b52,roughness:1}),new THREE.MeshStandardMaterial({color:0x595149,roughness:1})];
+  const caveSeatViews=[];
+  const seatInstances=new THREE.InstancedMesh(new THREE.BoxGeometry(1.55,.32,1.02),caveSeatMat,100);
+  const backInstances=new THREE.InstancedMesh(new THREE.BoxGeometry(1.55,1.22,.26),caveSeatMat,100);
+  const armInstances=new THREE.InstancedMesh(new THREE.BoxGeometry(.12,.48,1.0),caveSeatWood,200);
+  const aisleInstances=new THREE.InstancedMesh(new THREE.BoxGeometry(.16,.05,.42),new THREE.MeshBasicMaterial({color:0xf0b96f,toneMapped:false}),20);
+  const unitScale=new THREE.Vector3(1,1,1),unitQ=new THREE.Quaternion(),backQ=new THREE.Quaternion().setFromEuler(new THREE.Euler(.10,0,0));
+  let caveSeatIndex=0,armIndex=0,aisleIndex=0;
   for(let row=0;row<10;row++){
     const y=.48+row*.34,z=caveStageZ-6.0-row*2.45,curve=1+row*.012;
-    const tier=new THREE.Mesh(new THREE.BoxGeometry(30,.28,2.18),new THREE.MeshStandardMaterial({color:row%2?0x595149:0x635b52,roughness:1}));tier.position.set(veX,y-.34,z);scene.add(tier);
+    const tier=new THREE.Mesh(new THREE.BoxGeometry(30,.28,2.18),caveTierMats[row%2]);tier.position.set(veX,y-.34,z);scene.add(tier);
     for(let col=0;col<10;col++){
-      // Five seats per side leave a generous centre aisle. The former
-      // ten-seat slab had no readable circulation and made the chairs look
-      // like external objects dropped across the cave.
       const lane=col<5?col-5.15:col-3.85;
       const x=veX+lane*2.45*curve;
-      const chair=new THREE.Group();chair.position.set(x,y,z);scene.add(chair);
-      const seat=new THREE.Mesh(new THREE.BoxGeometry(1.55,.32,1.02),caveSeatMat);seat.position.y=.28;seat.userData.hoodCaveSeat=true;seat.userData.viewerYaw=Math.PI;chair.add(seat);
-      const back=new THREE.Mesh(new THREE.BoxGeometry(1.55,1.22,.26),caveSeatMat);back.position.set(0,.84,-.39);back.rotation.x=.10;chair.add(back);
-      const armL=new THREE.Mesh(new THREE.BoxGeometry(.12,.48,1.0),caveSeatWood),armR=armL.clone();armL.position.set(-.82,.48,0);armR.position.set(.82,.48,0);chair.add(armL,armR);
-      sitPoint('hood',seat,`Cave · row ${row+1}, seat ${col+1}`,new THREE.Vector3(x,y+1.48,z),Math.PI,-.04);
+      seatInstances.setMatrixAt(caveSeatIndex,new THREE.Matrix4().compose(new THREE.Vector3(x,y+.28,z),unitQ,unitScale));
+      backInstances.setMatrixAt(caveSeatIndex,new THREE.Matrix4().compose(new THREE.Vector3(x,y+.84,z-.39),backQ,unitScale));
+      for(const ax of [-.82,.82])armInstances.setMatrixAt(armIndex++,new THREE.Matrix4().compose(new THREE.Vector3(x+ax,y+.48,z),unitQ,unitScale));
+      caveSeatViews.push({pos:new THREE.Vector3(x,y+1.48,z),label:`Cave · row ${row+1}, seat ${col+1}`});
+      caveSeatIndex++;
     }
-    for(const sx of [-1,1]){const aisle=new THREE.PointLight(0xffb76e,.26,4.5,1.8);aisle.position.set(veX+sx*15.1,y+.16,z);scene.add(aisle);regLight('hood',aisle);}
+    for(const sx of [-1,1])aisleInstances.setMatrixAt(aisleIndex++,new THREE.Matrix4().compose(new THREE.Vector3(veX+sx*15.1,y+.03,z),unitQ,unitScale));
   }
+  [seatInstances,backInstances,armInstances,aisleInstances].forEach(m=>{m.instanceMatrix.setUsage(THREE.StaticDrawUsage);m.instanceMatrix.needsUpdate=true;m.computeBoundingSphere();scene.add(m);});
+  seatInstances.userData.hoodCaveSeatCount=100;seatInstances.userData.hoodCaveSeatViews=caveSeatViews;seatInstances.userData.viewerYaw=Math.PI;
+  registerInteractable({type:'seat',room:'hood',mesh:seatInstances,label:'Cave seating',hintId:'hood-cave-seat',priority:3,hintText:'Choose any red seat; the view settles at human eye height and remains free to look around.',prompt:()=>'Sit in The Cave',onUse:(item,context)=>{
+    const id=Number.isInteger(context?.hit?.instanceId)?context.hit.instanceId:0;
+    const view=caveSeatViews[id]||caveSeatViews[0];velX=0;velZ=0;smoothSpeed=0;startCameraTransition(view.pos,Math.PI,-.04,.62);msg(`Seated · ${view.label} · move to stand`);
+  }});
 
   for(const side of [-1,1]){const rearWing=new THREE.Mesh(new THREE.BoxGeometry((W-12)/2,H,.52),brick);rearWing.position.set(wx+side*(6+(W-12)/4),H/2,wz+D/2);scene.add(rearWing);}
   const rearLintel=new THREE.Mesh(new THREE.BoxGeometry(12,H-7,.52),brick);rearLintel.position.set(wx,(H+7)/2,wz+D/2);scene.add(rearLintel);
@@ -7483,13 +7587,14 @@ function createArcadeScreenIframe(url, title, worldW, worldH){
 
   const iframe = document.createElement('iframe');
   iframe.title = `${title} arcade preview`;
-  iframe.src = url;
+  iframe.dataset.src = url;
+  iframe.src = 'about:blank';
   // These apps used to be data: URIs, which get a locked-down, unique opaque
   // origin automatically. Now that they're same-origin static files, sandbox
   // them the same way: scripts run, but no DOM/localStorage access to us.
   iframe.sandbox = 'allow-scripts';
   iframe.allow = 'autoplay; fullscreen';
-  iframe.loading = 'eager';
+  iframe.loading = 'lazy';
   iframe.referrerPolicy = 'no-referrer';
   iframe.style.width = '100%';
   iframe.style.height = '100%';
@@ -7503,6 +7608,7 @@ function createArcadeScreenIframe(url, title, worldW, worldH){
   obj.scale.set(scale, scale, scale);
   obj.userData.arcadeScreenIframe = true;
   obj.userData.iframe = iframe;
+  obj.userData.frameLoaded = false;
   return obj;
 }
 
@@ -7521,11 +7627,12 @@ function createPassiveWallIframe(url, title, worldW, worldH){
 
   const iframe = document.createElement('iframe');
   iframe.title = title;
-  iframe.src = url;
+  iframe.dataset.src = url;
+  iframe.src = 'about:blank';
   iframe.allow = 'autoplay; fullscreen; encrypted-media; picture-in-picture';
   iframe.referrerPolicy = 'strict-origin-when-cross-origin';
   iframe.setAttribute('allowfullscreen','');
-  iframe.loading = 'eager';
+  iframe.loading = 'lazy';
   iframe.style.width = '100%';
   iframe.style.height = '100%';
   iframe.style.border = '0';
@@ -7539,6 +7646,7 @@ function createPassiveWallIframe(url, title, worldW, worldH){
   obj.userData.overlay = wrap;
   obj.userData.iframe = iframe;
   obj.userData.passiveWallIframe = true;
+  obj.userData.frameLoaded = false;
   return obj;
 }
 
@@ -11355,7 +11463,6 @@ function finishCameraTransition(){
   pitch = cameraTransition.toPitch;
   roll = 0; bodyBob = 0;
   updateCameraRotation();
-  if(posterOpening) updatePosterReveal(1);
 }
 function updateCameraTransition(dt){
   if(!cameraTransition.active) return;
@@ -11370,7 +11477,6 @@ function updateCameraTransition(dt){
   bodyBob = damp(bodyBob, 0, 10, dt);
   camera.position.y = cameraHeight + bodyBob * (1-settle);
   updateCameraRotation();
-  if(posterOpening) updatePosterReveal(eased);
   if(p >= 1) finishCameraTransition();
 }
 function moveToArtwork(i, instant=false){
@@ -11576,6 +11682,7 @@ function updateTrackedWallPlayers(){ /* projection overlay mode: no fragile wall
 const screenOcclusionRay=new THREE.Raycaster();
 const screenOcclusionTarget=new THREE.Vector3();
 const screenOcclusionDir=new THREE.Vector3();
+const screenOcclusionCache=new WeakMap();
 function isScreenOccluder(hit,screen){
   const o=hit.object;
   if(!o || o===screen.mesh || !o.visible || o.isLine || o.isPoints || o.isSprite) return false;
@@ -11586,15 +11693,23 @@ function isScreenOccluder(hit,screen){
 }
 function screenIsOccluded(screen){
   if(!screen.css || !screen.mesh || !camera || (screenControlMode && controlledScreen===screen)) return false;
+  const now=performance.now();
+  const cached=screenOcclusionCache.get(screen);
+  // CSS3D has no depth buffer, but depth does not need a 60 Hz full-scene
+  // recursive raycast. Four checks per second are visually immediate and
+  // remove one of the largest movement-time CPU costs in complex rooms.
+  if(cached&&now-cached.time<240)return cached.value;
   screen.mesh.getWorldPosition(screenOcclusionTarget);
   screenOcclusionDir.copy(screenOcclusionTarget).sub(camera.position);
   const distance=screenOcclusionDir.length();
-  if(distance<1.0) return false;
+  if(distance<1.0){screenOcclusionCache.set(screen,{time:now,value:false});return false;}
   screenOcclusionDir.normalize();
   screenOcclusionRay.set(camera.position,screenOcclusionDir);
   screenOcclusionRay.near=.18; screenOcclusionRay.far=Math.max(.2,distance-.55);
   const hits=screenOcclusionRay.intersectObjects(scene.children,true);
-  return hits.some(hit=>isScreenOccluder(hit,screen));
+  const value=hits.some(hit=>isScreenOccluder(hit,screen));
+  screenOcclusionCache.set(screen,{time:now,value});
+  return value;
 }
 
 
@@ -12177,7 +12292,6 @@ function setPlayerLocation(room, pos, newYaw, label, newPitch=0){
     updateStudioNowPlaying(true);
   }
   noteArchiveRoom(room);
-  applyRoomLighting();
   cameraTransition.active = false;
   velX = 0; velZ = 0; smoothSpeed = 0; bodyBob = 0; roll = 0;
   keys.clear();
@@ -12189,6 +12303,7 @@ function setPlayerLocation(room, pos, newYaw, label, newPitch=0){
   yaw = newYaw;
   pitch = newPitch;
   updateCameraRotation();
+  applyRoomLighting();
   if(rpgMode){updateRpgAvatar(0,0);updateRpgCamera(0,true);}
   lookingAt = -1;
   lookingAtPortal = -1;
@@ -12252,8 +12367,8 @@ function fastTravel(place){
     },
     headquarters: {
       room:'hood',
-      pos:new THREE.Vector3(hoodOrigin.x-72,cameraHeight,hoodOrigin.z+72),
-      yaw:Math.PI/2,
+      pos:hoodArrivalPos.clone(),
+      yaw:hoodArrivalYaw,
       label:'Headquarters'
     },
     studio: {
@@ -12328,7 +12443,6 @@ function travelTo(portal){
     overlay.classList.add('show');
     setTimeout(()=>{
       currentRoom = portal.room;
-      applyRoomLighting();
       if(studioWallIframe && !studioMusicFollow){
         if(currentRoom !== 'studio'){
           studioPlaybackRequested=false;
@@ -12345,8 +12459,9 @@ function travelTo(portal){
       pitch = 0;
       roll = 0; bodyBob = 0;
       updateCameraRotation();
+      applyRoomLighting();
       if(rpgMode){updateRpgAvatar(0,0);updateRpgCamera(0,true);}
-      velX = 0; velZ = 0;
+      velX = 0; velZ = 0;smoothSpeed=0;keys.clear();
       cameraTransition.active = false;
       lookingAt = -1;
       lookingAtPortal = -1;
@@ -12355,10 +12470,12 @@ function travelTo(portal){
       lookingAtInteractable = null;
       updateRoomUI();
       msg(portal.label || 'Arrived');
-      requestAnimationFrame(()=>overlay.classList.remove('show'));
-    }, reducedMotion ? 0 : 210);
+      // Two frames let visibility and light uniforms settle behind the fade,
+      // without the old 690 ms period in which movement appeared broken.
+      requestAnimationFrame(()=>requestAnimationFrame(()=>overlay.classList.remove('show')));
+    }, reducedMotion ? 0 : 70);
   };
-  setTimeout(jump, reducedMotion ? 0 : 480);
+  setTimeout(jump, reducedMotion ? 0 : 160);
 }
 
 function resize(){
@@ -12760,8 +12877,11 @@ function updateMovement(dt){
     const lateral = velX * Math.cos(yaw) + velZ * Math.sin(yaw);
     roll = damp(roll, clamp(-lateral * .0042, -.024, .024), 8, dt);
     const targetFov = fov + (sprinting && speed > 1.2 ? 1.55 : 0) + Math.min(.85, smoothSpeed*.07);
-    camera.fov = damp(camera.fov, targetFov, 6, dt);
-    camera.updateProjectionMatrix();
+    const nextFov = damp(camera.fov, targetFov, 6, dt);
+    if(Math.abs(nextFov-camera.fov)>.01){
+      camera.fov = nextFov;
+      camera.updateProjectionMatrix();
+    }
   }else{
     bodyBob = 0; roll = 0;
     camera.fov = fov;
@@ -12773,10 +12893,10 @@ function updateMovement(dt){
 }
 
 function updateWorld(dt, t){
-  updateHallWindow(dt);
   const visitor=getVisitorPosition();
-  if(hoodWaterfallFX?.material?.uniforms?.uTime) hoodWaterfallFX.material.uniforms.uTime.value=t;
-  if(hoodWaterfallFX?.mist){
+  refreshRoomLightBudget(false);
+  if(currentRoom==='hood'&&hoodWaterfallFX?.material?.uniforms?.uTime) hoodWaterfallFX.material.uniforms.uTime.value=t;
+  if(currentRoom==='hood'&&hoodWaterfallFX?.mist){
     const arr=hoodWaterfallFX.mist.geometry.attributes.position.array;
     const ph=hoodWaterfallFX.mistPhase;
     const baseX=hoodWaterfallFX.mistBaseX;
@@ -12806,6 +12926,17 @@ function updateWorld(dt, t){
   screens.forEach(s=>{
     if(s.css){
       const inRoom=s.room === currentRoom || (screenControlMode && controlledScreen === s);
+      const keepStudioAudio=s===studioWallScreen&&studioMusicFollow;
+      const iframe=s.css.userData?.iframe;
+      const shouldLoad=inRoom||keepStudioAudio;
+      if(iframe&&shouldLoad&&!s.css.userData.frameLoaded){
+        iframe.src=iframe.dataset.src||s.url||'about:blank';
+        s.css.userData.frameLoaded=true;
+      }else if(iframe&&!shouldLoad&&s.css.userData.frameLoaded){
+        if(iframe.src&&iframe.src!=='about:blank')iframe.dataset.src=iframe.src;
+        iframe.src='about:blank';
+        s.css.userData.frameLoaded=false;
+      }
       s.css.visible = inRoom && !screenIsOccluded(s);
     }
   });
@@ -12845,14 +12976,14 @@ function updateWorld(dt, t){
       particles.geometry.attributes.position.needsUpdate = true;
     }
   }
-  artworkObjects.forEach((o,i)=>{
-    const dist = Math.abs(visitor.z - o.z);
-    const scale = i===selected ? 1.055 : 1;
-    o.group.scale.lerp(tmpVec.set(scale,scale,scale), .12);
-    const opacity = dist < 18 ? 1 : .62;
-    o.art.material.opacity = opacity;
-    o.art.material.transparent = opacity < 1;
-  });
+  if(currentRoom==='gallery')artworkObjects.forEach((o,i)=>{
+      const dist = Math.abs(visitor.z - o.z);
+      const scale = i===selected ? 1.055 : 1;
+      o.group.scale.lerp(tmpVec.set(scale,scale,scale), .12);
+      const opacity = dist < 18 ? 1 : .62;
+      o.art.material.opacity = opacity;
+      o.art.material.transparent = opacity < 1;
+    });
 }
 function showHint(id, text, duration=4200){
   if(hintsShown.has(id)) return;
@@ -12960,19 +13091,18 @@ function drawMap(){
   $('depthFill').style.width = clamp(((mapWorldFront-visitor.z)/mapWorldSpan)*100,0,100).toFixed(1)+'%';
 }
 
-// Runtime performance ladder (batch 127): if the average frame stays above
-// ~42 ms across a 4-second window, step the pixel ratio down once (max two
-// steps, floor 0.85) instead of letting weak devices grind.
+// React within 1.6 seconds, before a low-framerate room feels stuck. The old
+// four-second / 42 ms threshold waited through several seconds of poor input.
 let perfAccum = 0, perfFrames = 0, perfSteps = 0;
 function updatePerformanceLadder(dt){
-  if(perfSteps >= 2) return;
+  if(perfSteps >= 4) return;
   perfAccum += dt; perfFrames++;
-  if(perfAccum < 4) return;
+  if(perfAccum < 1.6) return;
   const avg = perfAccum / perfFrames;
   perfAccum = 0; perfFrames = 0;
-  if(avg > 0.042){
+  if(avg > 0.026){
     perfSteps++;
-    const pr = Math.max(.85, renderer.getPixelRatio() * .85);
+    const pr = Math.max(.72, renderer.getPixelRatio() * .84);
     renderer.setPixelRatio(pr);
     renderer.setSize(innerWidth, innerHeight);
     if(cssRenderer) cssRenderer.setSize(innerWidth, innerHeight);
@@ -13057,7 +13187,11 @@ function animate(){
       drawMap();
     }
     renderer.render(scene,camera);
-    if(cssRenderer) cssRenderer.render(scene,camera);
+    if(cssRenderer){
+      const cssActive=screens.some(s=>s.css&&s.css.visible);
+      cssRenderer.domElement.style.visibility=cssActive?'visible':'hidden';
+      if(cssActive)cssRenderer.render(scene,camera);
+    }
     updateTrackedWallPlayers();
   }
 }
