@@ -11716,6 +11716,9 @@ function openStudioMaker(){
             <button data-url="https://commons.wikimedia.org/wiki/Category:Audio_files">wikimedia</button>
             <button data-url="https://sound-effects.bbcrewind.co.uk">bbc sfx</button>
           </div>
+          <b style="font:13px Georgia,serif;letter-spacing:.14em;color:#f5dfba;margin-top:4px">RECORD VOICE</b>
+          <div style="font-size:11px;color:#b9aed4;line-height:1.5">Record your voice or any microphone input straight into the next sample lane, then sequence it.</div>
+          <button data-act="recvoice">&#127908; REC VOICE</button>
           <b style="font:13px Georgia,serif;letter-spacing:.14em;color:#f5dfba;margin-top:4px">BACKING &middot; THE WALL</b>
           <div style="font-size:11px;color:#b9aed4;line-height:1.5">Send YouTube to the Studio's video wall and jam over it.</div>
           <div style="display:flex;gap:6px"><input data-ctl="yt" type="url" placeholder="YouTube link&hellip;" style="flex:1;min-width:0;background:#0d0a14;border:1px solid #3a2f52;border-radius:6px;color:#f1e8ff;padding:7px 9px"><button data-act="towall">TO WALL</button></div>
@@ -11725,15 +11728,14 @@ function openStudioMaker(){
     panel.querySelectorAll('button').forEach(b=>b.style.cssText='border:1px solid #9d6de2;background:#211b30;color:#f1e8ff;padding:8px 11px;border-radius:6px;cursor:pointer;font-size:11px;letter-spacing:.06em');
 
     // ROW MODEL — three sections sharing one 16-step timeline:
-    // 4 synthesized drum lanes, 6 melodic lanes, 4 user-sample lanes.
+    // 8 synthesized drum lanes, 6 melodic lanes, 4 user-sample lanes
+    // (loaded from files, a URL, or the microphone).
     const STEPS=16;
     const NOTES=[523.25,466.16,392.00,349.23,293.66,261.63];
     const NOTE_NAMES=['C5','A#4','G4','F4','D4','C4'];
+    const DRUM_LABELS=['KICK','SNARE','HAT','OPEN HAT','CLAP','TOM','RIM','COWBELL'];
     const ROWS=[
-      {kind:'drum', idx:0, label:'KICK',  on:'#e0a45c'},
-      {kind:'drum', idx:1, label:'SNARE', on:'#e0a45c'},
-      {kind:'drum', idx:2, label:'HAT',   on:'#e0a45c'},
-      {kind:'drum', idx:3, label:'CLAP',  on:'#e0a45c'},
+      ...DRUM_LABELS.map((label,i)=>({kind:'drum', idx:i, label, on:'#e0a45c'})),
       ...NOTES.map((f,i)=>({kind:'note', freq:f, label:NOTE_NAMES[i], on:'#c76bff'})),
       ...[0,1,2,3].map(i=>({kind:'sample', idx:i, label:'S'+(i+1)+' · empty', on:'#6fc2a0'}))
     ];
@@ -11764,6 +11766,7 @@ function openStudioMaker(){
     let playing=false, timer=null, step=0, noiseBuf=null;
     const sampleBufs=[null,null,null,null];
     let nextSlot=0;
+    let micRec=null, micStream=null, micChunks=[], voiceN=0;
     const waveSel=panel.querySelector('[data-ctl=wave]');
     const tempoInp=panel.querySelector('[data-ctl=tempo]');
     const volInp=panel.querySelector('[data-ctl=vol]');
@@ -11802,6 +11805,7 @@ function openStudioMaker(){
       src.connect(f); f.connect(envGain(peak,decay));
       src.start(); src.stop(audioCtx.currentTime+decay+.05);
     }
+    // Eight-piece synthesized kit (order matches DRUM_LABELS / the drum rows).
     const DRUMS=[
       function kick(){ const o=audioCtx.createOscillator(); o.type='sine';
         o.frequency.setValueAtTime(150,audioCtx.currentTime);
@@ -11811,7 +11815,16 @@ function openStudioMaker(){
         const o=audioCtx.createOscillator(); o.type='triangle'; o.frequency.value=185;
         o.connect(envGain(.30,.10)); o.start(); o.stop(audioCtx.currentTime+.12); },
       function hat(){ noiseHit('highpass',7000,.32,.05); },
-      function clap(){ for(let i=0;i<3;i++) setTimeout(()=>{ if(audioCtx) noiseHit('bandpass',1200,.4,.09); }, i*12); }
+      function openhat(){ noiseHit('highpass',6200,.26,.34); },
+      function clap(){ for(let i=0;i<3;i++) setTimeout(()=>{ if(audioCtx) noiseHit('bandpass',1200,.4,.09); }, i*12); },
+      function tom(){ const o=audioCtx.createOscillator(); o.type='sine';
+        o.frequency.setValueAtTime(210,audioCtx.currentTime);
+        o.frequency.exponentialRampToValueAtTime(90,audioCtx.currentTime+.3);
+        o.connect(envGain(.6,.34)); o.start(); o.stop(audioCtx.currentTime+.36); },
+      function rim(){ const o=audioCtx.createOscillator(); o.type='square'; o.frequency.value=440;
+        o.connect(envGain(.30,.04)); o.start(); o.stop(audioCtx.currentTime+.05); },
+      function cowbell(){ [540,800].forEach(fq=>{ const o=audioCtx.createOscillator(); o.type='square'; o.frequency.value=fq;
+        o.connect(envGain(.20,.20)); o.start(); o.stop(audioCtx.currentTime+.22); }); }
     ];
     function pluck(freq){
       const osc=audioCtx.createOscillator();
@@ -11883,10 +11896,30 @@ function openStudioMaker(){
       const b=e.target.closest('button'); if(!b) return;
       if(b.dataset.url){ window.open(b.dataset.url,'_blank','noopener'); return; }
       const a=b.dataset.act;
-      if(a==='close'){ setPlaying(false); if(recorder && recorder.state==='recording') recorder.stop(); panel.style.display='none'; return; }
+      if(a==='close'){ setPlaying(false); if(recorder && recorder.state==='recording') recorder.stop(); if(micRec && micRec.state==='recording') micRec.stop(); panel.style.display='none'; return; }
       if(a==='play'){ setPlaying(!playing); return; }
       if(a==='clear'){ cells.forEach(c=>{c.cell.dataset.on='0';c.cell.style.background=c.cell.dataset.off;}); return; }
       if(a==='loadfiles'){ fileInp.click(); return; }
+      if(a==='recvoice'){
+        if(micRec && micRec.state==='recording'){ micRec.stop(); return; }
+        ensureAudio();
+        if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ msg('This browser has no microphone access'); return; }
+        navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
+          micStream=stream; micChunks=[];
+          micRec=new MediaRecorder(stream);
+          micRec.ondataavailable=ev=>micChunks.push(ev.data);
+          micRec.onstop=()=>{
+            const blob=new Blob(micChunks,{type:micRec.mimeType||'audio/webm'});
+            blob.arrayBuffer().then(ab=>decodeInto(ab,'voice '+(++voiceN)));
+            micStream.getTracks().forEach(t=>t.stop());
+            b.innerHTML='&#127908; REC VOICE'; b.style.background='#211b30';
+          };
+          micRec.start();
+          b.innerHTML='&#9632; STOP VOICE'; b.style.background='#c72b2b';
+          msg('Recording voice — click again to stop and load it into a sample lane');
+        }).catch(()=>msg('Microphone unavailable or permission denied'));
+        return;
+      }
       if(a==='loadurl'){
         const u=panel.querySelector('[data-ctl=url]').value.trim();
         if(!u){ msg('Paste a direct audio URL first'); return; }
