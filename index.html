@@ -1912,9 +1912,9 @@ body.rpgMode #rpgModeBadge{display:block}
         </div>
       </div>
       <div id="channelBar">
+        <button class="channelBtn" data-channel="youtube">YOUTUBE</button>
         <button class="channelBtn" data-channel="saywhat">SAYWHAT</button>
         <button class="channelBtn" data-channel="noworries">NO WORRIES</button>
-        <button class="channelBtn" data-channel="youtube">YOUTUBE</button>
         <button id="channelProjectBtn" type="button">PROJECT TO VENUE</button>
       </div>
       <div id="studioBar">
@@ -4133,6 +4133,27 @@ function runWorkshopSelfTest(){
   check(!!hoodHorizon && hoodHorizon.material?.fog === false, 'Hood ocean horizon bypasses global fog', hoodHorizon?.material?.fog);
   check(!!hoodCaveWallScreen && screens.includes(hoodCaveWallScreen), 'Hood wide projection registered', hoodCaveWallScreen?.title || 'missing');
 
+  // Every projection wall must actually be drivable by the remote: it needs an
+  // action the control paths recognise AND a live iframe to write into. The
+  // Cave shipped with neither, which is why projecting there did nothing, and
+  // nothing caught it. These checks fail loudly if a wall is ever added or
+  // changed without being wired up.
+  {
+    const REMOTE_ACTIONS = ['studio','venue','amph','cave','garden','thinking-tv'];
+    const walls = screens.filter(s => REMOTE_ACTIONS.includes(s.action));
+    check(walls.length >= 6, 'projection walls registered with a remote action', `${walls.length} walls`);
+    walls.forEach(s=>{
+      check(!!(s.css && s.css.userData && s.css.userData.iframe),
+        `projection wall drivable · ${s.action}`, s.title || s.action);
+    });
+    check(!!caveWallIframe, 'Cave projection iframe wired', caveWallIframe ? 'ok' : 'missing');
+    check(!!amphWallIframe, 'Amphitheatre projection iframe wired', amphWallIframe ? 'ok' : 'missing');
+    ['amph','cave','venue'].forEach(m=>{
+      const t = projectionTarget(m);
+      check(!!t && !!t.iframe, `remote resolves a target · ${m}`, t && t.label);
+    });
+  }
+
   // Hierarchical navigator: three districts, all ten destinations still wired.
   check(document.querySelectorAll('#fastMapPanel .fastMapDistrict').length === 3, 'navigator has 3 districts', document.querySelectorAll('#fastMapPanel .fastMapDistrict').length);
   check(document.querySelectorAll('#fastMapPanel .fastMapBtn').length === 10, 'navigator has 10 destinations', document.querySelectorAll('#fastMapPanel .fastMapBtn').length);
@@ -6136,7 +6157,7 @@ function buildOutdoorSpace(){
     const screenW=11.8,screenH=6.15,screenY=4.0,screenZ=az-5.98;
     const screenFrame=new THREE.Mesh(new THREE.BoxGeometry(screenW+.72,screenH+.72,.34),stageDark); screenFrame.position.set(ax,screenY,screenZ-.14); scene.add(screenFrame);
     const screenBacking=new THREE.Mesh(new THREE.PlaneGeometry(screenW,screenH),new THREE.MeshBasicMaterial({color:0x030305})); screenBacking.position.set(ax,screenY,screenZ+.04); scene.add(screenBacking);
-    const live=createPassiveWallIframe(CHANNEL_URLS.saywhat,'Grove Amphitheatre projection wall',screenW,screenH); live.position.set(ax,screenY,screenZ+.07); scene.add(live);
+    const live=createPassiveWallIframe(CHANNEL_URLS.youtube,'Grove Amphitheatre projection wall',screenW,screenH); live.position.set(ax,screenY,screenZ+.07); scene.add(live);
     amphWallIframe=live.userData.iframe;
     amphWallScreen={mesh:screenBacking,css:live,title:'GROVE AMPHITHEATRE',room:'outdoor',action:'amph',activeRadius:31};
     registerScreen(amphWallScreen);
@@ -6445,10 +6466,16 @@ function buildHood(){
   for(const sx of [-1,1]){const jamb=new THREE.Mesh(new THREE.BoxGeometry(.65,9.2,.65),steel);jamb.position.set(veX+sx*13.2,5.7,caveStageZ-.8);scene.add(jamb);}for(const yy of [1.1,10.3]){const beam=new THREE.Mesh(new THREE.BoxGeometry(27,.65,.65),steel);beam.position.set(veX,yy,caveStageZ-.8);scene.add(beam);}
   const caveRecess=new THREE.Mesh(new THREE.BoxGeometry(25.7,7.9,.82),new THREE.MeshStandardMaterial({color:0x080909,roughness:.85}));caveRecess.position.set(veX,5.7,caveStageZ-.62);scene.add(caveRecess);
   const caveScreenSurface=new THREE.Mesh(new THREE.PlaneGeometry(24.8,7.2),new THREE.MeshBasicMaterial({color:0x050606,toneMapped:false,side:THREE.DoubleSide}));caveScreenSurface.position.set(veX,5.7,caveStageZ-.17);scene.add(caveScreenSurface);
-  const caveLive=createPassiveWallIframe(CHANNEL_URLS.saywhat,'Headquarters Cave wide projection',24.8,7.2);caveLive.position.set(veX,5.7,caveStageZ-.15);scene.add(caveLive);
+  // The Cave projection is a full member of the universal remote system: it
+  // keeps a live iframe handle (caveWallIframe) and an action, which is what
+  // every control path keys off. Without those two it was a decorative panel —
+  // the remote had nothing to write into, which is why projecting here never
+  // worked. It opens on YouTube, like the Grove amphitheatre.
+  const caveLive=createPassiveWallIframe(CHANNEL_URLS.youtube,'Headquarters Cave wide projection',24.8,7.2);caveLive.position.set(veX,5.7,caveStageZ-.15);scene.add(caveLive);
+  caveWallIframe=caveLive.userData.iframe;
   hoodCaveWallScreen=registerScreen({
-    mesh:caveScreenSurface,css:caveLive,url:CHANNEL_URLS.saywhat,
-    title:'THE CAVE · wide projection',room:'hood',activeRadius:38
+    mesh:caveScreenSurface,css:caveLive,url:CHANNEL_URLS.youtube,
+    title:'THE CAVE · wide projection',room:'hood',action:'cave',activeRadius:38
   });
   const caveGlow=new THREE.PointLight(0xb8d9e7,2.3,30,1.55);caveGlow.position.set(veX,7.8,caveStageZ+4.5);scene.add(caveGlow);regLight('hood',caveGlow);
 
@@ -9603,9 +9630,13 @@ let studioWallScreen = null;
 let venueWallIframe = null;
 let venueWallScreen = null;
 let venueCurrentChannel = 'saywhat';
+// The two auditoria open on YouTube: it is the primary source there, with
+// SAYWHAT / NO WORRIES available but not taking precedence.
 let amphWallIframe = null;
 let amphWallScreen = null;
-let amphCurrentChannel = 'saywhat';
+let amphCurrentChannel = 'youtube';
+let caveWallIframe = null;
+let caveCurrentChannel = 'youtube';
 let gardenWallIframe = null;
 let gardenWallScreen = null;
 let gardenCurrentChannel = 'saywhat';
@@ -11564,7 +11595,11 @@ function enterWallScreenControl(screen){
 
 function openWallControls(screen){
   if(!screen) return;
-  const place = screen.room === 'theatre' ? 'venue' : 'studio';
+  const place = screen.room === 'theatre' ? 'venue'
+    : screen.action === 'cave' ? 'headquarters'
+    : screen.action === 'amph' ? 'outdoor'
+    : screen.action === 'garden' ? 'garden'
+    : 'studio';
   if(currentRoom !== screen.room){
     fastTravel(place);
     setTimeout(()=>enterWallScreenControl(screen),900);
@@ -11586,7 +11621,7 @@ function toggleNearestScreenControl(){
   const aimed = getCenterInteractable({types:'screen'});
   const screenInteraction = aimed?.interactable || getNearestInteractable({types:'screen'});
   const screen = screenInteraction?.source || null;
-  if(screen && ['studio','venue','amph','garden'].includes(screen.action)){
+  if(screen && ['studio','venue','amph','cave','garden'].includes(screen.action)){
     enterWallScreenControl(screen);
   }else if(screenInteraction){
     useInteractable(screenInteraction,{source:aimed?'centre-shortcut':'nearest-shortcut'});
@@ -11602,7 +11637,7 @@ const CHANNEL_URLS = {
   youtube: STUDIO_DEFAULT_EMBED
 };
 let overlayMode = null;           // 'studio' | 'venue' | 'thinking-tv' | 'channels' | null
-let selectedProjectionChannel = 'saywhat';
+let selectedProjectionChannel = 'youtube';
 let studioMusicFollow = true;     // keep the wall player audible in other rooms
 function studioEmbedFrom(text, forWall=false){
   const v = (text||'').trim();
@@ -11954,21 +11989,34 @@ function setChannelActive(name){
   const projectBtn=$('channelProjectBtn');
   if(projectBtn) projectBtn.style.display=name==='youtube'?'none':'';
 }
+// One place that resolves "which wall is this remote driving". Every control
+// path used to re-derive it with its own amph-vs-venue ternary, which is how
+// the Cave ended up unreachable from all of them: adding a screen meant
+// remembering four separate ternaries. Now a screen is added here once.
+function projectionTarget(mode=overlayMode){
+  switch(mode){
+    case 'amph': return {iframe:amphWallIframe, label:'the Grove Amphitheatre',
+      get:()=>amphCurrentChannel, set:v=>{amphCurrentChannel=v;}};
+    case 'cave': return {iframe:caveWallIframe, label:'The Cave auditorium',
+      get:()=>caveCurrentChannel, set:v=>{caveCurrentChannel=v;}};
+    default: return {iframe:venueWallIframe, label:'The Venue large screen',
+      get:()=>venueCurrentChannel, set:v=>{venueCurrentChannel=v;}};
+  }
+}
 function projectChannelToVenue(name, raw=''){
-  const useAmph=overlayMode==='amph';
-  const targetIframe=useAmph?amphWallIframe:venueWallIframe;
-  if(!targetIframe){ msg('Projection screen is not ready'); return false; }
+  const t=projectionTarget();
+  if(!t.iframe){ msg('Projection screen is not ready'); return false; }
   if(name==='youtube'){
     let source=(raw||'').trim();
     if(!source){ try{ source=localStorage.getItem('workshopVenueYouTubeSourceV1')||localStorage.getItem('workshopStudioSourceV1')||''; }catch(e){} }
     const url=(source&&studioEmbedFrom(source,false))||STUDIO_DEFAULT_EMBED;
-    targetIframe.src=url; if(useAmph) amphCurrentChannel='youtube'; else venueCurrentChannel='youtube';
+    t.iframe.src=url; t.set('youtube');
     if(source){ try{ localStorage.setItem('workshopVenueYouTubeSourceV1',source); }catch(e){} }
-    msg(`YouTube projected on ${useAmph?'the Grove Amphitheatre':'The Venue large screen'}`); return true;
+    msg(`YouTube projected on ${t.label}`); return true;
   }
   if(!CHANNEL_URLS[name]) return false;
-  targetIframe.src=CHANNEL_URLS[name]; if(useAmph) amphCurrentChannel=name; else venueCurrentChannel=name;
-  msg(`${name==='noworries'?'NO WORRIES':'SAYWHAT'} projected on ${useAmph?'the Grove Amphitheatre':'The Venue large screen'}`);
+  t.iframe.src=CHANNEL_URLS[name]; t.set(name);
+  msg(`${name==='noworries'?'NO WORRIES':'SAYWHAT'} projected on ${t.label}`);
   return true;
 }
 function openPlayOverlay(screen){
@@ -12022,6 +12070,17 @@ function openPlayOverlay(screen){
     $('channelBar').classList.add('show');
     $('studioBar').classList.toggle('show',amphCurrentChannel==='youtube');
     setChannelActive(amphCurrentChannel);
+    $('playOverlay').classList.add('show');
+    return;
+  }
+  if(screen.action === 'cave'){
+    overlayMode='cave';
+    $('playOverlayCard').classList.add('studioMode');
+    $('playTitle').textContent='THE CAVE · headquarters auditorium remote';
+    $('playOpenLink').href=caveCurrentChannel==='youtube'?'https://www.youtube.com':(CHANNEL_URLS[caveCurrentChannel]||'#');
+    $('channelBar').classList.add('show');
+    $('studioBar').classList.toggle('show',caveCurrentChannel==='youtube');
+    setChannelActive(caveCurrentChannel);
     $('playOverlay').classList.add('show');
     return;
   }
@@ -12104,16 +12163,16 @@ function loadStudioVideo(){
     else if(raw.trim()){$('studioInput').value='';$('studioInput').placeholder='Use a YouTube link, public web URL, or HTML source';}
     return;
   }
-  if(overlayMode === 'venue' || overlayMode === 'amph'){
+  if(overlayMode === 'venue' || overlayMode === 'amph' || overlayMode === 'cave'){
     const url = studioEmbedFrom(raw,false);
-    const targetIframe=overlayMode==='amph'?amphWallIframe:venueWallIframe;
-    if(url && targetIframe){
-      targetIframe.src = url;
-      if(overlayMode==='amph') amphCurrentChannel='youtube'; else venueCurrentChannel = 'youtube';
+    const t = projectionTarget();
+    if(url && t.iframe){
+      t.iframe.src = url;
+      t.set('youtube');
       setChannelActive('youtube');
       $('playOpenLink').href = 'https://www.youtube.com';
       try{ localStorage.setItem('workshopVenueYouTubeSourceV1',raw.trim()); }catch(e){}
-      msg(`YouTube projected on ${overlayMode==='amph'?'the Grove Amphitheatre':'The Venue large screen'}`);
+      msg(`YouTube projected on ${t.label}`);
     }else if(raw.trim()){
       $('studioInput').value = '';
       $('studioInput').placeholder = "Couldn't read that YouTube link";
@@ -12225,6 +12284,25 @@ document.querySelectorAll('.channelBtn').forEach(btn=>{
         venueWallIframe.src=CHANNEL_URLS[ch];
       }
       msg(`${ch === 'youtube' ? 'YouTube' : ch.toUpperCase()} on The Venue large screen`);
+      return;
+    }
+    // The two auditoria. This branch did not exist before: 'amph' fell through
+    // to the generic tail, which only swapped the little overlay preview, so
+    // the channel buttons never reached the actual stage wall. 'cave' had no
+    // path at all.
+    if(overlayMode === 'amph' || overlayMode === 'cave'){
+      const t=projectionTarget();
+      t.set(ch);
+      $('studioBar').classList.toggle('show',ch==='youtube');
+      let url=CHANNEL_URLS[ch];
+      if(ch==='youtube'){
+        let raw='';
+        try{ raw=localStorage.getItem('workshopVenueYouTubeSourceV1')||localStorage.getItem('workshopStudioSourceV1')||''; }catch(e){}
+        url=(raw&&studioEmbedFrom(raw,false))||STUDIO_DEFAULT_EMBED;
+        if(raw) $('studioInput').value=raw;
+      }
+      if(t.iframe) t.iframe.src=url;
+      msg(`${ch==='youtube'?'YouTube':ch==='noworries'?'NO WORRIES':'SAYWHAT'} on ${t.label}`);
       return;
     }
     if(overlayMode === 'garden'){
