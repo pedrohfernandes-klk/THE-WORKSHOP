@@ -2737,6 +2737,12 @@ function applyRoomLighting(){
   applyLightBoost();
   applyRoomFog();
 }
+// Every framed installation and every portal door records its footprint here.
+// Art creeping into doorways has been a recurring fault (Studio, Thinking Room,
+// Sunset Lounge), so the geometry is now measurable rather than eyeballed, and
+// runWorkshopSelfTest asserts a real clearance between the two sets.
+const wallArtPieces = [];
+const doorFootprints = [];
 const screens = [];
 const archiveHotspots = [];
 let lookingAtArchive = -1;
@@ -3654,6 +3660,12 @@ function createArchitecturalWindow(opts){
   }
 
   const isDoor = kind === 'door' || kind === 'gardenDoor';
+  if(isDoor){
+    const dw = (wall==='left'||wall==='right') ? 0 : w, dd = (wall==='left'||wall==='right') ? w : 0;
+    doorFootprints.push({title:label||title||'opening', x:(wall==='left'?roomX-roomHalfWidth:wall==='right'?roomX+roomHalfWidth:x),
+      y:sillY+hgt/2, z:(wall==='front'?roomFrontZ:wall==='back'?roomBackZ:(z===null?(roomBackZ||0)+16:z)),
+      width:Math.max(dw,dd,w), height:hgt, orientation:wall});
+  }
 
   const trimMat = new THREE.MeshStandardMaterial({color:0xcab18d, roughness:.72, metalness:.04});
   const paleStoneMat = new THREE.MeshStandardMaterial({color:revealColor, roughness:.90, metalness:0});
@@ -4067,6 +4079,7 @@ function addEmpirePortalDoor({x=0,y=4,z=0,width=6.5,height=9.8,title='MANY MAPS'
 
 function addPremiumPortalDoor({x=0,y=3,z=0,width=4,height=6,orientation='front',title='Door',subtitle='',accent=0xcaa869,dark=0x17120d,ceilingY=null}){
   const group = new THREE.Group();
+  doorFootprints.push({title,x,y,z,width,height,orientation});
   const darkMat = new THREE.MeshStandardMaterial({color:dark, roughness:.58, metalness:.10});
   const accentMat = new THREE.MeshStandardMaterial({color:accent, roughness:.46, metalness:.34});
   const insetMat = new THREE.MeshStandardMaterial({color:0x2b211a, roughness:.70, metalness:.06});
@@ -4460,6 +4473,37 @@ function runWorkshopSelfTest(){
       check(ls.length >= 1, `room lit · ${room}`, `${ls.length} lights`);
     }
   });
+
+  // Wall art must never crowd a doorway or its neighbours. Art creeping into
+  // door swings has been a repeated fault (Studio, Sunset Lounge), and it was
+  // only ever caught by eye. Both registries carry real footprints, so this is
+  // measured: pieces sharing a wall plane with a door must clear it, and
+  // neighbouring pieces must clear each other.
+  {
+    const SAME_WALL=1.0, DOOR_MARGIN=0.80, ART_MARGIN=0.55;
+    const sharedRun=(a,b)=>{
+      if(Math.abs(a.y-b.y) > (a.height/2 + b.height/2)) return null;   // no vertical overlap
+      const dx=Math.abs(a.x-b.x), dz=Math.abs(a.z-b.z);
+      if(dx<=SAME_WALL) return dz;
+      if(dz<=SAME_WALL) return dx;
+      return null;                                                      // different wall planes
+    };
+    let doorClashes=0, artClashes=0, worstDoor='', worstArt='';
+    wallArtPieces.forEach(a=>doorFootprints.forEach(d=>{
+      const along=sharedRun(a,d); if(along===null) return;
+      const need=a.width/2 + d.width/2 + DOOR_MARGIN;
+      if(along<need){ doorClashes++; worstDoor=`${a.title||'untitled'} vs ${d.title} (${along.toFixed(2)}<${need.toFixed(2)})`; }
+    }));
+    wallArtPieces.forEach((a,i)=>wallArtPieces.slice(i+1).forEach(b=>{
+      const along=sharedRun(a,b); if(along===null) return;
+      const need=a.width/2 + b.width/2 + ART_MARGIN;
+      if(along<need){ artClashes++; worstArt=`${a.title} ~ ${b.title} (${along.toFixed(2)}<${need.toFixed(2)})`; }
+    }));
+    check(wallArtPieces.length>=30, 'wall art registered', `${wallArtPieces.length} pieces`);
+    check(doorFootprints.length>=30, 'doors registered', `${doorFootprints.length} doors`);
+    check(doorClashes===0, 'no wall art crowds a doorway', doorClashes?worstDoor:'all clear');
+    check(artClashes===0, 'no wall art crowds its neighbour', artClashes?worstArt:'all clear');
+  }
 
   check(!!rpgAvatar && inScene(rpgAvatar), 'RPG avatar in scene', rpgAvatar?.name || 'missing');
   check(typeof setRpgMode === 'function' && typeof getVisitorPosition === 'function', 'RPG API available', `setRpgMode ${typeof setRpgMode}, getVisitorPosition ${typeof getVisitorPosition}`);
@@ -5354,6 +5398,7 @@ function addFramedWallArt({src,title='',subtitle='',width=2.2,height=2.8,x=0,y=2
   const group = new THREE.Group();
   group.position.set(x,y,z);
   group.rotation.y = rotationY;
+  wallArtPieces.push({title,width,height,x,y,z,rotationY});
   // Keep the entire assembly on the room side of its architectural wall.
   // Several rooms use thick wall boxes; centring a frame on their face made
   // one half vanish into the masonry at oblique angles. Local +Z is the
@@ -5611,7 +5656,7 @@ function buildNightRoom(){
   const loungeWorks=[
     {src:REAL_DECOR.lounge.f,w:2.04,h:1.60,x:x0-hw+.14,y:3.60,z:z0+7.0,  r: Math.PI/2},
     {src:REAL_DECOR.lounge.a,w:1.72,h:1.72,x:x0-hw+.14,y:3.60,z:z0+15.5, r: Math.PI/2},
-    {src:REAL_DECOR.lounge.b,w:2.02,h:1.60,x:x0-hw+.14,y:3.60,z:z0+24.0, r: Math.PI/2},
+    {src:REAL_DECOR.lounge.b,w:2.02,h:1.60,x:x0-hw+.14,y:3.60,z:z0+27.0, r: Math.PI/2},
     {src:REAL_DECOR.lounge.c,w:2.03,h:1.53,x:x0-hw+.14,y:3.60,z:z0+32.2, r: Math.PI/2},
     {src:SUNSET_CHANG_SRC,w:1.58,h:2.22,x:x0+hw-.14,y:3.72,z:z0+4.7,  r:-Math.PI/2},
     {src:REAL_DECOR.lounge.e,w:2.00,h:1.47,x:x0+hw-.14,y:3.62,z:z0+31.2, r:-Math.PI/2}
@@ -10360,8 +10405,8 @@ function buildStudio(){
   // problem). It moved to the left wall's open bay at z0+9.5; the bay between
   // the doors now stays deliberately empty as breathing space.
   const albumWorks=[
-    {src:STUDIO_DECOR_SRCS[0],title:'DAMN.',x:x0-8.5,y:3.85,w:1.92,h:1.92},
-    {src:STUDIO_DECOR_SRCS[3],title:'Rubber Soul',x:x0+8.4,y:3.85,w:1.92,h:1.92}
+    {src:STUDIO_DECOR_SRCS[0],title:'DAMN.',x:x0+4.11,y:3.85,w:1.92,h:1.92},
+    {src:STUDIO_DECOR_SRCS[3],title:'Rubber Soul',x:x0+7.53,y:3.85,w:1.92,h:1.92}
   ];
   albumWorks.forEach(w=>addFramedWallArt({src:w.src,title:w.title,subtitle:'studio listening archive',width:w.w,height:w.h,x:w.x,y:w.y,z:z1-.17,rotationY:Math.PI,frameColor:0x171319,matteColor:0xeee7dc,showLabel:false}));
   const albumWashL=new THREE.PointLight(0xffd7b1,.82,6.2,1.9); albumWashL.position.set(x0-5.4,4.5,z1-2.0); scene.add(albumWashL); regLight('studio',albumWashL);
@@ -10375,15 +10420,15 @@ function buildStudio(){
   // Eames chairs' new position and clear of every existing side-wall piece. =====
   const AGE_OF_ADZ_SRC = 'assets/new/age-of-adz.webp';
   const studioWallWorks = [
-    {src:STUDIO_DECOR_SRCS[2],title:'Sgt. Pepper',width:3.55,height:3.19,x:x0-hw+.16,y:3.65,z:z0+6.2,rotationY: Math.PI/2},
-    {src:STUDIO_DECOR_SRCS[1],title:'Pink Floyd',width:1.92,height:1.92,x:x0-hw+.16,y:3.85,z:z0+9.5,rotationY: Math.PI/2},
-    {src:STUDIO_DECOR_SRCS[4],title:'Pink Floyd at Pompeii',width:1.75,height:2.55,x:x0-hw+.16,y:3.55,z:z0+12.0,rotationY: Math.PI/2},
-    {src:STUDIO_TAYK_SRC,title:'Tay-K',width:1.78,height:2.18,x:x0-hw+.16,y:3.62,z:z0+16.4,rotationY: Math.PI/2},
-    {src:STUDIO_DECOR_SRCS[8],title:'Currents',width:1.92,height:1.92,x:x0-hw+.16,y:3.60,z:z0+19.0,rotationY: Math.PI/2},
-    {src:STUDIO_DECOR_SRCS[6],title:'In Utero',width:2.35,height:2.35,x:x0+hw-.16,y:3.60,z:z0+6.0,rotationY:-Math.PI/2},
-    {src:STUDIO_DECOR_SRCS[7],title:'Flower Boy',width:2.55,height:2.55,x:x0+hw-.16,y:3.60,z:z0+11.3,rotationY:-Math.PI/2},
-    {src:STUDIO_MURDER_BALLADS_SRC,title:'Murder Ballads',width:2.30,height:2.30,x:x0+hw-.16,y:3.60,z:z0+16.2,rotationY:-Math.PI/2},
-    {src:AGE_OF_ADZ_SRC,title:'The Age of Adz',width:2.35,height:2.35,x:x0+hw-.16,y:3.60,z:z0+19.0,rotationY:-Math.PI/2}
+    {src:STUDIO_DECOR_SRCS[2],title:'Sgt. Pepper',width:3.55,height:3.19,x:x0-hw+.16,y:3.65,z:z0+5.96,rotationY: Math.PI/2},
+    {src:STUDIO_DECOR_SRCS[1],title:'Pink Floyd',width:1.92,height:1.92,x:x0-hw+.16,y:3.85,z:z0+9.87,rotationY: Math.PI/2},
+    {src:STUDIO_DECOR_SRCS[4],title:'Pink Floyd at Pompeii',width:1.75,height:2.55,x:x0-hw+.16,y:3.55,z:z0+12.89,rotationY: Math.PI/2},
+    {src:STUDIO_TAYK_SRC,title:'Tay-K',width:1.78,height:2.18,x:x0-hw+.16,y:3.62,z:z0+15.83,rotationY: Math.PI/2},
+    {src:STUDIO_DECOR_SRCS[8],title:'Currents',width:1.92,height:1.92,x:x0-hw+.16,y:3.60,z:z0+18.86,rotationY: Math.PI/2},
+    {src:STUDIO_DECOR_SRCS[6],title:'In Utero',width:2.35,height:2.35,x:x0+hw-.16,y:3.60,z:z0+5.87,rotationY:-Math.PI/2},
+    {src:STUDIO_DECOR_SRCS[7],title:'Flower Boy',width:2.55,height:2.55,x:x0+hw-.16,y:3.60,z:z0+10.0,rotationY:-Math.PI/2},
+    {src:STUDIO_MURDER_BALLADS_SRC,title:'Murder Ballads',width:2.30,height:2.30,x:x0+hw-.16,y:3.60,z:z0+14.12,rotationY:-Math.PI/2},
+    {src:AGE_OF_ADZ_SRC,title:'The Age of Adz',width:2.35,height:2.35,x:x0+hw-.16,y:3.60,z:z0+18.14,rotationY:-Math.PI/2}
   ];
   studioWallWorks.forEach(w=>{
     addFramedWallArt({src:w.src, title:w.title, subtitle:'the studio',
