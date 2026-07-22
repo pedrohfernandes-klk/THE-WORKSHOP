@@ -5175,17 +5175,17 @@ function buildHall(){
     const doorH = 6.8;
     const doorW = 3.9;
     const doorZs = [
-      {z:z0 + depth*.09, title:'The Venue', subtitle:'SAYWHAT · cinema', room:'theatre', label:'The Venue', accent:0xd5b56d, dark:0x1d1511, thresholdRank:'major',
+      {z:z0 + depth*.09, title:'The Venue', subtitle:'SAYWHAT · cinema', room:'theatre', label:'The Venue', accent:0xd5b56d, dark:0x1d1511,
        targetPos:new THREE.Vector3(theatreOrigin.x, theatreCameraY(theatreOrigin.z+theatreDepth-10), theatreOrigin.z+theatreDepth-10), targetYaw:0},
-      {z:z0 + depth*.255, title:'The Studio', subtitle:'YouTube listening room', room:'studio', label:'The Studio', accent:0x9d6de2, dark:0x130d1c, thresholdRank:'major',
+      {z:z0 + depth*.255, title:'The Studio', subtitle:'YouTube listening room', room:'studio', label:'The Studio', accent:0x9d6de2, dark:0x130d1c,
        targetPos:new THREE.Vector3(studioOrigin.x, cameraHeight, studioOrigin.z + studioDepth - 3.2), targetYaw:0},
-      {z:z0 + depth*.42, title:'The Laboratory', subtitle:'NO WORRIES', room:'lab', label:'The Laboratory', accent:0x88aeb4, dark:0x162022, thresholdRank:'destination',
+      {z:z0 + depth*.42, title:'The Laboratory', subtitle:'NO WORRIES', room:'lab', label:'The Laboratory', accent:0x88aeb4, dark:0x162022,
        targetPos:new THREE.Vector3(labOrigin.x, cameraHeight, labOrigin.z+labDepth-3), targetYaw:0},
-      {z:z0 + depth*.585, title:'Thinking Room', subtitle:'reading · research', room:'thinking', label:'Thinking Room', accent:0xa4c6d8, dark:0x14181a, thresholdRank:'major',
+      {z:z0 + depth*.585, title:'Thinking Room', subtitle:'reading · research', room:'thinking', label:'Thinking Room', accent:0xa4c6d8, dark:0x14181a,
        targetPos:new THREE.Vector3(thinkingOrigin.x, cameraHeight, thinkingOrigin.z+4.4), targetYaw:Math.PI},
-      {z:z0 + depth*.75, title:'Experiment Garden', subtitle:'temporary shows', room:'maze', label:'Experiment Garden', accent:0x53693a, dark:0x211913, thresholdRank:'major',
+      {z:z0 + depth*.75, title:'Experiment Garden', subtitle:'temporary shows', room:'maze', label:'Experiment Garden', accent:0x53693a, dark:0x211913,
        targetPos:new THREE.Vector3(mazeOrigin.x, cameraHeight, mazeOrigin.z + mazeCell*.92), targetYaw:0},
-      {z:z0 + depth*.915, title:'SPARK TOOLS LABS', subtitle:'retropunk arcade', room:'spark', label:'SPARK TOOLS LABS', accent:0xd24fe5, dark:0x120714, thresholdRank:'destination',
+      {z:z0 + depth*.915, title:'SPARK TOOLS LABS', subtitle:'retropunk arcade', room:'spark', label:'SPARK TOOLS LABS', accent:0xd24fe5, dark:0x120714,
        targetPos:new THREE.Vector3(sparkOrigin.x, cameraHeight, sparkOrigin.z+4.2), targetYaw:Math.PI}
     ];
     doorZs.forEach(d=>{
@@ -5193,7 +5193,7 @@ function buildHall(){
         x:-hw+.13, y:doorH/2, z:d.z,
         width:doorW, height:doorH, orientation:'left',
         title:d.title, subtitle:d.subtitle,
-        accent:d.accent, dark:d.dark, thresholdRank:d.thresholdRank
+        accent:d.accent, dark:d.dark
       });
       registerPortal({
         mesh:built.slab, field:built.field, doorParts:built.doorParts, openAxis:built.openAxis,
@@ -7216,7 +7216,7 @@ function buildHood(){
   const reserveLanding=new THREE.Mesh(new THREE.BoxGeometry(5.0,.20,1.4),darkConcrete);reserveLanding.position.set(wx+27,-3.0,wz+27.7);scene.add(reserveLanding);
   const reserveSign=new THREE.Mesh(new THREE.PlaneGeometry(5.6,.72),new THREE.MeshBasicMaterial({map:makeSignTexture('THE RESERVE ↓','basement archive · ramp'),transparent:true}));reserveSign.position.set(wx+27,3.6,wz+18);reserveSign.rotation.y=Math.PI;scene.add(reserveSign);
   const reserveGlow=new THREE.PointLight(0xcfe6ee,1.7,14,1.7);reserveGlow.position.set(wx+27,.4,wz+24);scene.add(reserveGlow);regLight('hood',reserveGlow);
-  const reserveDoor=addPremiumPortalDoor({x:wx+27,y:-1.2,z:wz+28.6,width:3.6,height:3.6,orientation:'front',title:'THE RESERVE',subtitle:'basement archive',accent:0x8a9295,dark:0x14171a,thresholdRank:'major'});
+  const reserveDoor=addPremiumPortalDoor({x:wx+27,y:-1.2,z:wz+28.6,width:3.6,height:3.6,orientation:'front',title:'THE RESERVE',subtitle:'basement archive',accent:0x8a9295,dark:0x14171a});
   registerPortal({
     mesh:reserveDoor.slab, field:reserveDoor.field, doorParts:reserveDoor.doorParts, openAxis:reserveDoor.openAxis,
     room:'hood-basement', fromRoom:'hood', label:'The Reserve',
