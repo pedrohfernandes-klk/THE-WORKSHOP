@@ -178,6 +178,17 @@ test('premium portal doors use ranked architecture without changing portal retur
   assert.match(builder, /return \{group, slab:hitbox, doorParts:leafGroups, openAxis, field\}/);
 });
 
+test('major Workshop acts declare major threshold treatment at their existing doors', () => {
+  for (const title of ['The Studio', 'The Venue', 'Thinking Room', 'Experiment Garden', 'THE RESERVE']) {
+    const titleAt = html.indexOf(`title:'${title}'`);
+    assert.ok(titleAt > -1, `${title} premium door exists`);
+    const call = html.slice(titleAt, titleAt + 420);
+    assert.match(call, /thresholdRank:'major'/, `${title} has major threshold rank`);
+  }
+  assert.match(html, /thresholdRank:d\.thresholdRank/, 'hall door builder consumes the authored rank');
+  assert.match(html, /thresholdRank:'destination'/, 'secondary destinations have a dedicated rank');
+});
+
 test('known runtime regressions remain removed', () => {
   assert.doesNotMatch(html, /color:\['0xc94145','0xe9c856','0xe7d8ca'\]/);
   const animateBlock = html.slice(html.indexOf('function animate(){'), html.indexOf("document.addEventListener('visibilitychange'"));
