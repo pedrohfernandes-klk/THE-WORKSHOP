@@ -4653,6 +4653,27 @@ function runWorkshopSelfTest(){
   return failed.length === 0;
 }
 
+function buildWorkshopChaperone({x,z}){
+  const g=new THREE.Group(); g.name='workshop-chaperone'; g.position.set(x,0,z);
+  const back=new THREE.MeshStandardMaterial({color:0x181a19,roughness:.93,metalness:.04});
+  const plaster=new THREE.MeshStandardMaterial({color:0x554b3d,roughness:.96,metalness:.01});
+  const steel=new THREE.MeshStandardMaterial({color:0x1c2c2e,roughness:.70,metalness:.58});
+  const bayBack=new THREE.Mesh(new THREE.BoxGeometry(4.15,7.3,.34),back); bayBack.position.set(0,3.65,-.52); g.add(bayBack);
+  for(const sx of [-1,1]){ const returnWall=new THREE.Mesh(new THREE.BoxGeometry(.34,7.3,1.34),steel); returnWall.position.set(sx*2.07,3.65,.05); g.add(returnWall); }
+  const lintel=new THREE.Mesh(new THREE.BoxGeometry(4.48,.34,1.34),steel); lintel.position.set(0,7.14,.05); g.add(lintel);
+  const traceTex=new THREE.TextureLoader().load('assets/extracted/cadavre-expat.webp'); traceTex.colorSpace=THREE.SRGBColorSpace;
+  const traceMat=new THREE.MeshStandardMaterial({map:traceTex,roughness:.94,metalness:.01});
+  for(const sx of [-1,1]){ const trace=new THREE.Mesh(new THREE.PlaneGeometry(.52,2.65),traceMat); trace.position.set(sx*1.55,3.88,-.32); trace.rotation.y=sx*.08; g.add(trace); }
+  const faceTex=new THREE.TextureLoader().load('assets/extracted/mask-garden-face.webp');
+  faceTex.colorSpace=THREE.SRGBColorSpace;
+  const relief=new THREE.Mesh(new THREE.CircleGeometry(2.02,80),new THREE.MeshStandardMaterial({map:faceTex,roughness:.91,metalness:.01}));
+  relief.position.set(-.84,4.34,.37); relief.scale.set(.86,1.18,1); g.add(relief);
+  const aperture=new THREE.Mesh(new THREE.CircleGeometry(.22,40),new THREE.MeshBasicMaterial({color:0x491314})); aperture.position.set(-.84,3.76,.40); aperture.scale.y=.30; aperture.name='chaperone-mouth'; g.add(aperture);
+  scene.add(g);
+  registerInteractable({id:'workshop:chaperone',type:'guide',room:'gallery',mesh:relief,label:'HrM chaperone',action:'spoke',capability:'guidance',hintId:'workshop-chaperone',priority:7,hintText:'The Workshop chaperone has noticed you.',prompt:()=> 'Speak with the chaperone',onUse:openGroveGuide});
+  return g;
+}
+
 function buildHall(){
   const hw = hallHalfWidth;
   const z0 = tunnelMouthZ;
@@ -5257,97 +5278,28 @@ function buildHall(){
   }
   }
 
-  // ===== Monumental holographic statue — Hall centre (batch 152) =====
-  // Better-designed and truly central: a tiered stone plinth on the axis at
-  // the Hall's midpoint, carrying a tall ghostly figure (the "Encircled
-  // Figure") rendered in the hologram shader, wrapped by three orbiting halo
-  // rings and a rising particle column. Positioned off the Guernica wall so it
-  // never blocks art, on the clear central runner.
+  // ===== Entry rite and off-axis Workshop chaperone =====
   {
-    const cx = 0, cz = midZ - 5.0;   // central axis, set back from Guernica (midZ+1)
-    // Tiered plinth
-    const p1 = new THREE.Mesh(new THREE.CylinderGeometry(2.9,3.3,.7,48),
-      new THREE.MeshStandardMaterial({color:0x201e28, roughness:.6, metalness:.3}));
-    p1.position.set(cx,.35,cz); scene.add(p1);
-    const p2 = new THREE.Mesh(new THREE.CylinderGeometry(2.35,2.7,.7,48),
-      new THREE.MeshStandardMaterial({color:0x2a2836, roughness:.5, metalness:.4}));
-    p2.position.set(cx,1.05,cz); scene.add(p2);
-    const p3 = new THREE.Mesh(new THREE.CylinderGeometry(1.95,2.2,.55,48),
-      new THREE.MeshStandardMaterial({color:0x343247, roughness:.42, metalness:.5}));
-    p3.position.set(cx,1.62,cz); scene.add(p3);
-    const emitter = new THREE.Mesh(new THREE.CylinderGeometry(1.8,1.8,.06,48),
-      new THREE.MeshBasicMaterial({color:0x61f6ff, transparent:true, opacity:.55, blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false}));
-    emitter.position.set(cx,1.92,cz); scene.add(emitter);
-
-    // The figure — taller, more sculptural: legs, torso, chest, shoulders,
-    // arms folded across, neck, head. All hologram-shaded.
-    const holoMat = makeHologramMaterial(3.6);
-    if(holoMat.uniforms){
-      holoMat.uniforms.uColorA.value = new THREE.Color(0x9df0ff);
-      holoMat.uniforms.uColorB.value = new THREE.Color(0xc7b0ff);
+    const entry = new THREE.Group(); entry.name='workshop-entry-threshold';
+    const steel = new THREE.MeshStandardMaterial({color:0x1c2c2e,roughness:.68,metalness:.62});
+    const timber = new THREE.MeshStandardMaterial({color:0x3d2b1e,roughness:.88,metalness:.02});
+    const glass = new THREE.MeshStandardMaterial({color:0x83aeb3,transparent:true,opacity:.25,roughness:.34,metalness:.16,side:THREE.DoubleSide});
+    const cx=0, cz=midZ-5.15;
+    // A low, broad rise makes the forward passage a change of state, not a stage.
+    for(let i=0;i<3;i++){
+      const step=new THREE.Mesh(new THREE.BoxGeometry(5.4,.18,1.05),timber);
+      step.position.set(cx,.09+i*.18,cz+1.1-i*.82); entry.add(step);
     }
-    const fig = new THREE.Group(); fig.position.set(cx,1.95,cz);
-    const hips = new THREE.Mesh(new THREE.CylinderGeometry(.85,.7,1.0,20,1,true), holoMat);
-    hips.position.y=1.0; fig.add(hips);
-    for(const s2 of [-1,1]){
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(.34,.26,2.0,14,1,true), holoMat);
-      leg.position.set(s2*.38,.0,0); leg.rotation.x=.02; fig.add(leg);
+    const frameY=3.35, frameZ=cz-1.6;
+    for(const x of [-2.55,2.55]){
+      const upright=new THREE.Mesh(new THREE.BoxGeometry(.16,6.5,.18),steel); upright.position.set(x,frameY,frameZ); entry.add(upright);
     }
-    const torso = new THREE.Mesh(new THREE.CylinderGeometry(.78,.9,2.2,22,1,true), holoMat);
-    torso.position.y=2.7; fig.add(torso);
-    const chest = new THREE.Mesh(new THREE.SphereGeometry(.92,24,18), holoMat);
-    chest.position.y=3.85; chest.scale.set(1.16,.92,.78); fig.add(chest);
-    for(const s2 of [-1,1]){
-      const sh = new THREE.Mesh(new THREE.SphereGeometry(.42,18,14), holoMat);
-      sh.position.set(s2*.82,4.05,0); sh.scale.set(1.1,.85,.9); fig.add(sh);
-      // Folded arms crossing the chest.
-      const arm = new THREE.Mesh(new THREE.CylinderGeometry(.24,.28,1.5,14,1,true), holoMat);
-      arm.position.set(s2*.34,3.5,.42); arm.rotation.set(.3,0,s2*1.15); fig.add(arm);
-    }
-    const neck = new THREE.Mesh(new THREE.CylinderGeometry(.26,.32,.5,14,1,true), holoMat);
-    neck.position.y=4.55; fig.add(neck);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(.6,26,22), holoMat);
-    head.position.y=5.25; head.scale.set(.92,1.12,.95); fig.add(head);
-    scene.add(fig);
-    extraShaderPlanes.push(hips, torso, chest, head, neck);
-
-    // Three orbiting halo rings.
-    const rings=[];
-    for(let r=0;r<3;r++){
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(2.6+r*.55,.06,8,64),
-        new THREE.MeshBasicMaterial({color:[0xffe27a,0x61f6ff,0x9d6de2][r], transparent:true, opacity:.55, blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false}));
-      ring.position.set(cx,5.5,cz); ring.rotation.x=Math.PI/2.3+r*.3;
-      scene.add(ring); rings.push({mesh:ring, speed:.28+r*.2, axis:r});
-    }
-    // Rising particle column (thin points drifting up through the figure).
-    const colGeo = new THREE.BufferGeometry();
-    const cN = 90, cpos = new Float32Array(cN*3);
-    for(let k=0;k<cN;k++){
-      cpos[k*3]=cx+(Math.random()-.5)*2.6; cpos[k*3+1]=2+Math.random()*7; cpos[k*3+2]=cz+(Math.random()-.5)*2.6;
-    }
-    colGeo.setAttribute('position', new THREE.BufferAttribute(cpos,3));
-    const col = new THREE.Points(colGeo, new THREE.PointsMaterial({color:0x9df0ff, size:.07, transparent:true, opacity:.6, blending:THREE.AdditiveBlending, depthWrite:false}));
-    scene.add(col);
-
-    hallHologram = {figure:fig, rings, column:col, colBase:cpos.slice(), cx, cz};
-    const hglow = new THREE.PointLight(0x8fe9ff, 2.6, 30, 1.6);
-    hglow.position.set(cx, 5.0, cz); scene.add(hglow); regLight('gallery', hglow);
-    const upWash = new THREE.SpotLight(0x9df0ff, 2.0, 24, Math.PI/6, .6, 1.4);
-    upWash.position.set(cx, .5, cz); upWash.target.position.set(cx, 7, cz);
-    scene.add(upWash, upWash.target); regLight('gallery', upWash);
-
-    // Caption plaque on the front of the plinth.
-    const capC=document.createElement('canvas'); capC.width=768; capC.height=170;
-    const cg=capC.getContext('2d');
-    cg.textAlign='center'; cg.fillStyle='#bfeaff';
-    cg.font='italic 700 46px Georgia, serif';
-    cg.fillText('THE ENCIRCLED FIGURE', 384, 66);
-    cg.font='500 26px Arial, sans-serif'; cg.fillStyle='rgba(191,234,255,.82)';
-    cg.fillText('created and drafted by HrM · sculpted digitally', 384, 116);
-    const capTex=new THREE.CanvasTexture(capC); capTex.colorSpace=THREE.SRGBColorSpace;
-    const cap=new THREE.Mesh(new THREE.PlaneGeometry(3.9,.86),
-      new THREE.MeshBasicMaterial({map:capTex, transparent:true, toneMapped:false, depthWrite:false}));
-    cap.position.set(cx,1.15,cz+3.34); scene.add(cap);
+    const lintel=new THREE.Mesh(new THREE.BoxGeometry(5.25,.18,.18),steel); lintel.position.set(cx,6.52,frameZ); entry.add(lintel);
+    const transom=new THREE.Mesh(new THREE.PlaneGeometry(4.92,2.0),glass); transom.position.set(cx,5.35,frameZ+.02); entry.add(transom);
+    for(let x=-2.1;x<=2.1;x+=.7){ const mullion=new THREE.Mesh(new THREE.BoxGeometry(.045,2.0,.06),steel); mullion.position.set(x,5.35,frameZ+.04); entry.add(mullion); }
+    const practical=new THREE.RectAreaLight(0xd5f3ff,5.8,4.6,.22); practical.position.set(cx,5.95,frameZ+.35); practical.rotation.x=-Math.PI/2; entry.add(practical);
+    scene.add(entry);
+    buildWorkshopChaperone({x:-5.55,z:cz-2.72});
   }
 }
 
@@ -6258,9 +6210,10 @@ function buildOutdoorSpace(){
     for(const r of [.27,.38,.49]){const groove=new THREE.Mesh(new THREE.TorusGeometry(r,.012,10,64),statueMaskFrameMat);groove.position.set(0,.01,-.555);groove.rotation.y=Math.PI;headGroup.add(groove);}
     const backSeal=new THREE.Mesh(new THREE.CylinderGeometry(.10,.10,.024,32),statueBronze);backSeal.position.set(0,.01,-.584);backSeal.rotation.x=Math.PI/2;headGroup.add(backSeal);
     const unifiedHead=cranium;
+    /* retired garden guide; the sole chaperone lives in the Hall
     registerInteractable({id:'grove:guide',type:'guide',room:'outdoor',mesh:faceCap,label:'HrM welcome figure',
       action:'spoke',capability:'guidance',hintId:'grove-guide',priority:5,
-      hintText:'The Grove figure has directions, opinions and no sense of urgency.',prompt:()=>'Talk to the Grove guide',onUse:openGroveGuide});
+      hintText:'The Grove figure has directions, opinions and no sense of urgency.',prompt:()=>'Talk to the Grove guide',onUse:openGroveGuide}); */
 
 
     // Roundabout ring bed: rosemary and lavender clipped low around the plinth.
