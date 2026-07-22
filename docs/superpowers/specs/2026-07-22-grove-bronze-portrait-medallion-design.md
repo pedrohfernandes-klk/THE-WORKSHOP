@@ -1,6 +1,6 @@
 # Grove Bronze Portrait and Oil Medallion — Design Specification
 
-**Status:** approved direction; implementation awaits this written-spec review.
+**Status:** approved direction. The original Blender-authored bust amendment below is explicitly approved; implementation is awaiting the written-spec review.
 
 ## 1. Purpose
 
@@ -41,6 +41,18 @@ Use a small, coherent material set:
 - no bright collage fragments, random primary-colour tiles, painted "WTF" decal, or disconnected metallic buttons.
 
 The sculpture may retain a discreet, non-verbal trace of intervention through irregular patina and a few hand-applied pigment stains integrated into recesses—not through stickers or loose geometry.
+
+### Approved original-bust amendment
+
+The primitive-built and externally sourced head experiments both failed the arrival-view coherence criterion. The replacement is an **original Blender-authored complete portrait bust**:
+
+- local source asset: `assets/models/grove-bronze-portrait.glb`, authored specifically for THE WORKSHOP;
+- its head, neck, shoulders and upper chest are one continuous sculptural mesh, with no grafted scan, borrowed human likeness or runtime assembly of facial/body parts;
+- its silhouette is deliberately modest and institutional: broad shoulders flowing into a low chest termination, a slightly turned head, and shallow asymmetric face planes that read at the Grove’s normal approach distance;
+- it is exported as a lightweight local GLB, loaded through the existing GLTF pathway and given the Workshop’s weathered bronze material at runtime;
+- no third-party portrait asset, licence attribution, external download or remote runtime model is involved.
+
+The existing stone pedestal, planted ring, arrival composition, separate `mask-garden-face.webp` oil medallion, and silent/non-interactive boundary remain unchanged.
 
 ## 4. Oil-painted mask medallion
 
