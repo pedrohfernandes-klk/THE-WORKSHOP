@@ -2041,6 +2041,9 @@ import { CSS3DRenderer, CSS3DObject } from 'https://cdn.jsdelivr.net/npm/three@0
 import { PASSPORT_ACTS, createPassportState, isPassportStamped, passportEvidenceLine, passportProgress, runIdleBuildQueue } from './assets/js/workshop-foundation.js';
 import { createResetVisitState, createVisitGuidanceScheduler, createVisitState, journeyGuidance, visitOrientationStatus } from './assets/js/workshop-visit.js';
 import { recordWorkshopEventState } from './assets/js/workshop-record.js';
+import { createGardenStudyStore, normalizeGardenStudy, formatGardenStudyCaption } from './assets/js/workshop-garden-study.js';
+const gardenStudyStore = createGardenStudyStore();
+let activeGardenStudy = null;
 const GUERNICA_IMAGE_SRC = 'assets/extracted/guernica-image.webp';
 const BULL_GUY_SRC = 'assets/extracted/bull-guy.webp';
 const CHARTRES_LIGHT_SRC = 'assets/extracted/chartres-light.webp';
@@ -4391,7 +4394,7 @@ function init(){
   const memGB = navigator.deviceMemory || 8;
   const dprCap = isCoarsePointer ? (memGB <= 4 ? 1.0 : 1.15) : 1.32;
   const dpr = Math.min(window.devicePixelRatio || 1, dprCap);
-  renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:false, powerPreference:'high-performance'});
+  renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:false, preserveDrawingBuffer:true, powerPreference:'high-performance'});
   renderer.setPixelRatio(dpr);
   renderer.setSize(innerWidth, innerHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -12178,22 +12181,50 @@ function projectionEmbedFrom(text,forWall=false){
 
 // Small, dependency-free creative desk for the Experiment Garden. Everything
 // remains in memory until the visitor explicitly saves a PNG.
+async function captureGardenStudyFromWorld(){
+  const blockingDialog=[...document.querySelectorAll('[role="dialog"]')].some(panel=>panel.classList.contains('show') || panel.classList.contains('open') || panel.style.display==='grid');
+  if(blockingDialog || !renderer?.domElement || !camera) return false;
+  try{
+    renderer.render(scene,camera);
+    const imageDataUrl=renderer.domElement.toDataURL('image/png');
+    const direction=new THREE.Vector3(); camera.getWorldDirection(direction);
+    const study=normalizeGardenStudy({
+      imageDataUrl, room: currentRoom,
+      camera: { position: {x:camera.position.x,y:camera.position.y,z:camera.position.z}, direction: {x:direction.x,y:direction.y,z:direction.z} }
+    });
+    await gardenStudyStore.put(study);
+    activeGardenStudy=study;
+    msg(`Garden Study captured · ${formatGardenStudyCaption(study)}`);
+    openGardenMaker(study);
+    return true;
+  }catch(error){
+    console.error('Garden Study capture failed',error);
+    msg('This view could not be captured');
+    return false;
+  }
+}
+
 function closeGardenMaker(){
   const panel=$('gardenMakerPanel');
   if(!panel) return;
   closeAccessibleDialog(panel);
   panel.style.display='none';
 }
-function openGardenMaker(){
+function openGardenMaker(study=activeGardenStudy){
+  if(!study && !activeGardenStudy){
+    gardenStudyStore.list().then(studies=>{if(studies[0]){activeGardenStudy=studies[0];openGardenMaker(studies[0]);}}).catch(()=>{});
+  }
+  if(study) activeGardenStudy=study;
   if(document.pointerLockElement) document.exitPointerLock();
   let panel=$('gardenMakerPanel');
   if(!panel){
     panel=document.createElement('div'); panel.id='gardenMakerPanel'; panel.setAttribute('role','dialog'); panel.setAttribute('aria-modal','true'); panel.setAttribute('aria-label','Garden making desk');
-    panel.style.cssText='position:fixed;inset:0;z-index:12000;background:rgba(12,10,8,.94);display:grid;grid-template-rows:auto 1fr;padding:18px;gap:12px;color:#f4ead8;font:13px Arial,sans-serif';
-    panel.innerHTML=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="font:26px Georgia,serif;margin-right:12px">GARDEN MAKING DESK</b><button data-mode="paint">PAINT</button><button data-mode="collage">COLLAGE</button><label>colour <input type="color" value="#a42f25"></label><label>brush <input type="range" min="2" max="70" value="18"></label><label>add image <input type="file" accept="image/*"></label><button data-act="undo">UNDO</button><button data-act="clear">CLEAR</button><button data-act="save">SAVE PNG</button><button data-act="close" style="margin-left:auto">CLOSE</button><span>Draw, or click to layer torn-paper shapes and your own image.</span></div><div style="min-height:0;display:grid;place-items:center"><canvas width="1200" height="760" style="max-width:100%;max-height:100%;background:#eee2cb;box-shadow:0 16px 60px #000;touch-action:none"></canvas></div>`;
+    panel.style.cssText='position:fixed;right:clamp(14px,4vw,58px);bottom:clamp(14px,4vh,44px);z-index:12000;width:min(880px,calc(100vw - 28px));height:min(680px,calc(100svh - 124px));display:grid;grid-template-rows:auto 1fr;gap:0;overflow:hidden;background:#cbbd9e;border:9px solid #292820;box-shadow:0 28px 90px rgba(0,0,0,.58),inset 0 0 0 1px rgba(255,255,255,.24);color:#eee4d2;font:12px Arial,sans-serif';
+    panel.innerHTML=`<div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;padding:8px 10px;background:#292820;border-bottom:1px solid rgba(255,255,255,.18)"><b style="font:18px Georgia,serif;letter-spacing:.08em;margin-right:7px">GARDEN STUDY</b><button data-act="capture-view">CAPTURE VIEW</button><button data-mode="paint">PAINT</button><button data-mode="collage">COLLAGE</button><label style="font-size:10px">brush <input type="range" min="2" max="70" value="18"></label><label style="font-size:10px">add image <input type="file" accept="image/*"></label><button data-act="undo">UNDO</button><button data-act="save">EXPORT</button><button data-act="close" style="margin-left:auto">PUT AWAY</button></div><div style="min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 178px;gap:12px;padding:12px;background:linear-gradient(135deg,#9e8b69,#cbbd9e)"><div style="min-height:0;display:grid;place-items:center;padding:10px;background:#514638;box-shadow:inset 0 0 0 1px rgba(255,255,255,.2)"><canvas width="1200" height="760" style="max-width:100%;max-height:100%;background:#eee2cb;box-shadow:0 9px 25px rgba(0,0,0,.45);touch-action:none"></canvas></div><aside style="align-self:stretch;display:flex;flex-direction:column;gap:10px;padding:11px;background:rgba(37,32,25,.92);border-left:1px solid rgba(255,255,255,.16)"><label>title<input data-study="title" placeholder="Untitled study" style="width:100%"></label><label>notes<textarea data-study="notes" placeholder="What did you notice?" style="width:100%;min-height:104px;resize:vertical"></textarea></label><label style="font-size:11px"><input data-study="caption" type="checkbox" checked> location caption</label><small data-study-caption style="line-height:1.45;color:#d5c5ab">Capture a view, then annotate, collage and return.</small><button data-act="clear" style="margin-top:auto">CLEAR SURFACE</button></aside></div>`;
     document.body.appendChild(panel);
     panel.querySelectorAll('button').forEach(b=>b.style.cssText='border:1px solid #aa8b62;background:#211b16;color:#f4ead8;padding:8px 11px;border-radius:3px;cursor:pointer');
-    const c=panel.querySelector('canvas'),q=c.getContext('2d'),color=panel.querySelector('input[type=color]'),size=panel.querySelector('input[type=range]'),file=panel.querySelector('input[type=file]');
+    const c=panel.querySelector('canvas'),q=c.getContext('2d'),color=panel.querySelector('input[type=color]') || {value:'#a42f25'},size=panel.querySelector('input[type=range]'),file=panel.querySelector('input[type=file]');
+    panel._gardenCanvas=c; panel._gardenContext=q;
     let mode='paint',down=false,last=null,stamp=null,history=[];
     const snapshot=()=>{history.push(c.toDataURL());if(history.length>16)history.shift();};
     const paper=()=>{q.fillStyle='#eee2cb';q.fillRect(0,0,c.width,c.height);q.globalAlpha=.12;for(let i=0;i<9000;i++){q.fillStyle=i%3?'#704f32':'#fff';q.fillRect(Math.random()*c.width,Math.random()*c.height,1,1);}q.globalAlpha=1;}; paper(); snapshot();
@@ -12203,9 +12234,17 @@ function openGardenMaker(){
     c.onpointermove=e=>{if(!down)return;const p=pos(e);q.strokeStyle=color.value;q.lineWidth=+size.value;q.lineCap='round';q.lineJoin='round';q.globalAlpha=.76;q.beginPath();q.moveTo(last.x,last.y);q.lineTo(p.x,p.y);q.stroke();q.globalAlpha=1;last=p;};
     c.onpointerup=()=>{down=false;last=null;};
     file.onchange=()=>{const f=file.files[0];if(!f)return;const im=new Image();im.onload=()=>{stamp=im;mode='collage';};im.src=URL.createObjectURL(f);};
-    panel.onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.mode){mode=b.dataset.mode;return;}const a=b.dataset.act;if(a==='close'){closeGardenMaker();return;}if(a==='clear'){snapshot();paper();}if(a==='undo'&&history.length){const im=new Image();im.onload=()=>{q.clearRect(0,0,c.width,c.height);q.drawImage(im,0,0);};im.src=history.pop();}if(a==='save'){const link=document.createElement('a');link.download='hrm-garden-collage.png';link.href=c.toDataURL('image/png');link.click();}};
+    panel.onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.mode){mode=b.dataset.mode;return;}const a=b.dataset.act;if(a==='close'){closeGardenMaker();return;}if(a==='capture-view'){closeGardenMaker();requestAnimationFrame(()=>captureGardenStudyFromWorld());return;}if(a==='clear'){snapshot();paper();}if(a==='undo'&&history.length){const im=new Image();im.onload=()=>{q.clearRect(0,0,c.width,c.height);q.drawImage(im,0,0);};im.src=history.pop();}if(a==='save'){const link=document.createElement('a');link.download='hrm-garden-collage.png';link.href=c.toDataURL('image/png');link.click();}};
+    panel.querySelectorAll('[data-study]').forEach(input=>input.addEventListener('change',async()=>{if(!activeGardenStudy)return;activeGardenStudy.title=panel.querySelector('[data-study="title"]').value;activeGardenStudy.notes=panel.querySelector('[data-study="notes"]').value;activeGardenStudy.showCaption=panel.querySelector('[data-study="caption"]').checked;await gardenStudyStore.put(activeGardenStudy);}));
   }
   panel.style.display='grid';
+  if(activeGardenStudy){
+    panel.querySelector('[data-study="title"]').value=activeGardenStudy.title;
+    panel.querySelector('[data-study="notes"]').value=activeGardenStudy.notes;
+    panel.querySelector('[data-study="caption"]').checked=activeGardenStudy.showCaption;
+    panel.querySelector('[data-study-caption]').textContent=activeGardenStudy.showCaption ? formatGardenStudyCaption(activeGardenStudy) : 'Location caption removed';
+    const image=new Image(); image.onload=()=>{const c=panel._gardenCanvas,q=panel._gardenContext;q.clearRect(0,0,c.width,c.height);const scale=Math.min(c.width/image.width,c.height/image.height);q.drawImage(image,(c.width-image.width*scale)/2,(c.height-image.height*scale)/2,image.width*scale,image.height*scale);}; image.src=activeGardenStudy.imageDataUrl;
+  }
   openAccessibleDialog(panel,{initialFocus:panel.querySelector('[data-act="close"]'),onEscape:closeGardenMaker});
 }
 // The Studio workstation lives in its own lightweight same-origin document.
@@ -13159,6 +13198,7 @@ window.addEventListener('keydown', e=>{
   if(k==='g') toggleRoomsPanel();
   if(k==='n') openNotes();
   if(k==='h') helpPanel.classList.toggle('open');
+  if(k==='p') captureGardenStudyFromWorld();
   if(k==='r') toggleNearestScreenControl();
   if(k==='v') setRpgMode(!rpgMode);
   if(k==='m') toggleMotion();

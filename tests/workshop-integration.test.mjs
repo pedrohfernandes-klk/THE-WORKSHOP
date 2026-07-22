@@ -163,6 +163,30 @@ test('Hall recess doors use a visual-only presentation contract', () => {
   assert.match(builder, /return \{group, slab:hitbox, doorParts:leafGroups, openAxis, field\}/);
 });
 
+test('Garden Study capture is explicit, metadata-rich and safe around dialogs', () => {
+  assert.match(html, /from ['"]\.\/assets\/js\/workshop-garden-study\.js['"]/,
+    'Garden Studies use a focused local-only module');
+  assert.match(html, /preserveDrawingBuffer:\s*true/,
+    'the explicit capture source keeps the current WebGL frame readable');
+  const start = html.indexOf('async function captureGardenStudyFromWorld()');
+  const end = html.indexOf('function closeGardenMaker()', start);
+  const capture = html.slice(start, end);
+  assert.ok(start > -1 && end > start, 'world capture function exists before Garden desk lifecycle');
+  assert.match(capture, /document\.querySelectorAll\('\[role="dialog"\]'\)/,
+    'capture refuses to run while a visible blocking dialog owns interaction');
+  assert.match(capture, /renderer\.domElement\.toDataURL\('image\/png'\)/,
+    'capture takes the actual visible WebGL canvas');
+  assert.match(capture, /room:\s*currentRoom/);
+  assert.match(capture, /camera:\s*\{\s*position:/,
+    'capture saves camera position and direction with the image');
+  assert.match(capture, /gardenStudyStore\.put/,
+    'new captures persist locally before the desk opens');
+  assert.match(html, /gardenStudyStore\.list\(\)\.then\(studies=>/,
+    'reopening the table restores the most-recent local study');
+  assert.match(html, /data-act="capture-view"/,
+    'an explicit visitor control starts capture');
+});
+
 test('known runtime regressions remain removed', () => {
   assert.doesNotMatch(html, /color:\['0xc94145','0xe9c856','0xe7d8ca'\]/);
   const animateBlock = html.slice(html.indexOf('function animate(){'), html.indexOf("document.addEventListener('visibilitychange'"));
