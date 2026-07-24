@@ -6058,8 +6058,12 @@ function buildOutdoorSpace(){
       new THREE.Vector2(.48,1.15),new THREE.Vector2(.36,1.22),new THREE.Vector2(.28,1.30),
       new THREE.Vector2(.255,1.48),new THREE.Vector2(.21,1.58)
     ];
+    // Shoulders widened in X only (1.30). The head was nearly as wide as the
+    // shoulders (1.16x) — a bobblehead; real shoulders are ~2x head width. The
+    // widening is X-only so the chest decorations, which are placed by their Z
+    // depth, stay flush on the surface instead of floating.
     const unifiedTorso=new THREE.Mesh(new THREE.LatheGeometry(torsoProfile,64),marbleMat);
-    unifiedTorso.position.set(0,1.94,0); unifiedTorso.scale.z=.76; unifiedTorso.castShadow=true; unifiedTorso.receiveShadow=true;
+    unifiedTorso.position.set(0,1.94,0); unifiedTorso.scale.set(1.30,1,.76); unifiedTorso.castShadow=true; unifiedTorso.receiveShadow=true;
     statueBody.add(unifiedTorso);
 
     const lapelLeft = new THREE.Mesh(new THREE.BoxGeometry(.24,.40,.058), marbleMat);
@@ -6135,25 +6139,28 @@ function buildOutdoorSpace(){
     faceTex.wrapS=faceTex.wrapT=THREE.ClampToEdgeWrapping;faceTex.repeat.set(.86,.86);faceTex.offset.set(.07,.07);
     const headGroup=new THREE.Group();headGroup.position.set(0,3.69,.01);statueBody.add(headGroup);
     const headStone=new THREE.MeshStandardMaterial({color:0x171514,roughness:.82,metalness:.035,bumpScale:.05});
-    const cranium=new THREE.Mesh(new THREE.SphereGeometry(.60,72,56),headStone);cranium.scale.set(.98,1.10,.92);cranium.castShadow=true;headGroup.add(cranium);
-    const jaw=new THREE.Mesh(new THREE.SphereGeometry(.43,64,42),headStone);jaw.position.set(0,-.29,.035);jaw.scale.set(1.02,.78,.92);headGroup.add(jaw);
+    // Ovoid head: narrower in X and taller in Y so it reads as a head, not a
+    // ball (was width/height 0.91, now ~0.74). The jaw is narrower and set a
+    // little lower to give a real chin rather than a round bottom.
+    const cranium=new THREE.Mesh(new THREE.SphereGeometry(.60,72,56),headStone);cranium.scale.set(.82,1.16,.88);cranium.castShadow=true;headGroup.add(cranium);
+    const jaw=new THREE.Mesh(new THREE.SphereGeometry(.40,64,42),headStone);jaw.position.set(0,-.26,.03);jaw.scale.set(.82,.94,.82);headGroup.add(jaw);
     const neck=new THREE.Mesh(new THREE.CylinderGeometry(.27,.34,.66,48),headStone);neck.position.set(0,-.65,-.02);headGroup.add(neck);
     // The face is carried on a shallow spherical cap concentric with the
     // cranium, so the portrait curves with the skull instead of reading as a
     // flat disc pinned to the front — the one remaining "toy" tell the visual
     // guidelines call out (no flat-disc face). A hair larger than the cranium
     // so it sits just proud and never z-fights.
-    const faceR=.60, halfPhi=.66, halfTheta=.80;
+    // Face on a shallow spherical cap, curved to the narrower ovoid skull and
+    // kept frontal (a tighter horizontal wrap so it does not smear around the
+    // sides). Sits ~6 mm proud so it never z-fights.
+    const faceR=.60, halfPhi=.56, halfTheta=.86;
     const faceGeo=new THREE.SphereGeometry(faceR,56,44, Math.PI/2-halfPhi, halfPhi*2, Math.PI/2-halfTheta, halfTheta*2);
     const faceCap=new THREE.Mesh(faceGeo,new THREE.MeshStandardMaterial({map:faceTex,roughness:.84,metalness:.01}));
-    faceCap.scale.set(.995,1.115,.935);headGroup.add(faceCap);
-    // The original mouth is reinforced as a recessed, softly modelled opening,
-    // avoiding the tiny pasted-on look of the previous version. Its depth now
-    // hugs the curved face (~z .52 at mouth height) rather than the old flat
-    // plane, so it reads as carved into the surface, still clearly proud.
-    const mouthRim=new THREE.Mesh(new THREE.TorusGeometry(.145,.036,18,48),new THREE.MeshStandardMaterial({color:0x6f1718,roughness:.62,metalness:.03}));
-    mouthRim.position.set(0,-.245,.536);mouthRim.scale.y=.46;headGroup.add(mouthRim);
-    const mouthVoid=new THREE.Mesh(new THREE.CircleGeometry(.115,40),new THREE.MeshBasicMaterial({color:0x170707}));mouthVoid.position.set(0,-.245,.542);mouthVoid.scale.y=.42;headGroup.add(mouthVoid);
+    faceCap.scale.set(.83,1.17,.89);headGroup.add(faceCap);
+    // The face image (a recurring HrM / cadavre-expat face) already carries its
+    // own mouth. The former 3D red-ring-and-black-hole overlay sat on top of
+    // that painted mouth, reading as a strange second mouth; it is removed so
+    // the sculpture shows one mouth — the face's own.
     // Designed back: three shallow concentric carvings and a small maker's seal
     // are visible when the visitor walks around the monument.
     for(const r of [.27,.38,.49]){const groove=new THREE.Mesh(new THREE.TorusGeometry(r,.012,10,64),statueMaskFrameMat);groove.position.set(0,.01,-.555);groove.rotation.y=Math.PI;headGroup.add(groove);}
