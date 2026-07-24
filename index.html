@@ -6017,150 +6017,13 @@ function buildOutdoorSpace(){
   const pondRing = new THREE.Mesh(new THREE.RingGeometry(7.6, 10.4, 72), gravelMat);
   pondRing.rotation.x = -Math.PI/2; pondRing.position.set(x0,.03,pondZ); scene.add(pondRing);
 
-  // --- The marble bust with the black mask, centred in the roundabout. ---
+  // --- Roundabout garden island (the marble bust was removed). ---
   {
     const g = new THREE.Group();
     g.position.set(x0,0,rondZ);
-    g.rotation.y = 0; // faces the door (+z), greeting the visitor
     scene.add(g);
 
-    // Pedestal — square, tapered, with a name band. Human-scaled: ~2.0 m.
-    const baseSlab = new THREE.Mesh(new THREE.BoxGeometry(1.90,.24,1.90), stoneLiteMat); baseSlab.position.y=.12; g.add(baseSlab);
-    const pedestal = new THREE.Mesh(new THREE.BoxGeometry(1.18,1.52,1.18), stoneLiteMat); pedestal.position.y=1.00; g.add(pedestal);
-    const pedCap = new THREE.Mesh(new THREE.BoxGeometry(1.40,.14,1.40), stoneLiteMat); pedCap.position.y=1.83; g.add(pedCap);
-    const nameBand = new THREE.Mesh(new THREE.PlaneGeometry(1.02,.30), new THREE.MeshBasicMaterial({map:makeSignTexture('HrM','MMXXVI'), transparent:true}));
-    nameBand.position.set(0,1.28,.60); g.add(nameBand);
-
-    // Bust — round marble military monument with authored mask and WTF graffiti (batch 138).
-    // The sculpture stays predominantly marble. Colour is applied as irregular,
-    // graffiti-like intervention rather than as a fully painted uniform.
-    const statueAccentBlue = new THREE.MeshStandardMaterial({color:0x316da0, roughness:.76, metalness:.02});
-    const statueAccentRed = new THREE.MeshStandardMaterial({color:0xaa3f37, roughness:.78, metalness:.02});
-    const statueAccentOchre = new THREE.MeshStandardMaterial({color:0xc69542, roughness:.80, metalness:.02});
-    const statueBronze = new THREE.MeshStandardMaterial({color:0x8c714e, roughness:.48, metalness:.56});
-    const statueMaskBackMat = new THREE.MeshStandardMaterial({color:0x12100f, roughness:.74, metalness:.04});
-    const statueMaskFrameMat = new THREE.MeshStandardMaterial({color:0x3d332b, roughness:.42, metalness:.42});
-
-    // The bust itself is a separate group so it can be taller and more dominant
-    // without changing the pedestal or surrounding planting.
-    const statueBody = new THREE.Group();
-    // Scale around the pedestal contact point so the larger bust does not float.
-    statueBody.position.y = -.247;
-    statueBody.scale.set(1.11,1.11,1.11);
-    g.add(statueBody);
-
-    // One continuous lathed torso replaces the former stack of visible parts.
-    // Its silhouette includes the base, coat, shoulders, trapezius and neck, so
-    // the figure reads as a single carved object from the front, side and back.
-    const torsoProfile=[
-      new THREE.Vector2(.62,0),new THREE.Vector2(.65,.12),new THREE.Vector2(.58,.20),
-      new THREE.Vector2(.60,.54),new THREE.Vector2(.68,.78),new THREE.Vector2(.61,1.00),
-      new THREE.Vector2(.48,1.15),new THREE.Vector2(.36,1.22),new THREE.Vector2(.28,1.30),
-      new THREE.Vector2(.255,1.48),new THREE.Vector2(.21,1.58)
-    ];
-    const unifiedTorso=new THREE.Mesh(new THREE.LatheGeometry(torsoProfile,64),marbleMat);
-    unifiedTorso.position.set(0,1.94,0); unifiedTorso.scale.z=.76; unifiedTorso.castShadow=true; unifiedTorso.receiveShadow=true;
-    statueBody.add(unifiedTorso);
-
-    const lapelLeft = new THREE.Mesh(new THREE.BoxGeometry(.24,.40,.058), marbleMat);
-    lapelLeft.position.set(-.13,3.00,.38); lapelLeft.rotation.z=-.28; statueBody.add(lapelLeft);
-    const lapelRight = lapelLeft.clone(); lapelRight.position.x=.13; lapelRight.rotation.z=.28; statueBody.add(lapelRight);
-    const sash = new THREE.Mesh(new THREE.BoxGeometry(.13,.94,.052), stoneLiteMat);
-    sash.position.set(-.10,2.70,.447); sash.rotation.z=-.57; statueBody.add(sash);
-
-    for(const x of [-.19,.19]) for(const y of [2.42,2.63,2.84]){
-      const button = new THREE.Mesh(new THREE.SphereGeometry(.035,12,10), statueBronze);
-      button.position.set(x,y,.458); statueBody.add(button);
-    }
-    const medalRibbonA = new THREE.Mesh(new THREE.BoxGeometry(.10,.11,.032), statueAccentRed);
-    medalRibbonA.position.set(.22,2.93,.465); statueBody.add(medalRibbonA);
-    const medalRibbonB = new THREE.Mesh(new THREE.BoxGeometry(.10,.11,.032), statueAccentBlue);
-    medalRibbonB.position.set(.34,2.91,.465); medalRibbonB.rotation.z=.06; statueBody.add(medalRibbonB);
-    const medalA = new THREE.Mesh(new THREE.CylinderGeometry(.043,.043,.026,16), statueBronze);
-    medalA.position.set(.22,2.82,.472); medalA.rotation.x=Math.PI/2; statueBody.add(medalA);
-    const medalB = medalA.clone(); medalB.position.set(.34,2.80,.472); statueBody.add(medalB);
-
-    // Irregular paint fragments scattered over the otherwise marble uniform.
-    const statueFragments = [
-      {size:[.24,.070,.030], pos:[-.30,2.92,.460], rot:-.12, mat:statueAccentBlue},
-      {size:[.14,.082,.030], pos:[ .31,2.74,.462], rot: .09, mat:statueAccentRed},
-      {size:[.10,.17,.030],  pos:[-.47,2.57,.435], rot:-.22, mat:statueAccentOchre},
-      {size:[.16,.055,.030], pos:[ .43,3.08,.370], rot: .14, mat:statueAccentBlue},
-      {size:[.11,.14,.030],  pos:[ .03,2.42,.462], rot:-.10, mat:statueAccentRed},
-      {size:[.13,.052,.030], pos:[-.55,3.08,.230],rot: .03, mat:statueAccentRed},
-      {size:[.10,.058,.030], pos:[ .56,3.07,.230],rot:-.03, mat:statueAccentOchre}
-    ];
-    statueFragments.forEach(f=>{
-      const shard = new THREE.Mesh(new THREE.BoxGeometry(...f.size), f.mat);
-      shard.position.set(...f.pos); shard.rotation.z=f.rot; statueBody.add(shard);
-    });
-
-    // Hand-painted WTF graffiti decal: rough brush edges, overspray and drips.
-    function makeWtfGraffitiTexture(){
-      const c=document.createElement('canvas'); c.width=1024; c.height=512;
-      const q=c.getContext('2d'); q.clearRect(0,0,c.width,c.height);
-      q.save(); q.translate(512,260); q.rotate(-.10);
-      q.textAlign='center'; q.textBaseline='middle';
-      q.font='900 260px Arial Black, Impact, sans-serif';
-      q.lineJoin='round'; q.lineCap='round';
-      q.strokeStyle='rgba(36,24,18,.34)'; q.lineWidth=34; q.strokeText('WTF',0,0);
-      q.fillStyle='#b9342e'; q.shadowColor='rgba(170,40,32,.45)'; q.shadowBlur=12; q.fillText('WTF',0,0);
-      q.shadowBlur=0;
-      q.globalAlpha=.62;
-      for(let i=0;i<180;i++){
-        const x=-390+Math.random()*780, y=-120+Math.random()*245;
-        const r=.8+Math.random()*5.4;
-        q.fillStyle=i%5===0?'#2f6d9d':'#b9342e';
-        q.beginPath(); q.arc(x,y,r,0,Math.PI*2); q.fill();
-      }
-      q.globalAlpha=.72;
-      for(const [x,len,w,col] of [[-240,120,13,'#b9342e'],[20,86,10,'#2f6d9d'],[240,145,12,'#b9342e']]){
-        q.fillStyle=col; q.fillRect(x,85,w,len); q.beginPath();q.arc(x+w/2,85+len,w/2,0,Math.PI*2);q.fill();
-      }
-      q.restore();
-      const tex=new THREE.CanvasTexture(c); tex.colorSpace=THREE.SRGBColorSpace; return tex;
-    }
-    const wtfTex = makeWtfGraffitiTexture();
-    const wtfDecal = new THREE.Mesh(
-      new THREE.PlaneGeometry(.86,.43),
-      new THREE.MeshBasicMaterial({map:wtfTex,transparent:true,toneMapped:false,depthWrite:false,side:THREE.DoubleSide})
-    );
-    wtfDecal.position.set(.02,2.68,.474); wtfDecal.rotation.z=-.03; wtfDecal.renderOrder=4; statueBody.add(wtfDecal);
-
-    // Finished sculptural head. A continuous black-stone cranium, jaw and neck
-    // carry the supplied handmade face at human scale; the image is inset almost
-    // flush, while the occipital carving completes the sculpture from behind.
-    const faceTex = new THREE.TextureLoader().load(MEDIA.maskGardenFace);
-    faceTex.colorSpace = THREE.SRGBColorSpace;faceTex.anisotropy=8;
-    faceTex.wrapS=faceTex.wrapT=THREE.ClampToEdgeWrapping;faceTex.repeat.set(.86,.86);faceTex.offset.set(.07,.07);
-    const headGroup=new THREE.Group();headGroup.position.set(0,3.69,.01);statueBody.add(headGroup);
-    const headStone=new THREE.MeshStandardMaterial({color:0x171514,roughness:.82,metalness:.035,bumpScale:.05});
-    const cranium=new THREE.Mesh(new THREE.SphereGeometry(.60,72,56),headStone);cranium.scale.set(.98,1.10,.92);cranium.castShadow=true;headGroup.add(cranium);
-    const jaw=new THREE.Mesh(new THREE.SphereGeometry(.43,64,42),headStone);jaw.position.set(0,-.29,.035);jaw.scale.set(1.02,.78,.92);headGroup.add(jaw);
-    const neck=new THREE.Mesh(new THREE.CylinderGeometry(.27,.34,.66,48),headStone);neck.position.set(0,-.65,-.02);headGroup.add(neck);
-    // The face is carried on a shallow spherical cap concentric with the
-    // cranium, so the portrait curves with the skull instead of reading as a
-    // flat disc pinned to the front — the one remaining "toy" tell the visual
-    // guidelines call out (no flat-disc face). A hair larger than the cranium
-    // so it sits just proud and never z-fights.
-    const faceR=.60, halfPhi=.66, halfTheta=.80;
-    const faceGeo=new THREE.SphereGeometry(faceR,56,44, Math.PI/2-halfPhi, halfPhi*2, Math.PI/2-halfTheta, halfTheta*2);
-    const faceCap=new THREE.Mesh(faceGeo,new THREE.MeshStandardMaterial({map:faceTex,roughness:.84,metalness:.01}));
-    faceCap.scale.set(.995,1.115,.935);headGroup.add(faceCap);
-    // The original mouth is reinforced as a recessed, softly modelled opening,
-    // avoiding the tiny pasted-on look of the previous version. Its depth now
-    // hugs the curved face (~z .52 at mouth height) rather than the old flat
-    // plane, so it reads as carved into the surface, still clearly proud.
-    const mouthRim=new THREE.Mesh(new THREE.TorusGeometry(.145,.036,18,48),new THREE.MeshStandardMaterial({color:0x6f1718,roughness:.62,metalness:.03}));
-    mouthRim.position.set(0,-.245,.536);mouthRim.scale.y=.46;headGroup.add(mouthRim);
-    const mouthVoid=new THREE.Mesh(new THREE.CircleGeometry(.115,40),new THREE.MeshBasicMaterial({color:0x170707}));mouthVoid.position.set(0,-.245,.542);mouthVoid.scale.y=.42;headGroup.add(mouthVoid);
-    // Designed back: three shallow concentric carvings and a small maker's seal
-    // are visible when the visitor walks around the monument.
-    for(const r of [.27,.38,.49]){const groove=new THREE.Mesh(new THREE.TorusGeometry(r,.012,10,64),statueMaskFrameMat);groove.position.set(0,.01,-.555);groove.rotation.y=Math.PI;headGroup.add(groove);}
-    const backSeal=new THREE.Mesh(new THREE.CylinderGeometry(.10,.10,.024,32),statueBronze);backSeal.position.set(0,.01,-.584);backSeal.rotation.x=Math.PI/2;headGroup.add(backSeal);
-    const unifiedHead=cranium;
-
-    // Roundabout ring bed: rosemary and lavender clipped low around the plinth.
+    // Low circular planting island in the centre of the gravel roundabout.
     const ringBed = new THREE.Mesh(new THREE.RingGeometry(1.65,2.55,48), new THREE.MeshStandardMaterial({color:0x5d4936, roughness:.97, metalness:0}));
     ringBed.rotation.x = -Math.PI/2; ringBed.position.y=.045; g.add(ringBed);
     const ringShrubs = new THREE.InstancedMesh(new THREE.SphereGeometry(.26,10,8),
@@ -6177,10 +6040,6 @@ function buildOutdoorSpace(){
       g.add(ringShrubs);
     }
 
-    const key = new THREE.SpotLight(0xfff2d8,3.15,25,Math.PI/5.2,.46,1.22);
-    key.position.set(x0-5.5,8.4,rondZ+6.5); key.target.position.set(x0,3.0,rondZ); scene.add(key); scene.add(key.target); regLight('outdoor', key);
-    const fill = new THREE.SpotLight(0xe8f4ff,1.72,23,Math.PI/5.8,.58,1.42);
-    fill.position.set(x0+5.0,7.2,rondZ-5.5); fill.target.position.set(x0,2.8,rondZ); scene.add(fill); scene.add(fill.target); regLight('outdoor', fill);
   }
 
   // --- Round reflecting pond among the trees (after the pavilion garden). ---
@@ -6293,7 +6152,7 @@ function buildOutdoorSpace(){
   bench(x0+9.6, pondZ+7.2, -Math.PI*.78);
 
   // --- Room title and the door back to the hall. ---
-  const title = new THREE.Mesh(new THREE.PlaneGeometry(5.2,.40), new THREE.MeshBasicMaterial({map:labelTexture('THE GROVE','round pond · cork oaks · marble mask bust'), transparent:true}));
+  const title = new THREE.Mesh(new THREE.PlaneGeometry(5.2,.40), new THREE.MeshBasicMaterial({map:labelTexture('THE GROVE','round pond · cork oaks · reflecting garden'), transparent:true}));
   title.position.set(x0,4.7,doorZ-.30); title.rotation.y = Math.PI; scene.add(title);
 
   const ret = addPremiumPortalDoor({
@@ -11985,7 +11844,7 @@ function updateRoomUI(){
   }else if(currentRoom === 'outdoor'){
     $('workTitle').textContent = 'THE GROVE';
     $('workCollection').textContent = 'GARDEN';
-    $('workMeta').textContent = 'roundabout bust · reflecting pond · cliffside amphitheatre';
+    $('workMeta').textContent = 'reflecting pond · cork oaks · cliffside amphitheatre';
     $('workText').textContent = 'A Mediterranean garden with the conversational HrM figure, reflecting pond and mature cork oaks, now extending east into a restored 144-seat stone amphitheatre with an independent live projection stage.';
     ariaStatus.textContent = 'The Grove. Mediterranean garden, conversational HrM figure, reflecting pond and restored cliffside projection amphitheatre.';
   }else if(isHoodRoom(currentRoom)){
