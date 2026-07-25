@@ -5675,12 +5675,22 @@ function buildNightRoom(){
   // makeFittedCanvasTexture's contain-fit then left visible cream padding
   // bands on each frame. Re-declared at their real aspect, same frame area.
   const loungeWorks=[
-    {src:REAL_DECOR.lounge.f,w:2.04,h:1.60,x:x0-hw+.14,y:3.60,z:z0+7.0,  r: Math.PI/2},
-    {src:REAL_DECOR.lounge.a,w:1.72,h:1.72,x:x0-hw+.14,y:3.60,z:z0+15.5, r: Math.PI/2},
-    {src:REAL_DECOR.lounge.b,w:2.02,h:1.60,x:x0-hw+.14,y:3.60,z:z0+27.0, r: Math.PI/2},
-    {src:REAL_DECOR.lounge.c,w:2.03,h:1.53,x:x0-hw+.14,y:3.60,z:z0+32.2, r: Math.PI/2},
-    {src:SUNSET_CHANG_SRC,w:1.58,h:2.22,x:x0+hw-.14,y:3.72,z:z0+4.7,  r:-Math.PI/2},
-    {src:REAL_DECOR.lounge.e,w:2.00,h:1.47,x:x0+hw-.14,y:3.62,z:z0+31.2, r:-Math.PI/2}
+    // The left wall is interrupted by the Tunnel door (z0+19.68 .. z0+22.88),
+    // which is why there is a wide centre gap — that part is architectural and
+    // stays. What was untidy is that neither door-segment was balanced within
+    // itself: the pair before the door sat 5.98 m off the corner but only
+    // 3.32 m off the door, and the pair after it 3.11 m off the door but
+    // 4.79 m off the far corner. Each segment now uses one equal spacing for
+    // corner / between / door (5.31 m before, 3.69 m after), so both groups
+    // read as deliberately hung rather than drifted.
+    {src:REAL_DECOR.lounge.f,w:2.04,h:1.60,x:x0-hw+.14,y:3.60,z:z0+6.33, r: Math.PI/2},
+    {src:REAL_DECOR.lounge.a,w:1.72,h:1.72,x:x0-hw+.14,y:3.60,z:z0+13.51,r: Math.PI/2},
+    {src:REAL_DECOR.lounge.b,w:2.02,h:1.60,x:x0-hw+.14,y:3.60,z:z0+27.58,r: Math.PI/2},
+    {src:REAL_DECOR.lounge.c,w:2.03,h:1.53,x:x0-hw+.14,y:3.60,z:z0+33.30,r: Math.PI/2},
+    // The two right-wall works hung 12 cm and 2 cm off the left wall's line;
+    // all six now share one 3.60 m centre line through the room.
+    {src:SUNSET_CHANG_SRC,w:1.58,h:2.22,x:x0+hw-.14,y:3.60,z:z0+4.7,  r:-Math.PI/2},
+    {src:REAL_DECOR.lounge.e,w:2.00,h:1.47,x:x0+hw-.14,y:3.60,z:z0+31.2, r:-Math.PI/2}
   ];
   loungeWorks.forEach((w,i)=>addFramedWallArt({src:w.src,title:`Ornament Study ${i+1}`,subtitle:'sunset lounge',
     width:w.w,height:w.h,x:w.x,y:w.y,z:w.z,rotationY:w.r,frameColor:0x3d2a1f,matteColor:0xf0e7da,showLabel:false}));
@@ -10595,8 +10605,10 @@ function buildStudio(){
   // problem). It moved to the left wall's open bay at z0+9.5; the bay between
   // the doors now stays deliberately empty as breathing space.
   const albumWorks=[
-    {src:STUDIO_DECOR_SRCS[0],title:'DAMN.',x:x0+4.11,y:3.85,w:1.92,h:1.92},
-    {src:STUDIO_DECOR_SRCS[3],title:'Rubber Soul',x:x0+7.53,y:3.85,w:1.92,h:1.92}
+    // Dropped from 3.85 to the 3.60 centre line both side walls use, so all
+    // three hung walls in the Studio share one horizon.
+    {src:STUDIO_DECOR_SRCS[0],title:'DAMN.',x:x0+4.11,y:3.60,w:1.92,h:1.92},
+    {src:STUDIO_DECOR_SRCS[3],title:'Rubber Soul',x:x0+7.53,y:3.60,w:1.92,h:1.92}
   ];
   albumWorks.forEach(w=>addFramedWallArt({src:w.src,title:w.title,subtitle:'studio listening archive',width:w.w,height:w.h,x:w.x,y:w.y,z:z1-.17,rotationY:Math.PI,frameColor:0x171319,matteColor:0xeee7dc,showLabel:false}));
   const albumWashL=new THREE.PointLight(0xffd7b1,.82,6.2,1.9); albumWashL.position.set(x0-5.4,4.5,z1-2.0); scene.add(albumWashL); regLight('studio',albumWashL);
@@ -10610,10 +10622,14 @@ function buildStudio(){
   // Eames chairs' new position and clear of every existing side-wall piece. =====
   const AGE_OF_ADZ_SRC = 'assets/new/age-of-adz.webp';
   const studioWallWorks = [
-    {src:STUDIO_DECOR_SRCS[2],title:'Sgt. Pepper',width:3.55,height:3.19,x:x0-hw+.16,y:3.65,z:z0+5.96,rotationY: Math.PI/2},
-    {src:STUDIO_DECOR_SRCS[1],title:'Pink Floyd',width:1.92,height:1.92,x:x0-hw+.16,y:3.85,z:z0+9.87,rotationY: Math.PI/2},
-    {src:STUDIO_DECOR_SRCS[4],title:'Pink Floyd at Pompeii',width:1.75,height:2.55,x:x0-hw+.16,y:3.55,z:z0+12.89,rotationY: Math.PI/2},
-    {src:STUDIO_TAYK_SRC,title:'Tay-K',width:1.78,height:2.18,x:x0-hw+.16,y:3.62,z:z0+15.83,rotationY: Math.PI/2},
+    // These five hung at five different centres (3.55/3.60/3.62/3.65/3.85) —
+    // a 30 cm wobble down an otherwise evenly-spaced row, which is the most
+    // visible hanging fault in the museum. They now share the 3.60 m centre
+    // line the right wall opposite already uses, so one line runs the room.
+    {src:STUDIO_DECOR_SRCS[2],title:'Sgt. Pepper',width:3.55,height:3.19,x:x0-hw+.16,y:3.60,z:z0+5.96,rotationY: Math.PI/2},
+    {src:STUDIO_DECOR_SRCS[1],title:'Pink Floyd',width:1.92,height:1.92,x:x0-hw+.16,y:3.60,z:z0+9.87,rotationY: Math.PI/2},
+    {src:STUDIO_DECOR_SRCS[4],title:'Pink Floyd at Pompeii',width:1.75,height:2.55,x:x0-hw+.16,y:3.60,z:z0+12.89,rotationY: Math.PI/2},
+    {src:STUDIO_TAYK_SRC,title:'Tay-K',width:1.78,height:2.18,x:x0-hw+.16,y:3.60,z:z0+15.83,rotationY: Math.PI/2},
     {src:STUDIO_DECOR_SRCS[8],title:'Currents',width:1.92,height:1.92,x:x0-hw+.16,y:3.60,z:z0+18.86,rotationY: Math.PI/2},
     {src:STUDIO_DECOR_SRCS[6],title:'In Utero',width:2.35,height:2.35,x:x0+hw-.16,y:3.60,z:z0+5.87,rotationY:-Math.PI/2},
     {src:STUDIO_DECOR_SRCS[7],title:'Flower Boy',width:2.55,height:2.55,x:x0+hw-.16,y:3.60,z:z0+10.0,rotationY:-Math.PI/2},
