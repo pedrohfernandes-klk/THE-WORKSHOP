@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CONSTRAINT DECK</title>
+<style>
+  :root{
+    --bg0:#0a0710; --bg1:#140a22; --edge:#7cf6ff; --accent:#ff5fdc; --ink:#f4eefb;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  html,body{height:100%}
+  body{
+    background:radial-gradient(120% 100% at 50% 0%, var(--bg1), var(--bg0) 70%);
+    color:var(--ink); font-family:"Helvetica Neue",Arial,sans-serif;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    height:100vh; overflow:hidden; text-align:center; padding:4.5vmin; cursor:pointer;
+    -webkit-user-select:none; user-select:none;
+  }
+  .frame{position:fixed; inset:1.6vmin; border:.35vmin solid rgba(124,246,255,.22); border-radius:1.4vmin; pointer-events:none}
+  .frame::after{content:""; position:absolute; inset:1.4vmin; border:.3vmin solid rgba(255,95,220,.16); border-radius:1vmin}
+  .kicker{font-size:2.9vmin; letter-spacing:.42em; color:var(--edge); text-transform:uppercase; opacity:.9; margin-bottom:1vmin}
+  .card{
+    max-width:88%; min-height:34vmin; display:flex; align-items:center; justify-content:center;
+    font-weight:700; line-height:1.16; letter-spacing:.005em;
+    font-size:7.6vmin; text-wrap:balance; text-shadow:0 0 3.2vmin rgba(255,95,220,.28);
+    transition:opacity .18s ease, transform .18s ease;
+  }
+  .card.swap{opacity:0; transform:translateY(1.4vmin) scale(.98)}
+  .meta{margin-top:2.2vmin; font-size:2.5vmin; letter-spacing:.3em; text-transform:uppercase; color:rgba(244,238,251,.5)}
+  .cta{
+    margin-top:3.4vmin; font-size:3vmin; letter-spacing:.34em; text-transform:uppercase;
+    color:var(--accent); font-weight:700; padding:1.5vmin 4vmin; border:.35vmin solid rgba(255,95,220,.55);
+    border-radius:10vmin; background:rgba(255,95,220,.06); transition:background .15s ease, transform .1s ease;
+  }
+  body:active .cta{transform:scale(.97)}
+  .scan{position:fixed; inset:0; pointer-events:none; opacity:.05;
+    background:repeating-linear-gradient(0deg, #7cf6ff 0 .12vmin, transparent .12vmin .9vmin)}
+</style>
+</head>
+<body>
+  <div class="frame"></div>
+  <div class="scan"></div>
+  <div class="kicker">Constraint Deck</div>
+  <div class="card" id="card">Draw a constraint. Make the next hour obey it.</div>
+  <div class="meta" id="meta">Tap · Click · press R</div>
+  <div class="cta">Draw</div>
+
+<script>
+// An original deck of working constraints for the Workshop — write-your-own
+// creative limits, not a reproduction of any existing card set. Each card is a
+// single instruction meant to bend whatever you are making right now.
+const DECK = [
+  "Remove the part you are proudest of. Keep going.",
+  "Finish it in one third of the time you planned.",
+  "Make the quietest element the loudest.",
+  "Do the opposite of your first instinct for ten minutes.",
+  "Let the mistake lead. Follow it somewhere.",
+  "Cut the piece in half. Show only one half.",
+  "Explain it to someone who will never see it.",
+  "Use only what is already on the table.",
+  "Add nothing. Take three things away.",
+  "Change one rule and rebuild around the change.",
+  "Make it work at twice the size, then shrink it.",
+  "Start from the ending and walk backwards.",
+  "Give the boring part the best seat.",
+  "Repeat the smallest move until it becomes the whole thing.",
+  "Trade precision for speed for one full pass.",
+  "Break the symmetry on purpose.",
+  "Hand the decision to a coin. Honour it.",
+  "Keep only the first idea and the last.",
+  "Make the frame more interesting than the picture.",
+  "Say it in seven words, then build those.",
+  "Let the material decide the next step.",
+  "Turn the constraint you resent into the point.",
+  "Work as if someone will copy it exactly.",
+  "Leave one thing deliberately unfinished.",
+  "Make the transition the main event.",
+  "Design for the tired version of yourself.",
+  "Remove every adjective. Rebuild with verbs.",
+  "Solve a harder problem that makes this one vanish.",
+  "Use the ugliest option and make it inevitable.",
+  "Put the ending first and see what it owes you.",
+  "Halve the palette. Double the contrast.",
+  "Make the seams visible and proud.",
+  "Give it a rhythm before you give it a shape.",
+  "Answer the question underneath the question.",
+  "Do it once more, faster, with your eyes closed.",
+  "Keep the accident. Discard the plan.",
+  "Let one element be far too large.",
+  "Build the version you would delete, then defend it.",
+  "Strip the color. See if it still stands.",
+  "Make the tool do something it was not meant to.",
+  "Give the negative space a job.",
+  "Say less and repeat it.",
+  "Turn the flaw into the signature.",
+  "Move the most important thing to the edge.",
+  "Make it legible from across the room.",
+  "Cut until it hurts, then cut one more.",
+  "Start with the part you are avoiding.",
+  "Let the constraint outlive the deadline.",
+  "Reverse the order of everything.",
+  "Make the whole thing out of the leftover.",
+  "Ship the rough one. Learn from the room.",
+  "Give it one clear edge and one soft one.",
+  "Assume the opposite audience.",
+  "Make the process the product.",
+  "Keep the tempo; change the key.",
+  "Let it be slower than feels comfortable.",
+  "Trust the version you made in the first five minutes.",
+  "Take the long way and log what you find.",
+  "End on the note you were saving.",
+  "Make one bold thing and defend nothing else."
+];
+
+const cardEl = document.getElementById('card');
+const metaEl = document.getElementById('meta');
+
+// Shuffle bag: no card repeats until the deck is exhausted, then reshuffle.
+let bag = [];
+function refill(){
+  bag = DECK.map((_,i)=>i);
+  for(let i=bag.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [bag[i],bag[j]]=[bag[j],bag[i]]; }
+}
+let drawn = 0;
+function draw(){
+  if(!bag.length) refill();
+  const idx = bag.pop();
+  drawn++;
+  cardEl.classList.add('swap');
+  setTimeout(()=>{
+    cardEl.textContent = DECK[idx];
+    cardEl.classList.remove('swap');
+    metaEl.textContent = 'Card ' + drawn + ' · ' + DECK.length + ' in the deck';
+  }, 170);
+}
+
+refill();
+window.addEventListener('keydown', e=>{
+  if(e.key==='r' || e.key==='R' || e.key==='Enter' || e.key===' '){ e.preventDefault(); draw(); }
+});
+window.addEventListener('click', draw);
+window.addEventListener('touchend', e=>{ e.preventDefault(); draw(); }, {passive:false});
+</script>
+</body>
+</html>
