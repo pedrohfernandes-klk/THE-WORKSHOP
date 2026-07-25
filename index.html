@@ -777,7 +777,7 @@ button:focus-visible,input:focus-visible{outline:2px solid rgba(169,76,68,.62);o
   background:#0b0906;
   opacity:0;
   pointer-events:none;
-  transition:opacity .35s ease;
+  transition:opacity .24s ease;
 }
 #fadeOverlay.show{opacity:1}
 #playOverlay{
@@ -4401,9 +4401,14 @@ function init(){
     onTask:id=>{builtDistricts.add(id);window.__workshopMetrics.built.push(id);},
     onDone:errors=>{
       applyGlobalTuning();
-      buildParticles();
-      applyRoomLighting();
-      updateRoomUI();
+      // Spread the remaining finalisation across the next two frames so it does
+      // not land as one synchronous hitch right after the heaviest (Hood)
+      // build. Lighting was already applied at entry, so a one-frame defer is
+      // invisible; the ?selftest hook (120 ms) still runs after this completes.
+      requestAnimationFrame(()=>{
+        buildParticles();
+        requestAnimationFrame(()=>{ applyRoomLighting(); updateRoomUI(); });
+      });
       window.__workshopMetrics.fullyReady=performance.now()-initStarted;
       window.__workshopMetrics.resources=performance.getEntriesByType('resource').length;
       window.__workshopMetrics.failures=errors.map(({task,error})=>({id:task?.id||'finalisation',message:String(error?.message||error)}));
@@ -13016,7 +13021,7 @@ function travelTo(portal){
     approach.y = cameraHeight;
   }
   const faceYaw = Math.atan2(-(doorWorld.x - visitor.x), -(doorWorld.z - visitor.z));
-  if(!reducedMotion) startCameraTransition(approach, faceYaw, 0, .46);
+  if(!reducedMotion) startCameraTransition(approach, faceYaw, 0, .32);
   const jump = ()=>{
     overlay.classList.add('show');
     setTimeout(()=>{
@@ -13059,9 +13064,12 @@ function travelTo(portal){
       updateRoomUI();
       msg(portal.label || 'Arrived');
       requestAnimationFrame(()=>overlay.classList.remove('show'));
-    }, reducedMotion ? 0 : 210);
+    }, reducedMotion ? 0 : 140);
   };
-  setTimeout(jump, reducedMotion ? 0 : 480);
+  // Tightened from 480/210 (+.35s fade) so arrival feels responsive: the door
+  // approach glide and the opaque hold are shorter while the cinematic fade is
+  // kept. Proportions preserved so the room still swaps under cover of the fade.
+  setTimeout(jump, reducedMotion ? 0 : 260);
   return true;
 }
 
@@ -13536,7 +13544,10 @@ function updateWorld(dt, t){
         hallHologram.column.geometry.attributes.position.needsUpdate = true;
       }
     }
-    if(particles){
+    // Particles live in the gallery's z-corridor (invisible from other
+    // districts), so only animate their per-vertex drift + buffer re-upload
+    // when the visitor is actually in the gallery.
+    if(particles && currentRoom==='gallery'){
       const arr = particles.geometry.attributes.position.array;
       for(let i=2;i<arr.length;i+=3){
         arr[i] += dt*.42;
@@ -13545,7 +13556,9 @@ function updateWorld(dt, t){
       particles.geometry.attributes.position.needsUpdate = true;
     }
   }
-  artworkObjects.forEach((o,i)=>{
+  // The artworks are gallery-only (registered with regLight('gallery')); their
+  // per-frame scale-lerp and opacity writes were running in all 11 rooms.
+  if(currentRoom==='gallery') artworkObjects.forEach((o,i)=>{
     const dist = Math.abs(visitor.z - o.z);
     const scale = i===selected ? 1.055 : 1;
     o.group.scale.lerp(tmpVec.set(scale,scale,scale), .12);
@@ -13711,20 +13724,27 @@ function drawMap(){
 // Runtime performance ladder (batch 127): if the average frame stays above
 // ~42 ms across a 4-second window, step the pixel ratio down once (max two
 // steps, floor 0.85) instead of letting weak devices grind.
-let perfAccum = 0, perfFrames = 0, perfSteps = 0;
+// Bidirectional performance ladder: sample average frame time over a 2 s
+// window and adjust pixel ratio both ways. Ease DOWN when frames are slow
+// (>33 ms ≈ 30 fps) toward a floor of 60% of the initial DPR; RESTORE up
+// toward that initial DPR (the ceiling) when there is headroom (<22 ms ≈
+// 45 fps). A dead zone between the two thresholds prevents oscillation.
+let perfAccum = 0, perfFrames = 0, perfBasePR = 0;
 function updatePerformanceLadder(dt){
-  if(perfSteps >= 2) return;
   perfAccum += dt; perfFrames++;
-  if(perfAccum < 4) return;
+  if(perfAccum < 2) return;
   const avg = perfAccum / perfFrames;
   perfAccum = 0; perfFrames = 0;
-  if(avg > 0.042){
-    perfSteps++;
-    const pr = Math.max(.85, renderer.getPixelRatio() * .85);
-    renderer.setPixelRatio(pr);
+  if(!perfBasePR) perfBasePR = renderer.getPixelRatio();   // initial/adaptive DPR = ceiling
+  const cur = renderer.getPixelRatio();
+  let next = cur;
+  if(avg > 0.033 && cur > perfBasePR*0.6) next = Math.max(perfBasePR*0.6, cur*0.85);
+  else if(avg < 0.022 && cur < perfBasePR) next = Math.min(perfBasePR, cur*1.12);
+  if(Math.abs(next - cur) > 0.001){
+    renderer.setPixelRatio(next);
     renderer.setSize(innerWidth, innerHeight);
     if(cssRenderer) cssRenderer.setSize(innerWidth, innerHeight);
-    msg('Performance mode: resolution eased');
+    if(next < cur) msg('Performance mode: resolution eased');
   }
 }
 
