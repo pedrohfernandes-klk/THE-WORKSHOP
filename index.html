@@ -10745,6 +10745,15 @@ function buildStudio(){
     action:'created',capability:'making',hintId:'studio-maker',priority:5,
     hintText:'A full workstation with instant mixes, dual sample decks, voice recording, effects, export and the Studio YouTube wall.',prompt:()=>'Open the mixing desk',onUse:openStudioMaker});
 
+  // Companion beat station beside the desk: a compact step sequencer that can
+  // throw its loop up onto the Studio wall.
+  const loopSign=new THREE.Mesh(new THREE.PlaneGeometry(1.4,.82),new THREE.MeshBasicMaterial({map:makeSignTexture('LOOP','beat station · to the wall'),toneMapped:false}));
+  loopSign.position.set(x0+4.7,1.5,z0+16.62); loopSign.rotation.x=-.34; loopSign.rotation.y=.16; scene.add(loopSign);
+  const loopGlow=new THREE.PointLight(0x5fe0ff,.7,6,1.9); loopGlow.position.set(x0+4.7,1.82,z0+16.4); scene.add(loopGlow); regLight('studio',loopGlow);
+  registerInteractable({id:'studio:loop-sketchpad',type:'maker',room:'studio',mesh:loopSign,label:'Loop Sketchpad',
+    action:'created',capability:'making',hintId:'studio-loop',priority:5,
+    hintText:'A compact beat station: build a drum loop and send it to the Studio wall.',prompt:()=>'Open the Loop Sketchpad',onUse:openLoopSketchpad});
+
   studioFX = {tiles:null, tileN:0, speakerRings, orbs, ball, tileTimer:0};
 }
 
@@ -12476,6 +12485,69 @@ function openStudioMaker(){
   const frame=$('studioMakerFrame');
   openAccessibleDialog(panel,{initialFocus:frame,onEscape:closeStudioMaker});
   setTimeout(()=>{frame?.focus();try{frame?.contentWindow.postMessage({type:'workshop-studio-desk',action:'state-request'},'*');}catch(e){}},40);
+}
+function closeLoopSketchpad(){
+  const panel=$('loopMakerPanel'); if(!panel) return;
+  const frame=$('loopMakerFrame');
+  try{ frame?.contentWindow.postMessage({type:'workshop-loop',action:'stop'},'*'); }catch(e){}
+  closeAccessibleDialog(panel);
+  panel.classList.remove('open');
+  panel.setAttribute('aria-hidden','true');
+}
+// Loop Sketchpad — a compact maker panel modeled on openStudioMaker (a
+// fullscreen iframe host + a namespaced postMessage bridge). Simpler than the
+// desk: no mini dock, audio lives only while the panel is open. The bridge
+// carries 'close' and 'to-wall' (a self-contained visualizer the child builds,
+// projected onto the Studio wall via projectionEmbedFrom's raw-HTML path).
+function openLoopSketchpad(){
+  if(document.pointerLockElement) document.exitPointerLock();
+  let panel=$('loopMakerPanel');
+  if(!panel){
+    const style=document.createElement('style');
+    style.id='loopMakerHostStyles';
+    style.textContent=`
+      #loopMakerPanel{position:fixed;inset:0;z-index:12000;background:#14121a;display:none;opacity:0;pointer-events:none;transform:translateX(110vw);transition:opacity .18s ease,transform 0s linear .2s}
+      #loopMakerPanel.open{opacity:1;pointer-events:auto;transform:none;transition:opacity .18s ease}
+      #loopMakerPanel iframe{display:block;width:100%;height:100%;border:0;background:#14121a}
+    `;
+    document.head.appendChild(style);
+    panel=document.createElement('div');
+    panel.id='loopMakerPanel';
+    panel.setAttribute('role','dialog');
+    panel.setAttribute('aria-label','Loop Sketchpad');
+    panel.setAttribute('aria-modal','true');
+    const frame=document.createElement('iframe');
+    frame.id='loopMakerFrame';
+    frame.title='Loop Sketchpad';
+    frame.src='assets/apps/loop-sketchpad.html';
+    frame.allow='autoplay';
+    frame.referrerPolicy='strict-origin-when-cross-origin';
+    panel.appendChild(frame);
+    document.body.appendChild(panel);
+
+    window.addEventListener('message',event=>{
+      if(event.source!==frame.contentWindow || event.data?.type!=='workshop-loop') return;
+      const data=event.data;
+      if(data.action==='close'){ closeLoopSketchpad(); return; }
+      if(data.action==='to-wall'){
+        const url=projectionEmbedFrom(String(data.html||''),true);
+        if(url && studioWallIframe){
+          studioWallIframe.src=url;
+          studioWallIframe.dataset.studioStopped='0';
+          msg('Loop sent to the Studio wall');
+        }else{
+          msg('The Studio wall could not accept the loop');
+        }
+        return;
+      }
+    });
+  }
+  const frame=$('loopMakerFrame');
+  panel.style.display='block';
+  panel.classList.add('open');
+  panel.setAttribute('aria-hidden','false');
+  openAccessibleDialog(panel,{initialFocus:frame,onEscape:closeLoopSketchpad});
+  setTimeout(()=>frame?.focus(),40);
 }
 function updateStudioNowPlaying(show=true){
   const bar=$('studioNowPlaying');

@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loop Sketchpad</title>
+<style>
+  :root{ --bg:#14121a; --panel:#1d1a26; --ink:#f2eefa; --dim:#9d97ac; --accent:#ff5fdc; --edge:#7cf6ff; --cell:#2a2636; --on:#ffd166; }
+  *{box-sizing:border-box; margin:0; padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(120% 120% at 50% -10%, #241a33, var(--bg) 65%); color:var(--ink);
+    font-family:"Helvetica Neue",Arial,sans-serif; height:100vh; display:flex; flex-direction:column; overflow:hidden}
+  header{display:flex; align-items:center; gap:14px; padding:14px 20px; border-bottom:1px solid rgba(124,246,255,.16)}
+  header h1{font-size:16px; letter-spacing:.34em; text-transform:uppercase; color:var(--edge); font-weight:800}
+  header .sub{font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--dim)}
+  header .sp{flex:1}
+  button{font-family:inherit; cursor:pointer; border:1px solid rgba(242,238,250,.22); background:transparent; color:var(--ink);
+    border-radius:999px; padding:9px 16px; font-size:11px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; transition:.14s}
+  button:hover{border-color:var(--accent)}
+  button.primary{border-color:var(--accent); background:var(--accent); color:#1a0f18}
+  button.primary.playing{background:var(--edge); border-color:var(--edge); color:#0a1418}
+  .controls{display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:14px 20px}
+  .tempo{display:flex; align-items:center; gap:10px; font-size:12px; letter-spacing:.14em; color:var(--dim); text-transform:uppercase}
+  .tempo input{width:180px; accent-color:var(--accent)}
+  .tempo b{color:var(--ink); font-size:15px; min-width:56px}
+  .presets{display:flex; gap:8px; margin-left:auto; flex-wrap:wrap}
+  .grid{flex:1; overflow:auto; padding:8px 20px 22px}
+  .row{display:grid; grid-template-columns:96px repeat(16, 1fr); gap:6px; align-items:center; margin-bottom:8px}
+  .row .name{font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--dim); font-weight:800}
+  .cell{height:clamp(34px,7vh,64px); border-radius:9px; background:var(--cell); border:1px solid rgba(255,255,255,.05); position:relative; transition:transform .05s, background .1s}
+  .cell:nth-child(4n+2){margin-left:4px}
+  .cell.on{background:linear-gradient(180deg,#ffe08a,var(--on)); border-color:#fff2cc}
+  .cell.beat{box-shadow:inset 0 0 0 1px rgba(124,246,255,.18)}
+  .cell.play{outline:2px solid var(--edge); outline-offset:1px}
+  .cell:active{transform:scale(.94)}
+  footer{padding:9px 20px; font-size:11px; color:var(--dim); letter-spacing:.08em; border-top:1px solid rgba(124,246,255,.12); text-align:center}
+  kbd{background:#2a2636; border:1px solid rgba(255,255,255,.14); border-radius:5px; padding:1px 6px; font-size:10px}
+</style>
+</head>
+<body>
+  <header>
+    <h1>Loop Sketchpad</h1><span class="sub">beat station</span>
+    <span class="sp"></span>
+    <button id="wallBtn" type="button">To wall</button>
+    <button id="closeBtn" type="button">Close ✕</button>
+  </header>
+  <div class="controls">
+    <button id="playBtn" class="primary" type="button">Play</button>
+    <button id="clearBtn" type="button">Clear</button>
+    <div class="tempo"><label for="bpm">Tempo</label><input id="bpm" type="range" min="60" max="180" value="108"><b id="bpmVal">108</b></div>
+    <div class="presets" id="presets"></div>
+  </div>
+  <div class="grid" id="grid"></div>
+  <footer><kbd>Space</kbd> play/stop · click cells to build a loop · <kbd>To wall</kbd> shows it on the Studio wall</footer>
+
+<script>
+(function(){
+  const TRACKS = [
+    {id:'kick', name:'Kick'},
+    {id:'snare', name:'Snare'},
+    {id:'hat', name:'Hat'},
+    {id:'clap', name:'Clap'}
+  ];
+  const STEPS = 16;
+  let pattern = TRACKS.map(()=>new Array(STEPS).fill(false));
+  let bpm = 108, playing = false, current = 0;
+
+  const PRESETS = {
+    'Four': [[0,4,8,12],[4,12],[0,2,4,6,8,10,12,14],[]],
+    'House':[[0,4,8,12],[4,12],[2,6,10,14],[7,15]],
+    'Break':[[0,10],[4,12],[0,2,4,6,8,10,12,14],[6,14]],
+    'Trap': [[0,7,8],[4,12],[0,2,3,4,6,8,10,11,12,14],[]]
+  };
+
+  // ---- Web Audio ----
+  let ctx=null, master=null;
+  function ensureCtx(){
+    if(ctx) { if(ctx.state==='suspended') ctx.resume(); return ctx; }
+    ctx = new (window.AudioContext||window.webkitAudioContext)();
+    master = ctx.createGain(); master.gain.value=0.9; master.connect(ctx.destination);
+    return ctx;
+  }
+  function noiseBuffer(dur){
+    const n=Math.floor(ctx.sampleRate*dur), b=ctx.createBuffer(1,n,ctx.sampleRate), d=b.getChannelData(0);
+    for(let i=0;i<n;i++) d[i]=Math.random()*2-1;
+    return b;
+  }
+  function env(node, t, peak, dur){
+    const g=ctx.createGain(); g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(peak,t+0.002);
+    g.gain.exponentialRampToValueAtTime(0.0006, t+dur); node.connect(g); g.connect(master); return g;
+  }
+  function playHit(id, t){
+    if(id==='kick'){ const o=ctx.createOscillator(); o.type='sine';
+      o.frequency.setValueAtTime(150,t); o.frequency.exponentialRampToValueAtTime(48,t+0.11);
+      const g=env(o,t,1.0,0.34); o.start(t); o.stop(t+0.36); }
+    else if(id==='snare'){ const src=ctx.createBufferSource(); src.buffer=noiseBuffer(0.2);
+      const hp=ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=1400; src.connect(hp);
+      const g=env(hp,t,0.7,0.18); src.start(t); src.stop(t+0.2);
+      const o=ctx.createOscillator(); o.type='triangle'; o.frequency.setValueAtTime(190,t); env(o,t,0.35,0.12); o.start(t); o.stop(t+0.13); }
+    else if(id==='hat'){ const src=ctx.createBufferSource(); src.buffer=noiseBuffer(0.06);
+      const hp=ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=7000; src.connect(hp);
+      env(hp,t,0.4,0.045); src.start(t); src.stop(t+0.06); }
+    else if(id==='clap'){ for(const off of [0,0.012,0.024]){ const src=ctx.createBufferSource(); src.buffer=noiseBuffer(0.09);
+      const bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=1600; bp.Q.value=0.7; src.connect(bp);
+      env(bp,t+off,0.5,0.09); src.start(t+off); src.stop(t+off+0.1); } }
+  }
+
+  // ---- scheduler ----
+  let nextTime=0, schedTimer=null;
+  const LOOKAHEAD=0.1, TICK=25;
+  function schedule(){
+    const secPer16 = (60/bpm)/4;
+    while(nextTime < ctx.currentTime + LOOKAHEAD){
+      const step = current;
+      for(let r=0;r<TRACKS.length;r++) if(pattern[r][step]) playHit(TRACKS[r].id, nextTime);
+      highlight(step, nextTime);
+      nextTime += secPer16;
+      current = (current+1) % STEPS;
+    }
+    schedTimer = setTimeout(schedule, TICK);
+  }
+  let hlQueue=[];
+  function highlight(step, t){ hlQueue.push({step,t}); }
+  function drawPlayhead(){
+    if(ctx && hlQueue.length){
+      while(hlQueue.length && hlQueue[0].t <= ctx.currentTime){ const {step}=hlQueue.shift(); paintPlayhead(step); }
+    }
+    requestAnimationFrame(drawPlayhead);
+  }
+  function paintPlayhead(step){
+    document.querySelectorAll('.cell.play').forEach(c=>c.classList.remove('play'));
+    document.querySelectorAll('.cell[data-step="'+step+'"]').forEach(c=>c.classList.add('play'));
+  }
+
+  function play(){ ensureCtx(); playing=true; current=0; nextTime=ctx.currentTime+0.06; schedule();
+    const b=document.getElementById('playBtn'); b.textContent='Stop'; b.classList.add('playing'); }
+  function stop(){ playing=false; if(schedTimer) clearTimeout(schedTimer); schedTimer=null; hlQueue=[];
+    document.querySelectorAll('.cell.play').forEach(c=>c.classList.remove('play'));
+    const b=document.getElementById('playBtn'); b.textContent='Play'; b.classList.remove('playing'); }
+  function toggle(){ playing?stop():play(); }
+
+  // ---- UI ----
+  const grid=document.getElementById('grid');
+  function buildGrid(){
+    grid.innerHTML='';
+    TRACKS.forEach((tr,r)=>{
+      const row=document.createElement('div'); row.className='row';
+      const name=document.createElement('div'); name.className='name'; name.textContent=tr.name; row.appendChild(name);
+      for(let s=0;s<STEPS;s++){
+        const cell=document.createElement('div');
+        cell.className='cell'+(s%4===0?' beat':'')+(pattern[r][s]?' on':'');
+        cell.dataset.step=s; cell.dataset.row=r;
+        cell.onclick=()=>{ ensureCtx(); pattern[r][s]=!pattern[r][s]; cell.classList.toggle('on',pattern[r][s]); if(pattern[r][s]) playHit(tr.id, ctx.currentTime+0.01); };
+        row.appendChild(cell);
+      }
+      grid.appendChild(row);
+    });
+  }
+  function loadPreset(name){
+    const p=PRESETS[name]; if(!p) return;
+    pattern = TRACKS.map((_,r)=> new Array(STEPS).fill(false).map((_,s)=> p[r] && p[r].indexOf(s)>=0));
+    buildGrid();
+  }
+  function clearAll(){ pattern=TRACKS.map(()=>new Array(STEPS).fill(false)); buildGrid(); }
+
+  const presetsEl=document.getElementById('presets');
+  Object.keys(PRESETS).forEach(name=>{ const b=document.createElement('button'); b.type='button'; b.textContent=name; b.onclick=()=>{ ensureCtx(); loadPreset(name); }; presetsEl.appendChild(b); });
+
+  document.getElementById('playBtn').onclick=toggle;
+  document.getElementById('clearBtn').onclick=clearAll;
+  const bpmEl=document.getElementById('bpm'), bpmVal=document.getElementById('bpmVal');
+  bpmEl.oninput=()=>{ bpm=+bpmEl.value; bpmVal.textContent=bpm; };
+  window.addEventListener('keydown',e=>{ if(e.code==='Space'){ e.preventDefault(); toggle(); } });
+
+  // ---- bridge to the parent world ----
+  function post(msg){ try{ window.parent.postMessage(Object.assign({type:'workshop-loop'},msg),'*'); }catch(e){} }
+  document.getElementById('closeBtn').onclick=()=>{ stop(); post({action:'close'}); };
+  document.getElementById('wallBtn').onclick=()=>{ post({action:'to-wall', html:buildVisualizer()}); };
+  window.addEventListener('message',e=>{
+    if(e.data && e.data.type==='workshop-loop' && e.data.action==='stop'){ stop(); }
+  });
+
+  // Self-contained visualizer for the Studio wall: draws the pattern cycling at
+  // the current tempo (no audio; the wall just shows the beat moving).
+  function buildVisualizer(){
+    const data=JSON.stringify({pattern, bpm, names:TRACKS.map(t=>t.name)});
+    return '<!doctype html><meta charset="utf-8"><style>html,body{margin:0;height:100%;background:#0c0a12;overflow:hidden;font-family:Arial}'+
+      'canvas{display:block;width:100%;height:100%}</style><canvas id="c"></canvas><script>'+
+      'var D='+data+';var cv=document.getElementById("c"),x=cv.getContext("2d");function rs(){cv.width=innerWidth;cv.height=innerHeight;}rs();onresize=rs;'+
+      'var N=16,R=D.pattern.length,t0=Date.now();function f(){var w=cv.width,h=cv.height,pad=w*0.05,gw=(w-pad*2)/N,gh=(h-pad*2)/R;'+
+      'var sp=(60/D.bpm)/4*1000,step=Math.floor((Date.now()-t0)/sp)%N;x.fillStyle="#0c0a12";x.fillRect(0,0,w,h);'+
+      'for(var r=0;r<R;r++){for(var s=0;s<N;s++){var on=D.pattern[r][s];x.fillStyle=on?(s==step?"#7cf6ff":"#ffd166"):(s==step?"#2f2b3d":"#1d1a26");'+
+      'x.fillRect(pad+s*gw+2,pad+r*gh+2,gw-4,gh-4);}x.fillStyle="#9d97ac";x.font=Math.round(gh*0.3)+"px Arial";x.fillText(D.names[r],4,pad+r*gh+gh*0.6);}'+
+      'requestAnimationFrame(f);}f();'+String.fromCharCode(60)+'/scr'+'ipt>';
+  }
+
+  // Test hook (mirrors the desk's __deskAudioProbe): exposes the audio context,
+  // transport state and the number of active steps for the museum selftest.
+  window.__loopProbe = ()=> ({ ctx, playing, activeSteps: pattern.reduce((n,row)=>n+row.filter(Boolean).length,0), bpm });
+
+  loadPreset('Four');
+})();
+</script>
+</body>
+</html>
