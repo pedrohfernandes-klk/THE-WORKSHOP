@@ -6572,7 +6572,6 @@ function buildHood(){
   // is a place rather than a seam.
   const surf=new THREE.Mesh(new THREE.PlaneGeometry(2600,7),new THREE.MeshBasicMaterial({color:0xdCEaEa,transparent:true,opacity:.5,depthWrite:false}));
   surf.rotation.x=-Math.PI/2;surf.position.set(x0,-.03,z0-12);scene.add(surf);
-  function graffitiTexture(seed,word){const c=document.createElement('canvas');c.width=1024;c.height=512;const q=c.getContext('2d');q.fillStyle='#5c5b56';q.fillRect(0,0,1024,512);let r=seed*983+11;const rnd=()=>{r=Math.sin(r*12.9898)*43758.5453;return Math.abs(r)%1;};q.globalAlpha=.34;for(let i=0;i<170;i++){q.fillStyle=['#d64337','#258e9d','#e6bd45','#181719'][i%4];q.fillRect(rnd()*1024,rnd()*512,30+rnd()*180,4+rnd()*17);}q.globalAlpha=1;q.translate(512,275);q.rotate((seed-.5)*.14);q.textAlign='center';q.font='900 170px Arial Black';q.lineWidth=21;q.strokeStyle='#171719';q.strokeText(word,0,0);q.fillStyle=seed>.5?'#e64b3d':'#e9cf45';q.fillText(word,0,0);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;}
   // Project-housing windows are instanced. Built individually this was the
   // single heaviest thing in the district: 176 windows meant 176 meshes, 176
   // PlaneGeometries and 176 materials, all for two repeated looks (dark glass
@@ -6581,14 +6580,14 @@ function buildHood(){
   const projWinDark=new THREE.MeshBasicMaterial({color:0x233139});
   const projWinLit=new THREE.MeshBasicMaterial({color:0xe4b866});
   let projWinTotal=0;
-  for(const side of [-1,1])for(let i=0;i<5;i++){ projWinTotal+=Math.floor((12+(i%3)*4.1)/3.1)*4; }
+  for(const side of [-1,1])for(let i=0;i<5;i++){ projWinTotal+=Math.floor((18+(i%3)*5.4)/3.1)*4; }
   const projWinDarkInst=new THREE.InstancedMesh(projWinGeo,projWinDark,projWinTotal);
   const projWinLitInst=new THREE.InstancedMesh(projWinGeo,projWinLit,projWinTotal);
   let pwDark=0,pwLit=0;
   const pwM=new THREE.Matrix4(), pwPos=new THREE.Vector3(), pwQuat=new THREE.Quaternion(), pwScale=new THREE.Vector3(1,1,1), pwEuler=new THREE.Euler();
 
   for(const side of [-1,1])for(let i=0;i<5;i++){
-    const h=12+(i%3)*4.1,w=15+(i%2)*4,d=13;const bx=x0+side*(31+i*4.3),bz=z0+22+i*14.2;
+    const h=18+(i%3)*5.4,w=15+(i%2)*4,d=13;const bx=x0+side*(31+i*4.3),bz=z0+22+i*14.2;
     const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),i%2?brick:darkConcrete);b.position.set(bx,h/2,bz);scene.add(b);
     for(let f=0;f<Math.floor(h/3.1);f++)for(let k=0;k<4;k++){
       pwPos.set(bx-side*(w/2+.012),2.35+f*2.7,bz-3.8+k*2.45);
@@ -6596,7 +6595,6 @@ function buildHood(){
       pwM.compose(pwPos,pwQuat,pwScale);
       if((f+k+i)%4) projWinDarkInst.setMatrixAt(pwDark++,pwM); else projWinLitInst.setMatrixAt(pwLit++,pwM);
     }
-    if(i<4){const mural=new THREE.Mesh(new THREE.PlaneGeometry(9.2,4.6),new THREE.MeshBasicMaterial({map:graffitiTexture((i+2)/7,['VOICE','NOISE','FREESTYLE','STAY ODD'][i]),toneMapped:false}));mural.position.set(bx-side*(w/2+.02),4.0,bz);mural.rotation.y=side>0?-Math.PI/2:Math.PI/2;scene.add(mural);}
   }
   // Trim each instanced buffer to what was actually filled, or the unused
   // slots would draw a stack of identity-matrix windows at the world origin.
@@ -6610,7 +6608,7 @@ function buildHood(){
   // are three repeated shapes, so they become three instanced draws instead of
   // 264 meshes.
   let balTotal=0;
-  for(const side of [-1,1])for(let i=0;i<5;i++){ balTotal+=Math.max(2,Math.floor((12+(i%3)*4.1)/3.2)); }
+  for(const side of [-1,1])for(let i=0;i<5;i++){ balTotal+=Math.max(2,Math.floor((18+(i%3)*5.4)/3.2)); }
   const balSlabInst=new THREE.InstancedMesh(new THREE.BoxGeometry(2.4,.18,6.8),paleStone,balTotal);
   const balRailInst=new THREE.InstancedMesh(new THREE.BoxGeometry(.08,1.0,6.8),steel,balTotal);
   const balBarInst=new THREE.InstancedMesh(new THREE.BoxGeometry(.07,1.0,.07),steel,balTotal*4);
@@ -6618,7 +6616,7 @@ function buildHood(){
   const bM=new THREE.Matrix4(), bPos=new THREE.Vector3(), bQuat=new THREE.Quaternion(), bScale=new THREE.Vector3(1,1,1);
 
   for(const side of [-1,1])for(let i=0;i<5;i++){
-    const h=12+(i%3)*4.1,w=15+(i%2)*4,bx=x0+side*(31+i*4.3),bz=z0+22+i*14.2;
+    const h=18+(i%3)*5.4,w=15+(i%2)*4,bx=x0+side*(31+i*4.3),bz=z0+22+i*14.2;
     for(let f=0;f<Math.max(2,Math.floor(h/3.2));f++){
       bM.compose(bPos.set(bx-side*(w/2+.95),2.65+f*3.05,bz),bQuat,bScale); balSlabInst.setMatrixAt(bSlab++,bM);
       bM.compose(bPos.set(bx-side*(w/2+2.10),3.12+f*3.05,bz),bQuat,bScale); balRailInst.setMatrixAt(bRail++,bM);
@@ -6640,15 +6638,139 @@ function buildHood(){
   const shopGlass=new THREE.MeshPhysicalMaterial({color:0x8fb1b3,roughness:.12,metalness:.08,transmission:.42,transparent:true,opacity:.58,depthWrite:false});
   const canvasCloth=[0xe8d9bd,0xb85b4d,0x567d86,0xd5b64f].map(color=>new THREE.MeshStandardMaterial({color,roughness:.96,side:THREE.DoubleSide}));
   for(const side of [-1,1])for(let i=0;i<5;i++){
-    const h=12+(i%3)*4.1,w=15+(i%2)*4,bx=x0+side*(31+i*4.3),bz=z0+22+i*14.2;
+    const h=18+(i%3)*5.4,w=15+(i%2)*4,bx=x0+side*(31+i*4.3),bz=z0+22+i*14.2;
     const faceX=bx-side*(w/2+.045),rotY=side>0?-Math.PI/2:Math.PI/2;
     const shop=new THREE.Mesh(new THREE.PlaneGeometry(3.7,2.15),shopGlass);shop.position.set(faceX,1.15,bz+1.0);shop.rotation.y=rotY;scene.add(shop);
     const shopSign=new THREE.Mesh(new THREE.PlaneGeometry(3.9,.62),new THREE.MeshBasicMaterial({map:makeSignTexture(shopNames[i],i%2?'bairro · desde 1998':'porta aberta'),transparent:true,toneMapped:false}));shopSign.position.set(faceX-side*.025,2.72,bz+1.0);shopSign.rotation.y=rotY;scene.add(shopSign);
     const awning=new THREE.Mesh(new THREE.BoxGeometry(1.15,.14,4.25),new THREE.MeshStandardMaterial({color:i%2?0x9e4b3d:0xd7c39b,roughness:.72}));awning.position.set(faceX-side*.56,2.42,bz+1.0);scene.add(awning);
     const tank=new THREE.Mesh(new THREE.CylinderGeometry(.72,.78,1.42,18),new THREE.MeshStandardMaterial({color:0x7e898a,roughness:.56,metalness:.34}));tank.position.set(bx,h+.82,bz+2.8);scene.add(tank);
     const chimney=new THREE.Mesh(new THREE.CylinderGeometry(.20,.26,1.7,12),brick);chimney.position.set(bx+side*2.1,h+.85,bz-2.5);scene.add(chimney);
+    // A parapet cap and a mid-height string course finish the taller façades so
+    // they read as buildings, not extruded boxes.
+    const parapet=new THREE.Mesh(new THREE.BoxGeometry(w+.5,.55,13.5),paleStone);parapet.position.set(bx,h+.28,bz);scene.add(parapet);
+    const course=new THREE.Mesh(new THREE.BoxGeometry(w+.24,.28,13.24),paleStone);course.position.set(bx,h*.5,bz);scene.add(course);
+    const plinth=new THREE.Mesh(new THREE.BoxGeometry(w+.34,.9,13.34),darkConcrete);plinth.position.set(bx,.45,bz);scene.add(plinth);
     const line=new THREE.Mesh(new THREE.CylinderGeometry(.018,.018,5.4,8),steel);line.rotation.x=Math.PI/2;line.position.set(faceX-side*2.16,5.75,bz);scene.add(line);
     for(let k=0;k<3;k++){const cloth=new THREE.Mesh(new THREE.PlaneGeometry(.82,1.02),canvasCloth[(i+k)%canvasCloth.length]);cloth.position.set(faceX-side*2.18,5.24,bz-1.65+k*1.65);cloth.rotation.y=rotY;cloth.rotation.z=(k-1)*.035;scene.add(cloth);}
+  }
+
+  // ===== RESIDENTIAL QUARTER — an enterable terrace, a tended garden and
+  // ===== benches, east of the project blocks. ==========================
+  // The district had only the (uninhabitable, solid) project towers. This
+  // adds a real neighbourhood on the open east plot: a row of houses you can
+  // walk into (ground floors are hollow, with a door opening and one soft
+  // interior light — deliberately empty for now), a formal garden between
+  // the old blocks and the new terrace, and benches you can sit on. The Hood
+  // has no per-building collision, so an opening in the façade is all a house
+  // needs to be enterable.
+  {
+    const rnd=(s=>()=>{s=(s*16807)%2147483647;return s/2147483647;})(20260725);
+    // --- materials ---
+    const renderMats=[0xcbb48f,0xb98a63,0xcfc6b4,0xa88f74,0x9fb0a6].map(c=>new THREE.MeshStandardMaterial({color:c,roughness:.9}));
+    const roofMat=new THREE.MeshStandardMaterial({color:0x7c4632,roughness:.85});
+    const floorMat=new THREE.MeshStandardMaterial({color:0x6b5c48,roughness:.9});
+    const doorMat=new THREE.MeshStandardMaterial({color:0x3c2a1e,roughness:.6,metalness:.1});
+    const grassMat=new THREE.MeshStandardMaterial({color:0x4f7a39,roughness:.97});
+    const pathMat=new THREE.MeshStandardMaterial({color:0xc7bda6,roughness:.95});
+    const benchWood=new THREE.MeshStandardMaterial({color:0x6b4a2f,roughness:.8});
+    const benchIron=new THREE.MeshStandardMaterial({color:0x2a2b2c,roughness:.5,metalness:.5});
+    const flowerMats=[0xd0473f,0xe8c04a,0xe9e2d4,0xcf6fa0,0x9b6fcf].map(c=>new THREE.MeshStandardMaterial({color:c,roughness:.85}));
+
+    // --- garden plot ---
+    const gcx=1947, gz=z0+57, gW=13, gL=70;                  // centre / half-extents
+    const lawn=new THREE.Mesh(new THREE.PlaneGeometry(gW,gL),grassMat);lawn.rotation.x=-Math.PI/2;lawn.position.set(gcx,.05,gz);scene.add(lawn);
+    const spine=new THREE.Mesh(new THREE.PlaneGeometry(2.4,gL),pathMat);spine.rotation.x=-Math.PI/2;spine.position.set(gcx,.075,gz);scene.add(spine);
+    for(const cz of [gz-20,gz+20]){const cross=new THREE.Mesh(new THREE.PlaneGeometry(gW,2.0),pathMat);cross.rotation.x=-Math.PI/2;cross.position.set(gcx,.075,cz);scene.add(cross);}
+    // clipped hedge border (four low walls of box hedge)
+    for(const sx of [-1,1]){const hb=new THREE.Mesh(new THREE.BoxGeometry(.7,1.0,gL),hedgeMat);hb.position.set(gcx+sx*6.2,.55,gz);scene.add(hb);}
+    for(const sz of [-1,1]){const he=new THREE.Mesh(new THREE.BoxGeometry(gW,1.0,.7),hedgeMat);he.position.set(gcx,.55,gz+sz*35);scene.add(he);}
+    // flowerbeds: two rows of instanced clusters flanking the spine
+    {
+      const per=26,total=per*2;
+      const beds=flowerMats.map(m=>new THREE.InstancedMesh(new THREE.SphereGeometry(.16,7,6),m,total));
+      const counts=beds.map(()=>0),o=new THREE.Object3D();
+      for(const sx of [-1,1])for(let j=0;j<per;j++){
+        const fx=gcx+sx*1.9+(rnd()-.5)*.5, fz=gz-33+j*(66/(per-1)), pick=(j+((sx>0)?0:2))%beds.length;
+        o.position.set(fx,.32+rnd()*.12,fz);o.scale.setScalar(.8+rnd()*.7);o.updateMatrix();
+        beds[pick].setMatrixAt(counts[pick]++,o.matrix);
+      }
+      beds.forEach((b,k)=>{b.count=counts[k];b.instanceMatrix.needsUpdate=true;scene.add(b);});
+    }
+    // ornamental trees (instanced trunk + canopy)
+    {
+      const spots=[];for(const sx of [-1,1])for(const tz of [gz-24,gz-8,gz+8,gz+24])spots.push([gcx+sx*4.9,tz]);
+      const trunk=new THREE.InstancedMesh(new THREE.CylinderGeometry(.16,.22,2.4,8),benchWood,spots.length);
+      const canopy=new THREE.InstancedMesh(new THREE.SphereGeometry(1.5,12,9),new THREE.MeshStandardMaterial({color:0x3c6b32,roughness:.95}),spots.length);
+      const o=new THREE.Object3D();
+      spots.forEach(([tx,tz],k)=>{
+        o.position.set(tx,1.2,tz);o.scale.setScalar(1);o.updateMatrix();trunk.setMatrixAt(k,o.matrix);
+        o.position.set(tx,3.1,tz);o.scale.setScalar(.9+rnd()*.4);o.updateMatrix();canopy.setMatrixAt(k,o.matrix);
+      });
+      trunk.instanceMatrix.needsUpdate=true;canopy.instanceMatrix.needsUpdate=true;scene.add(trunk,canopy);
+    }
+    // central fountain (emissive water disc, no extra light)
+    const basin=new THREE.Mesh(new THREE.CylinderGeometry(2.0,2.2,.6,24),pathMat);basin.position.set(gcx,.3,gz);scene.add(basin);
+    const water=new THREE.Mesh(new THREE.CylinderGeometry(1.7,1.7,.12,24),new THREE.MeshBasicMaterial({color:0x5fb6d6,toneMapped:false}));water.position.set(gcx,.62,gz);scene.add(water);
+    const spout=new THREE.Mesh(new THREE.CylinderGeometry(.16,.22,1.3,10),pathMat);spout.position.set(gcx,1.0,gz);scene.add(spout);
+
+    // --- benches (sittable) around the garden ---
+    function gardenBench(bx,bz,fx){                            // fx=+1 faces +x, -1 faces -x
+      const g=new THREE.Group();
+      const seat=new THREE.Mesh(new THREE.BoxGeometry(.55,.13,1.9),benchWood);seat.position.set(bx,.5,bz);scene.add(seat);
+      const back=new THREE.Mesh(new THREE.BoxGeometry(.13,.72,1.9),benchWood);back.position.set(bx-fx*.32,.86,bz);scene.add(back);
+      for(const lz of [-.82,.82])for(const lx of [-.2,.2]){const leg=new THREE.Mesh(new THREE.BoxGeometry(.1,.5,.1),benchIron);leg.position.set(bx+lx,.25,bz+lz);scene.add(leg);}
+      const yaw=fx>0?-Math.PI/2:Math.PI/2;
+      sitPoint('hood',seat,'Garden bench',new THREE.Vector3(bx,1.15,bz),yaw,-.02);
+    }
+    for(const bz of [gz-22,gz,gz+22]){gardenBench(gcx-3.1,bz,1);gardenBench(gcx+3.1,bz,-1);}
+
+    // --- lit paved footpath in front of the houses ---
+    const walk=new THREE.Mesh(new THREE.PlaneGeometry(3.4,gL),pathMat);walk.rotation.x=-Math.PI/2;walk.position.set(1955.3,.09,gz);scene.add(walk);
+    for(const lz of [gz-22,gz+22]){                          // two street lamps
+      const post=new THREE.Mesh(new THREE.CylinderGeometry(.09,.12,4.4,10),benchIron);post.position.set(1954,2.2,lz);scene.add(post);
+      const head=new THREE.Mesh(new THREE.SphereGeometry(.3,12,9),new THREE.MeshBasicMaterial({color:0xffe9bf,toneMapped:false}));head.position.set(1954,4.4,lz);scene.add(head);
+      const lamp=new THREE.PointLight(0xffd193,1.5,16,1.7);lamp.position.set(1954,4.3,lz);scene.add(lamp);regLight('hood',lamp);
+    }
+
+    // --- the enterable terrace: five houses fronting west onto the garden ---
+    const houseWinLit=new THREE.MeshBasicMaterial({color:0xe4b866});
+    const houseWinDark=new THREE.MeshBasicMaterial({color:0x28323a});
+    const winGeo=new THREE.PlaneGeometry(1.35,1.5);
+    const winLitInst=new THREE.InstancedMesh(winGeo,houseWinLit,120);
+    const winDarkInst=new THREE.InstancedMesh(winGeo,houseWinDark,120);
+    let wl=0,wd=0;const wM=new THREE.Matrix4(),wPos=new THREE.Vector3(),wScl=new THREE.Vector3(1,1,1);
+    const wQ=new THREE.Quaternion().setFromEuler(new THREE.Euler(0,Math.PI/2,0));   // faces -x
+    const hd=12, hw=11;                                        // depth (x), width (z)
+    for(let n=0;n<5;n++){
+      const hx=1963, hz=z0+28+n*14, h=15+(n%3)*4, mat=renderMats[n%renderMats.length];
+      const frontX=hx-hd/2;
+      // ground-floor shell (thin box walls -> enclosed and visible from inside)
+      const floor=new THREE.Mesh(new THREE.BoxGeometry(hd,.2,hw),floorMat);floor.position.set(hx,.1,hz);scene.add(floor);
+      const backW=new THREE.Mesh(new THREE.BoxGeometry(.3,4.2,hw),mat);backW.position.set(hx+hd/2,2.1,hz);scene.add(backW);
+      for(const sz of [-1,1]){const sw=new THREE.Mesh(new THREE.BoxGeometry(hd,4.2,.3),mat);sw.position.set(hx,2.1,hz+sz*hw/2);scene.add(sw);}
+      for(const sz of [-1,1]){const pil=new THREE.Mesh(new THREE.BoxGeometry(.3,4.2,4.0),mat);pil.position.set(frontX,2.1,hz+sz*3.5);scene.add(pil);}   // door gap = 3 m
+      const lint=new THREE.Mesh(new THREE.BoxGeometry(.3,1.2,3.2),mat);lint.position.set(frontX,3.6,hz);scene.add(lint);
+      // upper mass (its underside is the ground-floor ceiling)
+      const upper=new THREE.Mesh(new THREE.BoxGeometry(hd,h-4.2,hw),mat);upper.position.set(hx,4.2+(h-4.2)/2,hz);scene.add(upper);
+      const band=new THREE.Mesh(new THREE.BoxGeometry(hd+.3,.28,hw+.3),paleStone);band.position.set(hx,4.2,hz);scene.add(band);
+      const roof=new THREE.Mesh(new THREE.BoxGeometry(hd+.5,.5,hw+.5),roofMat);roof.position.set(hx,h+.25,hz);scene.add(roof);
+      // doorway dressing: open dark leaf, threshold, over-door lamp, nameplate
+      const leaf=new THREE.Mesh(new THREE.PlaneGeometry(1.4,3.0),doorMat);leaf.position.set(frontX-.02,1.5,hz-1.05);leaf.rotation.y=Math.PI/2-.5;scene.add(leaf);
+      const step=new THREE.Mesh(new THREE.BoxGeometry(1.3,.16,3.2),paleStone);step.position.set(frontX-.7,.14,hz);scene.add(step);
+      const lampBall=new THREE.Mesh(new THREE.SphereGeometry(.15,10,7),new THREE.MeshBasicMaterial({color:0xffe2b0,toneMapped:false}));lampBall.position.set(frontX-.35,3.5,hz);scene.add(lampBall);
+      const plate=new THREE.Mesh(new THREE.PlaneGeometry(2.6,.5),new THREE.MeshBasicMaterial({map:makeSignTexture(`Nº ${11+n*2}`,'residência'),transparent:true,toneMapped:false}));plate.position.set(frontX-.04,4.0,hz);plate.rotation.y=Math.PI/2;scene.add(plate);
+      // one soft interior light (mostly-empty, dim interior)
+      const inLight=new THREE.PointLight(0xffd7a0,1.6,10,1.9);inLight.position.set(hx,2.8,hz-1.2);scene.add(inLight);regLight('hood',inLight);
+      // windows: two columns on the upper mass + two ground-floor flanking panes
+      for(let r=0;;r++){const wy=5.9+r*3.2;if(wy>h-1.4)break;for(const sz of [-1,1]){
+        wPos.set(frontX-.03,wy,hz+sz*2.6);wM.compose(wPos,wQ,wScl);
+        ((r+n)%3?winDarkInst:winLitInst).setMatrixAt((r+n)%3?wd++:wl++,wM);
+      }}
+      for(const sz of [-1,1]){wPos.set(frontX-.03,2.3,hz+sz*3.5);wM.compose(wPos,wQ,wScl);(n%2?winLitInst:winDarkInst).setMatrixAt(n%2?wl++:wd++,wM);}
+    }
+    winLitInst.count=wl;winDarkInst.count=wd;
+    winLitInst.instanceMatrix.needsUpdate=true;winDarkInst.instanceMatrix.needsUpdate=true;
+    scene.add(winLitInst,winDarkInst);
   }
 
   // A short paved neighbourhood street links the square to Headquarters. The
