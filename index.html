@@ -7007,6 +7007,95 @@ function buildHood(){
   caveArmInst.instanceMatrix.needsUpdate=true;
   scene.add(caveBackInst,caveArmInst);
 
+  // ===== THE CAVE — grand entrance portal + spectacle ==================
+  // Positioned entirely against the existing anchors (veX, cliffZ, caveZ,
+  // caveStageZ, CAVE_FRONTZ, caveW, caveD). Nothing above is moved: the
+  // stage, screen, registered projection and raked seating are unchanged;
+  // this layer only adds architecture, cave formations and light.
+  {
+    // --- Grand entrance portal at the passage mouth, facing the plaza. The
+    //     thin arched side-passage read as a service corridor; this makes the
+    //     way in monumental and unmistakable. ---
+    const portalX=veX+17, portalZ=cliffZ-2.0;
+    const rockDark=new THREE.MeshStandardMaterial({color:0x2a2622,roughness:1,metalness:0});
+    for(const sx of [-1,1]){                                 // hewn stone pylons
+      const pylon=new THREE.Mesh(new THREE.BoxGeometry(1.7,8.6,2.3),caveRockMat);
+      pylon.position.set(portalX+sx*3.7,4.3,portalZ);scene.add(pylon);
+    }
+    const archTop=new THREE.Mesh(new THREE.TorusGeometry(3.7,.95,12,32,Math.PI),caveRockMat);
+    archTop.position.set(portalX,8.2,portalZ);scene.add(archTop);
+    const lintel=new THREE.Mesh(new THREE.BoxGeometry(9.4,1.5,2.3),caveRockMat);
+    lintel.position.set(portalX,8.5,portalZ);scene.add(lintel);
+    const opening=new THREE.Mesh(new THREE.PlaneGeometry(5.8,7.6),new THREE.MeshBasicMaterial({color:0x05070a}));
+    opening.position.set(portalX,4.1,portalZ-.22);opening.rotation.y=Math.PI;scene.add(opening);
+    const marquee=new THREE.Mesh(new THREE.PlaneGeometry(7.6,1.55),new THREE.MeshBasicMaterial({map:makeSignTexture('THE CAVE','live · cinema · sound'),transparent:true,toneMapped:false}));
+    marquee.position.set(portalX,9.5,portalZ-.07);marquee.rotation.y=Math.PI;scene.add(marquee);
+    const marqueeGlow=new THREE.PointLight(0xffd39a,2.4,17,1.7);marqueeGlow.position.set(portalX,8.6,portalZ-2.2);scene.add(marqueeGlow);regLight('hood',marqueeGlow);
+    for(const sx of [-1,1]){                                 // flanking braziers
+      const post=new THREE.Mesh(new THREE.CylinderGeometry(.16,.24,2.6,10),rockDark);post.position.set(portalX+sx*5.4,1.3,portalZ-1.5);scene.add(post);
+      const bowl=new THREE.Mesh(new THREE.SphereGeometry(.44,14,10,0,Math.PI*2,0,Math.PI/2),new THREE.MeshBasicMaterial({color:0xff9a3c,toneMapped:false}));bowl.position.set(portalX+sx*5.4,2.7,portalZ-1.5);scene.add(bowl);
+      const flame=new THREE.PointLight(0xffa848,2.2,13,1.8);flame.position.set(portalX+sx*5.4,3.2,portalZ-1.5);scene.add(flame);regLight('hood',flame);
+    }
+    for(let i=0;i<5;i++){                                    // lit approach pavers
+      const paver=new THREE.Mesh(new THREE.BoxGeometry(4.4,.08,1.5),limestone);
+      paver.position.set(portalX,.16,portalZ-3.2-i*2.2);scene.add(paver);
+    }
+
+    // Deterministic scatter so formations are stable across reloads.
+    const prng=s=>()=>{s=(s*16807)%2147483647;return s/2147483647;};
+
+    // --- Stalactites from the ceiling, over the seating and back (kept clear
+    //     of the stage/screen front so nothing hangs across the projection). ---
+    {
+      const N=36,rnd=prng(7),o=new THREE.Object3D();
+      const stalMat=new THREE.MeshStandardMaterial({color:0x3a342c,roughness:1});
+      const inst=new THREE.InstancedMesh(new THREE.ConeGeometry(1,1,7),stalMat,N);
+      for(let i=0;i<N;i++){
+        const rx=veX+(rnd()-.5)*(caveW-6);
+        const rz=caveStageZ+8+rnd()*(caveD-14);
+        const len=1.2+rnd()*3.2, rad=.18+rnd()*.5;
+        o.position.set(rx,12.8-len/2,rz);o.scale.set(rad,len,rad);o.rotation.set(Math.PI,rnd()*6.28,0);
+        o.updateMatrix();inst.setMatrixAt(i,o.matrix);
+      }
+      inst.instanceMatrix.needsUpdate=true;scene.add(inst);
+    }
+    // --- Stalagmites along the back wall and side edges (never on seating). ---
+    {
+      const N=14,rnd=prng(91),o=new THREE.Object3D();
+      const mat=new THREE.MeshStandardMaterial({color:0x413a31,roughness:1});
+      const inst=new THREE.InstancedMesh(new THREE.ConeGeometry(1,1,7),mat,N);
+      for(let i=0;i<N;i++){
+        let rx,rz;
+        if(i<8){rx=veX+(rnd()-.5)*(caveW-8);rz=caveZ+caveD/2-1.5-rnd()*2;}
+        else{const s=i%2?1:-1;rx=veX+s*(caveW/2-1.5-rnd()*1.5);rz=caveStageZ+9+rnd()*(caveD-18);}
+        const len=.8+rnd()*2.0, rad=.22+rnd()*.5;
+        o.position.set(rx,.12+len/2,rz);o.scale.set(rad,len,rad);o.rotation.set(0,rnd()*6.28,0);
+        o.updateMatrix();inst.setMatrixAt(i,o.matrix);
+      }
+      inst.instanceMatrix.needsUpdate=true;scene.add(inst);
+    }
+    // --- Festoon light string sagging over the central aisle. Bulbs are
+    //     unlit emissive spheres (zero lighting cost); one soft glow reads it. ---
+    {
+      const N=18,o=new THREE.Object3D();
+      const inst=new THREE.InstancedMesh(new THREE.SphereGeometry(.12,8,6),new THREE.MeshBasicMaterial({color:0xffe6b0,toneMapped:false}),N);
+      const z0=caveStageZ+4, z1=caveZ+caveD/2-2;
+      for(let i=0;i<N;i++){
+        const t=i/(N-1), z=z0+(z1-z0)*t, sag=Math.sin(t*Math.PI)*1.4;
+        o.position.set(veX,11.2-sag,z);o.updateMatrix();inst.setMatrixAt(i,o.matrix);
+      }
+      inst.instanceMatrix.needsUpdate=true;scene.add(inst);
+      const glow=new THREE.PointLight(0xffdca0,1.1,18,1.9);glow.position.set(veX,10.2,caveStageZ+12);scene.add(glow);regLight('hood',glow);
+    }
+    // --- Coloured venue wash grazing the two side rock walls. ---
+    const washL=new THREE.SpotLight(0xd23a7a,2.6,34,Math.PI/5,.6,1.3);washL.position.set(veX-caveW/2+2,1.0,caveZ);washL.target.position.set(veX-caveW/2,9,caveZ);scene.add(washL,washL.target);regLight('hood',washL);
+    const washR=new THREE.SpotLight(0x3aa0d2,2.6,34,Math.PI/5,.6,1.3);washR.position.set(veX+caveW/2-2,1.0,caveZ);washR.target.position.set(veX+caveW/2,9,caveZ);scene.add(washR,washR.target);regLight('hood',washR);
+    // --- Stage footlights: an emissive strip plus a cool wash up the screen. ---
+    const foot=new THREE.Mesh(new THREE.BoxGeometry(24,.13,.22),new THREE.MeshBasicMaterial({color:0x8fd0ff,toneMapped:false}));
+    foot.position.set(veX,.72,caveStageZ+4.0);scene.add(foot);
+    const footLight=new THREE.PointLight(0x9fd6ff,1.4,15,1.8);footLight.position.set(veX,1.7,caveStageZ+4.2);scene.add(footLight);regLight('hood',footLight);
+  }
+
   for(const side of [-1,1]){const rearWing=new THREE.Mesh(new THREE.BoxGeometry((W-12)/2,H,.52),brick);rearWing.position.set(wx+side*(6+(W-12)/4),H/2,wz+D/2);scene.add(rearWing);}
   const rearLintel=new THREE.Mesh(new THREE.BoxGeometry(12,H-7,.52),brick);rearLintel.position.set(wx,(H+7)/2,wz+D/2);scene.add(rearLintel);
   for(const side of [-1,1]){const frontWing=new THREE.Mesh(new THREE.BoxGeometry((W-14)/2,H,.52),brick);frontWing.position.set(wx+side*(14/2+(W-14)/4),H/2,wz-D/2);scene.add(frontWing);}
