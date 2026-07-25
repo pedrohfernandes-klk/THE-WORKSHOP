@@ -2492,6 +2492,11 @@ let lastMouse = null;
 let velX = 0, velZ = 0;
 let bodyBob = 0, bobPhase = 0, roll = 0;
 let smoothSpeed = 0;
+// Smoothed walking-floor height. The Cave's raked seating snaps in 0.34 m tier
+// steps (caveFloorY rounds to a row); applying that straight to the eye each
+// frame lurched. We damp toward it instead, and snap only on big jumps (level
+// changes / teleports) so lift trips don't glide vertically.
+let smoothFloorY = 0;
 let lookingAt = -1;
 const keys = new Set();
 const isCoarsePointer = window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
@@ -11913,7 +11918,10 @@ function updateCameraTransition(dt){
   pitch = cameraTransition.fromPitch + (cameraTransition.toPitch - cameraTransition.fromPitch) * eased;
   roll = damp(roll, 0, 12, dt);
   bodyBob = damp(bodyBob, 0, 10, dt);
-  camera.position.y = cameraHeight + bodyBob * (1-settle);
+  // Keep the elevation lerpVectors already computed (from->to includes the
+  // floor height); only add the decaying settle-bob. Previously this pinned Y
+  // to a flat cameraHeight, dropping/snapping the view on elevated Hood floors.
+  camera.position.y += bodyBob * (1-settle);
   updateCameraRotation();
   if(posterOpening) updatePosterReveal(eased);
   if(p >= 1) finishCameraTransition();
@@ -13361,8 +13369,12 @@ function updateMovement(dt){
   const movePos=getVisitorPosition();
 
   const sprinting = keys.has('shift') || (isCoarsePointer && mobileInput.run);
-  const walkSpeed = currentRoom === 'maze' ? 4.45 : (currentRoom === 'maps' ? 6.25 : 5.8);
-  const runSpeed = currentRoom === 'maze' ? 6.5 : (currentRoom === 'maps' ? 10.5 : 9.8);
+  // The Hood is ~10x larger than any interior room (115x370 m district, 68x62 m
+  // warehouse floor), so the standard speed reads as sluggish there; give it its
+  // own faster walk/run. maze/maps keep their tuned values.
+  const hoodSpeed = isHoodRoom(currentRoom);
+  const walkSpeed = currentRoom === 'maze' ? 4.45 : (currentRoom === 'maps' ? 6.25 : hoodSpeed ? 7.6 : 5.8);
+  const runSpeed = currentRoom === 'maze' ? 6.5 : (currentRoom === 'maps' ? 10.5 : hoodSpeed ? 12.8 : 9.8);
   const maxSpeed = sprinting ? runSpeed : walkSpeed;
 
   // Simplified first-person control:
@@ -13414,7 +13426,7 @@ function updateMovement(dt){
   }
 
   // Target-velocity movement: responsive like a game, but still museum-smooth.
-  const response = moving || autoTour ? 13.5 : 20;
+  const response = moving || autoTour ? 16.5 : 20;
   velX = damp(velX, targetX, response, dt);
   velZ = damp(velZ, targetZ, response, dt);
   if(Math.hypot(velX, velZ) < .015 && !moving){ velX = 0; velZ = 0; }
@@ -13478,7 +13490,13 @@ function updateMovement(dt){
   const viewHeight = (currentRoom === 'studio' && seatedStudioView) ? 1.28 : (currentRoom==='outdoor'&&seatedAmphView) ? amphSeatEyeY : cameraHeight;
   // visitorFloorY is position-aware (it raises you onto the Cave's tiers);
   // the old inline expression only knew a single flat height per Hood level.
-  movePos.y = visitorFloorY(movePos) + viewHeight + bodyBob;
+  // Damp the walking-floor height so the Cave's 0.34 m seating tiers read as a
+  // smooth rise, not a per-frame lurch. A jump larger than a single tier (level
+  // change, teleport, first spawn) is snapped so lift trips don't glide.
+  const floorTarget = visitorFloorY(movePos);
+  if(Math.abs(floorTarget - smoothFloorY) > 1.5) smoothFloorY = floorTarget;
+  else smoothFloorY = damp(smoothFloorY, floorTarget, 11, dt);
+  movePos.y = smoothFloorY + viewHeight + bodyBob;
   if(rpgMode) updateRpgAvatar(dt,speed);
 }
 
