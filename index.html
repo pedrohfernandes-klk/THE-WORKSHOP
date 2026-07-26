@@ -14368,6 +14368,10 @@ function drawMap(){
 
   artworks.forEach((a,i)=>{
     const o = artworkObjects[i];
+    // Artwork textures are streamed after the first frame. During that
+    // window the catalogue can contain entries whose scene object does not
+    // exist yet; the map must simply omit those entries until they arrive.
+    if(!o) return;
     const x = o.side < 0 ? 88 : w-88;
     const y = top + ((mapWorldFront - o.z) / mapWorldSpan) * (bottom-top);
     if(i===selected){
@@ -14498,7 +14502,7 @@ function animate(){
       tunnelTorchFX.glows.material.opacity = .58 + .18*Math.sin(t*7.1 + 1.3);
     }
     updateWorld(dt,t);
-    if(currentRoom === 'gallery'){
+    if(currentRoom === 'gallery' && artworkObjects.length){
       drawMap();
     }
     renderer.render(scene,camera);
