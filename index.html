@@ -5876,6 +5876,74 @@ function buildNightRoom(){
   }
 }
 
+// Procedural sky. This replaces two painted canvas domes — the Grove's
+// 4096x2048 and the Hood's 2048x1024 — which together cost roughly 42 MB of
+// texture memory (about 56 MB once mipmapped) to draw something that never
+// moved. The shader costs no texture memory at all, and because it is
+// evaluated per fragment it can do what a painted canvas cannot: clouds that
+// drift and morph, a sun that is a real direction rather than a smudge at a
+// fixed pixel, and a horizon that stays exactly on the fog colour so distant
+// geometry still dissolves into it instead of ending against a seam.
+//
+// Everything is a uniform, so the mood of a district is a few numbers.
+const skyFX = [];
+function makeProceduralSky({radius=2000, horizon=0xd2dfe4, zenith=0x2f6fa8, haze=0xb7d3e0,
+    sunDir=[.62,.28,-.73], sunColor=0xfff3cf, sunSize=.986, cloud=.5, cloudColor=0xffffff,
+    gloom=.0, segments=[48,24]}={}){
+  const c=v=>new THREE.Color(v);
+  const material=new THREE.ShaderMaterial({
+    side:THREE.BackSide, depthWrite:false, fog:false, toneMapped:false,
+    uniforms:{
+      uTime:{value:0}, uHorizon:{value:c(horizon)}, uZenith:{value:c(zenith)},
+      uHaze:{value:c(haze)}, uSunDir:{value:new THREE.Vector3(...sunDir).normalize()},
+      uSunColor:{value:c(sunColor)}, uSunSize:{value:sunSize}, uCloud:{value:cloud},
+      uCloudColor:{value:c(cloudColor)}, uGloom:{value:gloom}
+    },
+    vertexShader:`varying vec3 vDir;
+      void main(){ vDir=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+    fragmentShader:`
+      uniform float uTime,uSunSize,uCloud,uGloom;
+      uniform vec3 uHorizon,uZenith,uHaze,uSunDir,uSunColor,uCloudColor;
+      varying vec3 vDir;
+      // Cheap value noise — two octaves is plenty for drifting cloud banks.
+      float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+      float noise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.-2.*f);
+        return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y); }
+      float fbm(vec2 p){ return .62*noise(p)+.31*noise(p*2.17+7.3)+.14*noise(p*4.41+19.1); }
+      void main(){
+        vec3 d=normalize(vDir);
+        float h=clamp(d.y,-1.,1.);
+        // Gradient: a tight haze band on the horizon, opening to the zenith.
+        vec3 col=mix(uHorizon,uHaze,smoothstep(0.,.16,h));
+        col=mix(col,uZenith,smoothstep(.10,.62,h));
+        col=mix(col,uHorizon*.86,smoothstep(0.,-.22,h));      // below the horizon
+        // Sun: a disc plus falloff, aligned to a real direction.
+        float sd=max(dot(d,normalize(uSunDir)),0.);
+        float disc=smoothstep(uSunSize,uSunSize+.006,sd);
+        float glow=pow(sd,180.)*.85+pow(sd,18.)*.16+pow(sd,4.)*.05;
+        col+=uSunColor*(disc*1.5+glow);
+        // Clouds: two panning layers, only above the horizon, thinning as they
+        // approach it so the band never cuts a hard line across the sky.
+        if(uCloud>0.001&&h>-.02){
+          vec2 uv=vec2(atan(d.z,d.x)*1.15,h*2.3);
+          float n=fbm(uv*2.1+vec2(uTime*.0075,uTime*.0031));
+          n=mix(n,fbm(uv*4.3-vec2(uTime*.0042,0.)),.45);
+          float mask=smoothstep(.02,.34,h)*smoothstep(1.,.55,h);
+          float amt=smoothstep(.52,.86,n)*mask*uCloud;
+          col=mix(col,uCloudColor,amt);
+          col=mix(col,uCloudColor*.62,smoothstep(.60,.95,n)*mask*uCloud*.35); // shaded undersides
+        }
+        // Gloom: pulls the whole dome down and desaturates, for moodier rooms.
+        col=mix(col,vec3(dot(col,vec3(.299,.587,.114)))*.55,uGloom);
+        gl_FragColor=vec4(col,1.);
+      }`
+  });
+  const mesh=new THREE.Mesh(new THREE.SphereGeometry(radius,segments[0],segments[1]),material);
+  mesh.renderOrder=-100;
+  skyFX.push(material);
+  return mesh;
+}
+
 function buildOutdoorSpace(){
   // THE GROVE (batch 131 redesign): a human-scaled Mediterranean garden.
   // The visitor enters through the actual door onto a gravel roundabout with a
@@ -5922,61 +5990,16 @@ function buildOutdoorSpace(){
   // --- Sky & horizon (batch 134): built to read as infinite. A larger dome
   // with layered cumulus and high cirrus, a 360° distant tree-line ring, a
   // ground disc that fades into haze, and the water horizon at the deep end.
-  const skyCanvas = document.createElement('canvas');
-  skyCanvas.width = 4096; skyCanvas.height = 2048;
-  const ctx = skyCanvas.getContext('2d');
-  const skyGrad = ctx.createLinearGradient(0,0,0,2048);
-  skyGrad.addColorStop(0,'#2f88d8');
-  skyGrad.addColorStop(.20,'#62afe8');
-  skyGrad.addColorStop(.42,'#a9d8f5');
-  skyGrad.addColorStop(.58,'#e6f4ff');
-  skyGrad.addColorStop(.70,'#fff2d6');
-  skyGrad.addColorStop(.78,'#f7dfa8');
-  skyGrad.addColorStop(.84,'#cbd2ad');
-  skyGrad.addColorStop(1,'#96aa78');
-  ctx.fillStyle = skyGrad; ctx.fillRect(0,0,4096,2048);
-  // High cirrus streaks
-  ctx.save();
-  ctx.globalAlpha = .16;
-  ctx.fillStyle = '#ffffff';
-  for(let i=0;i<26;i++){
-    const y = 120 + Math.random()*560;
-    const x = Math.random()*4096;
-    const w = 240 + Math.random()*620;
-    ctx.beginPath();
-    ctx.ellipse(x, y, w, 7 + Math.random()*13, (Math.random()-.5)*.10, 0, Math.PI*2);
-    ctx.fill();
-  }
-  ctx.restore();
-  // Cumulus with shaded undersides
-  function cloud(x,y,sx,sy,a){
-    ctx.save();
-    for(const [dx,dy,rx,ry,al] of [
-      [0,0,1,1,a],[-.5,.10,.70,.62,a*.96],[.48,.04,.64,.58,a*.96],
-      [-.16,-.24,.56,.52,a*.9],[.18,-.20,.50,.46,a*.9],[-.82,.16,.42,.34,a*.8],[.82,.14,.40,.32,a*.8]
-    ]){
-      ctx.fillStyle = `rgba(255,255,255,${al})`;
-      ctx.beginPath(); ctx.ellipse(x+dx*sx, y+dy*sy, sx*rx, sy*ry, 0, 0, Math.PI*2); ctx.fill();
-    }
-    const sh = ctx.createLinearGradient(0,y,0,y+sy*.8);
-    sh.addColorStop(0,'rgba(150,158,170,0)');
-    sh.addColorStop(1,`rgba(140,148,162,${a*.42})`);
-    ctx.fillStyle = sh;
-    ctx.beginPath(); ctx.ellipse(x,y+sy*.24,sx*1.02,sy*.42,0,0,Math.PI*2); ctx.fill();
-    ctx.restore();
-  }
-  [[430,470,320,120,.94],[1080,350,230,86,.88],[1690,520,300,116,.94],[2260,380,200,76,.84],
-   [2840,470,340,124,.92],[3440,340,220,80,.85],[3880,520,260,98,.90],
-   [760,700,170,56,.55],[1960,690,200,62,.52],[3120,720,180,56,.5],[260,760,150,46,.46]].forEach(c=>cloud(...c));
-  // Horizon haze band painted into the sky itself
-  const hz = ctx.createLinearGradient(0,1220,0,1560);
-  hz.addColorStop(0,'rgba(238,226,196,0)');
-  hz.addColorStop(.55,'rgba(240,228,200,.42)');
-  hz.addColorStop(1,'rgba(238,226,196,0)');
-  ctx.fillStyle = hz; ctx.fillRect(0,1220,4096,340);
-  const skyTex = new THREE.CanvasTexture(skyCanvas);
-  skyTex.colorSpace = THREE.SRGBColorSpace;
-  const skySphere = new THREE.Mesh(new THREE.SphereGeometry(300,96,72), new THREE.MeshBasicMaterial({map:skyTex, side:THREE.BackSide, toneMapped:false, fog:false}));
+  // Procedural dome (see makeProceduralSky), replacing a 4096x2048 painted
+  // canvas — the single largest texture in the project — with a shader that
+  // costs no texture memory and gives the Grove drifting cloud and a real sun
+  // instead of a fixed painted one.
+  const skySphere = makeProceduralSky({
+    radius:300, segments:[64,32],
+    horizon:0xe8f2ee, haze:0xbfe0f2, zenith:0x2f88d8,
+    sunDir:[.46,.30,-.83], sunColor:0xfff4d2, sunSize:.9968,
+    cloud:.62, cloudColor:0xffffff, gloom:.0
+  });
   skySphere.position.set(x0,40,midZ);
   scene.add(skySphere);
 
@@ -6539,33 +6562,18 @@ function buildHood(){
   // District sky: a high-resolution painted atmosphere with cloud depth,
   // warm coastal haze and a clear sun direction. It surrounds the Hood and is
   // also what the tower windows look into.
-  const hoodSkyCanvas=document.createElement('canvas');hoodSkyCanvas.width=2048;hoodSkyCanvas.height=1024;
-  {
-    const q=hoodSkyCanvas.getContext('2d'),g=q.createLinearGradient(0,0,0,1024);
-    // The stop at v=.50 is the horizon line, and it is deliberately the same
-    // colour as the Hood's fog (ROOM_FOG.hood). Distant geometry fades to the
-    // fog colour, so it now dissolves into the sky at exactly the right tone
-    // instead of ending against a differently-coloured band. Above that it
-    // deepens to real sky blue; below is muted and mostly hidden by ground.
-    g.addColorStop(0,'#2f6fa8');g.addColorStop(.30,'#6aa6cd');g.addColorStop(.46,'#b7d3e0');
-    g.addColorStop(.50,'#d2dfe4');g.addColorStop(.58,'#d6dcdc');g.addColorStop(1,'#b3b8b4');
-    q.fillStyle=g;q.fillRect(0,0,2048,1024);
-    const sun=q.createRadialGradient(1550,235,10,1550,235,180);sun.addColorStop(0,'rgba(255,249,220,.98)');sun.addColorStop(.20,'rgba(255,228,175,.54)');sun.addColorStop(1,'rgba(255,210,160,0)');q.fillStyle=sun;q.fillRect(1320,5,460,460);
-    let seed=913;const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
-    for(let i=0;i<42;i++){const x=rnd()*2048,y=80+rnd()*440,w=100+rnd()*330,h=24+rnd()*62;const cg=q.createRadialGradient(x,y,2,x,y,w*.55);cg.addColorStop(0,'rgba(255,255,255,.62)');cg.addColorStop(.48,'rgba(243,247,247,.28)');cg.addColorStop(1,'rgba(210,224,231,0)');q.save();q.scale(1,h/w);q.fillStyle=cg;q.beginPath();q.arc(x,y*w/h,w*.58,0,Math.PI*2);q.fill();q.restore();}
-    
-  }
-  const hoodSkyTex=new THREE.CanvasTexture(hoodSkyCanvas);hoodSkyTex.colorSpace=THREE.SRGBColorSpace;
-  // Radius 500 was smaller than the ground it had to cover: the terrain apron
-  // reaches ~1005 m from here, so the last 500 m of ground stood OUTSIDE the
-  // dome against raw scene background, and the dome's own lower edge read as a
-  // huge dark ball sitting on the horizon. At radius 2200 every piece of
-  // ground is comfortably inside it.
-  //
-  // The centre also drops from y=72 to y=0. The painted horizon sits on the
-  // sphere's equator, so at the old height it rendered ~8 degrees above the
-  // true ground horizon — a permanent mismatched band. At y=0 the two line up.
-  hoodSky=new THREE.Mesh(new THREE.SphereGeometry(2200,64,32),new THREE.MeshBasicMaterial({map:hoodSkyTex,side:THREE.BackSide,toneMapped:false,fog:false,depthWrite:false}));hoodSky.position.set(x0,0,mid);hoodSky.renderOrder=-100;scene.add(hoodSky);
+  // Procedural dome (see makeProceduralSky). The horizon stop is still the
+  // exact ROOM_FOG.hood colour, so distant geometry keeps dissolving into the
+  // sky at the right tone; radius 2200 and fog:false are both asserted by the
+  // selftest and preserved. What is new: the sun is a real direction that the
+  // scene's own sun light can be aimed along, and the cloud bank drifts.
+  hoodSky=makeProceduralSky({
+    radius:2200, segments:[48,24],
+    horizon:0xd2dfe4, haze:0xb7d3e0, zenith:0x35719f,
+    sunDir:[-.58,.34,.74], sunColor:0xfff2cd, sunSize:.9975,
+    cloud:.55, cloudColor:0xeef4f6, gloom:.06
+  });
+  hoodSky.position.set(x0,0,mid);scene.add(hoodSky);
 
   // A coherent industrial-public realm: broad pavements, planted rain beds,
   // utility lights and distant silhouettes rather than an empty grey plane.
@@ -14041,6 +14049,11 @@ function updateWorld(dt, t){
   updateHallWindow(dt);
   const visitor=getVisitorPosition();
   if(hoodWaterfallFX?.material?.uniforms?.uTime) hoodWaterfallFX.material.uniforms.uTime.value=t;
+  // Drift the sky only where a sky is actually visible. Both domes are
+  // outdoors, so in the nine interior rooms this costs nothing.
+  if(skyFX.length && !reducedMotion && (isHoodRoom(currentRoom) || currentRoom==='outdoor')){
+    for(const material of skyFX) material.uniforms.uTime.value=t;
+  }
   // Entering either real lift cabin opens its destination panel. The latch is
   // cleared only after walking away, so closing the panel does not trap users
   // in a loop.
