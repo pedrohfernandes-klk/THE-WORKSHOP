@@ -2298,7 +2298,12 @@ const rpgCameraDesired = new THREE.Vector3();
 const rpgCameraTarget = new THREE.Vector3();
 const rpgCameraDirection = new THREE.Vector3();
 const rpgCameraRay = new THREE.Raycaster();
-const rpgAvatarParts = { leftLeg:null, rightLeg:null, leftArm:null, rightArm:null };
+const rpgAvatarParts = { leftLeg:null, rightLeg:null, leftArm:null, rightArm:null,
+  leftKnee:null, rightKnee:null, leftElbow:null, rightElbow:null,
+  upper:null, head:null };
+// Gait state. The walk is driven by its own phase rather than the first-person
+// head-bob, so stride length and cadence can both answer to real speed.
+const rpgGait = { phase:0, lean:0, speed:0, turn:0, breathe:0 };
 function getVisitorPosition(){ return rpgMode ? rpgPlayerPosition : camera.position; }
 // Height of the Cave's raked seating bank at a point. The auditorium is built
 // as ten stepped tiers rising 0.34 m each, but the Hood's floor height was a
@@ -2357,31 +2362,59 @@ function buildRpgAvatar(){
   const root=new THREE.Group();
   root.name='Workshop RPG visitor';
   const shade=makeShadeMaterial();
-  // Head, neck.
-  const head=new THREE.Mesh(new THREE.SphereGeometry(.25,24,18),shade);
-  head.scale.set(.9,1.06,.92); head.position.y=1.94; root.add(head);
-  const neck=new THREE.Mesh(new THREE.CylinderGeometry(.085,.10,.16,12),shade);
-  neck.position.y=1.73; root.add(neck);
-  // Tapered torso with defined shoulders and hips for a real silhouette.
-  const torso=new THREE.Mesh(new THREE.CapsuleGeometry(.30,.52,8,16),shade);
-  torso.position.y=1.28; torso.scale.set(1.12,1.0,.72); root.add(torso);
-  const shoulders=new THREE.Mesh(new THREE.SphereGeometry(.20,18,12),shade);
-  shoulders.scale.set(1.95,.66,.9); shoulders.position.y=1.55; root.add(shoulders);
-  const hips=new THREE.Mesh(new THREE.SphereGeometry(.20,18,12),shade);
-  hips.scale.set(1.32,.7,.82); hips.position.y=1.00; root.add(hips);
-  // Limbs: tapered capsules with a foot/hand cap; pivots drive the walk cycle.
-  const makeLimb=(x,y,length,radius,capR,capFlat)=>{
-    const pivot=new THREE.Group(); pivot.position.set(x,y,0);
-    const mesh=new THREE.Mesh(new THREE.CapsuleGeometry(radius,length,6,12),shade);
-    mesh.position.y=-(length/2+radius*.5); pivot.add(mesh);
+  // Built to human canon rather than by eye. The previous figure measured
+  // 4.16 heads tall against a canonical 7.5 — the head was 1.8x oversized —
+  // stood 2.21 m, and carried 0.78 m shoulders where ~0.44 m is human. Read
+  // as a silhouette that is exactly what stopped it looking like a person.
+  // H = 1.80 m, head 0.24 m, shoulder line at .81H, hip at .55H, knee at .28H.
+  const upper=new THREE.Group();                 // everything above the hips,
+  upper.position.y=1.00; root.add(upper);        // so the torso can lean
+  rpgAvatarParts.upper=upper;
+
+  const head=new THREE.Mesh(new THREE.SphereGeometry(.115,20,16),shade);
+  head.scale.set(.92,1.04,.95); head.position.y=.68; upper.add(head);
+  rpgAvatarParts.head=head;
+  const jaw=new THREE.Mesh(new THREE.SphereGeometry(.088,14,12),shade);
+  jaw.scale.set(.86,.72,1.02); jaw.position.set(0,.635,.026); upper.add(jaw);
+  const neck=new THREE.Mesh(new THREE.CylinderGeometry(.046,.058,.12,10),shade);
+  neck.position.y=.525; upper.add(neck);
+  // Torso: chest tapering to a waist, so the silhouette has a middle.
+  const chest=new THREE.Mesh(new THREE.CapsuleGeometry(.150,.20,7,14),shade);
+  chest.position.y=.345; chest.scale.set(1.16,1.0,.66); upper.add(chest);
+  const waist=new THREE.Mesh(new THREE.CapsuleGeometry(.122,.14,7,14),shade);
+  waist.position.y=.130; waist.scale.set(1.10,1.0,.68); upper.add(waist);
+  const shoulders=new THREE.Mesh(new THREE.SphereGeometry(.105,16,12),shade);
+  shoulders.scale.set(2.05,.62,.92); shoulders.position.y=.45; upper.add(shoulders);
+  const hips=new THREE.Mesh(new THREE.SphereGeometry(.105,16,12),shade);
+  // On the root, not on `upper`: the pelvis stays level with the leg pivots at
+  // hip height and does not follow the torso's lean.
+  hips.scale.set(1.62,.78,.90); hips.position.y=1.00; root.add(hips);
+
+  // Two-segment limbs. A rigid pole cannot read as a leg however it swings —
+  // the knee and elbow are what make the stride look like walking.
+  const makeLimb=(parent,x,y,upperLen,upperR,lowerLen,lowerR,capR,foot)=>{
+    const pivot=new THREE.Group(); pivot.position.set(x,y,0); parent.add(pivot);
+    const seg=new THREE.Mesh(new THREE.CapsuleGeometry(upperR,Math.max(.01,upperLen-upperR*2),6,12),shade);
+    seg.position.y=-upperLen/2; pivot.add(seg);
+    const joint=new THREE.Group(); joint.position.y=-upperLen; pivot.add(joint);
+    const seg2=new THREE.Mesh(new THREE.CapsuleGeometry(lowerR,Math.max(.01,lowerLen-lowerR*2),6,12),shade);
+    seg2.position.y=-lowerLen/2; joint.add(seg2);
     const cap=new THREE.Mesh(new THREE.SphereGeometry(capR,12,10),shade);
-    cap.position.y=-(length+radius*.5); if(capFlat) cap.scale.set(1,.62,1.5); pivot.add(cap);
-    root.add(pivot); return pivot;
+    // Sole flush with the ground and the ankle at .07 m, so a standing figure
+    // is planted rather than hovering a few centimetres proud of the floor.
+    if(foot){ cap.scale.set(1.0,.60,1.95); cap.position.set(0,-lowerLen-.035,-.045); }
+    else { cap.scale.set(.92,1.12,.72); cap.position.y=-lowerLen-.015; }
+    joint.add(cap);
+    return {pivot,joint};
   };
-  rpgAvatarParts.leftLeg=makeLimb(-.15,.98,.56,.11,.12,true);
-  rpgAvatarParts.rightLeg=makeLimb(.15,.98,.56,.11,.12,true);
-  rpgAvatarParts.leftArm=makeLimb(-.34,1.54,.50,.085,.075,false);
-  rpgAvatarParts.rightArm=makeLimb(.34,1.54,.50,.085,.075,false);
+  const ll=makeLimb(root,-.085,1.00,.50,.065,.43,.050,.058,true);
+  const rl=makeLimb(root, .085,1.00,.50,.065,.43,.050,.058,true);
+  const la=makeLimb(upper,-.200,.42,.33,.048,.27,.039,.050,false);
+  const ra=makeLimb(upper, .200,.42,.33,.048,.27,.039,.050,false);
+  rpgAvatarParts.leftLeg=ll.pivot;  rpgAvatarParts.leftKnee=ll.joint;
+  rpgAvatarParts.rightLeg=rl.pivot; rpgAvatarParts.rightKnee=rl.joint;
+  rpgAvatarParts.leftArm=la.pivot;  rpgAvatarParts.leftElbow=la.joint;
+  rpgAvatarParts.rightArm=ra.pivot; rpgAvatarParts.rightElbow=ra.joint;
   root.traverse(o=>{if(o.isMesh){o.castShadow=false;o.receiveShadow=false;o.frustumCulled=true;}});
   markRpgAvatar(root);
   root.visible=false;
@@ -2392,7 +2425,7 @@ function buildRpgAvatar(){
   { const g=shC.getContext('2d'); const grd=g.createRadialGradient(64,64,3,64,64,62);
     grd.addColorStop(0,'rgba(0,0,0,.55)'); grd.addColorStop(1,'rgba(0,0,0,0)');
     g.fillStyle=grd; g.fillRect(0,0,128,128); }
-  const shadow=new THREE.Mesh(new THREE.CircleGeometry(.60,28),
+  const shadow=new THREE.Mesh(new THREE.CircleGeometry(.36,24),   // sized to a 1.8 m figure, not the old 2.2 m one
     new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(shC),transparent:true,depthWrite:false,opacity:.9,toneMapped:false}));
   shadow.rotation.x=-Math.PI/2; shadow.position.y=.02; shadow.visible=false;
   markRpgAvatar(shadow); scene.add(shadow); rpgAvatarShadow=shadow;
@@ -2412,15 +2445,70 @@ function updateRpgAvatar(dt=0,speed=0){
   const floor=visitorFloorY(rpgPlayerPosition);
   rpgAvatar.position.set(rpgPlayerPosition.x,floor,rpgPlayerPosition.z);
   if(rpgAvatarShadow){ rpgAvatarShadow.visible=rpgMode; rpgAvatarShadow.position.set(rpgPlayerPosition.x,floor+.02,rpgPlayerPosition.z); }
+  const P=rpgAvatarParts;
   const moving=speed>.08;
-  if(moving) rpgFacingYaw=lerpAngle(rpgFacingYaw,Math.atan2(-velX,-velZ),Math.min(1,dt*11));
-  else rpgFacingYaw=lerpAngle(rpgFacingYaw,yaw,Math.min(1,dt*4));
+  // Turn: snap toward the direction of travel, but remember how hard we are
+  // turning — a body that leans into its corners reads as deliberate.
+  const targetYaw=moving?Math.atan2(-velX,-velZ):yaw;
+  const before=rpgFacingYaw;
+  rpgFacingYaw=lerpAngle(rpgFacingYaw,targetYaw,Math.min(1,dt*(moving?14:4)));
+  const turnRate=dt>0?angleDelta(before,rpgFacingYaw)/dt:0;
+  rpgGait.turn=damp(rpgGait.turn,clamp(turnRate*.10,-.30,.30),7,dt);
   rpgAvatar.rotation.y=rpgFacingYaw;
-  const swing=moving&&!reducedMotion?Math.sin(bobPhase*Math.PI*2)*.55:0;
-  rpgAvatarParts.leftLeg.rotation.x=swing;
-  rpgAvatarParts.rightLeg.rotation.x=-swing;
-  rpgAvatarParts.leftArm.rotation.x=-swing*.58;
-  rpgAvatarParts.rightArm.rotation.x=swing*.58;
+  rpgAvatar.rotation.z=-rpgGait.turn;                 // bank into the turn
+
+  if(reducedMotion){
+    P.leftLeg.rotation.x=P.rightLeg.rotation.x=0;
+    P.leftArm.rotation.x=P.rightArm.rotation.x=0;
+    P.leftKnee.rotation.x=P.rightKnee.rotation.x=0;
+    P.leftElbow.rotation.x=P.rightElbow.rotation.x=-.18;
+    P.upper.rotation.x=0; P.upper.position.y=1.00;
+    return;
+  }
+
+  // Cadence and stride both answer to speed, so a walk and a run are not the
+  // same animation played faster.
+  rpgGait.speed=damp(rpgGait.speed,speed,8,dt);
+  const v=rpgGait.speed;
+  const run=clamp((v-4.2)/5.0,0,1);
+  if(moving) rpgGait.phase+=dt*(1.5+Math.min(v,14)*1.02);
+  else rpgGait.phase+=dt*.6;
+  const ph=rpgGait.phase;
+  const amp=moving?clamp(v/6.2,.18,1)*(.52+run*.28):0;
+
+  // Legs: thigh swings, knee flexes through the swing so the foot clears the
+  // ground instead of scything through it.
+  const sw=Math.sin(ph)*amp;
+  P.leftLeg.rotation.x=sw;
+  P.rightLeg.rotation.x=-sw;
+  const flexL=Math.max(0,Math.cos(ph))*amp*(1.15+run*.75);
+  const flexR=Math.max(0,Math.cos(ph+Math.PI))*amp*(1.15+run*.75);
+  P.leftKnee.rotation.x=-flexL;
+  P.rightKnee.rotation.x=-flexR;
+
+  // Arms counter-swing, elbows carried bent — straight arms read as a doll.
+  const armSw=-sw*(.62+run*.25);
+  P.leftArm.rotation.x=armSw;
+  P.rightArm.rotation.x=-armSw;
+  const elbow=-(.20+run*.30)-Math.max(0,-armSw)*.55;
+  P.leftElbow.rotation.x=elbow;
+  P.rightElbow.rotation.x=-(.20+run*.30)-Math.max(0,armSw)*.55;
+  P.leftArm.rotation.z=.06+run*.05;                   // arms hang off the ribs
+  P.rightArm.rotation.z=-(.06+run*.05);
+
+  // Torso leans into the run and the body rises over each stance leg. Idle
+  // keeps a slow breath so a standing figure is never completely inert.
+  rpgGait.breathe+=dt*(moving?0:1.15);
+  const leanTarget=moving?(.06+run*.24):0;
+  rpgGait.lean=damp(rpgGait.lean,leanTarget,5,dt);
+  P.upper.rotation.x=rpgGait.lean;
+  const bob=moving?Math.cos(ph*2)*.022*amp:Math.sin(rpgGait.breathe)*.006;
+  P.upper.position.y=1.00+bob;
+  P.upper.rotation.y=Math.sin(ph)*.07*amp;            // shoulders counter-rotate
+  // The head holds its line while the shoulders work, and glances toward the
+  // camera when standing — the difference between walking and being walked.
+  P.head.rotation.y=-P.upper.rotation.y*.6+(moving?0:clamp(angleDelta(rpgFacingYaw,yaw),-.7,.7)*.35);
+  P.head.rotation.x=-rpgGait.lean*.55;
 }
 function updateRpgCamera(dt=.016,snap=false){
   if(!rpgMode || !camera) return;
