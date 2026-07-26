@@ -12431,8 +12431,9 @@ function selectArchiveEntry(id, silent=false){
 
 
 function updateSelected(i, quiet=false){
-  selected = i;
   const a = artworks[i];
+  if(!a) return;
+  selected = i;
   $('workTitle').textContent = a.title;
   $('workCollection').textContent = a.collection;
   $('workMeta').textContent = `${a.catalogueId || String(i+1).padStart(2,'0')} · ${a.medium} · ${a.room}`;
@@ -12442,6 +12443,7 @@ function updateSelected(i, quiet=false){
   if(!quiet) msg(a.title);
 }
 function selectNearest(quiet=false){
+  if(!artworkObjects.length) return;
   if(currentRoom === 'gallery' && lookingAt >= 0){
     if(lookingAt !== selected || quiet) updateSelected(lookingAt, quiet);
     return;
@@ -12513,6 +12515,7 @@ function updateCameraTransition(dt){
 }
 function moveToArtwork(i, instant=false){
   const o = artworkObjects[i];
+  if(!o) return;
   const side = o.side;
   const visitor=getVisitorPosition();
   // Approach along the artwork's normal, stopping like a visitor stepping close to the wall.
