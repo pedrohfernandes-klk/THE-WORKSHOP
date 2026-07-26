@@ -5740,6 +5740,18 @@ function buildNightRoom(){
     targetPos:new THREE.Vector3(tunnelRoomOrigin.x+7.97, cameraHeight, tunnelRoomOrigin.z+15.15),
     targetYaw:Math.PI/2, slideAxis:tunnelReturnDoor.openAxis, slideDist:3.2
   });
+  // The lounge's art is all on the two side walls, so the front wall's bay
+  // beside the hall door is clear.
+  const nightHqReturn = addPremiumPortalDoor({
+    x:x0+6.5, y:2.95, z:z0+.12, width:3.0, height:4.8, orientation:'front',
+    title:'HEADQUARTERS', subtitle:'civic quarter', accent:0xd8c39a, dark:0x1b1713
+  });
+  registerPortal({
+    mesh:nightHqReturn.slab, field:nightHqReturn.field, doorParts:nightHqReturn.doorParts, openAxis:nightHqReturn.openAxis,
+    room:'hood', fromRoom:'night', label:'HEADQUARTERS',
+    targetPos:new THREE.Vector3(hoodOrigin.x+23, cameraHeight, hoodOrigin.z+322),
+    targetYaw:Math.PI/2, slideAxis:nightHqReturn.openAxis, slideDist:3.0
+  });
 
   const hemi = new THREE.HemisphereLight(0xdfe5ef,0x5b4636,.82);
   scene.add(hemi); regLight('night', hemi);
@@ -8504,6 +8516,18 @@ function buildTheatre(){
     targetPos:new THREE.Vector3(tunnelRoomOrigin.x-7.97, cameraHeight, tunnelRoomOrigin.z+6.55),
     targetYaw:-Math.PI/2, slideAxis:tunnelReturn.openAxis, slideDist:2.8
   });
+  // Third leg: back to the Civic Quarter, landing in front of this room's own
+  // pavilion. Mirrors the tunnel door's offset into the bay opposite it.
+  const hqReturn = addPremiumPortalDoor({
+    x:theatreOrigin.x+6.5, y:3.0, z:z1-.18, width:2.8, height:5.0, orientation:'front',
+    title:'HEADQUARTERS', subtitle:'civic quarter', accent:0xd8c39a, dark:0x1b1713
+  });
+  registerPortal({
+    mesh:hqReturn.slab, field:hqReturn.field, doorParts:hqReturn.doorParts, openAxis:hqReturn.openAxis,
+    room:'hood', fromRoom:'theatre', label:'HEADQUARTERS',
+    targetPos:new THREE.Vector3(hoodOrigin.x-59, cameraHeight, hoodOrigin.z+310),
+    targetYaw:-Math.PI/2, slideAxis:hqReturn.openAxis, slideDist:2.8
+  });
 
   // --- Venue theatrical polish (absorbed from buildExhibitionSpacesPolish, session 4) ---
   {
@@ -8749,6 +8773,16 @@ function buildLaboratory(){
     room:'tunnel', fromRoom:'lab', label:'The Tunnel',
     targetPos:new THREE.Vector3(tunnelRoomOrigin.x-7.97, cameraHeight, tunnelRoomOrigin.z+2.25),
     targetYaw:-Math.PI/2, slideAxis:tunnelReturn.openAxis, slideDist:2.2
+  });
+  const hqReturn = addPremiumPortalDoor({
+    x:labOrigin.x+3.3, y:2.3, z:entryZ-.18, width:2.2, height:4.2, orientation:'front',
+    title:'HEADQUARTERS', subtitle:'civic quarter', accent:0xd8c39a, dark:0x1b1713
+  });
+  registerPortal({
+    mesh:hqReturn.slab, field:hqReturn.field, doorParts:hqReturn.doorParts, openAxis:hqReturn.openAxis,
+    room:'hood', fromRoom:'lab', label:'HEADQUARTERS',
+    targetPos:new THREE.Vector3(hoodOrigin.x-59, cameraHeight, hoodOrigin.z+322),
+    targetYaw:-Math.PI/2, slideAxis:hqReturn.openAxis, slideDist:2.2
   });
 
   // --- NO WORRIES projection framing (absorbed from buildExhibitionSpacesPolish, session 4) ---
@@ -9109,6 +9143,17 @@ function buildMazeGarden(){
       room:'tunnel', fromRoom:'maze', label:'The Tunnel',
       targetPos:new THREE.Vector3(tunnelRoomOrigin.x+7.97, cameraHeight, tunnelRoomOrigin.z+2.25),
       targetYaw:Math.PI/2, slideAxis:tunnelReturn.openAxis, slideDist:3.0
+    });
+    // The hall and tunnel doors sit at x0-+12.7, so the centre bay is free.
+    const hqReturn = addPremiumPortalDoor({
+      x:x0, y:3.0, z:zFront-.18, width:3.0, height:5.0, orientation:'front',
+      title:'HEADQUARTERS', subtitle:'civic quarter', accent:0xd8c39a, dark:0x1b1713
+    });
+    registerPortal({
+      mesh:hqReturn.slab, field:hqReturn.field, doorParts:hqReturn.doorParts, openAxis:hqReturn.openAxis,
+      room:'hood', fromRoom:'maze', label:'HEADQUARTERS',
+      targetPos:new THREE.Vector3(hoodOrigin.x-59, cameraHeight, hoodOrigin.z+334),
+      targetYaw:-Math.PI/2, slideAxis:hqReturn.openAxis, slideDist:3.0
     });
 
     const mapsDoor = addPremiumPortalDoor({
@@ -9493,6 +9538,16 @@ function buildMapGallery(){
     room:'tunnel', fromRoom:'maps', label:'The Tunnel',
     targetPos:new THREE.Vector3(tunnelRoomOrigin.x+7.97, cameraHeight, tunnelRoomOrigin.z+6.55),
     targetYaw:Math.PI/2, slideAxis:mapsTunnelReturn.openAxis, slideDist:3.2
+  });
+  const mapsHqReturn = addPremiumPortalDoor({
+    x:x0+9, y:3.5, z:zFront-.22, width:3.2, height:5.6, orientation:'front',
+    title:'HEADQUARTERS', subtitle:'civic quarter', accent:0xd8c39a, dark:0x1b1713
+  });
+  registerPortal({
+    mesh:mapsHqReturn.slab, field:mapsHqReturn.field, doorParts:mapsHqReturn.doorParts, openAxis:mapsHqReturn.openAxis,
+    room:'hood', fromRoom:'maps', label:'HEADQUARTERS',
+    targetPos:new THREE.Vector3(hoodOrigin.x-59, cameraHeight, hoodOrigin.z+346),
+    targetYaw:-Math.PI/2, slideAxis:mapsHqReturn.openAxis, slideDist:3.2
   });
 
   // --- MANY MAPS cartographic polish (absorbed from buildExhibitionSpacesPolish, session 4) ---
@@ -10011,6 +10066,16 @@ function buildSparkToolsLab(){
     room:'tunnel', fromRoom:'spark', label:'The Tunnel',
     targetPos:new THREE.Vector3(tunnelRoomOrigin.x+7.97, cameraHeight, tunnelRoomOrigin.z+10.85),
     targetYaw:Math.PI/2, slideAxis:sparkTunnelReturn.openAxis, slideDist:3.0
+  });
+  const sparkHqReturn = addPremiumPortalDoor({
+    x:x0-7.5, y:2.9, z:z0+.12, width:3.0, height:4.6, orientation:'front',
+    title:'HEADQUARTERS', subtitle:'civic quarter', accent:0xd8c39a, dark:0x1b1713
+  });
+  registerPortal({
+    mesh:sparkHqReturn.slab, field:sparkHqReturn.field, doorParts:sparkHqReturn.doorParts, openAxis:sparkHqReturn.openAxis,
+    room:'hood', fromRoom:'spark', label:'HEADQUARTERS',
+    targetPos:new THREE.Vector3(hoodOrigin.x+23, cameraHeight, hoodOrigin.z+346),
+    targetYaw:Math.PI/2, slideAxis:sparkHqReturn.openAxis, slideDist:3.0
   });
 }
 
@@ -10888,6 +10953,12 @@ function buildStudio(){
     targetPos:new THREE.Vector3(tunnelRoomOrigin.x-7.97, cameraHeight, tunnelRoomOrigin.z+15.15),
     targetYaw:-Math.PI/2, slideAxis:tunnelReturn.openAxis, slideDist:2.6
   });
+  // No Headquarters door in the Studio: this return wall is full. It already
+  // carries the hall and tunnel doors plus DAMN. and Rubber Soul, leaving only
+  // 1.5 m bays between them and 3.2 m at the far edge — a third door would sit
+  // 0.5 m from its neighbour, recreating the exact "art crammed against doors"
+  // fault the clearance guard exists to catch (it duly caught it). The Studio
+  // is still entered from the Civic Quarter and returns via the hall or tunnel.
 
   // ===== Mixing desk: a working sound-making station, the Studio's answer to
   // the Experiment Garden's painting/collage desk. Same pattern — a physical
@@ -11378,6 +11449,17 @@ function buildThinkingRoom(){
     targetYaw:Math.PI/2,
     slideAxis:returnBuilt.openAxis,
     slideDist:4.25
+  });
+  // Second leg for the Thinking Room, which was previously a hall-only leaf.
+  const thinkingHqReturn = addPremiumPortalDoor({
+    x:x0+6.5, y:2.95, z:z0+.12, width:3.0, height:4.8, orientation:'front',
+    title:'HEADQUARTERS', subtitle:'civic quarter', accent:0xd8c39a, dark:0x1b1713
+  });
+  registerPortal({
+    mesh:thinkingHqReturn.slab, field:thinkingHqReturn.field, doorParts:thinkingHqReturn.doorParts, openAxis:thinkingHqReturn.openAxis,
+    room:'hood', fromRoom:'thinking', label:'HEADQUARTERS',
+    targetPos:new THREE.Vector3(hoodOrigin.x+23, cameraHeight, hoodOrigin.z+334),
+    targetYaw:Math.PI/2, slideAxis:thinkingHqReturn.openAxis, slideDist:3.0
   });
 
   const hemi = new THREE.HemisphereLight(0xfffbef,0xbca48a,1.16);
