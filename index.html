@@ -1860,6 +1860,7 @@ body.rpgMode #rpgModeBadge{display:block}
       <h4 class="fastMapDistrictTitle">Headquarters<span>separate district on the coast</span></h4>
       <div class="fastMapGrid">
         <button class="fastMapBtn" data-place="headquarters" data-room="hood"><b>Headquarters</b><span>Restored warehouse, cave theatre, tower residences and formal garden.</span></button>
+        <button class="fastMapBtn" data-place="civic-quarter" data-room="hood"><b>The Civic Quarter</b><span>Civic square where every room in the museum has its own entrance.</span></button>
       </div>
     </section>
   </aside>
@@ -3173,7 +3174,8 @@ const PLACE_BUILD_IDS = Object.freeze({
   'the-tunnel':'threshold', 'waiting-room':'threshold', venue:'venue',
   lab:'laboratory', garden:'experiment-garden', maps:'many-maps',
   spark:'spark-tools', thinking:'thinking-room', 'night-room':'sunset-lounge',
-  studio:'studio', outdoor:'grove', headquarters:'headquarters'
+  studio:'studio', outdoor:'grove', headquarters:'headquarters',
+  'civic-quarter':'headquarters'
 });
 function roomBuildId(room){return String(room||'').startsWith('hood-')?'headquarters':ROOM_BUILD_IDS[room];}
 function roomBuildReady(room){const id=roomBuildId(room);return !id || builtDistricts.has(id);}
@@ -4470,7 +4472,7 @@ function runWorkshopSelfTest(){
 
   // Hierarchical navigator: three districts, all ten destinations still wired.
   check(document.querySelectorAll('#fastMapPanel .fastMapDistrict').length === 3, 'navigator has 3 districts', document.querySelectorAll('#fastMapPanel .fastMapDistrict').length);
-  check(document.querySelectorAll('#fastMapPanel .fastMapBtn').length === 10, 'navigator has 10 destinations', document.querySelectorAll('#fastMapPanel .fastMapBtn').length);
+  check(document.querySelectorAll('#fastMapPanel .fastMapBtn').length === 11, 'navigator has 11 destinations', document.querySelectorAll('#fastMapPanel .fastMapBtn').length);
   check([...document.querySelectorAll('#fastMapPanel .fastMapBtn')].every(b=>b.dataset.place && b.dataset.room), 'navigator buttons fully wired', 'data-place/data-room');
 
   check(portals.length >= 8, 'portals registered', `${portals.length} portals`);
@@ -7598,6 +7600,28 @@ function buildHood(){
       const plaque=new THREE.Mesh(new THREE.PlaneGeometry(6.6,.95),
         new THREE.MeshBasicMaterial({map:makeSignTexture('THE CIVIC QUARTER','every room, one address'),transparent:true,toneMapped:false}));
       plaque.position.set(cqX,3.0,oz-2.75);plaque.rotation.y=Math.PI;scene.add(plaque);
+    }
+
+    // --- wayfinding: a fingerpost where the garden axis meets the square, and
+    // --- a companion at the far end pointing back down the vista ---
+    {
+      const postMat=new THREE.MeshStandardMaterial({color:0x2f2a24,roughness:.7,metalness:.2});
+      const fingerpost=(fx,fz,facing,lines)=>{
+        const post=new THREE.Mesh(new THREE.CylinderGeometry(.13,.16,4.4,10),postMat);
+        post.position.set(fx,2.2,fz);scene.add(post);
+        lines.forEach((ln,i)=>{
+          const arm=new THREE.Mesh(new THREE.PlaneGeometry(5.4,.8),
+            new THREE.MeshBasicMaterial({map:makeSignTexture(ln[0],ln[1]),transparent:true,toneMapped:false,side:THREE.DoubleSide}));
+          arm.position.set(fx,3.9-i*1.0,fz);arm.rotation.y=facing;scene.add(arm);
+        });
+        const cap=new THREE.Mesh(new THREE.ConeGeometry(.22,.42,10),brass);cap.position.set(fx,4.55,fz);scene.add(cap);
+      };
+      // Facing south, read on the way up the garden.
+      fingerpost(cqX-6.4, cqFrontZ-7, Math.PI,
+        [['THE CIVIC QUARTER','ahead · every room, one address']]);
+      // Facing north, read on the way back down.
+      fingerpost(cqX+6.4, cqMidZ+cqD/2-11, 0,
+        [['THE WATER GARDEN','behind · warehouse · the cave']]);
     }
 
     // --- benches down the axis ---
@@ -12291,10 +12315,13 @@ function updateRoomsPanel(){
   const primaryPlaces={
     gallery:['warehouse'], theatre:['venue'], lab:['lab'], maze:['garden'], outdoor:['outdoor'],
     studio:['studio'], tunnel:['the-tunnel','waiting-room'], night:['night-room'], maps:['maps'],
-    thinking:['thinking'], spark:['spark']
+    thinking:['thinking'], spark:['spark'], hood:['headquarters','civic-quarter']
   };
   let activePlace=(primaryPlaces[currentRoom]||[])[0]||null;
   if(currentRoom==='tunnel') activePlace = getVisitorPosition().z < tunnelRoomOrigin.z + 21.0 ? 'waiting-room' : 'the-tunnel';
+  // The Hood had no entry at all, so its button never lit. It now splits the
+  // same way the tunnel does: north of the Water Garden you are in the quarter.
+  if(currentRoom==='hood') activePlace = getVisitorPosition().z > hoodOrigin.z + 292 ? 'civic-quarter' : 'headquarters';
   document.querySelectorAll('.fastMapBtn[data-room]').forEach(btn=>{
     const active=btn.dataset.place===activePlace;
     btn.classList.toggle('active',active);
@@ -13317,6 +13344,15 @@ function fastTravel(place){
       pos:new THREE.Vector3(hoodOrigin.x-72,cameraHeight,hoodOrigin.z+72),
       yaw:Math.PI/2,
       label:'Headquarters'
+    },
+    // The square's south entrance, on the Water Garden's axis, looking north
+    // up the quarter. This is also the hall's direct route to the Hood — its
+    // own walls had no free bay for a Headquarters door.
+    'civic-quarter': {
+      room:'hood',
+      pos:new THREE.Vector3(hoodOrigin.x-18,cameraHeight,hoodOrigin.z+300),
+      yaw:Math.PI,
+      label:'The Civic Quarter'
     },
     studio: {
       room:'studio',
