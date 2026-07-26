@@ -7415,6 +7415,196 @@ function buildHood(){
   for(const sx of [-1,1]){const pg=new THREE.Group();pg.position.set(gx+sx*59,0,gz-38);scene.add(pg);const roof=new THREE.Mesh(new THREE.CylinderGeometry(5.2,5.2,.55,8),limestone);roof.position.y=4.8;pg.add(roof);for(let a=0;a<8;a++){const col=new THREE.Mesh(new THREE.CylinderGeometry(.18,.24,4.4,12),paleStone);col.position.set(Math.cos(a*Math.PI/4)*4.1,2.2,Math.sin(a*Math.PI/4)*4.1);pg.add(col);}const seat=new THREE.Mesh(new THREE.CylinderGeometry(3.1,3.1,.45,32),wood);seat.position.y=.45;pg.add(seat);sitPoint('hood',seat,'Garden pavilion',new THREE.Vector3(gx+sx*59,1.35,gz-38),sx<0?-Math.PI/2:Math.PI/2);}
   [[-44,18,0],[44,18,0],[-30,45,Math.PI],[30,45,Math.PI],[-67,5,-Math.PI/2],[67,5,Math.PI/2]].forEach(([dx,dz,ry],i)=>{const bench=new THREE.Mesh(new THREE.BoxGeometry(4.2,.34,1.0),wood);bench.position.set(gx+dx,.55,gz+dz);bench.rotation.y=ry;scene.add(bench);sitPoint('hood',bench,i<2?'Lake edge':'Garden terrace',new THREE.Vector3(gx+dx,1.28,gz+dz),ry);});
 
+  // ===== THE CIVIC QUARTER =============================================
+  // The museum was twelve coordinate islands: every room reachable only by a
+  // teleport door, and the Hood itself hanging off a single edge
+  // (gallery -> outdoor -> hood, three hops). This square gathers an entrance
+  // to every room into one walkable place, so the world reads as a city
+  // instead of a menu. The rooms themselves are untouched and the doors are
+  // the same portals as before — what changes is that they now share an
+  // address. Existing room-to-room shortcuts all still work.
+  //
+  // It sits on the Water Garden's own axis (gx = x0-18) in the district's
+  // empty north end, so it terminates a vista that previously ran into
+  // nothing, and it stays south of z0+368 to remain inside the walk clamp.
+  //
+  // Two facing rows only. Door orientation is not free: 'left' faces +x (the
+  // visitor stands east of it) and 'right' faces -x, so a west row of 'left'
+  // doors and an east row of 'right' doors both face the square correctly.
+  {
+    const cqX=x0-18, cqFrontZ=z0+298, cqStep=12;
+    const cqMidZ=cqFrontZ+cqStep*2.5, cqW=90, cqD=76;
+    const westX=cqX-45, eastX=cqX+45;
+    const civicStone=new THREE.MeshStandardMaterial({color:0xb9ad96,roughness:.94});
+    const civicDark=new THREE.MeshStandardMaterial({color:0x2b2622,roughness:.8});
+
+    // --- ground: paving, axis strip, kerbs ---
+    const pave=new THREE.Mesh(new THREE.PlaneGeometry(cqW,cqD),civicStone);
+    pave.rotation.x=-Math.PI/2;pave.position.set(cqX,.07,cqMidZ);scene.add(pave);
+    const cqAxis=new THREE.Mesh(new THREE.PlaneGeometry(7.0,cqD-4),limestone);
+    cqAxis.rotation.x=-Math.PI/2;cqAxis.position.set(cqX,.095,cqMidZ);scene.add(cqAxis);
+    for(const sx of [-1,1]){
+      const kerb=new THREE.Mesh(new THREE.BoxGeometry(.5,.26,cqD),paleStone);
+      kerb.position.set(cqX+sx*(cqW/2-1.4),.13,cqMidZ);scene.add(kerb);
+    }
+
+    // --- one shared pavilion form, themed per room ---
+    // side: -1 west (door faces east), +1 east (door faces west).
+    function civicPavilion({x,z,side,title,subtitle,accent,motif}){
+      const depth=11, wide=10, h=8.6+((motif==='clock')?2.6:0);
+      const cxm=x+side*-1*(depth/2);                       // mass sits behind its door
+      const body=new THREE.Mesh(new THREE.BoxGeometry(depth,h,wide),civicStone);
+      body.position.set(cxm,h/2,z);scene.add(body);
+      const plinth=new THREE.Mesh(new THREE.BoxGeometry(depth+.7,.85,wide+.7),civicDark);
+      plinth.position.set(cxm,.42,z);scene.add(plinth);
+      const cornice=new THREE.Mesh(new THREE.BoxGeometry(depth+.6,.55,wide+.6),paleStone);
+      cornice.position.set(cxm,h+.2,z);scene.add(cornice);
+      // Name band, always readable from the square side.
+      const band=new THREE.Mesh(new THREE.PlaneGeometry(7.4,.92),
+        new THREE.MeshBasicMaterial({map:makeSignTexture(title,subtitle),transparent:true,toneMapped:false}));
+      band.position.set(x-side*.06,6.5,z);band.rotation.y=side<0?Math.PI/2:-Math.PI/2;scene.add(band);
+      // A slim emissive reveal over the doorway — light without a light.
+      const reveal=new THREE.Mesh(new THREE.PlaneGeometry(5.2,.16),
+        new THREE.MeshBasicMaterial({color:accent,toneMapped:false}));
+      reveal.position.set(x-side*.05,5.5,z);reveal.rotation.y=side<0?Math.PI/2:-Math.PI/2;scene.add(reveal);
+      const accentMat=new THREE.MeshStandardMaterial({color:accent,roughness:.5,metalness:.3});
+      const emis=c=>new THREE.MeshBasicMaterial({color:c,toneMapped:false});
+      // --- character: each room's front says what it is ---
+      if(motif==='marquee'){                                  // The Venue
+        const can=new THREE.Mesh(new THREE.BoxGeometry(2.6,.36,wide-1.2),civicDark);
+        can.position.set(x-side*1.3,7.4,z);scene.add(can);
+        for(let i=0;i<7;i++){const b=new THREE.Mesh(new THREE.SphereGeometry(.15,8,6),emis(0xffe7b0));
+          b.position.set(x-side*2.5,7.2,z-3.6+i*1.2);scene.add(b);}
+      }else if(motif==='glass'){                              // Experiment Garden
+        for(const s of [-1,1]){const pane=new THREE.Mesh(new THREE.BoxGeometry(depth*.62,.14,wide*.55),glass);
+          pane.position.set(cxm,h+1.5,z+s*2.3);pane.rotation.x=s*.42;scene.add(pane);}
+        const ridge=new THREE.Mesh(new THREE.BoxGeometry(depth*.64,.2,.2),brass);
+        ridge.position.set(cxm,h+2.15,z);scene.add(ridge);
+      }else if(motif==='shed'){                               // The Studio
+        const roof=new THREE.Mesh(new THREE.BoxGeometry(depth+.4,.3,wide+.4),civicDark);
+        roof.position.set(cxm,h+1.5,z);roof.rotation.z=.16;scene.add(roof);
+        const stack=new THREE.Mesh(new THREE.CylinderGeometry(.3,.36,2.4,12),brick);
+        stack.position.set(cxm-2.2,h+2.3,z-2.6);scene.add(stack);
+      }else if(motif==='neon'){                               // Spark Tools
+        for(let i=0;i<3;i++){const bar=new THREE.Mesh(new THREE.PlaneGeometry(6.2,.22),emis(i%2?0x5ce3ff:0xff5fdc));
+          bar.position.set(x-side*.05,7.5+i*.5,z);bar.rotation.y=side<0?Math.PI/2:-Math.PI/2;scene.add(bar);}
+      }else if(motif==='lantern'){                            // Sunset Lounge
+        const box=new THREE.Mesh(new THREE.BoxGeometry(2.4,2.0,2.4),emis(0xffc98a));
+        box.position.set(cxm,h+1.6,z);scene.add(box);
+        const cap=new THREE.Mesh(new THREE.BoxGeometry(3.0,.28,3.0),brass);cap.position.set(cxm,h+2.8,z);scene.add(cap);
+      }else if(motif==='dome'){                               // Thinking Room
+        const dome=new THREE.Mesh(new THREE.SphereGeometry(3.1,18,12,0,Math.PI*2,0,Math.PI/2),paleStone);
+        dome.position.set(cxm,h+.4,z);scene.add(dome);
+        const fin=new THREE.Mesh(new THREE.SphereGeometry(.34,10,8),brass);fin.position.set(cxm,h+3.6,z);scene.add(fin);
+      }else if(motif==='stack'){                              // The Laboratory
+        for(const s of [-1,1]){const v=new THREE.Mesh(new THREE.CylinderGeometry(.26,.26,2.2,10),steel);
+          v.position.set(cxm+s*2.0,h+1.4,z-2.2);scene.add(v);}
+        const tank=new THREE.Mesh(new THREE.CylinderGeometry(.8,.8,1.5,16),steel);
+        tank.position.set(cxm,h+1.2,z+2.4);tank.rotation.z=Math.PI/2;scene.add(tank);
+      }else if(motif==='clock'){                              // Workshop Hall
+        const ped=new THREE.Mesh(new THREE.BoxGeometry(1.0,2.6,wide+1.4),paleStone);
+        ped.position.set(x-side*.5,h+1.6,z);scene.add(ped);
+        const face=new THREE.Mesh(new THREE.CircleGeometry(1.25,28),emis(0xf3e6c8));
+        face.position.set(x-side*1.06,h+1.7,z);face.rotation.y=side<0?Math.PI/2:-Math.PI/2;scene.add(face);
+      }else if(motif==='arch'){                               // The Tunnel
+        const ring=new THREE.Mesh(new THREE.TorusGeometry(3.0,.34,10,24,Math.PI),accentMat);
+        ring.position.set(x-side*.3,5.4,z);ring.rotation.y=side<0?Math.PI/2:-Math.PI/2;scene.add(ring);
+      }else if(motif==='compass'){                            // MANY MAPS
+        const disc=new THREE.Mesh(new THREE.CircleGeometry(1.9,4),accentMat);
+        disc.position.set(x-side*.08,7.9,z);disc.rotation.y=side<0?Math.PI/2:-Math.PI/2;disc.rotation.z=Math.PI/4;scene.add(disc);
+      }else if(motif==='pergola'){                            // The Grove
+        for(let i=0;i<5;i++){const beam=new THREE.Mesh(new THREE.BoxGeometry(3.4,.2,.2),wood);
+          beam.position.set(x-side*1.7,7.8,z-3.4+i*1.7);scene.add(beam);}
+        const green=new THREE.Mesh(new THREE.SphereGeometry(1.5,12,9),hedgeMat);
+        green.scale.set(1.5,.6,1.2);green.position.set(x-side*1.7,8.2,z);scene.add(green);
+      }
+      return {x,z};
+    }
+
+    // --- the eleven entrances. Arrival poses are copied verbatim from the
+    // --- proven hall / tunnel / lounge doors, so nobody lands inside a wall.
+    const civicDoors=[
+      // west row — doors face east into the square
+      {side:-1,z:cqFrontZ,        title:'WORKSHOP HALL',    subtitle:'the gallery · return', room:'gallery', accent:0xb8aa92, dark:0x171512, motif:'clock',
+       targetPos:()=>new THREE.Vector3(hallHalfWidth-3.1, cameraHeight, tunnelMouthZ + hallDepth*.64), targetYaw:-Math.PI/2},
+      {side:-1,z:cqFrontZ+cqStep, title:'THE VENUE',        subtitle:'SAYWHAT · cinema',     room:'theatre', accent:0xd5b56d, dark:0x1d1511, motif:'marquee',
+       targetPos:()=>new THREE.Vector3(theatreOrigin.x, theatreCameraY(theatreOrigin.z+theatreDepth-10), theatreOrigin.z+theatreDepth-10), targetYaw:0},
+      {side:-1,z:cqFrontZ+cqStep*2, title:'THE LABORATORY', subtitle:'NO WORRIES',           room:'lab',     accent:0x88aeb4, dark:0x162022, motif:'stack',
+       targetPos:()=>new THREE.Vector3(labOrigin.x, cameraHeight, labOrigin.z+labDepth-3), targetYaw:0},
+      {side:-1,z:cqFrontZ+cqStep*3, title:'EXPERIMENT GARDEN', subtitle:'temporary shows',   room:'maze',    accent:0x53693a, dark:0x211913, motif:'glass',
+       targetPos:()=>new THREE.Vector3(mazeOrigin.x, cameraHeight, mazeOrigin.z + mazeCell*.92), targetYaw:0},
+      {side:-1,z:cqFrontZ+cqStep*4, title:'MANY MAPS',      subtitle:'atlas · archive',      room:'maps',    accent:0xc2a15e, dark:0x1a1611, motif:'compass',
+       targetPos:()=>new THREE.Vector3(mapGalleryOrigin.x, cameraHeight, mapGalleryOrigin.z + mapGalleryDepth - 9.2), targetYaw:0},
+      {side:-1,z:cqFrontZ+cqStep*5, title:'THE TUNNEL',     subtitle:'waiting room',         room:'tunnel',  accent:0xc98d4a, dark:0x17110b, motif:'arch',
+       targetPos:()=>new THREE.Vector3(tunnelRoomOrigin.x+7.97, cameraHeight, tunnelRoomOrigin.z+15.15), targetYaw:Math.PI/2},
+      // east row — doors face west into the square
+      {side:1,z:cqFrontZ,        title:'THE GROVE',         subtitle:'garden · amphitheatre',room:'outdoor', accent:0xc8b48f, dark:0x181614, motif:'pergola',
+       targetPos:()=>new THREE.Vector3(outdoorOrigin.x, cameraHeight, outdoorOrigin.z + outdoorDepth - 4.6), targetYaw:0},
+      {side:1,z:cqFrontZ+cqStep, title:'THE STUDIO',        subtitle:'listening room',       room:'studio',  accent:0x9d6de2, dark:0x130d1c, motif:'shed',
+       targetPos:()=>new THREE.Vector3(studioOrigin.x, cameraHeight, studioOrigin.z + studioDepth - 3.2), targetYaw:0},
+      {side:1,z:cqFrontZ+cqStep*2, title:'SUNSET LOUNGE',   subtitle:'viewing room',         room:'night',   accent:0xe0a05c, dark:0x1a1310, motif:'lantern',
+       targetPos:()=>new THREE.Vector3(nightRoomOrigin.x, cameraHeight, nightRoomOrigin.z + 5.2), targetYaw:Math.PI},
+      {side:1,z:cqFrontZ+cqStep*3, title:'THINKING ROOM',   subtitle:'reading · research',   room:'thinking',accent:0xa4c6d8, dark:0x14181a, motif:'dome',
+       targetPos:()=>new THREE.Vector3(thinkingOrigin.x, cameraHeight, thinkingOrigin.z+4.4), targetYaw:Math.PI},
+      {side:1,z:cqFrontZ+cqStep*4, title:'SPARK TOOLS LABS',subtitle:'retropunk arcade',     room:'spark',   accent:0xd24fe5, dark:0x120714, motif:'neon',
+       targetPos:()=>new THREE.Vector3(sparkOrigin.x, cameraHeight, sparkOrigin.z+4.2), targetYaw:Math.PI}
+    ];
+    civicDoors.forEach(c=>{
+      const dx=c.side<0?westX:eastX;
+      civicPavilion({x:dx,z:c.z,side:c.side,title:c.title,subtitle:c.subtitle,accent:c.accent,motif:c.motif});
+      const built=addPremiumPortalDoor({
+        x:dx, y:3.05, z:c.z, width:3.6, height:6.0,
+        orientation:c.side<0?'left':'right',
+        title:c.title, subtitle:c.subtitle, accent:c.accent, dark:c.dark
+      });
+      registerPortal({
+        mesh:built.slab, field:built.field, doorParts:built.doorParts, openAxis:built.openAxis,
+        room:c.room, fromRoom:'hood', label:c.title,
+        targetPos:c.targetPos(), targetYaw:c.targetYaw,
+        slideAxis:built.openAxis, slideDist:3.6
+      });
+    });
+
+    // --- east row's twelfth bay: a bandstand, so both rows read complete ---
+    {
+      const bx=eastX+5.5, bz=cqFrontZ+cqStep*5;
+      const deck=new THREE.Mesh(new THREE.CylinderGeometry(4.2,4.5,.6,20),paleStone);deck.position.set(bx,.3,bz);scene.add(deck);
+      for(let a=0;a<8;a++){const col=new THREE.Mesh(new THREE.CylinderGeometry(.15,.19,3.6,10),paleStone);
+        col.position.set(bx+Math.cos(a*Math.PI/4)*3.4,2.4,bz+Math.sin(a*Math.PI/4)*3.4);scene.add(col);}
+      const roof=new THREE.Mesh(new THREE.ConeGeometry(4.7,1.8,20),brass);roof.position.set(bx,5.1,bz);scene.add(roof);
+      const seat=new THREE.Mesh(new THREE.CylinderGeometry(2.4,2.4,.4,20),wood);seat.position.set(bx,.85,bz);scene.add(seat);
+      sitPoint('hood',seat,'Civic bandstand',new THREE.Vector3(bx,1.7,bz),-Math.PI/2);
+    }
+
+    // --- north terminus: an obelisk closing the garden vista ---
+    {
+      const oz=cqMidZ+cqD/2-6;
+      const base=new THREE.Mesh(new THREE.BoxGeometry(5.4,1.1,5.4),paleStone);base.position.set(cqX,.55,oz);scene.add(base);
+      const step2=new THREE.Mesh(new THREE.BoxGeometry(3.6,.9,3.6),limestone);step2.position.set(cqX,1.55,oz);scene.add(step2);
+      const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.55,1.0,12.5,4),paleStone);shaft.position.set(cqX,8.2,oz);shaft.rotation.y=Math.PI/4;scene.add(shaft);
+      const tip=new THREE.Mesh(new THREE.ConeGeometry(.78,1.7,4),brass);tip.position.set(cqX,15.3,oz);tip.rotation.y=Math.PI/4;scene.add(tip);
+      const plaque=new THREE.Mesh(new THREE.PlaneGeometry(6.6,.95),
+        new THREE.MeshBasicMaterial({map:makeSignTexture('THE CIVIC QUARTER','every room, one address'),transparent:true,toneMapped:false}));
+      plaque.position.set(cqX,3.0,oz-2.75);plaque.rotation.y=Math.PI;scene.add(plaque);
+    }
+
+    // --- benches down the axis ---
+    for(let i=0;i<4;i++){
+      const bz=cqFrontZ+6+i*15;
+      for(const s of [-1,1]){
+        const bench=new THREE.Mesh(new THREE.BoxGeometry(1.0,.34,4.0),wood);
+        bench.position.set(cqX+s*6.2,.58,bz);scene.add(bench);
+        sitPoint('hood',bench,'Civic square bench',new THREE.Vector3(cqX+s*6.2,1.3,bz),s<0?Math.PI/2:-Math.PI/2);
+      }
+    }
+    // Two washes for the whole quarter — the Hood is the heaviest room to
+    // shade, so the pavilions carry emissive signage instead of a light each.
+    for(const s of [-1,1]){
+      const wash=new THREE.PointLight(0xffdcae,1.5,46,1.7);
+      wash.position.set(cqX+s*26,9.5,cqMidZ);scene.add(wash);regLight('hood',wash);
+    }
+  }
+
   // Exterior daylight and floor-specific interior lighting.
   const hemi=new THREE.HemisphereLight(0xeaf6ff,0x625342,2.05);scene.add(hemi);regLight('hood',hemi);
   const sun=new THREE.DirectionalLight(0xffe1b5,2.72);sun.position.set(x0-74,78,z0+18);scene.add(sun);sun.target.position.set(x0,0,z0+118);scene.add(sun.target);regLight('hood',sun);
