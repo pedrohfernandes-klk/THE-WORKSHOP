@@ -7304,7 +7304,7 @@ function buildHood(){
   // a real viewpoint and safe enclosure for future expansion.
   function floorSeat(room,y,cx,cz,label){const sofa=new THREE.Group();sofa.position.set(cx,y,cz);scene.add(sofa);const seat=new THREE.Mesh(new THREE.BoxGeometry(3.3,.42,1.2),new THREE.MeshStandardMaterial({color:0xe7e0d2,roughness:.56}));seat.position.y=.50;sofa.add(seat);const back=new THREE.Mesh(new THREE.BoxGeometry(3.3,1.08,.28),new THREE.MeshStandardMaterial({color:0xd6cbb9,roughness:.61}));back.position.set(0,1.10,.50);sofa.add(back);sitPoint(room,seat,label,new THREE.Vector3(cx,y+1.30,cz),Math.PI/2,-.03);}
   HOOD_MAIN_FLOORS.filter(f=>/^hood-a/.test(f.id)).forEach((f,i)=>floorSeat(f.id,f.y,tx-3,tz,`${f.label} · project view`));
-  HOOD_PRIVATE_FLOORS.filter(f=>/^hood-ph/.test(f.id)).forEach((f,i)=>{floorSeat(f.id,f.y,px-4,pz,`${f.label} · ocean window`);const tree=new THREE.Mesh(new THREE.SphereGeometry(.55,18,14),new THREE.MeshStandardMaterial({color:0x4c7650,roughness:.94}));tree.position.set(px+5,f.y+1.15,pz-5+i*.5);scene.add(tree);});
+  HOOD_PRIVATE_FLOORS.filter(f=>/^hood-ph[1-5]$/.test(f.id)).forEach((f,i)=>{floorSeat(f.id,f.y,px-4,pz,`${f.label} · ocean window`);const tree=new THREE.Mesh(new THREE.SphereGeometry(.55,18,14),new THREE.MeshStandardMaterial({color:0x4c7650,roughness:.94}));tree.position.set(px+5,f.y+1.15,pz-5+i*.5);scene.add(tree);});
 
   // Spacious Art Deco residences. Each floor now has a real salon, dining
   // zone, screened private room, parquet field, architectural lighting and
@@ -7347,7 +7347,7 @@ function buildHood(){
   }
   HOOD_MAIN_FLOORS.filter(f=>/^hood-a[1-4]$/.test(f.id)).forEach(f=>buildDecoHome(f,tx,tz,false,false));
   buildDecoHome(HOOD_MAIN_FLOORS.find(f=>f.id==='hood-a5'),px,pz,true,true);
-  HOOD_PRIVATE_FLOORS.filter(f=>/^hood-ph/.test(f.id)).forEach(f=>buildDecoHome(f,px,pz,true,true));
+  HOOD_PRIVATE_FLOORS.filter(f=>/^hood-ph[1-5]$/.test(f.id)).forEach(f=>buildDecoHome(f,px,pz,true,true));
 
   // Glass shaft walls dropped: a 59.7 m-tall full-height glass box (spanning
   // basement to well past the mezzanine) sitting right beside the ground-
@@ -7392,7 +7392,9 @@ function buildHood(){
     const ry=82.0;
     // Roof slab spanning both the antechamber and the Studio above the cap.
     const roofSlab=new THREE.Mesh(new THREE.BoxGeometry(42,.5,30),paleStone);
-    roofSlab.position.set(1917,ry-.25,-1402);scene.add(roofSlab);
+    // Top face at 81.9, just under the Studio's own floor at 82.0, so the two
+    // slabs do not z-fight through each other.
+    roofSlab.position.set(1917,ry-.35,-1402);scene.add(roofSlab);
     const roofTrim=new THREE.Mesh(new THREE.BoxGeometry(42.8,.36,30.8),brass);
     roofTrim.position.set(1917,ry-.62,-1402);scene.add(roofTrim);
     // Parapet around the exposed roof edge so it reads as a real terrace.
@@ -7758,7 +7760,11 @@ function buildHood(){
   const hemi=new THREE.HemisphereLight(0xeaf6ff,0x625342,2.05);scene.add(hemi);regLight('hood',hemi);
   const sun=new THREE.DirectionalLight(0xffe1b5,2.72);sun.position.set(x0-74,78,z0+18);scene.add(sun);sun.target.position.set(x0,0,z0+118);scene.add(sun.target);regLight('hood',sun);
   const coastalFill=new THREE.DirectionalLight(0xb9dded,1.08);coastalFill.position.set(x0+82,38,z0-28);coastalFill.target.position.set(x0,4,z0+96);scene.add(coastalFill,coastalFill.target);regLight('hood',coastalFill);
-  HOOD_ALL_FLOORS.filter(f=>f.id!=='hood').forEach((f,i)=>{const h=new THREE.HemisphereLight(0xe9eef0,0x292624,.44);scene.add(h);regLight(f.id,h);const p=new THREE.PointLight(i%2?0xffdfbd:0xcde5ef,2.15,38,1.65);p.position.set(/^hood-ph/.test(f.id)?px:tx,f.y+4.3,/^hood-ph/.test(f.id)?pz:tz);scene.add(p);regLight(f.id,p);});
+  // hood-ph6 is the roof antechamber, not a tower plate: px/pz would drop its
+  // light inside the Studio next door, so it is lit over its own floor.
+  HOOD_ALL_FLOORS.filter(f=>f.id!=='hood').forEach((f,i)=>{const h=new THREE.HemisphereLight(0xe9eef0,0x292624,.44);scene.add(h);regLight(f.id,h);const p=new THREE.PointLight(i%2?0xffdfbd:0xcde5ef,2.15,38,1.65);
+    const roof=f.id==='hood-ph6';
+    p.position.set(roof?1906.5:(/^hood-ph/.test(f.id)?px:tx),f.y+4.3,roof?-1397.5:(/^hood-ph/.test(f.id)?pz:tz));scene.add(p);regLight(f.id,p);});
 }
 
 function buildTunnel(){
