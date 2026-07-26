@@ -3273,9 +3273,41 @@ const PLACE_BUILD_IDS = Object.freeze({
   studio:'studio', outdoor:'grove', headquarters:'headquarters',
   'civic-quarter':'headquarters'
 });
+const DISTRICT_BUILDERS = Object.freeze({
+  venue:buildTheatre,
+  laboratory:buildLaboratory,
+  'experiment-garden':buildMazeGarden,
+  'many-maps':buildMapGallery,
+  'spark-tools':buildSparkToolsLab,
+  'thinking-room':buildThinkingRoom,
+  'sunset-lounge':buildNightRoom,
+  studio:buildStudio,
+  grove:buildOutdoorSpace,
+  headquarters:buildHood,
+});
+const districtBuildPromises = new Map();
 function roomBuildId(room){return String(room||'').startsWith('hood-')?'headquarters':ROOM_BUILD_IDS[room];}
 function roomBuildReady(room){const id=roomBuildId(room);return !id || builtDistricts.has(id);}
 function placeBuildReady(place){const id=PLACE_BUILD_IDS[place];return !id || builtDistricts.has(id);}
+function ensureDistrictBuild(id){
+  if(!id || builtDistricts.has(id)) return Promise.resolve(true);
+  if(districtBuildPromises.has(id)) return districtBuildPromises.get(id);
+  const build = DISTRICT_BUILDERS[id];
+  if(!build){ builtDistricts.add(id); return Promise.resolve(true); }
+  const promise = new Promise((resolve,reject)=>setTimeout(()=>{
+    try{
+      build();
+      builtDistricts.add(id);
+      window.__workshopMetrics?.built?.push(id);
+      resolve(true);
+    }catch(error){
+      console.error(`District ${id} failed`,error);
+      reject(error);
+    }
+  },0));
+  districtBuildPromises.set(id,promise);
+  return promise;
+}
 let animationStarted = false;
 function ensureAnimationStarted(){
   if(animationStarted) return;
@@ -4498,49 +4530,23 @@ function init(){
     {id:'archive',build:buildArchiveData},
     {id:'notes',build:()=>{loadNotes();renderNotes();}}
   ];
-  runIdleBuildQueue(deferredThreshold,{onTask:id=>{
-    window.__workshopMetrics.built.push(id);
-  }}).catch(err=>{
-    console.warn('Deferred threshold content failed',err);
-    window.__workshopMetrics.failures=(window.__workshopMetrics.failures||[]).concat([{id:'threshold-content',message:String(err?.message||err)}]);
-  });
-
-  const deferredBuilds=[
-    {id:'venue',build:buildTheatre},
-    {id:'laboratory',build:buildLaboratory},
-    {id:'experiment-garden',build:buildMazeGarden},
-    {id:'many-maps',build:buildMapGallery},
-    {id:'spark-tools',build:buildSparkToolsLab},
-    {id:'thinking-room',build:buildThinkingRoom},
-    {id:'sunset-lounge',build:buildNightRoom},
-    {id:'studio',build:buildStudio},
-    {id:'grove',build:buildOutdoorSpace},
-    {id:'headquarters',build:buildHood}
-  ];
-  runIdleBuildQueue(deferredBuilds,{
-    onTask:id=>{builtDistricts.add(id);window.__workshopMetrics.built.push(id);},
-    onDone:errors=>{
-      applyGlobalTuning();
-      // Spread the remaining finalisation across the next two frames so it does
-      // not land as one synchronous hitch right after the heaviest (Hood)
-      // build. Lighting was already applied at entry, so a one-frame defer is
-      // invisible; the ?selftest hook (120 ms) still runs after this completes.
-      requestAnimationFrame(()=>{
-        buildParticles();
-        requestAnimationFrame(()=>{ applyRoomLighting(); updateRoomUI(); });
-      });
-      window.__workshopMetrics.fullyReady=performance.now()-initStarted;
-      window.__workshopMetrics.resources=performance.getEntriesByType('resource').length;
-      window.__workshopMetrics.failures=errors.map(({task,error})=>({id:task?.id||'finalisation',message:String(error?.message||error)}));
-      worldFullyReady=errors.length===0;
-      msg(worldFullyReady?'All districts ready':'Some districts remain unavailable');
-      if(/[?&#]selftest/.test(location.href)) setTimeout(runWorkshopSelfTest, 120);
-    }
-  }).catch(err=>{
-    console.error('Deferred world build failed',err);
-    window.__lastInitError=err;
-    msg('A distant room failed to build');
-  });
+  // Do not construct every distant district during the first visit. Those
+  // synchronous scene builders can monopolise the main thread even when the
+  // browser has already painted the entry screen. Distant rooms are now built
+  // on demand when the visitor actually chooses one.
+  setTimeout(()=>{
+    runIdleBuildQueue(deferredThreshold,{onTask:id=>{
+      window.__workshopMetrics.built.push(id);
+    }}).catch(err=>{
+      console.warn('Deferred threshold content failed',err);
+      window.__workshopMetrics.failures=(window.__workshopMetrics.failures||[]).concat([{id:'threshold-content',message:String(err?.message||err)}]);
+    });
+  },5000);
+  worldFullyReady = true;
+  window.__workshopMetrics.fullyReady=performance.now()-initStarted;
+  window.__workshopMetrics.resources=performance.getEntriesByType('resource').length;
+  applyGlobalTuning();
+  if(/[?&#]selftest/.test(location.href)) setTimeout(runWorkshopSelfTest, 120);
 }
 
 // WORKSHOP SELF-TEST (batch 126) — open the file with ?selftest (or #selftest)
@@ -13552,7 +13558,9 @@ function setPlayerLocation(room, pos, newYaw, label, newPitch=0){
 }
 function fastTravel(place){
   if(!placeBuildReady(place)){
+    const id = PLACE_BUILD_IDS[place];
     msg('Preparing this district…');
+    ensureDistrictBuild(id).then(()=>fastTravel(place)).catch(()=>msg('This district could not be opened'));
     return;
   }
   const hallMid = tunnelMouthZ + hallDepth*.50;
@@ -13666,7 +13674,9 @@ function fastTravel(place){
 
 function travelTo(portal){
   if(!roomBuildReady(portal.room)){
+    const id = roomBuildId(portal.room);
     msg('Preparing this district…');
+    ensureDistrictBuild(id).then(()=>travelTo(portal)).catch(()=>msg('This district could not be opened'));
     return false;
   }
   exitScreenControl();
