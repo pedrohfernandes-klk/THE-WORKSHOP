@@ -2317,6 +2317,9 @@ function caveFloorY(x,z){
 }
 function visitorFloorY(pos=getVisitorPosition()){
   if(currentRoom === 'theatre') return theatreFloorY(pos.z);
+  // The Studio is a rooftop room on the Headquarters tower, so its floor is
+  // studioOrigin.y rather than ground level.
+  if(currentRoom === 'studio') return studioOrigin.y;
   if(isHoodRoom(currentRoom)){
     if(currentRoom === 'hood'){
       const cy=caveFloorY(pos.x,pos.z);
@@ -2588,7 +2591,14 @@ const tunnelRoomLength = 100;
 const tunnelRoomHalfWidth = 3.1;
 const tunnelRoomHeight = 4.4;
 
-const studioOrigin = new THREE.Vector3(-1220, 0, -1080);
+// THE STUDIO now sits on the roof of the Headquarters tower, above the
+// penthouse cap, reached by the private lift through its own antechamber.
+// Its size is unchanged (20 x 24 x 7.8) — only its address moved, from an
+// isolated island at (-1220,0,-1080) to the top of the tower. studioOrigin.y
+// is the floor level: buildStudio still builds in local coordinates and the
+// whole room is parented to a group raised to that height, so every y inside
+// the builder stays as written.
+const studioOrigin = new THREE.Vector3(1924, 82, -1414);
 const studioHalfWidth = 10.0;   // 20 m wide
 const studioDepth = 24;         // expanded listening room with a dedicated seated viewing bay
 const studioHeight = 7.8;
@@ -2619,7 +2629,10 @@ const HOOD_PRIVATE_FLOORS = [
   {id:'hood-ph2', code:'P2', label:'Penthouse · Library', y:60.0},
   {id:'hood-ph3', code:'P3', label:'Penthouse · Studio', y:65.5},
   {id:'hood-ph4', code:'P4', label:'Penthouse · Winter Garden', y:71.0},
-  {id:'hood-ph5', code:'P5', label:'Penthouse · Ocean Belvedere', y:76.5}
+  {id:'hood-ph5', code:'P5', label:'Penthouse · Ocean Belvedere', y:76.5},
+  // Roof level: the antechamber the private lift opens into, from which a
+  // door leads out into THE STUDIO occupying the rest of the tower roof.
+  {id:'hood-ph6', code:'P6', label:'Roof · Studio Antechamber', y:82.0}
 ];
 const HOOD_ALL_FLOORS = [...HOOD_MAIN_FLOORS, ...HOOD_PRIVATE_FLOORS.filter(f=>f.id!=='hood-a5')];
 function hoodFloorY(room){ return HOOD_ALL_FLOORS.find(f=>f.id===room)?.y || 0; }
@@ -5144,7 +5157,7 @@ function buildHall(){
       {z:z0 + depth*.09, title:'The Venue', subtitle:'SAYWHAT · cinema', room:'theatre', label:'The Venue', accent:0xd5b56d, dark:0x1d1511,
        targetPos:new THREE.Vector3(theatreOrigin.x, theatreCameraY(theatreOrigin.z+theatreDepth-10), theatreOrigin.z+theatreDepth-10), targetYaw:0},
       {z:z0 + depth*.255, title:'The Studio', subtitle:'YouTube listening room', room:'studio', label:'The Studio', accent:0x9d6de2, dark:0x130d1c,
-       targetPos:new THREE.Vector3(studioOrigin.x, cameraHeight, studioOrigin.z + studioDepth - 3.2), targetYaw:0},
+       targetPos:new THREE.Vector3(studioOrigin.x, studioOrigin.y+cameraHeight, studioOrigin.z + studioDepth - 3.2), targetYaw:0},
       {z:z0 + depth*.42, title:'The Laboratory', subtitle:'NO WORRIES', room:'lab', label:'The Laboratory', accent:0x88aeb4, dark:0x162022,
        targetPos:new THREE.Vector3(labOrigin.x, cameraHeight, labOrigin.z+labDepth-3), targetYaw:0},
       {z:z0 + depth*.585, title:'Thinking Room', subtitle:'reading · research', room:'thinking', label:'Thinking Room', accent:0xa4c6d8, dark:0x14181a,
@@ -6390,6 +6403,9 @@ function hoodFloorBounds(room){
   if(/^hood-a[1-4]$/.test(room)) return {minX:L.tx-8.5,maxX:L.tx+8.5,minZ:L.tz-10,maxZ:L.tz+10};
   if(room==='hood-a5') return {minX:L.px-13,maxX:L.px+13,minZ:L.pz-11,maxZ:L.pz+11};
   if(/^hood-ph[1-5]$/.test(room)) return {minX:L.px-13,maxX:L.px+13,minZ:L.pz-11,maxZ:L.pz+11};
+  // Roof antechamber: a small lobby around the private lift, west of the
+  // Studio. Deliberately tight so you cannot walk off the roof.
+  if(room==='hood-ph6') return {minX:L.plx-9,maxX:L.plx+6,minZ:L.plz-7,maxZ:L.plz+8};
   return {minX:hoodOrigin.x-hoodHalfWidth+1.2,maxX:hoodOrigin.x+hoodHalfWidth-1.2,minZ:hoodOrigin.z+1.1,maxZ:hoodOrigin.z+hoodDepth-1.2};
 }
 function ensureHoodLiftPanel(){
@@ -7336,7 +7352,7 @@ function buildHood(){
     for(const sx of [-1,1])for(const sz of [-1,1]){const rail=new THREE.Mesh(new THREE.BoxGeometry(.16,height,.16),privateLift?brass:steel);rail.position.set(sx*2.24,height/2,sz*1.86);shaft.add(rail);}
   }
   liftShaft(lx,lz,-6.8,52.9,false);
-  liftShaft(plx,plz,49,80.4,true);
+  liftShaft(plx,plz,49,87.2,true);   // extended past the cap to the roof studio
 
   function makeLiftLanding(room,y,x,z,privateLift=false){
     const frame=new THREE.Mesh(new THREE.BoxGeometry(6.65,5.35,.55),privateLift?brass:steel);frame.position.set(x,y+2.68,z);scene.add(frame);
@@ -7357,6 +7373,95 @@ function buildHood(){
   }
   HOOD_MAIN_FLOORS.forEach(f=>makeLiftLanding(f.id,f.y,lx,lz,false));
   HOOD_PRIVATE_FLOORS.forEach(f=>makeLiftLanding(f.id,f.y,plx,plz,true));
+
+  // ===== ROOF LEVEL: studio antechamber ================================
+  // THE STUDIO moved up here from its old island at (-1220,0,-1080), keeping
+  // its 20 x 24 m footprint. It occupies the east of the roof; this
+  // antechamber is the lobby the private lift opens into, west of it, and a
+  // portal door joins the two. The Studio is its own room (id 'studio'), so
+  // it keeps every screen, interactable and FX contract it already had.
+  {
+    const ry=82.0;
+    // Roof slab spanning both the antechamber and the Studio above the cap.
+    const roofSlab=new THREE.Mesh(new THREE.BoxGeometry(42,.5,30),paleStone);
+    roofSlab.position.set(1917,ry-.25,-1402);scene.add(roofSlab);
+    const roofTrim=new THREE.Mesh(new THREE.BoxGeometry(42.8,.36,30.8),brass);
+    roofTrim.position.set(1917,ry-.62,-1402);scene.add(roofTrim);
+    // Parapet around the exposed roof edge so it reads as a real terrace.
+    const parapetMat=new THREE.MeshStandardMaterial({color:0x8d8474,roughness:.9});
+    for(const sz of [-1,1]){const p=new THREE.Mesh(new THREE.BoxGeometry(42,1.1,.5),parapetMat);p.position.set(1917,ry+.55,-1402+sz*15);scene.add(p);}
+    const pw=new THREE.Mesh(new THREE.BoxGeometry(.5,1.1,30),parapetMat);pw.position.set(1896,ry+.55,-1402);scene.add(pw);
+
+    // --- the antechamber: a glazed lobby around the private lift, reaching
+    // --- forward to the Studio's front corner, which is the only clear bay
+    // --- on that wall (the rest is the album gallery, 1.2 m gaps). Putting
+    // --- the doorway there also groups it with the Studio's existing hall
+    // --- and tunnel doors instead of stranding it behind the records.
+    const anteMat=new THREE.MeshStandardMaterial({color:0x25211c,roughness:.62,metalness:.2});
+    const aCx=1906.5, aCz=-1397.5, aW=16, aD=17;      // x 1898.5..1914.5, z -1406..-1389
+    const aFloor=new THREE.Mesh(new THREE.BoxGeometry(aW,.18,aD),paleStone);aFloor.position.set(aCx,ry+.09,aCz);scene.add(aFloor);
+    const aCeil=new THREE.Mesh(new THREE.BoxGeometry(aW,.22,aD),anteMat);aCeil.position.set(aCx,ry+5.2,aCz);scene.add(aCeil);
+    const aWest=new THREE.Mesh(new THREE.BoxGeometry(.3,5.1,aD),anteMat);aWest.position.set(aCx-aW/2,ry+2.6,aCz);scene.add(aWest);
+    for(const sz of [-1,1]){const w=new THREE.Mesh(new THREE.BoxGeometry(aW,5.1,.3),anteMat);w.position.set(aCx,ry+2.6,aCz+sz*aD/2);scene.add(w);}
+    const aGlass=new THREE.Mesh(new THREE.PlaneGeometry(aD-1.4,3.6),litGlass);
+    aGlass.position.set(aCx-aW/2+.2,ry+2.9,aCz);aGlass.rotation.y=Math.PI/2;scene.add(aGlass);
+    const aRug=new THREE.Mesh(new THREE.PlaneGeometry(5.4,7.2),new THREE.MeshStandardMaterial({color:0x5a3f33,roughness:.95}));
+    aRug.rotation.x=-Math.PI/2;aRug.position.set(aCx-1.5,ry+.19,aCz-2.0);scene.add(aRug);
+    const aBench=new THREE.Mesh(new THREE.BoxGeometry(3.6,.36,1.0),wood);aBench.position.set(aCx-4.8,ry+.62,aCz-3.0);scene.add(aBench);
+    sitPoint('hood-ph6',aBench,'Antechamber bench',new THREE.Vector3(aCx-4.8,ry+1.34,aCz-3.0),-Math.PI/2);
+    const aSign=new THREE.Mesh(new THREE.PlaneGeometry(6.2,.86),new THREE.MeshBasicMaterial({map:makeSignTexture('THE STUDIO','roof level · through the door'),transparent:true,toneMapped:false}));
+    aSign.position.set(aCx+aW/2-.4,ry+4.0,aCz+4.0);aSign.rotation.y=-Math.PI/2;scene.add(aSign);
+    const aLamp=new THREE.PointLight(0xffdcae,1.9,22,1.7);aLamp.position.set(aCx,ry+4.2,aCz);scene.add(aLamp);regLight('hood-ph6',aLamp);
+
+    // --- the doorway, back to back on the two faces of the same wall: one
+    // --- leaf read from the antechamber, one from the Studio. Placed in the
+    // --- front-corner bay, 3.6 m clear of Currents (3.06 m required).
+    const dz=-1391.5;
+    const intoStudio = addPremiumPortalDoor({
+      x:1913.6, y:ry+2.6, z:dz, width:2.6, height:5.0, orientation:'right',
+      title:'THE STUDIO', subtitle:'roof level', accent:0x9d6de2, dark:0x130d1c
+    });
+    registerPortal({
+      mesh:intoStudio.slab, field:intoStudio.field, doorParts:intoStudio.doorParts, openAxis:intoStudio.openAxis,
+      room:'studio', fromRoom:'hood-ph6', label:'THE STUDIO',
+      targetPos:new THREE.Vector3(studioOrigin.x, studioOrigin.y+cameraHeight, studioOrigin.z+studioDepth-3.2),
+      targetYaw:0, slideAxis:intoStudio.openAxis, slideDist:2.6
+    });
+    const backToLift = addPremiumPortalDoor({
+      x:1914.4, y:ry+2.6, z:dz, width:2.6, height:5.0, orientation:'left',
+      title:'THE LIFT', subtitle:'antechamber', accent:0xb89d66, dark:0x1b1713
+    });
+    registerPortal({
+      mesh:backToLift.slab, field:backToLift.field, doorParts:backToLift.doorParts, openAxis:backToLift.openAxis,
+      room:'hood-ph6', fromRoom:'studio', label:'Lift antechamber',
+      targetPos:new THREE.Vector3(plx, ry+cameraHeight, plz-3.25),
+      targetYaw:Math.PI, slideAxis:backToLift.openAxis, slideDist:2.6
+    });
+  }
+
+  // ===== MEZZANINE BRIDGE ==============================================
+  // The main lift opened onto the mezzanine at (lx, lz-3.25) — which was over
+  // thin air: the back deck starts at wz+D/2-11.3 and the side decks at
+  // wx±(W/2-12.2), so nothing physically joined the lift to either. The room
+  // clamp let you walk out over the hall regardless. This bridges the landing
+  // to the east side deck, making the connection real.
+  {
+    const my=11.2, bridgeZ=lz-3.0;
+    const eastDeckInnerX=wx+(W/2-12.2);                 // 1915.8
+    const span=(eastDeckInnerX+1.2)-(lx-3.2);
+    const bridge=new THREE.Mesh(new THREE.BoxGeometry(span,.20,7.0),darkConcrete);
+    bridge.position.set((lx-3.2+eastDeckInnerX+1.2)/2,my,bridgeZ);scene.add(bridge);
+    for(const sz of [-1,1]){
+      const rail=new THREE.Mesh(new THREE.BoxGeometry(span,.09,.09),steel);
+      rail.position.set(bridge.position.x,my+1.05,bridgeZ+sz*3.4);scene.add(rail);
+      for(let i=0;i<=4;i++){
+        const post=new THREE.Mesh(new THREE.BoxGeometry(.08,1.05,.08),steel);
+        post.position.set(bridge.position.x-span/2+i*(span/4),my+.53,bridgeZ+sz*3.4);scene.add(post);
+      }
+    }
+    const bridgeLamp=new THREE.PointLight(0xffe0b4,1.2,14,1.8);
+    bridgeLamp.position.set(bridge.position.x,my+2.6,bridgeZ);scene.add(bridgeLamp);regLight('hood-m1',bridgeLamp);
+  }
 
   // Basement: 30 × 20 m = 600 m², 5.5 m clear ceiling.
   const by=-6.8,bcx=lx,bcz=lz;
@@ -7555,7 +7660,7 @@ function buildHood(){
       {side:1,z:cqFrontZ,        title:'THE GROVE',         subtitle:'garden · amphitheatre',room:'outdoor', accent:0xc8b48f, dark:0x181614, motif:'pergola',
        targetPos:()=>new THREE.Vector3(outdoorOrigin.x, cameraHeight, outdoorOrigin.z + outdoorDepth - 4.6), targetYaw:0},
       {side:1,z:cqFrontZ+cqStep, title:'THE STUDIO',        subtitle:'listening room',       room:'studio',  accent:0x9d6de2, dark:0x130d1c, motif:'shed',
-       targetPos:()=>new THREE.Vector3(studioOrigin.x, cameraHeight, studioOrigin.z + studioDepth - 3.2), targetYaw:0},
+       targetPos:()=>new THREE.Vector3(studioOrigin.x, studioOrigin.y+cameraHeight, studioOrigin.z + studioDepth - 3.2), targetYaw:0},
       {side:1,z:cqFrontZ+cqStep*2, title:'SUNSET LOUNGE',   subtitle:'viewing room',         room:'night',   accent:0xe0a05c, dark:0x1a1310, motif:'lantern',
        targetPos:()=>new THREE.Vector3(nightRoomOrigin.x, cameraHeight, nightRoomOrigin.z + 5.2), targetYaw:Math.PI},
       {side:1,z:cqFrontZ+cqStep*3, title:'THINKING ROOM',   subtitle:'reading · research',   room:'thinking',accent:0xa4c6d8, dark:0x14181a, motif:'dome',
@@ -10484,7 +10589,7 @@ function buildTunnelPassage(){
     { x:x0-wrHW+.13, z:z0+2.25, orientation:'left',  title:'The Lab',              subtitle:'projection', room:'lab',     label:'The Lab',              targetPos:new THREE.Vector3(labOrigin.x, cameraHeight, labOrigin.z+labDepth-3.0),                   targetYaw:0,          accent:0x8796c8, dark:0x15161b },
     { x:x0-wrHW+.13, z:z0+6.55, orientation:'left',  title:'The Venue',            subtitle:'screening',  room:'theatre', label:'The Venue',            targetPos:new THREE.Vector3(theatreOrigin.x, cameraHeight, theatreOrigin.z+theatreDepth-4.0),       targetYaw:0,          accent:0xc58a58, dark:0x1b1511 },
     { x:x0-wrHW+.13, z:z0+10.85, orientation:'left', title:'Main Hall',            subtitle:'gallery',    room:'gallery', label:'Main Hall',            targetPos:new THREE.Vector3(0, cameraHeight, tunnelMouthZ + hallDepth*.50 + 4.0),                                          targetYaw:Math.PI,    accent:0xc9b27a, dark:0x17120d },
-    { x:x0-wrHW+.13, z:z0+15.15, orientation:'left', title:'The Studio',           subtitle:'music',      room:'studio',  label:'The Studio',           targetPos:new THREE.Vector3(studioOrigin.x, cameraHeight, studioOrigin.z+studioDepth-3.2),          targetYaw:0,          accent:0xb34ec0, dark:0x130f17 },
+    { x:x0-wrHW+.13, z:z0+15.15, orientation:'left', title:'The Studio',           subtitle:'music',      room:'studio',  label:'The Studio',           targetPos:new THREE.Vector3(studioOrigin.x, studioOrigin.y+cameraHeight, studioOrigin.z+studioDepth-3.2),          targetYaw:0,          accent:0xb34ec0, dark:0x130f17 },
 
     { x:x0+wrHW-.13, z:z0+2.25, orientation:'right', title:'Exp. Garden',          subtitle:'outside',    room:'maze',    label:'Experimental Garden', targetPos:new THREE.Vector3(mazeOrigin.x, cameraHeight, mazeOrigin.z + mazeCell*.55),                targetYaw:0,          accent:0x86b58e, dark:0x131712 },
     { x:x0+wrHW-.13, z:z0+6.55, orientation:'right', title:'MANY MAPS',            subtitle:'atlas',      room:'maps',    label:'MANY MAPS',            targetPos:new THREE.Vector3(mapGalleryOrigin.x, cameraHeight, mapGalleryOrigin.z + mapGalleryDepth - 9.2), targetYaw:0,     accent:0x7aa0c9, dark:0x11161a },
@@ -10626,6 +10731,15 @@ function buildStudio(){
   // bar, velvet booths, a wall gallery of performer photographs, and layered
   // club lighting. The YouTube control contract (studioWallIframe /
   // studioWallScreen / studioFX) is preserved exactly.
+  // The room moved to the tower roof without rewriting every y inside it:
+  // everything is parented to one group raised to studioOrigin.y, so the
+  // builder keeps working in local coordinates exactly as written and only
+  // the scene.add targets changed. buildStudio touches the scene solely
+  // through .add, which is what made this safe — verified before the move.
+  const studioRoot = new THREE.Group();
+  studioRoot.position.y = studioOrigin.y;
+  scene.add(studioRoot);
+  const artMark = wallArtPieces.length, doorMark = doorFootprints.length;
   const x0 = studioOrigin.x, z0 = studioOrigin.z;
   const hw = studioHalfWidth, depth = studioDepth, h = studioHeight;
   const z1 = z0 + depth, midZ = z0 + depth/2;
@@ -10662,22 +10776,22 @@ function buildStudio(){
 
   // Shell
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(hw*2, depth), floorMat);
-  floor.rotation.x = -Math.PI/2; floor.position.set(x0,0,midZ); scene.add(floor);
+  floor.rotation.x = -Math.PI/2; floor.position.set(x0,0,midZ); studioRoot.add(floor);
   const ceil = new THREE.Mesh(new THREE.PlaneGeometry(hw*2, depth), ceilMat);
-  ceil.rotation.x = Math.PI/2; ceil.position.set(x0,h,midZ); scene.add(ceil);
+  ceil.rotation.x = Math.PI/2; ceil.position.set(x0,h,midZ); studioRoot.add(ceil);
   const backWall = new THREE.Mesh(new THREE.PlaneGeometry(hw*2, h), wallDeep);
-  backWall.position.set(x0,h/2,z0); scene.add(backWall);
+  backWall.position.set(x0,h/2,z0); studioRoot.add(backWall);
   const frontWall = new THREE.Mesh(new THREE.PlaneGeometry(hw*2, h), wallMat);
-  frontWall.rotation.y = Math.PI; frontWall.position.set(x0,h/2,z1); scene.add(frontWall);
+  frontWall.rotation.y = Math.PI; frontWall.position.set(x0,h/2,z1); studioRoot.add(frontWall);
   const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(depth, h), sideWallMat);
-  leftWall.rotation.y = Math.PI/2; leftWall.position.set(x0-hw,h/2,midZ); scene.add(leftWall);
+  leftWall.rotation.y = Math.PI/2; leftWall.position.set(x0-hw,h/2,midZ); studioRoot.add(leftWall);
   const rightWall = new THREE.Mesh(new THREE.PlaneGeometry(depth, h), sideWallMat);
-  rightWall.rotation.y = -Math.PI/2; rightWall.position.set(x0+hw,h/2,midZ); scene.add(rightWall);
+  rightWall.rotation.y = -Math.PI/2; rightWall.position.set(x0+hw,h/2,midZ); studioRoot.add(rightWall);
 
   // Coffered ceiling strips + neon cove.
   for(let i=0;i<5;i++){
     const beam = new THREE.Mesh(new THREE.BoxGeometry(hw*2,.14,.28), wallDeep);
-    beam.position.set(x0,h-.07,z0+2.4+i*((depth-4)/4)); scene.add(beam);
+    beam.position.set(x0,h-.07,z0+2.4+i*((depth-4)/4)); studioRoot.add(beam);
   }
   // Large north-light skylight over the carpet turns the former club floor
   // into an open daytime listening room.
@@ -10690,41 +10804,41 @@ function buildStudio(){
   }
   const skyTex=new THREE.CanvasTexture(skyC); skyTex.colorSpace=THREE.SRGBColorSpace;
   const skylight=new THREE.Mesh(new THREE.PlaneGeometry(8.4,4.4),new THREE.MeshBasicMaterial({map:skyTex,side:THREE.DoubleSide,toneMapped:false}));
-  skylight.rotation.x=Math.PI/2; skylight.position.set(x0,h-.05,z0+10.7); scene.add(skylight);
+  skylight.rotation.x=Math.PI/2; skylight.position.set(x0,h-.05,z0+10.7); studioRoot.add(skylight);
   const skyFrame=new THREE.MeshStandardMaterial({color:0xd7d1c5,roughness:.34,metalness:.42});
-  for(const sx of [-4.35,4.35]){const b=new THREE.Mesh(new THREE.BoxGeometry(.20,.20,4.75),skyFrame);b.position.set(x0+sx,h-.18,z0+10.7);scene.add(b);}
-  for(const zz of [-2.35,0,2.35]){const b=new THREE.Mesh(new THREE.BoxGeometry(8.9,.20,.16),skyFrame);b.position.set(x0,h-.18,z0+10.7+zz);scene.add(b);}
-  const daylight=new THREE.PointLight(0xd8efff,4.5,26,1.45); daylight.position.set(x0,h-1.0,z0+10.7); scene.add(daylight); regLight('studio',daylight);
+  for(const sx of [-4.35,4.35]){const b=new THREE.Mesh(new THREE.BoxGeometry(.20,.20,4.75),skyFrame);b.position.set(x0+sx,h-.18,z0+10.7);studioRoot.add(b);}
+  for(const zz of [-2.35,0,2.35]){const b=new THREE.Mesh(new THREE.BoxGeometry(8.9,.20,.16),skyFrame);b.position.set(x0,h-.18,z0+10.7+zz);studioRoot.add(b);}
+  const daylight=new THREE.PointLight(0xd8efff,4.5,26,1.45); daylight.position.set(x0,h-1.0,z0+10.7); studioRoot.add(daylight); regLight('studio',daylight);
   const sunPatch=new THREE.Mesh(new THREE.PlaneGeometry(9.2,7.4),new THREE.MeshBasicMaterial({color:0xfff3d5,transparent:true,opacity:.24,depthWrite:false}));
-  sunPatch.rotation.x=-Math.PI/2; sunPatch.position.set(x0,.045,z0+11.0); scene.add(sunPatch);
+  sunPatch.rotation.x=-Math.PI/2; sunPatch.position.set(x0,.045,z0+11.0); studioRoot.add(sunPatch);
   // Wall-edge neon strips removed; lighting now comes from fixtures and ceiling elements.
 
   // Raised performer plinth at the wall end; sunken dancefloor in the middle.
   const stageDepth = 4.0, stageY = .45;
   const stage = new THREE.Mesh(new THREE.BoxGeometry(hw*2-1.2, stageY, stageDepth), woodMat);
-  stage.position.set(x0, stageY/2, z0+stageDepth/2+.4); scene.add(stage);
+  stage.position.set(x0, stageY/2, z0+stageDepth/2+.4); studioRoot.add(stage);
   const stageLip = new THREE.Mesh(new THREE.BoxGeometry(hw*2-1.2,.06,.14), brassMat);
-  stageLip.position.set(x0, stageY, z0+stageDepth+.4); scene.add(stageLip);
+  stageLip.position.set(x0, stageY, z0+stageDepth+.4); studioRoot.add(stageLip);
   const stageStripe = new THREE.Mesh(new THREE.BoxGeometry(hw*2-1.4,.02,.06), new THREE.MeshBasicMaterial({color:0x9d6de2, toneMapped:false}));
-  stageStripe.position.set(x0,.02,z0+stageDepth+.42); scene.add(stageStripe);
+  stageStripe.position.set(x0,.02,z0+stageDepth+.42); studioRoot.add(stageStripe);
 
   // ===== THE VIDEO WALL (live YouTube) — contract preserved =====
   const wallW = hw*2 - 2.6, wallH = 3.7, wallY = 3.6, wallZ = z0 + .18;
   const wallSurround = new THREE.Mesh(new THREE.BoxGeometry(wallW+.8, wallH+.8, .22), cabMat);
-  wallSurround.position.set(x0, wallY, wallZ-.14); scene.add(wallSurround);
+  wallSurround.position.set(x0, wallY, wallZ-.14); studioRoot.add(wallSurround);
   const wallBacking = new THREE.Mesh(new THREE.PlaneGeometry(wallW, wallH), new THREE.MeshBasicMaterial({color:0x04030a}));
-  wallBacking.position.set(x0, wallY, wallZ); scene.add(wallBacking);
+  wallBacking.position.set(x0, wallY, wallZ); studioRoot.add(wallBacking);
   let initialStudioURL = STUDIO_WALL_DEFAULT;
   const live = createPassiveWallIframe(initialStudioURL, 'THE STUDIO video wall', wallW, wallH);
   live.position.set(x0, wallY, wallZ+.02);
-  scene.add(live);
+  studioRoot.add(live);
   studioWallIframe = live.userData.iframe;
   studioWallScreen = {mesh:wallBacking, css:live, title:'THE STUDIO WALL', room:'studio', action:'studio', activeRadius:8};
   registerScreen(studioWallScreen);
   const wallGlow = new THREE.PointLight(0x8fb0ff, 2.1, 24, 1.7);
-  wallGlow.position.set(x0, wallY, wallZ+5.0); scene.add(wallGlow); regLight('studio', wallGlow);
+  wallGlow.position.set(x0, wallY, wallZ+5.0); studioRoot.add(wallGlow); regLight('studio', wallGlow);
   const wallGlow2 = new THREE.PointLight(0x9d6de2, 1.1, 16, 1.9);
-  wallGlow2.position.set(x0, wallY+1.5, wallZ+2.5); scene.add(wallGlow2); regLight('studio', wallGlow2);
+  wallGlow2.position.set(x0, wallY+1.5, wallZ+2.5); studioRoot.add(wallGlow2); regLight('studio', wallGlow2);
 
   // ===== Speaker stacks flanking the stage =====
   const speakerRings = [];
@@ -10743,7 +10857,7 @@ function buildStudio(){
     const horn=new THREE.Mesh(new THREE.BoxGeometry(1.15,.6,.72),cabMat); horn.position.y=3.4; g.add(horn);
     driver(g,.62,.44); driver(g,1.9,.34); driver(g,2.6,.24); driver(g,3.4,.16);
     const trim=new THREE.Mesh(new THREE.BoxGeometry(1.76,.06,.96),brassMat); trim.position.y=1.28; g.add(trim);
-    scene.add(g);
+    studioRoot.add(g);
   }
   stack(x0-hw+2.0, z0+1.9, .22, 1.0);
   stack(x0+hw-2.0, z0+1.9, -.22, 1.0);
@@ -10773,20 +10887,20 @@ function buildStudio(){
   }
   const carpetTex=new THREE.CanvasTexture(carpetC); carpetTex.colorSpace=THREE.SRGBColorSpace; carpetTex.anisotropy=8;
   const carpet=new THREE.Mesh(new THREE.PlaneGeometry(floorW+1.0,floorW+1.0),new THREE.MeshStandardMaterial({map:carpetTex,roughness:.96,metalness:0}));
-  carpet.rotation.x=-Math.PI/2; carpet.position.set(x0,.035,dfZ+floorW/2); scene.add(carpet);
+  carpet.rotation.x=-Math.PI/2; carpet.position.set(x0,.035,dfZ+floorW/2); studioRoot.add(carpet);
   for(const sx of [-1,1]){
     const fringe=new THREE.Mesh(new THREE.PlaneGeometry(.34,floorW+.72),new THREE.MeshBasicMaterial({color:0xd7c9a8,transparent:true,opacity:.92}));
-    fringe.rotation.x=-Math.PI/2; fringe.position.set(x0+sx*(floorW/2+.62),.038,dfZ+floorW/2); scene.add(fringe);
+    fringe.rotation.x=-Math.PI/2; fringe.position.set(x0+sx*(floorW/2+.62),.038,dfZ+floorW/2); studioRoot.add(fringe);
   }
 
   // Disco ball + moving spot.
   const ball = new THREE.Mesh(new THREE.IcosahedronGeometry(.4,1),
     new THREE.MeshStandardMaterial({color:0xdce0ea, roughness:.12, metalness:.95, flatShading:true}));
-  ball.position.set(x0,h-1.1,dfZ+floorW/2); scene.add(ball);
+  ball.position.set(x0,h-1.1,dfZ+floorW/2); studioRoot.add(ball);
   const ballRod = new THREE.Mesh(new THREE.CylinderGeometry(.02,.02,.6,6),cabMat);
-  ballRod.position.set(x0,h-.6,dfZ+floorW/2); scene.add(ballRod);
+  ballRod.position.set(x0,h-.6,dfZ+floorW/2); studioRoot.add(ballRod);
   const ballLight = new THREE.PointLight(0xffffff,.85,10,2.0);
-  ballLight.position.copy(ball.position); scene.add(ballLight); regLight('studio', ballLight);
+  ballLight.position.copy(ball.position); studioRoot.add(ballLight); regLight('studio', ballLight);
 
   // The room now relies on architectural light; floating holographic clutter is retired.
   for(let k=0;k<0;k++){
@@ -10795,13 +10909,13 @@ function buildStudio(){
     holo.material.uniforms.uColorB.value=new THREE.Color(0xfff0c8);
     holo.position.set(x0, wallY+1.0+k*.4, wallZ+2.4+k*3.4);
     holo.rotation.x=-Math.PI/2+.34-k*.08;
-    scene.add(holo); extraShaderPlanes.push(holo);
+    studioRoot.add(holo); extraShaderPlanes.push(holo);
   }
   const orbs=[];
   for(let i=0;i<0;i++){
     const orb=new THREE.Mesh(new THREE.SphereGeometry(.08,12,10),new THREE.MeshBasicMaterial({color:[0xff4fd8,0x61f6ff,0xffe0a6][i%3],transparent:true,opacity:.72,blending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}));
     orb.position.set(x0+(Math.random()-.5)*floorW*.85, 2.6+Math.random()*1.8, dfZ+Math.random()*floorW);
-    scene.add(orb); orbs.push({mesh:orb,baseY:orb.position.y,baseX:orb.position.x,phase:i*1.6,rad:.4+Math.random()*.8});
+    studioRoot.add(orb); orbs.push({mesh:orb,baseY:orb.position.y,baseX:orb.position.x,phase:i*1.6,rad:.4+Math.random()*.8});
   }
 
   // The former bar occupied the principal sightline and hid the album wall.
@@ -10815,12 +10929,12 @@ function buildStudio(){
     const back=new THREE.Mesh(new THREE.BoxGeometry(3.2,1.05,.2),velvetDk); back.position.set(0,1.05,-.4); g.add(back);
     const roll=new THREE.Mesh(new THREE.CylinderGeometry(.13,.13,3.2,10),velvetMat); roll.rotation.z=Math.PI/2; roll.position.set(0,1.6,-.4); g.add(roll);
     const plinth=new THREE.Mesh(new THREE.BoxGeometry(3.26,.16,1.1),cabMat); plinth.position.y=.08; g.add(plinth);
-    scene.add(g);
+    studioRoot.add(g);
   }
   function cocktail(px,pz){
-    const top=new THREE.Mesh(new THREE.CylinderGeometry(.42,.42,.05,22),cabMat); top.position.set(px,.88,pz); scene.add(top);
-    const stem=new THREE.Mesh(new THREE.CylinderGeometry(.045,.1,.86,10),brassMat); stem.position.set(px,.44,pz); scene.add(stem);
-    const candle=new THREE.Mesh(new THREE.SphereGeometry(.05,8,8),new THREE.MeshBasicMaterial({color:0xffc873,toneMapped:false})); candle.position.set(px,.96,pz); scene.add(candle);
+    const top=new THREE.Mesh(new THREE.CylinderGeometry(.42,.42,.05,22),cabMat); top.position.set(px,.88,pz); studioRoot.add(top);
+    const stem=new THREE.Mesh(new THREE.CylinderGeometry(.045,.1,.86,10),brassMat); stem.position.set(px,.44,pz); studioRoot.add(stem);
+    const candle=new THREE.Mesh(new THREE.SphereGeometry(.05,8,8),new THREE.MeshBasicMaterial({color:0xffc873,toneMapped:false})); candle.position.set(px,.96,pz); studioRoot.add(candle);
   }
   booth(x0-hw+1.15, midZ-2.0, Math.PI/2);
   booth(x0-hw+1.15, midZ+2.2, Math.PI/2);
@@ -10833,12 +10947,12 @@ function buildStudio(){
   // without putting sofas or tables in the route.
   const arrivalRunner = new THREE.Mesh(new THREE.PlaneGeometry(13.6,3.7),
     new THREE.MeshStandardMaterial({color:0x25212a,roughness:.88,metalness:.02}));
-  arrivalRunner.rotation.x=-Math.PI/2; arrivalRunner.position.set(x0,.024,z1-2.05); scene.add(arrivalRunner);
+  arrivalRunner.rotation.x=-Math.PI/2; arrivalRunner.position.set(x0,.024,z1-2.05); studioRoot.add(arrivalRunner);
   const arrivalInlay = new THREE.Mesh(new THREE.PlaneGeometry(13.0,3.10),
     new THREE.MeshBasicMaterial({color:0xc89a61,transparent:true,opacity:.09,depthWrite:false}));
-  arrivalInlay.rotation.x=-Math.PI/2; arrivalInlay.position.set(x0,.03,z1-2.05); scene.add(arrivalInlay);
-  const arrivalLampL = new THREE.PointLight(0xffdfbd,.82,6.5,1.9); arrivalLampL.position.set(x0-hw+1.1,2.8,z1-1.7); scene.add(arrivalLampL); regLight('studio',arrivalLampL);
-  const arrivalLampR = new THREE.PointLight(0xd9e8ff,.76,6.5,1.9); arrivalLampR.position.set(x0+hw-1.1,2.8,z1-1.7); scene.add(arrivalLampR); regLight('studio',arrivalLampR);
+  arrivalInlay.rotation.x=-Math.PI/2; arrivalInlay.position.set(x0,.03,z1-2.05); studioRoot.add(arrivalInlay);
+  const arrivalLampL = new THREE.PointLight(0xffdfbd,.82,6.5,1.9); arrivalLampL.position.set(x0-hw+1.1,2.8,z1-1.7); studioRoot.add(arrivalLampL); regLight('studio',arrivalLampL);
+  const arrivalLampR = new THREE.PointLight(0xd9e8ff,.76,6.5,1.9); arrivalLampR.position.set(x0+hw-1.1,2.8,z1-1.7); studioRoot.add(arrivalLampR); regLight('studio',arrivalLampR);
 
   // ===== Dedicated listening bay: two Eames-inspired lounge chairs and ottomans.
   // Was z0+18.55 — 18+ metres from the screen, past the entire dancefloor and
@@ -10847,8 +10961,8 @@ function buildStudio(){
   // (carpet spans x0±5.02) and the speaker stacks (at x0∓8), but roughly half
   // the distance to the screen and with a real, unobstructed sightline to it. =====
   const viewingRugL=new THREE.Mesh(new THREE.PlaneGeometry(2.6,3.2),new THREE.MeshStandardMaterial({color:0x25202b,roughness:.94,metalness:0}));
-  viewingRugL.rotation.x=-Math.PI/2; viewingRugL.position.set(x0-6.6,.025,z0+9); scene.add(viewingRugL);
-  const viewingRugR=viewingRugL.clone(); viewingRugR.position.x=x0+6.6; scene.add(viewingRugR);
+  viewingRugL.rotation.x=-Math.PI/2; viewingRugL.position.set(x0-6.6,.025,z0+9); studioRoot.add(viewingRugL);
+  const viewingRugR=viewingRugL.clone(); viewingRugR.position.x=x0+6.6; studioRoot.add(viewingRugR);
   const leatherMat=new THREE.MeshStandardMaterial({color:0xf4f1e9,roughness:.48,metalness:.01});
   const plyMat=new THREE.MeshStandardMaterial({color:0xd8c7ab,roughness:.42,metalness:.02});
   const chairMetal=new THREE.MeshStandardMaterial({color:0xe3e7ea,roughness:.14,metalness:.92});
@@ -10863,20 +10977,20 @@ function buildStudio(){
     [-1,1].forEach(s=>{ const rest=new THREE.Mesh(new THREE.BoxGeometry(.16,.18,.86),leatherMat); rest.position.set(s*.68,1.02,.05); rest.rotation.x=-.12; g.add(rest); });
     const ottoman=new THREE.Mesh(new THREE.CylinderGeometry(.58,.62,.18,24),plyMat); ottoman.scale.z=.76; ottoman.position.set(0,.48,-1.65); g.add(ottoman);
     const ottCush=new THREE.Mesh(new THREE.CylinderGeometry(.53,.55,.20,24),leatherMat); ottCush.scale.z=.76; ottCush.position.set(0,.62,-1.65); g.add(ottCush);
-    scene.add(g);
+    studioRoot.add(g);
     registerInteractable({type:'seat',room:'studio',mesh:seat,label:'Eames lounge chair',hintId:'studio-seat',priority:3,
       hintText:'Sit for a focused view of the Studio screen. Look around freely; move to stand.',
       prompt:()=>'Sit and watch the Studio screen',
-      onUse:()=>{ seatedStudioView=true; velX=0; velZ=0; smoothSpeed=0; startCameraTransition(new THREE.Vector3(px,1.28,pz-.08),0,-.035,.8); msg('Seated viewing mode · look around freely · move to stand'); }
+      onUse:()=>{ seatedStudioView=true; velX=0; velZ=0; smoothSpeed=0; startCameraTransition(new THREE.Vector3(px,studioOrigin.y+1.28,pz-.08),0,-.035,.8); msg('Seated viewing mode · look around freely · move to stand'); }
     });
   }
   eamesLounge(x0-6.6,z0+9,-.18);
   eamesLounge(x0+6.6,z0+9,.18);
-  const readingGlow=new THREE.PointLight(0xffe2bd,1.55,9.5,1.75); readingGlow.position.set(x0,3.3,z0+9); scene.add(readingGlow); regLight('studio',readingGlow);
+  const readingGlow=new THREE.PointLight(0xffe2bd,1.55,9.5,1.75); readingGlow.position.set(x0,3.3,z0+9); studioRoot.add(readingGlow); regLight('studio',readingGlow);
   for(const sx of [-1,1]){
     const chairSpot=new THREE.SpotLight(0xfff0d8,2.8,9,.42,.68,1.55);
     chairSpot.position.set(x0+sx*6.6,5.7,z0+8.1); chairSpot.target.position.set(x0+sx*6.6,.8,z0+9);
-    scene.add(chairSpot,chairSpot.target); regLight('studio',chairSpot);
+    studioRoot.add(chairSpot,chairSpot.target); regLight('studio',chairSpot);
   }
 
   // ===== Music archive: a restrained rear-wall rhythm around the return door.
@@ -10900,8 +11014,8 @@ function buildStudio(){
     {src:STUDIO_DECOR_SRCS[3],title:'Rubber Soul',x:x0+7.53,y:3.60,w:1.92,h:1.92}
   ];
   albumWorks.forEach(w=>addFramedWallArt({src:w.src,title:w.title,subtitle:'studio listening archive',width:w.w,height:w.h,x:w.x,y:w.y,z:z1-.17,rotationY:Math.PI,frameColor:0x171319,matteColor:0xeee7dc,showLabel:false}));
-  const albumWashL=new THREE.PointLight(0xffd7b1,.82,6.2,1.9); albumWashL.position.set(x0-5.4,4.5,z1-2.0); scene.add(albumWashL); regLight('studio',albumWashL);
-  const albumWashR=new THREE.PointLight(0xffd7b1,.82,6.2,1.9); albumWashR.position.set(x0+5.7,4.5,z1-2.0); scene.add(albumWashR); regLight('studio',albumWashR);
+  const albumWashL=new THREE.PointLight(0xffd7b1,.82,6.2,1.9); albumWashL.position.set(x0-5.4,4.5,z1-2.0); studioRoot.add(albumWashL); regLight('studio',albumWashL);
+  const albumWashR=new THREE.PointLight(0xffd7b1,.82,6.2,1.9); albumWashR.position.set(x0+5.7,4.5,z1-2.0); studioRoot.add(albumWashR); regLight('studio',albumWashR);
 
   // ===== Lateral poster walls: large anchors with smaller records in measured bays.
   // Currents (moved off the crowded front wall) and The Age of Adz (new —
@@ -10935,11 +11049,11 @@ function buildStudio(){
   // listening room: stronger warm ambient, brighter centre fill, and a rear
   // fill so the lounge end no longer falls into shadow. Colour accents stay,
   // dialled down so they tint rather than dominate. =====
-  const hemi=new THREE.HemisphereLight(0xbcc4d4,0x3c3630,.68); scene.add(hemi); regLight('studio', hemi);
-  const aM=new THREE.PointLight(0xff4fd8,.75,13,1.8); aM.position.set(x0-hw+1.6,4.2,dfZ); scene.add(aM); regLight('studio', aM);
-  const aC=new THREE.PointLight(0x4fd8ff,.75,13,1.8); aC.position.set(x0+hw-1.6,4.2,dfZ); scene.add(aC); regLight('studio', aC);
-  const centreFill=new THREE.PointLight(0xfff1dc,1.6,20,1.85); centreFill.position.set(x0,h-1.0,midZ); scene.add(centreFill); regLight('studio', centreFill);
-  const rearFill=new THREE.PointLight(0xffeedd,1.3,18,1.85); rearFill.position.set(x0,h-1.2,z0+20); scene.add(rearFill); regLight('studio', rearFill);
+  const hemi=new THREE.HemisphereLight(0xbcc4d4,0x3c3630,.68); studioRoot.add(hemi); regLight('studio', hemi);
+  const aM=new THREE.PointLight(0xff4fd8,.75,13,1.8); aM.position.set(x0-hw+1.6,4.2,dfZ); studioRoot.add(aM); regLight('studio', aM);
+  const aC=new THREE.PointLight(0x4fd8ff,.75,13,1.8); aC.position.set(x0+hw-1.6,4.2,dfZ); studioRoot.add(aC); regLight('studio', aC);
+  const centreFill=new THREE.PointLight(0xfff1dc,1.6,20,1.85); centreFill.position.set(x0,h-1.0,midZ); studioRoot.add(centreFill); regLight('studio', centreFill);
+  const rearFill=new THREE.PointLight(0xffeedd,1.3,18,1.85); rearFill.position.set(x0,h-1.2,z0+20); studioRoot.add(rearFill); regLight('studio', rearFill);
 
   // Unframed Studio identity occupies the quieter right-hand bay, above the
   // art rather than behind it. This leaves a deliberate asymmetrical gallery
@@ -10947,7 +11061,7 @@ function buildStudio(){
   new THREE.TextureLoader().load(HRM_SIGNATURE_SRC,tex=>{
     tex.colorSpace=THREE.SRGBColorSpace;
     const signature=new THREE.Mesh(new THREE.PlaneGeometry(5.0,1.48),new THREE.MeshBasicMaterial({map:tex,transparent:true,toneMapped:false,blending:THREE.AdditiveBlending,depthWrite:false}));
-    signature.position.set(x0+5.05,6.78,z1-.115); signature.rotation.y=Math.PI; scene.add(signature);
+    signature.position.set(x0+5.05,6.78,z1-.115); signature.rotation.y=Math.PI; studioRoot.add(signature);
   });
   const studioC=document.createElement('canvas'); studioC.width=1024; studioC.height=160;
   { const g=studioC.getContext('2d'); g.clearRect(0,0,1024,160); g.textAlign='center'; g.textBaseline='middle';
@@ -10955,8 +11069,8 @@ function buildStudio(){
     g.fillText('S  T  U  D  I  O',512,70); g.fillRect(300,126,424,3); }
   const studioWordTex=new THREE.CanvasTexture(studioC);
   const studioWord=new THREE.Mesh(new THREE.PlaneGeometry(3.8,.6),new THREE.MeshBasicMaterial({map:studioWordTex,transparent:true,toneMapped:false,blending:THREE.AdditiveBlending,depthWrite:false}));
-  studioWord.position.set(x0+5.05,5.90,z1-.11); studioWord.rotation.y=Math.PI; scene.add(studioWord);
-  const identityGlow=new THREE.PointLight(0xf2b676,1.20,8.5,1.8); identityGlow.position.set(x0+5.05,6.45,z1-1.35); scene.add(identityGlow); regLight('studio',identityGlow);
+  studioWord.position.set(x0+5.05,5.90,z1-.11); studioWord.rotation.y=Math.PI; studioRoot.add(studioWord);
+  const identityGlow=new THREE.PointLight(0xf2b676,1.20,8.5,1.8); identityGlow.position.set(x0+5.05,6.45,z1-1.35); studioRoot.add(identityGlow); regLight('studio',identityGlow);
 
   // Title + return door
   const ret=addPremiumPortalDoor({ x:x0, y:2.25, z:z1-.14, width:3.3, height:4.5, orientation:'front',
@@ -10995,24 +11109,24 @@ function buildStudio(){
   // interactable contract and sign pattern as before.
   const deskMat=new THREE.MeshStandardMaterial({color:0x1c1820,roughness:.5,metalness:.22});
   const deskTop=new THREE.Mesh(new THREE.BoxGeometry(3.1,.10,1.30),deskMat);
-  deskTop.position.set(x0+7,.92,z0+17); scene.add(deskTop);
-  for(const dz of [-.62,.62]){const rail=new THREE.Mesh(new THREE.BoxGeometry(3.16,.06,.08),woodMat);rail.position.set(x0+7,.94,z0+17+dz);scene.add(rail);}
-  for(const dx of [-1.35,1.35]){const leg=new THREE.Mesh(new THREE.BoxGeometry(.12,.9,1.0),cabMat);leg.position.set(x0+7+dx,.46,z0+17);scene.add(leg);}
+  deskTop.position.set(x0+7,.92,z0+17); studioRoot.add(deskTop);
+  for(const dz of [-.62,.62]){const rail=new THREE.Mesh(new THREE.BoxGeometry(3.16,.06,.08),woodMat);rail.position.set(x0+7,.94,z0+17+dz);studioRoot.add(rail);}
+  for(const dx of [-1.35,1.35]){const leg=new THREE.Mesh(new THREE.BoxGeometry(.12,.9,1.0),cabMat);leg.position.set(x0+7+dx,.46,z0+17);studioRoot.add(leg);}
   // Angled upper control surface.
   const consoleTilt=-.42;
   const consolePanel=new THREE.Mesh(new THREE.BoxGeometry(2.9,.07,.58),deskMat);
-  consolePanel.position.set(x0+7,1.12,z0+17.22); consolePanel.rotation.x=consoleTilt; scene.add(consolePanel);
+  consolePanel.position.set(x0+7,1.12,z0+17.22); consolePanel.rotation.x=consoleTilt; studioRoot.add(consolePanel);
   for(let i=0;i<12;i++){
     const fx=x0+7-1.32+i*.24;
     const slot=new THREE.Mesh(new THREE.BoxGeometry(.03,.012,.30),chromeMat);
-    slot.position.set(fx,1.145,z0+17.20); slot.rotation.x=consoleTilt; scene.add(slot);
+    slot.position.set(fx,1.145,z0+17.20); slot.rotation.x=consoleTilt; studioRoot.add(slot);
     const cap=new THREE.Mesh(new THREE.BoxGeometry(.09,.05,.09),
       new THREE.MeshStandardMaterial({color:[0xc76bff,0xba8b4c,0xd6d2c8,0xa94c44][i%4],roughness:.4,metalness:.3}));
-    cap.position.set(fx,1.16,z0+17.14+((i%3)-1)*.07); cap.rotation.x=consoleTilt; scene.add(cap);
+    cap.position.set(fx,1.16,z0+17.14+((i%3)-1)*.07); cap.rotation.x=consoleTilt; studioRoot.add(cap);
   }
-  for(let i=0;i<8;i++){const knob=new THREE.Mesh(new THREE.CylinderGeometry(.045,.05,.05,14),brassMat);knob.position.set(x0+7-1.26+i*.36,1.24,z0+17.40);knob.rotation.x=consoleTilt+Math.PI/2;scene.add(knob);}
+  for(let i=0;i<8;i++){const knob=new THREE.Mesh(new THREE.CylinderGeometry(.045,.05,.05,14),brassMat);knob.position.set(x0+7-1.26+i*.36,1.24,z0+17.40);knob.rotation.x=consoleTilt+Math.PI/2;studioRoot.add(knob);}
   // Flat lower strip keeps faders near the operator.
-  for(let i=0;i<8;i++){const fader=new THREE.Mesh(new THREE.BoxGeometry(.10,.05,.42),chromeMat);fader.position.set(x0+7-1.05+i*.30,.985,z0+16.80);scene.add(fader);}
+  for(let i=0;i<8;i++){const fader=new THREE.Mesh(new THREE.BoxGeometry(.10,.05,.42),chromeMat);fader.position.set(x0+7-1.05+i*.30,.985,z0+16.80);studioRoot.add(fader);}
   // VU / waveform display drawn once to a canvas — reads as live equipment.
   const vuC=document.createElement('canvas'); vuC.width=512; vuC.height=160;
   {
@@ -11028,20 +11142,20 @@ function buildStudio(){
   }
   const vuTex=new THREE.CanvasTexture(vuC); vuTex.colorSpace=THREE.SRGBColorSpace;
   const vuScreen=new THREE.Mesh(new THREE.PlaneGeometry(1.15,.36),new THREE.MeshBasicMaterial({map:vuTex,toneMapped:false}));
-  vuScreen.position.set(x0+7,1.245,z0+17.45); vuScreen.rotation.x=consoleTilt; scene.add(vuScreen);
+  vuScreen.position.set(x0+7,1.245,z0+17.45); vuScreen.rotation.x=consoleTilt; studioRoot.add(vuScreen);
   // Nearfield monitors on isolation blocks, angled in toward the seat.
   for(const dx of [-1.55,1.55]){
-    const block=new THREE.Mesh(new THREE.BoxGeometry(.40,.10,.36),woodMat); block.position.set(x0+7+dx,1.02,z0+17.15); scene.add(block);
-    const mon=new THREE.Mesh(new THREE.BoxGeometry(.42,.62,.42),cabMat); mon.position.set(x0+7+dx,1.38,z0+17.15); mon.rotation.y=dx<0?.30:-.30; scene.add(mon);
-    const cone=new THREE.Mesh(new THREE.CylinderGeometry(.15,.15,.05,20),coneMat); cone.rotation.x=Math.PI/2; cone.position.set(x0+7+dx*.94,1.38,z0+16.93); cone.rotation.y=dx<0?.30:-.30; scene.add(cone);
+    const block=new THREE.Mesh(new THREE.BoxGeometry(.40,.10,.36),woodMat); block.position.set(x0+7+dx,1.02,z0+17.15); studioRoot.add(block);
+    const mon=new THREE.Mesh(new THREE.BoxGeometry(.42,.62,.42),cabMat); mon.position.set(x0+7+dx,1.38,z0+17.15); mon.rotation.y=dx<0?.30:-.30; studioRoot.add(mon);
+    const cone=new THREE.Mesh(new THREE.CylinderGeometry(.15,.15,.05,20),coneMat); cone.rotation.x=Math.PI/2; cone.position.set(x0+7+dx*.94,1.38,z0+16.93); cone.rotation.y=dx<0?.30:-.30; studioRoot.add(cone);
   }
   // Warm task lamp anchors the corner in the brighter room.
-  const lampArm=new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,.72,8),brassMat); lampArm.position.set(x0+8.35,1.32,z0+17.42); lampArm.rotation.z=.5; scene.add(lampArm);
-  const lampShade=new THREE.Mesh(new THREE.CylinderGeometry(.09,.16,.18,14),cabMat); lampShade.position.set(x0+8.18,1.62,z0+17.42); lampShade.rotation.z=.6; scene.add(lampShade);
-  const lampGlow=new THREE.PointLight(0xffd9a0,1.15,5.5,1.8); lampGlow.position.set(x0+8.1,1.55,z0+17.3); scene.add(lampGlow); regLight('studio',lampGlow);
-  const deskGlow=new THREE.PointLight(0x9d6de2,.85,7,1.9); deskGlow.position.set(x0+7,1.9,z0+17); scene.add(deskGlow); regLight('studio',deskGlow);
+  const lampArm=new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,.72,8),brassMat); lampArm.position.set(x0+8.35,1.32,z0+17.42); lampArm.rotation.z=.5; studioRoot.add(lampArm);
+  const lampShade=new THREE.Mesh(new THREE.CylinderGeometry(.09,.16,.18,14),cabMat); lampShade.position.set(x0+8.18,1.62,z0+17.42); lampShade.rotation.z=.6; studioRoot.add(lampShade);
+  const lampGlow=new THREE.PointLight(0xffd9a0,1.15,5.5,1.8); lampGlow.position.set(x0+8.1,1.55,z0+17.3); studioRoot.add(lampGlow); regLight('studio',lampGlow);
+  const deskGlow=new THREE.PointLight(0x9d6de2,.85,7,1.9); deskGlow.position.set(x0+7,1.9,z0+17); studioRoot.add(deskGlow); regLight('studio',deskGlow);
   const deskSign=new THREE.Mesh(new THREE.PlaneGeometry(1.5,.9),new THREE.MeshBasicMaterial({map:makeSignTexture('MIX','8 tracks · decks · samples · record'),toneMapped:false}));
-  deskSign.position.set(x0+7,1.62,z0+16.38); deskSign.rotation.x=-.34; scene.add(deskSign);
+  deskSign.position.set(x0+7,1.62,z0+16.38); deskSign.rotation.x=-.34; studioRoot.add(deskSign);
   registerInteractable({id:'studio:mixing-desk',type:'maker',room:'studio',mesh:deskSign,label:'Studio mixing desk',
     action:'created',capability:'making',hintId:'studio-maker',priority:5,
     hintText:'A full workstation with instant mixes, dual sample decks, voice recording, effects, export and the Studio YouTube wall.',prompt:()=>'Open the mixing desk',onUse:openStudioMaker});
@@ -11049,11 +11163,19 @@ function buildStudio(){
   // Companion beat station beside the desk: a compact step sequencer that can
   // throw its loop up onto the Studio wall.
   const loopSign=new THREE.Mesh(new THREE.PlaneGeometry(1.4,.82),new THREE.MeshBasicMaterial({map:makeSignTexture('LOOP','beat station · to the wall'),toneMapped:false}));
-  loopSign.position.set(x0+4.7,1.5,z0+16.62); loopSign.rotation.x=-.34; loopSign.rotation.y=.16; scene.add(loopSign);
-  const loopGlow=new THREE.PointLight(0x5fe0ff,.7,6,1.9); loopGlow.position.set(x0+4.7,1.82,z0+16.4); scene.add(loopGlow); regLight('studio',loopGlow);
+  loopSign.position.set(x0+4.7,1.5,z0+16.62); loopSign.rotation.x=-.34; loopSign.rotation.y=.16; studioRoot.add(loopSign);
+  const loopGlow=new THREE.PointLight(0x5fe0ff,.7,6,1.9); loopGlow.position.set(x0+4.7,1.82,z0+16.4); studioRoot.add(loopGlow); regLight('studio',loopGlow);
   registerInteractable({id:'studio:loop-sketchpad',type:'maker',room:'studio',mesh:loopSign,label:'Loop Sketchpad',
     action:'created',capability:'making',hintId:'studio-loop',priority:5,
     hintText:'A compact beat station: build a drum loop and send it to the Studio wall.',prompt:()=>'Open the Loop Sketchpad',onUse:openLoopSketchpad});
+
+  // addFramedWallArt / addPremiumPortalDoor record the y they were handed, and
+  // inside this builder that is a local height. The clearance guards compare
+  // those registry entries against WORLD positions from scene.traverse, so
+  // lift the Studio's own entries to world height or they would be measured
+  // against whatever stands 82 m below, inside the grand hall.
+  for(let i=artMark;i<wallArtPieces.length;i++) wallArtPieces[i].y += studioOrigin.y;
+  for(let i=doorMark;i<doorFootprints.length;i++) doorFootprints[i].y += studioOrigin.y;
 
   studioFX = {tiles:null, tileN:0, speakerRings, orbs, ball, tileTimer:0};
 }
@@ -13270,6 +13392,7 @@ function setPlayerLocation(room, pos, newYaw, label, newPitch=0){
   destination.copy(pos);
   if(room === 'theatre') destination.y = theatreCameraY(destination.z);
   else if(isHoodRoom(room)) destination.y = hoodFloorY(room)+cameraHeight;
+  else if(room === 'studio') destination.y = studioOrigin.y+cameraHeight;
   else destination.y = cameraHeight;
   yaw = newYaw;
   pitch = newPitch;
@@ -13356,7 +13479,7 @@ function fastTravel(place){
     },
     studio: {
       room:'studio',
-      pos:new THREE.Vector3(studioOrigin.x,cameraHeight,studioOrigin.z+studioDepth-3.2),
+      pos:new THREE.Vector3(studioOrigin.x,studioOrigin.y+cameraHeight,studioOrigin.z+studioDepth-3.2),
       yaw:0,
       label:'The Studio'
     },
