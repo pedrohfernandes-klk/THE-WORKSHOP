@@ -4464,17 +4464,14 @@ function init(){
   clock = new THREE.Clock();
 
   // Threshold first: construct only the connected opening sequence before
-  // enabling ENTER. Distant districts are added one room per idle turn below.
+  // enabling ENTER. Gallery metadata, artwork textures and archive state are
+  // deliberately streamed after the first usable frame; waiting for those
+  // did not improve the entrance, but made the whole experience feel stuck.
   buildHall();
   buildTunnelPassage();
   addChannelScreens();
   buildTunnel();
   buildHub();
-  buildArtworks();
-  buildCatalogue();
-  buildArchiveData();
-  loadNotes();
-  renderNotes();
   buildRpgAvatar();
   let savedViewMode='first';
   try{savedViewMode=localStorage.getItem('workshop:view-mode')||'first';}catch(e){}
@@ -4487,6 +4484,26 @@ function init(){
   markEntryReady();
   window.__workshopMetrics.entryReady=performance.now()-initStarted;
   msg('Threshold ready');
+
+  // Start rendering before the gallery's expensive image/metadata pass. The
+  // visitor can enter immediately while these tasks use idle slices. This is
+  // the important perceived-speed change: the world responds first and fills
+  // in afterwards, rather than presenting a loading button until everything
+  // is complete.
+  ensureAnimationStarted();
+
+  const deferredThreshold=[
+    {id:'gallery-artwork',build:buildArtworks},
+    {id:'catalogue',build:buildCatalogue},
+    {id:'archive',build:buildArchiveData},
+    {id:'notes',build:()=>{loadNotes();renderNotes();}}
+  ];
+  runIdleBuildQueue(deferredThreshold,{onTask:id=>{
+    window.__workshopMetrics.built.push(id);
+  }}).catch(err=>{
+    console.warn('Deferred threshold content failed',err);
+    window.__workshopMetrics.failures=(window.__workshopMetrics.failures||[]).concat([{id:'threshold-content',message:String(err?.message||err)}]);
+  });
 
   const deferredBuilds=[
     {id:'venue',build:buildTheatre},
@@ -6795,16 +6812,13 @@ function buildHood(){
     for(let k=0;k<3;k++){const cloth=new THREE.Mesh(new THREE.PlaneGeometry(.82,1.02),canvasCloth[(i+k)%canvasCloth.length]);cloth.position.set(faceX-side*2.18,5.24,bz-1.65+k*1.65);cloth.rotation.y=rotY;cloth.rotation.z=(k-1)*.035;scene.add(cloth);}
   }
 
-  // ===== RESIDENTIAL QUARTER — an enterable terrace, a tended garden and
-  // ===== benches, east of the project blocks. ==========================
-  // The district had only the (uninhabitable, solid) project towers. This
-  // adds a real neighbourhood on the open east plot: a row of houses you can
-  // walk into (ground floors are hollow, with a door opening and one soft
-  // interior light — deliberately empty for now), a formal garden between
-  // the old blocks and the new terrace, and benches you can sit on. The Hood
-  // has no per-building collision, so an opening in the façade is all a house
-  // needs to be enterable.
-  {
+  // ===== WATER GARDEN TOWER — replacing the five-house terrace. ==========
+  // The old row of houses was visually busy, expensive in object count and
+  // weaker from the approach road. Keep the open plot, but give it one clear
+  // landmark: an uneven, stepped tower that reads as the outward face of the
+  // warehouse. It is a shell, not a second complete building; the existing
+  // warehouse entrance and corridor remain the usable lobby sequence.
+  if(false){
     const rnd=(s=>()=>{s=(s*16807)%2147483647;return s/2147483647;})(20260725);
     // --- materials ---
     const renderMats=[0xcbb48f,0xb98a63,0xcfc6b4,0xa88f74,0x9fb0a6].map(c=>new THREE.MeshStandardMaterial({color:c,roughness:.9}));
@@ -6912,6 +6926,70 @@ function buildHood(){
     winLitInst.count=wl;winDarkInst.count=wd;
     winLitInst.instanceMatrix.needsUpdate=true;winDarkInst.instanceMatrix.needsUpdate=true;
     scene.add(winLitInst,winDarkInst);
+  }
+
+  {
+    const towerX=1962, towerZ=z0+57;
+    const towerMats=[
+      new THREE.MeshStandardMaterial({color:0x9b8f80,roughness:.88,metalness:.06}),
+      new THREE.MeshStandardMaterial({color:0x665f5a,roughness:.78,metalness:.18}),
+      new THREE.MeshStandardMaterial({color:0x3f4e50,roughness:.62,metalness:.32})
+    ];
+    const darkGlass=new THREE.MeshBasicMaterial({color:0x1a3036,toneMapped:false});
+    const litGlass=new THREE.MeshBasicMaterial({color:0xd4ac70,toneMapped:false});
+    const levels=[
+      {y:8,w:19,d:24,ox:0,oz:0,m:0},
+      {y:19,w:15,d:20,ox:-2.3,oz:1.4,m:1},
+      {y:29,w:11.5,d:17,ox:1.7,oz:-1.8,m:0},
+      {y:38,w:8,d:13,ox:-.8,oz:1.0,m:2}
+    ];
+    const shell=new THREE.Group(); shell.name='Water Garden asymmetric warehouse tower'; scene.add(shell);
+    levels.forEach((level,i)=>{
+      const body=new THREE.Mesh(new THREE.BoxGeometry(level.w,level.y-(levels[i-1]?.y||0)-.55,level.d),towerMats[level.m]);
+      body.position.set(towerX+level.ox,(levels[i-1]?.y||0)+(body.geometry.parameters.height/2)+.28,towerZ+level.oz);
+      shell.add(body);
+      const slab=new THREE.Mesh(new THREE.BoxGeometry(level.w+1.1,.28,level.d+1.1),towerMats[(level.m+1)%towerMats.length]);
+      slab.position.set(towerX+level.ox,level.y,towerZ+level.oz); shell.add(slab);
+    });
+    const crown=new THREE.Mesh(new THREE.BoxGeometry(9.6,.55,14.8),towerMats[2]);
+    crown.position.set(towerX-1.2,39.8,towerZ+1.5); crown.rotation.y=-.08; shell.add(crown);
+
+    // One shared window geometry/material pair keeps the landmark readable
+    // while costing two draws instead of a mesh and material per window.
+    const windowGeo=new THREE.PlaneGeometry(1.08,1.58);
+    const darkWindows=new THREE.InstancedMesh(windowGeo,darkGlass,54);
+    const litWindows=new THREE.InstancedMesh(windowGeo,litGlass,22);
+    const wm=new THREE.Matrix4(),wp=new THREE.Vector3(),wq=new THREE.Quaternion().setFromEuler(new THREE.Euler(0,Math.PI/2,0));
+    let di=0,li=0;
+    levels.forEach((level,liLevel)=>{
+      const floorBottom=liLevel?levels[liLevel-1].y+1.8:2.2;
+      for(let row=0;row<Math.max(1,Math.floor((level.y-floorBottom)/3.5));row++){
+        const wy=floorBottom+row*3.35;
+        for(let col=-1;col<=1;col++){
+          wp.set(towerX+level.ox-level.w/2-.025,wy,towerZ+level.oz+col*(level.d*.27));
+          wm.compose(wp,wq,new THREE.Vector3(1,1,1));
+          if((row+col+liLevel+4)%4===0) litWindows.setMatrixAt(li++,wm); else darkWindows.setMatrixAt(di++,wm);
+        }
+      }
+    });
+    darkWindows.count=di;litWindows.count=li;darkWindows.instanceMatrix.needsUpdate=true;litWindows.instanceMatrix.needsUpdate=true;
+    shell.add(darkWindows,litWindows);
+
+    const lobbySign=new THREE.Mesh(new THREE.PlaneGeometry(7.4,.78),new THREE.MeshBasicMaterial({map:makeSignTexture('WAREHOUSE LOBBY','entry · corridor · gallery'),transparent:true,toneMapped:false}));
+    lobbySign.position.set(towerX-9.7,4.6,towerZ); lobbySign.rotation.y=Math.PI/2; shell.add(lobbySign);
+    const lobbyGlow=new THREE.Mesh(new THREE.PlaneGeometry(3.2,3.0),new THREE.MeshBasicMaterial({color:0xffd69d,transparent:true,opacity:.18,toneMapped:false}));
+    lobbyGlow.position.set(towerX-9.62,2.2,towerZ); lobbyGlow.rotation.y=Math.PI/2; shell.add(lobbyGlow);
+
+    // A small number of large, shared trees makes the tower feel embedded in
+    // the Water Garden without recreating a forest of individual meshes.
+    const treeTrunk=new THREE.InstancedMesh(new THREE.CylinderGeometry(.34,.52,5.8,8),wood,10);
+    const treeCrown=new THREE.InstancedMesh(new THREE.SphereGeometry(1,14,10),new THREE.MeshStandardMaterial({color:0x315735,roughness:1}),10);
+    const tm=new THREE.Matrix4(),to=new THREE.Object3D();
+    [[-18,-18],[18,-18],[-22,8],[22,10],[-15,24],[16,24],[-28,34],[27,34],[-10,-30],[12,-30]].forEach(([dx,dz],i)=>{
+      const s=1.0+(i%3)*.18;to.position.set(towerX+dx,2.9,towerZ+dz);to.scale.set(s,s,s);to.updateMatrix();treeTrunk.setMatrixAt(i,to.matrix);
+      to.position.set(towerX+dx,7.2*s,towerZ+dz);to.scale.set(2.7*s,1.65*s,2.4*s);to.updateMatrix();treeCrown.setMatrixAt(i,to.matrix);
+    });
+    treeTrunk.instanceMatrix.needsUpdate=true;treeCrown.instanceMatrix.needsUpdate=true;shell.add(treeTrunk,treeCrown);
   }
 
   // A short paved neighbourhood street links the square to Headquarters. The
@@ -7363,35 +7441,7 @@ function buildHood(){
   }
   buildRampDescent(wx+27,wz+21,0,wz+27,-3.0,5.0,darkConcrete,concrete);
   const reserveLanding=new THREE.Mesh(new THREE.BoxGeometry(5.0,.20,1.4),darkConcrete);reserveLanding.position.set(wx+27,-3.0,wz+27.7);scene.add(reserveLanding);
-  const reserveSign=new THREE.Mesh(new THREE.PlaneGeometry(5.6,.72),new THREE.MeshBasicMaterial({map:makeSignTexture('THE RESERVE ↓','basement archive · ramp'),transparent:true}));reserveSign.position.set(wx+27,3.6,wz+18);reserveSign.rotation.y=Math.PI;scene.add(reserveSign);
-  const reserveGlow=new THREE.PointLight(0xcfe6ee,1.7,14,1.7);reserveGlow.position.set(wx+27,.4,wz+24);scene.add(reserveGlow);regLight('hood',reserveGlow);
-  const reserveDoor=addPremiumPortalDoor({x:wx+27,y:-1.2,z:wz+28.6,width:3.6,height:3.6,orientation:'front',title:'THE RESERVE',subtitle:'basement archive',accent:0x8a9295,dark:0x14171a});
-  registerPortal({
-    mesh:reserveDoor.slab, field:reserveDoor.field, doorParts:reserveDoor.doorParts, openAxis:reserveDoor.openAxis,
-    room:'hood-basement', fromRoom:'hood', label:'The Reserve',
-    targetPos:new THREE.Vector3(wx+27, -5.0+cameraHeight, wz-3.7),
-    targetYaw:0, slideAxis:reserveDoor.openAxis, slideDist:2.5
-  });
-
-  // Tower shell and illuminated window grid.
-  const towerCore=new THREE.Group();towerCore.position.set(tx,0,tz);scene.add(towerCore);
-  for(const sx of [-1,1])for(const sz of [-1,1]){const column=new THREE.Mesh(new THREE.BoxGeometry(1.05,82,1.05),darkConcrete);column.position.set(sx*9.15,41,sz*10.6);towerCore.add(column);}
-  const serviceSpine=new THREE.Mesh(new THREE.BoxGeometry(4.8,82,5.8),darkConcrete);serviceSpine.position.set(4.8,41,4.7);towerCore.add(serviceSpine);
-  const towerCap=new THREE.Mesh(new THREE.BoxGeometry(30,2.0,27),darkConcrete);towerCap.position.set(px,81.0,pz);scene.add(towerCap);
-  for(const y of [27,32.5,38,43.5,49,54.5,60,65.5,71,76.5]){
-    const penthouseWidth=y>=49,plate=new THREE.Mesh(new THREE.BoxGeometry(penthouseWidth?28:19,.20,penthouseWidth?23:22),paleStone);plate.position.set(penthouseWidth?px:tx,y,penthouseWidth?pz:tz);scene.add(plate);
-    const cx=penthouseWidth?px:tx,cz=penthouseWidth?pz:tz,sideX=penthouseWidth?14.02:10.02,sideZ=penthouseWidth?11.52:11.02;
-    for(const side of [-1,1]){const win=new THREE.Mesh(new THREE.PlaneGeometry(13.5,3.7),litGlass);win.position.set(cx+side*sideX,y+2.55,cz);win.rotation.y=side>0?-Math.PI/2:Math.PI/2;scene.add(win);const viewWin=new THREE.Mesh(new THREE.PlaneGeometry(penthouseWidth?24:15.5,3.7),litGlass);viewWin.position.set(cx,y+2.55,cz+side*sideZ);viewWin.rotation.y=side>0?Math.PI:0;scene.add(viewWin);}
-  }
-  // Apartment/penthouse furniture is deliberately sparse, but each floor has
-  // a real viewpoint and safe enclosure for future expansion.
-  function floorSeat(room,y,cx,cz,label){const sofa=new THREE.Group();sofa.position.set(cx,y,cz);scene.add(sofa);const seat=new THREE.Mesh(new THREE.BoxGeometry(3.3,.42,1.2),new THREE.MeshStandardMaterial({color:0xe7e0d2,roughness:.56}));seat.position.y=.50;sofa.add(seat);const back=new THREE.Mesh(new THREE.BoxGeometry(3.3,1.08,.28),new THREE.MeshStandardMaterial({color:0xd6cbb9,roughness:.61}));back.position.set(0,1.10,.50);sofa.add(back);sitPoint(room,seat,label,new THREE.Vector3(cx,y+1.30,cz),Math.PI/2,-.03);}
-  HOOD_MAIN_FLOORS.filter(f=>/^hood-a/.test(f.id)).forEach((f,i)=>floorSeat(f.id,f.y,tx-3,tz,`${f.label} · project view`));
-  HOOD_PRIVATE_FLOORS.filter(f=>/^hood-ph/.test(f.id)).forEach((f,i)=>{floorSeat(f.id,f.y,px-4,pz,`${f.label} · ocean window`);const tree=new THREE.Mesh(new THREE.SphereGeometry(.55,18,14),new THREE.MeshStandardMaterial({color:0x4c7650,roughness:.94}));tree.position.set(px+5,f.y+1.15,pz-5+i*.5);scene.add(tree);});
-
-  // Spacious Art Deco residences. Each floor now has a real salon, dining
-  // zone, screened private room, parquet field, architectural lighting and
-  // wide framed views. The penthouse floors use the larger 28 × 23 m plate.
+  const reserveSign=new THREE.Mesh(new THREE.Pl��o+^����ם// wide framed views. The penthouse floors use the larger 28 × 23 m plate.
   const decoWalnut=new THREE.MeshStandardMaterial({color:0x4c3025,roughness:.58,metalness:.05});
   const decoVelvet=new THREE.MeshStandardMaterial({color:0x315a5a,roughness:.72,metalness:.02});
   const decoWine=new THREE.MeshStandardMaterial({color:0x6b2d33,roughness:.70,metalness:.02});
