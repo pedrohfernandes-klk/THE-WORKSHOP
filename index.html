@@ -2317,9 +2317,6 @@ function caveFloorY(x,z){
 }
 function visitorFloorY(pos=getVisitorPosition()){
   if(currentRoom === 'theatre') return theatreFloorY(pos.z);
-  // The Studio is a rooftop room on the Headquarters tower, so its floor is
-  // studioOrigin.y rather than ground level.
-  if(currentRoom === 'studio') return studioOrigin.y;
   if(isHoodRoom(currentRoom)){
     if(currentRoom === 'hood'){
       const cy=caveFloorY(pos.x,pos.z);
@@ -2591,14 +2588,12 @@ const tunnelRoomLength = 100;
 const tunnelRoomHalfWidth = 3.1;
 const tunnelRoomHeight = 4.4;
 
-// THE STUDIO now sits on the roof of the Headquarters tower, above the
-// penthouse cap, reached by the private lift through its own antechamber.
-// Its size is unchanged (20 x 24 x 7.8) — only its address moved, from an
-// isolated island at (-1220,0,-1080) to the top of the tower. studioOrigin.y
-// is the floor level: buildStudio still builds in local coordinates and the
-// whole room is parented to a group raised to that height, so every y inside
-// the builder stays as written.
-const studioOrigin = new THREE.Vector3(1924, 82, -1414);
+// THE STUDIO is back in its original place. It was briefly moved to the
+// tower roof; the room itself was never edited, but a composed interior does
+// not survive being re-sited — it gained a doorway punched through the album
+// wall and an antechamber pressing against it. The roof keeps a lobby with a
+// door through to here instead, which costs the Studio nothing.
+const studioOrigin = new THREE.Vector3(-1220, 0, -1080);
 const studioHalfWidth = 10.0;   // 20 m wide
 const studioDepth = 24;         // expanded listening room with a dedicated seated viewing bay
 const studioHeight = 7.8;
@@ -2632,7 +2627,7 @@ const HOOD_PRIVATE_FLOORS = [
   {id:'hood-ph5', code:'P5', label:'Penthouse · Ocean Belvedere', y:76.5},
   // Roof level: the antechamber the private lift opens into, from which a
   // door leads out into THE STUDIO occupying the rest of the tower roof.
-  {id:'hood-ph6', code:'P6', label:'Roof · Studio Antechamber', y:82.0}
+  {id:'hood-ph6', code:'P6', label:'Roof · The Belvedere', y:82.0}
 ];
 const HOOD_ALL_FLOORS = [...HOOD_MAIN_FLOORS, ...HOOD_PRIVATE_FLOORS.filter(f=>f.id!=='hood-a5')];
 function hoodFloorY(room){ return HOOD_ALL_FLOORS.find(f=>f.id===room)?.y || 0; }
@@ -5157,7 +5152,7 @@ function buildHall(){
       {z:z0 + depth*.09, title:'The Venue', subtitle:'SAYWHAT · cinema', room:'theatre', label:'The Venue', accent:0xd5b56d, dark:0x1d1511,
        targetPos:new THREE.Vector3(theatreOrigin.x, theatreCameraY(theatreOrigin.z+theatreDepth-10), theatreOrigin.z+theatreDepth-10), targetYaw:0},
       {z:z0 + depth*.255, title:'The Studio', subtitle:'YouTube listening room', room:'studio', label:'The Studio', accent:0x9d6de2, dark:0x130d1c,
-       targetPos:new THREE.Vector3(studioOrigin.x, studioOrigin.y+cameraHeight, studioOrigin.z + studioDepth - 3.2), targetYaw:0},
+       targetPos:new THREE.Vector3(studioOrigin.x, cameraHeight, studioOrigin.z + studioDepth - 3.2), targetYaw:0},
       {z:z0 + depth*.42, title:'The Laboratory', subtitle:'NO WORRIES', room:'lab', label:'The Laboratory', accent:0x88aeb4, dark:0x162022,
        targetPos:new THREE.Vector3(labOrigin.x, cameraHeight, labOrigin.z+labDepth-3), targetYaw:0},
       {z:z0 + depth*.585, title:'Thinking Room', subtitle:'reading · research', room:'thinking', label:'Thinking Room', accent:0xa4c6d8, dark:0x14181a,
@@ -7382,29 +7377,24 @@ function buildHood(){
   HOOD_MAIN_FLOORS.forEach(f=>makeLiftLanding(f.id,f.y,lx,lz,false));
   HOOD_PRIVATE_FLOORS.forEach(f=>makeLiftLanding(f.id,f.y,plx,plz,true));
 
-  // ===== ROOF LEVEL: studio antechamber ================================
-  // THE STUDIO moved up here from its old island at (-1220,0,-1080), keeping
-  // its 20 x 24 m footprint. It occupies the east of the roof; this
-  // antechamber is the lobby the private lift opens into, west of it, and a
-  // portal door joins the two. The Studio is its own room (id 'studio'), so
-  // it keeps every screen, interactable and FX contract it already had.
+  // ===== ROOF LEVEL: the belvedere lobby ===============================
+  // The Studio briefly lived up here and has gone back to its own building:
+  // a room composed around its own entrance did not survive being re-sited.
+  // What the private lift opens onto is now simply the top of the tower — a
+  // glazed lobby on the roof with a door through to the Studio, so the climb
+  // still leads somewhere without the Studio paying for it.
   {
     const ry=82.0;
-    // Roof slab spanning both the antechamber and the Studio above the cap.
-    const roofSlab=new THREE.Mesh(new THREE.BoxGeometry(42,.5,30),paleStone);
-    roofSlab.position.set(1917,ry-.25,-1402);scene.add(roofSlab);
-    const roofTrim=new THREE.Mesh(new THREE.BoxGeometry(42.8,.36,30.8),brass);
-    roofTrim.position.set(1917,ry-.62,-1402);scene.add(roofTrim);
-    // Parapet around the exposed roof edge so it reads as a real terrace.
+    // Slab sized to the lobby itself rather than to a room that is no longer
+    // here; top face at 81.9 so it sits just under the lobby floor.
+    const roofSlab=new THREE.Mesh(new THREE.BoxGeometry(22,.5,22),paleStone);
+    roofSlab.position.set(1906,ry-.35,-1398);scene.add(roofSlab);
+    const roofTrim=new THREE.Mesh(new THREE.BoxGeometry(22.8,.36,22.8),brass);
+    roofTrim.position.set(1906,ry-.72,-1398);scene.add(roofTrim);
     const parapetMat=new THREE.MeshStandardMaterial({color:0x8d8474,roughness:.9});
-    for(const sz of [-1,1]){const p=new THREE.Mesh(new THREE.BoxGeometry(42,1.1,.5),parapetMat);p.position.set(1917,ry+.55,-1402+sz*15);scene.add(p);}
-    const pw=new THREE.Mesh(new THREE.BoxGeometry(.5,1.1,30),parapetMat);pw.position.set(1896,ry+.55,-1402);scene.add(pw);
+    for(const sz of [-1,1]){const p=new THREE.Mesh(new THREE.BoxGeometry(22,1.1,.5),parapetMat);p.position.set(1906,ry+.55,-1398+sz*11);scene.add(p);}
+    for(const sx of [-1,1]){const p=new THREE.Mesh(new THREE.BoxGeometry(.5,1.1,22),parapetMat);p.position.set(1906+sx*11,ry+.55,-1398);scene.add(p);}
 
-    // --- the antechamber: a glazed lobby around the private lift, reaching
-    // --- forward to the Studio's front corner, which is the only clear bay
-    // --- on that wall (the rest is the album gallery, 1.2 m gaps). Putting
-    // --- the doorway there also groups it with the Studio's existing hall
-    // --- and tunnel doors instead of stranding it behind the records.
     const anteMat=new THREE.MeshStandardMaterial({color:0x25211c,roughness:.62,metalness:.2});
     const aCx=1906.5, aCz=-1397.5, aW=16, aD=17;      // x 1898.5..1914.5, z -1406..-1389
     const aFloor=new THREE.Mesh(new THREE.BoxGeometry(aW,.18,aD),paleStone);aFloor.position.set(aCx,ry+.09,aCz);scene.add(aFloor);
@@ -7416,34 +7406,24 @@ function buildHood(){
     const aRug=new THREE.Mesh(new THREE.PlaneGeometry(5.4,7.2),new THREE.MeshStandardMaterial({color:0x5a3f33,roughness:.95}));
     aRug.rotation.x=-Math.PI/2;aRug.position.set(aCx-1.5,ry+.19,aCz-2.0);scene.add(aRug);
     const aBench=new THREE.Mesh(new THREE.BoxGeometry(3.6,.36,1.0),wood);aBench.position.set(aCx-4.8,ry+.62,aCz-3.0);scene.add(aBench);
-    sitPoint('hood-ph6',aBench,'Antechamber bench',new THREE.Vector3(aCx-4.8,ry+1.34,aCz-3.0),-Math.PI/2);
-    const aSign=new THREE.Mesh(new THREE.PlaneGeometry(6.2,.86),new THREE.MeshBasicMaterial({map:makeSignTexture('THE STUDIO','roof level · through the door'),transparent:true,toneMapped:false}));
+    sitPoint('hood-ph6',aBench,'Belvedere bench',new THREE.Vector3(aCx-4.8,ry+1.34,aCz-3.0),-Math.PI/2);
+    const aSign=new THREE.Mesh(new THREE.PlaneGeometry(6.2,.86),new THREE.MeshBasicMaterial({map:makeSignTexture('THE BELVEDERE','roof · the Studio through the door'),transparent:true,toneMapped:false}));
     aSign.position.set(aCx+aW/2-.4,ry+4.0,aCz+4.0);aSign.rotation.y=-Math.PI/2;scene.add(aSign);
     const aLamp=new THREE.PointLight(0xffdcae,1.9,22,1.7);aLamp.position.set(aCx,ry+4.2,aCz);scene.add(aLamp);regLight('hood-ph6',aLamp);
 
-    // --- the doorway, back to back on the two faces of the same wall: one
-    // --- leaf read from the antechamber, one from the Studio. Placed in the
-    // --- front-corner bay, 3.6 m clear of Currents (3.06 m required).
-    const dz=-1391.5;
+    // One door only. The Studio's own walls are untouched, so there is no
+    // return leaf here — that mesh would have sat on the roof while the room
+    // it belonged to was three kilometres away, an interactable nobody could
+    // ever reach. You leave the Studio the way you always did.
     const intoStudio = addPremiumPortalDoor({
-      x:1913.6, y:ry+2.6, z:dz, width:2.6, height:5.0, orientation:'right',
-      title:'THE STUDIO', subtitle:'roof level', accent:0x9d6de2, dark:0x130d1c
+      x:1913.9, y:ry+2.6, z:-1391.5, width:2.6, height:5.0, orientation:'right',
+      title:'THE STUDIO', subtitle:'listening room', accent:0x9d6de2, dark:0x130d1c
     });
     registerPortal({
       mesh:intoStudio.slab, field:intoStudio.field, doorParts:intoStudio.doorParts, openAxis:intoStudio.openAxis,
       room:'studio', fromRoom:'hood-ph6', label:'THE STUDIO',
-      targetPos:new THREE.Vector3(studioOrigin.x, studioOrigin.y+cameraHeight, studioOrigin.z+studioDepth-3.2),
+      targetPos:new THREE.Vector3(studioOrigin.x, cameraHeight, studioOrigin.z+studioDepth-3.2),
       targetYaw:0, slideAxis:intoStudio.openAxis, slideDist:2.6
-    });
-    const backToLift = addPremiumPortalDoor({
-      x:1914.4, y:ry+2.6, z:dz, width:2.6, height:5.0, orientation:'left',
-      title:'THE LIFT', subtitle:'antechamber', accent:0xb89d66, dark:0x1b1713
-    });
-    registerPortal({
-      mesh:backToLift.slab, field:backToLift.field, doorParts:backToLift.doorParts, openAxis:backToLift.openAxis,
-      room:'hood-ph6', fromRoom:'studio', label:'Lift antechamber',
-      targetPos:new THREE.Vector3(plx, ry+cameraHeight, plz-3.25),
-      targetYaw:Math.PI, slideAxis:backToLift.openAxis, slideDist:2.6
     });
   }
 
@@ -7668,7 +7648,7 @@ function buildHood(){
       {side:1,z:cqFrontZ,        title:'THE GROVE',         subtitle:'garden · amphitheatre',room:'outdoor', accent:0xc8b48f, dark:0x181614, motif:'pergola',
        targetPos:()=>new THREE.Vector3(outdoorOrigin.x, cameraHeight, outdoorOrigin.z + outdoorDepth - 4.6), targetYaw:0},
       {side:1,z:cqFrontZ+cqStep, title:'THE STUDIO',        subtitle:'listening room',       room:'studio',  accent:0x9d6de2, dark:0x130d1c, motif:'shed',
-       targetPos:()=>new THREE.Vector3(studioOrigin.x, studioOrigin.y+cameraHeight, studioOrigin.z + studioDepth - 3.2), targetYaw:0},
+       targetPos:()=>new THREE.Vector3(studioOrigin.x, cameraHeight, studioOrigin.z + studioDepth - 3.2), targetYaw:0},
       {side:1,z:cqFrontZ+cqStep*2, title:'SUNSET LOUNGE',   subtitle:'viewing room',         room:'night',   accent:0xe0a05c, dark:0x1a1310, motif:'lantern',
        targetPos:()=>new THREE.Vector3(nightRoomOrigin.x, cameraHeight, nightRoomOrigin.z + 5.2), targetYaw:Math.PI},
       {side:1,z:cqFrontZ+cqStep*3, title:'THINKING ROOM',   subtitle:'reading · research',   room:'thinking',accent:0xa4c6d8, dark:0x14181a, motif:'dome',
@@ -10597,7 +10577,7 @@ function buildTunnelPassage(){
     { x:x0-wrHW+.13, z:z0+2.25, orientation:'left',  title:'The Lab',              subtitle:'projection', room:'lab',     label:'The Lab',              targetPos:new THREE.Vector3(labOrigin.x, cameraHeight, labOrigin.z+labDepth-3.0),                   targetYaw:0,          accent:0x8796c8, dark:0x15161b },
     { x:x0-wrHW+.13, z:z0+6.55, orientation:'left',  title:'The Venue',            subtitle:'screening',  room:'theatre', label:'The Venue',            targetPos:new THREE.Vector3(theatreOrigin.x, cameraHeight, theatreOrigin.z+theatreDepth-4.0),       targetYaw:0,          accent:0xc58a58, dark:0x1b1511 },
     { x:x0-wrHW+.13, z:z0+10.85, orientation:'left', title:'Main Hall',            subtitle:'gallery',    room:'gallery', label:'Main Hall',            targetPos:new THREE.Vector3(0, cameraHeight, tunnelMouthZ + hallDepth*.50 + 4.0),                                          targetYaw:Math.PI,    accent:0xc9b27a, dark:0x17120d },
-    { x:x0-wrHW+.13, z:z0+15.15, orientation:'left', title:'The Studio',           subtitle:'music',      room:'studio',  label:'The Studio',           targetPos:new THREE.Vector3(studioOrigin.x, studioOrigin.y+cameraHeight, studioOrigin.z+studioDepth-3.2),          targetYaw:0,          accent:0xb34ec0, dark:0x130f17 },
+    { x:x0-wrHW+.13, z:z0+15.15, orientation:'left', title:'The Studio',           subtitle:'music',      room:'studio',  label:'The Studio',           targetPos:new THREE.Vector3(studioOrigin.x, cameraHeight, studioOrigin.z+studioDepth-3.2),          targetYaw:0,          accent:0xb34ec0, dark:0x130f17 },
 
     { x:x0+wrHW-.13, z:z0+2.25, orientation:'right', title:'Exp. Garden',          subtitle:'outside',    room:'maze',    label:'Experimental Garden', targetPos:new THREE.Vector3(mazeOrigin.x, cameraHeight, mazeOrigin.z + mazeCell*.55),                targetYaw:0,          accent:0x86b58e, dark:0x131712 },
     { x:x0+wrHW-.13, z:z0+6.55, orientation:'right', title:'MANY MAPS',            subtitle:'atlas',      room:'maps',    label:'MANY MAPS',            targetPos:new THREE.Vector3(mapGalleryOrigin.x, cameraHeight, mapGalleryOrigin.z + mapGalleryDepth - 9.2), targetYaw:0,     accent:0x7aa0c9, dark:0x11161a },
@@ -10739,14 +10719,6 @@ function buildStudio(){
   // bar, velvet booths, a wall gallery of performer photographs, and layered
   // club lighting. The YouTube control contract (studioWallIframe /
   // studioWallScreen / studioFX) is preserved exactly.
-  // The room moved to the tower roof without rewriting every y inside it.
-  // Rather than retarget the scene.add calls in this function — which silently
-  // missed everything added by HELPERS (addFramedWallArt and
-  // addPremiumPortalDoor call scene.add internally, so all the album art and
-  // the return doors stayed on the ground) — we mark the scene here and
-  // reparent everything this builder produced, by any route, at the end.
-  const sceneMark = scene.children.length;
-  const artMark = wallArtPieces.length, doorMark = doorFootprints.length;
   const x0 = studioOrigin.x, z0 = studioOrigin.z;
   const hw = studioHalfWidth, depth = studioDepth, h = studioHeight;
   const z1 = z0 + depth, midZ = z0 + depth/2;
@@ -10988,7 +10960,7 @@ function buildStudio(){
     registerInteractable({type:'seat',room:'studio',mesh:seat,label:'Eames lounge chair',hintId:'studio-seat',priority:3,
       hintText:'Sit for a focused view of the Studio screen. Look around freely; move to stand.',
       prompt:()=>'Sit and watch the Studio screen',
-      onUse:()=>{ seatedStudioView=true; velX=0; velZ=0; smoothSpeed=0; startCameraTransition(new THREE.Vector3(px,studioOrigin.y+1.28,pz-.08),0,-.035,.8); msg('Seated viewing mode · look around freely · move to stand'); }
+      onUse:()=>{ seatedStudioView=true; velX=0; velZ=0; smoothSpeed=0; startCameraTransition(new THREE.Vector3(px,1.28,pz-.08),0,-.035,.8); msg('Seated viewing mode · look around freely · move to stand'); }
     });
   }
   eamesLounge(x0-6.6,z0+9,-.18);
@@ -11175,25 +11147,6 @@ function buildStudio(){
   registerInteractable({id:'studio:loop-sketchpad',type:'maker',room:'studio',mesh:loopSign,label:'Loop Sketchpad',
     action:'created',capability:'making',hintId:'studio-loop',priority:5,
     hintText:'A compact beat station: build a drum loop and send it to the Studio wall.',prompt:()=>'Open the Loop Sketchpad',onUse:openLoopSketchpad});
-
-  // Lift the whole room onto the tower roof. Everything added to the scene
-  // since sceneMark belongs to the Studio — direct scene.add calls here AND
-  // anything the helpers added on our behalf — so reparenting that slice
-  // moves the complete room, art and doors included. Object3D.add detaches
-  // from the previous parent, and each child keeps its local transform, so
-  // the room arrives intact exactly studioOrigin.y higher.
-  const studioBuilt = scene.children.slice(sceneMark);
-  const studioRoot = new THREE.Group();
-  studioRoot.position.y = studioOrigin.y;
-  scene.add(studioRoot);
-  studioBuilt.forEach(object=>studioRoot.add(object));
-
-  // The registries record the y they were handed, which in here is a local
-  // height. The clearance guards compare those entries against WORLD
-  // positions from scene.traverse, so lift the Studio's own entries to match
-  // the geometry we just raised.
-  for(let i=artMark;i<wallArtPieces.length;i++) wallArtPieces[i].y += studioOrigin.y;
-  for(let i=doorMark;i<doorFootprints.length;i++) doorFootprints[i].y += studioOrigin.y;
 
   studioFX = {tiles:null, tileN:0, speakerRings, orbs, ball, tileTimer:0};
 }
@@ -13410,7 +13363,6 @@ function setPlayerLocation(room, pos, newYaw, label, newPitch=0){
   destination.copy(pos);
   if(room === 'theatre') destination.y = theatreCameraY(destination.z);
   else if(isHoodRoom(room)) destination.y = hoodFloorY(room)+cameraHeight;
-  else if(room === 'studio') destination.y = studioOrigin.y+cameraHeight;
   else destination.y = cameraHeight;
   yaw = newYaw;
   pitch = newPitch;
@@ -13497,7 +13449,7 @@ function fastTravel(place){
     },
     studio: {
       room:'studio',
-      pos:new THREE.Vector3(studioOrigin.x,studioOrigin.y+cameraHeight,studioOrigin.z+studioDepth-3.2),
+      pos:new THREE.Vector3(studioOrigin.x,cameraHeight,studioOrigin.z+studioDepth-3.2),
       yaw:0,
       label:'The Studio'
     },
