@@ -7441,7 +7441,40 @@ function buildHood(){
   }
   buildRampDescent(wx+27,wz+21,0,wz+27,-3.0,5.0,darkConcrete,concrete);
   const reserveLanding=new THREE.Mesh(new THREE.BoxGeometry(5.0,.20,1.4),darkConcrete);reserveLanding.position.set(wx+27,-3.0,wz+27.7);scene.add(reserveLanding);
-  const reserveSign=new THREE.Mesh(new THREçžöo+^²‰¢¶×e(512,430);
+  const reserveSign=new THREE.Mesh(new THREE.PlaneGeometry(5.6,.72),new THREE.MeshBasicMaterial({map:makeSignTexture('THE RESERVE â†“','basement archive Â· ramp'),transparent:true}));reserveSign.position.set(wx+27,3.6,wz+18);reserveSign.rotation.y=Math.PI;scene.add(reserveSign);
+  const reserveGlow=new THREE.PointLight(0xcfe6ee,1.7,14,1.7);reserveGlow.position.set(wx+27,.4,wz+24);scene.add(reserveGlow);regLight('hood',reserveGlow);
+  const reserveDoor=addPremiumPortalDoor({x:wx+27,y:-1.2,z:wz+28.6,width:3.6,height:3.6,orientation:'front',title:'THE RESERVE',subtitle:'basement archive',accent:0x8a9295,dark:0x14171a});
+  registerPortal({
+    mesh:reserveDoor.slab, field:reserveDoor.field, doorParts:reserveDoor.doorParts, openAxis:reserveDoor.openAxis,
+    room:'hood-basement', fromRoom:'hood', label:'The Reserve',
+    targetPos:new THREE.Vector3(wx+27, -5.0+cameraHeight, wz-3.7),
+    targetYaw:0, slideAxis:reserveDoor.openAxis, slideDist:2.5
+  });
+
+  // Tower shell and illuminated window grid.
+  const towerCore=new THREE.Group();towerCore.position.set(tx,0,tz);scene.add(towerCore);
+  for(const sx of [-1,1])for(const sz of [-1,1]){const column=new THREE.Mesh(new THREE.BoxGeometry(1.05,82,1.05),darkConcrete);column.position.set(sx*9.15,41,sz*10.6);towerCore.add(column);}
+  const serviceSpine=new THREE.Mesh(new THREE.BoxGeometry(4.8,82,5.8),darkConcrete);serviceSpine.position.set(4.8,41,4.7);towerCore.add(serviceSpine);
+  const towerCap=new THREE.Mesh(new THREE.BoxGeometry(30,2.0,27),darkConcrete);towerCap.position.set(px,81.0,pz);scene.add(towerCap);
+  for(const y of [27,32.5,38,43.5,49,54.5,60,65.5,71,76.5]){
+    const penthouseWidth=y>=49,plate=new THREE.Mesh(new THREE.BoxGeometry(penthouseWidth?28:19,.20,penthouseWidth?23:22),paleStone);plate.position.set(penthouseWidth?px:tx,y,penthouseWidth?pz:tz);scene.add(plate);
+    const cx=penthouseWidth?px:tx,cz=penthouseWidth?pz:tz,sideX=penthouseWidth?14.02:10.02,sideZ=penthouseWidth?11.52:11.02;
+    for(const side of [-1,1]){const win=new THREE.Mesh(new THREE.PlaneGeometry(13.5,3.7),litGlass);win.position.set(cx+side*sideX,y+2.55,cz);win.rotation.y=side>0?-Math.PI/2:Math.PI/2;scene.add(win);const viewWin=new THREE.Mesh(new THREE.PlaneGeometry(penthouseWidth?24:15.5,3.7),litGlass);viewWin.position.set(cx,y+2.55,cz+side*sideZ);viewWin.rotation.y=side>0?Math.PI:0;scene.add(viewWin);}
+  }
+  // Apartment/penthouse furniture is deliberately sparse, but each floor has
+  // a real viewpoint and safe enclosure for future expansion.
+  function floorSeat(room,y,cx,cz,label){const sofa=new THREE.Group();sofa.position.set(cx,y,cz);scene.add(sofa);const seat=new THREE.Mesh(new THREE.BoxGeometry(3.3,.42,1.2),new THREE.MeshStandardMaterial({color:0xe7e0d2,roughness:.56}));seat.position.y=.50;sofa.add(seat);const back=new THREE.Mesh(new THREE.BoxGeometry(3.3,1.08,.28),new THREE.MeshStandardMaterial({color:0xd6cbb9,roughness:.61}));back.position.set(0,1.10,.50);sofa.add(back);sitPoint(room,seat,label,new THREE.Vector3(cx,y+1.30,cz),Math.PI/2,-.03);}
+  HOOD_MAIN_FLOORS.filter(f=>/^hood-a/.test(f.id)).forEach((f,i)=>floorSeat(f.id,f.y,tx-3,tz,`${f.label} Â· project view`));
+  HOOD_PRIVATE_FLOORS.filter(f=>/^hood-ph/.test(f.id)).forEach((f,i)=>{floorSeat(f.id,f.y,px-4,pz,`${f.label} Â· ocean window`);const tree=new THREE.Mesh(new THREE.SphereGeometry(.55,18,14),new THREE.MeshStandardMaterial({color:0x4c7650,roughness:.94}));tree.position.set(px+5,f.y+1.15,pz-5+i*.5);scene.add(tree);});
+
+  // Spacious Art Deco residences. Each floor now has a real salon, dining
+  // zone, screened private room, parquet field, architectural lighting and
+  // wide framed views. The penthouse floors use the larger 28 Ã— 23 m plate.
+  const decoWalnut=new THREE.MeshStandardMaterial({color:0x4c3025,roughness:.58,metalness:.05});
+  const decoVelvet=new THREE.MeshStandardMaterial({color:0x315a5a,roughness:.72,metalness:.02});
+  const decoWine=new THREE.MeshStandardMaterial({color:0x6b2d33,roughness:.70,metalness:.02});
+  function decoFanTexture(title,sub){
+    const c=document.createElement('canvas');c.width=1024;c.height=512;const q=c.getContext('2d');q.fillStyle='#152c2d';q.fillRect(0,0,1024,512);q.strokeStyle='#d2b476';q.lineWidth=9;q.translate(512,430);
     for(let i=0;i<13;i++){const a=-Math.PI*.82+i*(Math.PI*.64/12);q.beginPath();q.moveTo(0,0);q.lineTo(Math.cos(a)*430,Math.sin(a)*430);q.stroke();}
     for(const r of [105,210,315,420]){q.beginPath();q.arc(0,0,r,Math.PI*1.18,Math.PI*1.82);q.stroke();}
     q.setTransform(1,0,0,1,0,0);q.fillStyle='#f2e6cd';q.textAlign='center';q.font='52px Georgia';q.fillText(title.toUpperCase(),512,95);q.font='700 19px Arial';q.letterSpacing='4px';q.fillStyle='#d2b476';q.fillText(sub.toUpperCase(),512,130);
