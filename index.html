@@ -2013,7 +2013,7 @@ body.rpgMode #rpgModeBadge{display:block}
     <button id="studioNowReturn" type="button">Studio</button>
     <button id="studioNowStop" type="button">Stop</button>
   </div>
-  <video id="fireworksVideo" autoplay playsinline muted loop preload="auto" crossorigin="anonymous"
+  <video id="fireworksVideo" autoplay playsinline muted loop preload="metadata" crossorigin="anonymous"
     style="position:absolute;width:2px;height:2px;opacity:0;pointer-events:none;left:-10px;top:-10px"></video>
   <div id="windowControls" aria-hidden="true">
     <span id="windowControlsLabel">Fireworks window ¬∑ always open</span>
@@ -7441,12 +7441,7 @@ function buildHood(){
   }
   buildRampDescent(wx+27,wz+21,0,wz+27,-3.0,5.0,darkConcrete,concrete);
   const reserveLanding=new THREE.Mesh(new THREE.BoxGeometry(5.0,.20,1.4),darkConcrete);reserveLanding.position.set(wx+27,-3.0,wz+27.7);scene.add(reserveLanding);
-  const reserveSign=new THREE.Mesh(new THREE.Pl„æˆo+^≤â¢∂◊ù// wide framed views. The penthouse floors use the larger 28 √ó 23 m plate.
-  const decoWalnut=new THREE.MeshStandardMaterial({color:0x4c3025,roughness:.58,metalness:.05});
-  const decoVelvet=new THREE.MeshStandardMaterial({color:0x315a5a,roughness:.72,metalness:.02});
-  const decoWine=new THREE.MeshStandardMaterial({color:0x6b2d33,roughness:.70,metalness:.02});
-  function decoFanTexture(title,sub){
-    const c=document.createElement('canvas');c.width=1024;c.height=512;const q=c.getContext('2d');q.fillStyle='#152c2d';q.fillRect(0,0,1024,512);q.strokeStyle='#d2b476';q.lineWidth=9;q.translate(512,430);
+  const reserveSign=new THREE.Mesh(new THREÁûˆo+^≤â¢∂◊ùe(512,430);
     for(let i=0;i<13;i++){const a=-Math.PI*.82+i*(Math.PI*.64/12);q.beginPath();q.moveTo(0,0);q.lineTo(Math.cos(a)*430,Math.sin(a)*430);q.stroke();}
     for(const r of [105,210,315,420]){q.beginPath();q.arc(0,0,r,Math.PI*1.18,Math.PI*1.82);q.stroke();}
     q.setTransform(1,0,0,1,0,0);q.fillStyle='#f2e6cd';q.textAlign='center';q.font='52px Georgia';q.fillText(title.toUpperCase(),512,95);q.font='700 19px Arial';q.letterSpacing='4px';q.fillStyle='#d2b476';q.fillText(sub.toUpperCase(),512,130);
@@ -14486,7 +14481,15 @@ document.addEventListener('visibilitychange', ()=>{
   }
   updateArchitecturalWindowMedia();
 });
-window.addEventListener('load', ()=>{
+// Boot as soon as the document structure and module are ready. Waiting only
+// for window.load made a slow video/image request able to hold the entire
+// museum behind the Loading button forever. The load listener remains as a
+// safety net for unusual embedding environments, but can never initialise a
+// second copy of the world.
+let workshopBooted=false;
+function bootWorkshop(){
+  if(workshopBooted) return;
+  workshopBooted=true;
   try{
     init();
   }catch(err){
@@ -14495,7 +14498,10 @@ window.addEventListener('load', ()=>{
     const msgText = (err && (err.stack || err.message)) ? String(err.stack || err.message).slice(0,900) : 'Unknown renderer error';
     $('posterCard').innerHTML = `<h1>BUILD<br>ERROR</h1><p>${esc(msgText)}</p>`;
   }
-});
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bootWorkshop,{once:true});
+else queueMicrotask(bootWorkshop);
+window.addEventListener('load',bootWorkshop,{once:true});
 </script>
 </body>
 </html>
