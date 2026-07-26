@@ -1823,13 +1823,13 @@ body.rpgMode #rpgModeBadge{display:block}
       <button class="btn" id="fastMapCloseBtn" type="button">Close</button>
     </div>
     <div class="fastMapCurrent" id="fastMapCurrent">You are in <strong>Workshop Hall</strong></div>
-    <p class="fastMapIntro">Five story beats. Three districts. Smaller rooms remain discoverable through doors inside each wing.</p>
+    <p class="fastMapIntro">Five story beats. One continuous garden-world. Smaller rooms remain discoverable through doors inside each wing.</p>
     <div class="journeyMap" id="journeyMap" aria-label="Narrative progress">
       <button class="journeyBeat" type="button" data-beat="threshold"><b>Threshold</b><span>Workshop Hall</span></button>
       <button class="journeyBeat" type="button" data-beat="search"><b>Search</b><span>Thinking, Maps, Lab</span></button>
       <button class="journeyBeat" type="button" data-beat="projection"><b>Projection</b><span>Venue, Studio, Garden</span></button>
       <button class="journeyBeat" type="button" data-beat="outside"><b>Outside</b><span>Grove</span></button>
-      <button class="journeyBeat" type="button" data-beat="return"><b>Return</b><span>Headquarters</span></button>
+      <button class="journeyBeat" type="button" data-beat="return"><b>Return</b><span>The Grove</span></button>
     </div>
     <p class="journeyGuidance" id="journeyGuidance" aria-live="polite">Threshold is current; look closely and use a work in the Hall.</p>
     <p class="passportEvidence" id="passportEvidence" aria-live="polite">THRESHOLD — Not yet stamped.</p>
@@ -1854,13 +1854,6 @@ body.rpgMode #rpgModeBadge{display:block}
       <h4 class="fastMapDistrictTitle">The Grove<span>gardens east of the building</span></h4>
       <div class="fastMapGrid">
         <button class="fastMapBtn" data-place="outdoor" data-room="outdoor"><b>The Grove</b><span>Garden, monument and cliffside amphitheatre.</span></button>
-      </div>
-    </section>
-    <section class="fastMapDistrict">
-      <h4 class="fastMapDistrictTitle">Headquarters<span>separate district on the coast</span></h4>
-      <div class="fastMapGrid">
-        <button class="fastMapBtn" data-place="headquarters" data-room="hood"><b>Headquarters</b><span>Restored warehouse, cave theatre, tower residences and formal garden.</span></button>
-        <button class="fastMapBtn" data-place="civic-quarter" data-room="hood"><b>The Civic Quarter</b><span>Civic square where every room in the museum has its own entrance.</span></button>
       </div>
     </section>
   </aside>
@@ -2664,8 +2657,51 @@ const thinkingDepth = 40;
 const thinkingHeight = 10.4;
 
 const outdoorOrigin = new THREE.Vector3(-1220, 0, -720);
-const outdoorDepth = 64;
+const outdoorMainDepth = 64;
+// The Grove now continues into a quiet rear landscape. Its original garden
+// remains in the first 64 m; the extended walkable depth is reserved for the
+// relocated warehouse tower, well away from the pond, square and amphitheatre.
+const outdoorDepth = 260;
 const outdoorHalfWidth = 64;   // expanded eastward for the Grove amphitheatre
+// The warehouse has no meaningful final storey. These are deliberately
+// irregular, high floor addresses: the rooms remain full-size installations,
+// while the lift makes their placement inside the colossal building legible.
+const WAREHOUSE_FLOORS = Object.freeze({
+  warehouse:104, 'end-gallery':118, 'the-tunnel':127, 'waiting-room':131,
+  venue:143, lab:157, garden:169, maps:183, spark:197, thinking:211,
+  'night-room':227, studio:241, outdoor:263,
+});
+function warehouseFloor(place){return WAREHOUSE_FLOORS[place] || 100 + ((String(place||'').length*17)%141);}
+function openWarehouseLift(){
+  const panel=ensureHoodLiftPanel();
+  panel.setAttribute('aria-label','Warehouse floor directory');
+  const entries=[
+    ['warehouse','Workshop Hall'],['end-gallery','End Gallery'],['the-tunnel','The Tunnel'],
+    ['venue','The Venue'],['lab','The Laboratory'],['garden','Experiment Garden'],
+    ['maps','MANY MAPS'],['spark','SPARK Tools Labs'],['thinking','Thinking Room'],
+    ['night-room','Sunset Lounge'],['studio','The Studio'],
+  ];
+  panel.innerHTML=`<div class="liftCabinet"><div class="liftHead"><div><b>WAREHOUSE LIFT</b><span>Vertical museum directory · no final floor</span></div><button class="liftClose" type="button">Close</button></div><div class="liftGrid">${entries.map(([place,label])=>`<button class="liftFloor" type="button" data-place="${place}"><i>${warehouseFloor(place)}</i><small>${label}</small></button>`).join('')}</div><div class="liftStatus">Every room remains full scale. The floor address is part of the fiction.</div></div>`;
+  panel.querySelector('.liftClose').onclick=closeHoodLift;
+  panel.querySelectorAll('[data-place]').forEach(button=>button.onclick=()=>{
+    const place=button.dataset.place;
+    closeHoodLift();
+    warehouseTravel(place);
+  });
+  panel.classList.add('show');
+  openAccessibleDialog(panel,{initialFocus:panel.querySelector('.liftClose'),onEscape:closeHoodLift});
+  if(document.pointerLockElement) document.exitPointerLock();
+}
+function warehouseTravel(place){
+  const overlay=$('fadeOverlay');
+  const floor=warehouseFloor(place);
+  msg(`Lift descending to floor ${floor} · ${String(place).replaceAll('-',' ')}`);
+  overlay.classList.add('show');
+  setTimeout(()=>{
+    fastTravel(place);
+    setTimeout(()=>overlay.classList.remove('show'),reducedMotion?80:360);
+  },reducedMotion?40:680);
+}
 const nightRoomOrigin = new THREE.Vector3(1220, 0, -620);
 const nightRoomHalfWidth = 18;
 const nightRoomDepth = 38;
@@ -2688,7 +2724,7 @@ const studioHeight = 7.8;
 // Headquarters remains reached physically through the Grove road, but it is
 // also exposed in the navigator after discovery so the growing district stays
 // legible rather than becoming a hidden second application.
-const hoodOrigin = new THREE.Vector3(1880,0,-1540);
+const hoodOrigin = new THREE.Vector3(1880,0,-1540); // legacy lift data; no longer built or routed
 const hoodHalfWidth = 115;
 const hoodDepth = 370;
 
@@ -2966,7 +3002,7 @@ let lookingAtInteractable = null;
 const VISIT_ROOM_LABELS=Object.freeze({
   gallery:'Workshop Hall',theatre:'The Venue',lab:'Laboratory',maze:'Experiment Garden',
   maps:'Many Maps',spark:'SPARK Tools Labs',thinking:'Thinking Room',outdoor:'The Grove',
-  hood:'Headquarters',night:'Nocturne',studio:'The Studio',tunnel:'The Tunnel',
+  hood:'The Grove Annex',night:'Nocturne',studio:'The Studio',tunnel:'The Tunnel',
 });
 function stableInteractionId(prefix,...parts){
   const slug=value=>String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,72);
@@ -3270,8 +3306,7 @@ const PLACE_BUILD_IDS = Object.freeze({
   'the-tunnel':'threshold', 'waiting-room':'threshold', venue:'venue',
   lab:'laboratory', garden:'experiment-garden', maps:'many-maps',
   spark:'spark-tools', thinking:'thinking-room', 'night-room':'sunset-lounge',
-  studio:'studio', outdoor:'grove', headquarters:'headquarters',
-  'civic-quarter':'headquarters'
+  studio:'studio', outdoor:'grove'
 });
 const DISTRICT_BUILDERS = Object.freeze({
   venue:buildTheatre,
@@ -3283,7 +3318,6 @@ const DISTRICT_BUILDERS = Object.freeze({
   'sunset-lounge':buildNightRoom,
   studio:buildStudio,
   grove:buildOutdoorSpace,
-  headquarters:buildHood,
 });
 const districtBuildPromises = new Map();
 function roomBuildId(room){return String(room||'').startsWith('hood-')?'headquarters':ROOM_BUILD_IDS[room];}
@@ -4932,7 +4966,7 @@ function buildHall(){
     registerPortal({
       mesh:outDoor.slab, field:outDoor.field, doorParts:outDoor.doorParts, openAxis:outDoor.openAxis,
       room:'outdoor', fromRoom:'gallery', label:'The Grove',
-      targetPos:new THREE.Vector3(outdoorOrigin.x, cameraHeight, outdoorOrigin.z + outdoorDepth - 4.6),
+      targetPos:new THREE.Vector3(outdoorOrigin.x, cameraHeight, outdoorOrigin.z + outdoorMainDepth - 4.6),
       targetYaw:0, slideAxis:outDoor.openAxis, slideDist:outdoorDoorW
     });
     const pad = new THREE.Mesh(new THREE.CircleGeometry(1.42, 36), new THREE.MeshBasicMaterial({map:makePoolTexture(), transparent:true, opacity:.22, blending:THREE.AdditiveBlending, depthWrite:false}));
@@ -5846,7 +5880,7 @@ function buildNightRoom(){
   registerPortal({
     mesh:outdoorDoor.slab, field:outdoorDoor.field, doorParts:outdoorDoor.doorParts, openAxis:outdoorDoor.openAxis,
     room:'outdoor', fromRoom:'night', label:'The Grove',
-    targetPos:new THREE.Vector3(outdoorOrigin.x, cameraHeight, outdoorOrigin.z + outdoorDepth - 4.6),
+    targetPos:new THREE.Vector3(outdoorOrigin.x, cameraHeight, outdoorOrigin.z + outdoorMainDepth - 4.6),
     targetYaw:0, slideAxis:outdoorDoor.openAxis, slideDist:3.55
   });
 
@@ -5861,19 +5895,6 @@ function buildNightRoom(){
     targetPos:new THREE.Vector3(tunnelRoomOrigin.x+7.97, cameraHeight, tunnelRoomOrigin.z+15.15),
     targetYaw:Math.PI/2, slideAxis:tunnelReturnDoor.openAxis, slideDist:3.2
   });
-  // The lounge's art is all on the two side walls, so the front wall's bay
-  // beside the hall door is clear.
-  const nightHqReturn = addPremiumPortalDoor({
-    x:x0+6.5, y:2.95, z:z0+.12, width:3.0, height:4.8, orientation:'front',
-    title:'HEADQUARTERS', subtitle:'civic quarter', accent:0xd8c39a, dark:0x1b1713
-  });
-  registerPortal({
-    mesh:nightHqReturn.slab, field:nightHqReturn.field, doorParts:nightHqReturn.doorParts, openAxis:nightHqReturn.openAxis,
-    room:'hood', fromRoom:'night', label:'HEADQUARTERS',
-    targetPos:new THREE.Vector3(hoodOrigin.x+23, cameraHeight, hoodOrigin.z+322),
-    targetYaw:Math.PI/2, slideAxis:nightHqReturn.openAxis, slideDist:3.0
-  });
-
   const hemi = new THREE.HemisphereLight(0xdfe5ef,0x5b4636,.82);
   scene.add(hemi); regLight('night', hemi);
 
@@ -6050,6 +6071,118 @@ function makeProceduralSky({radius=2000, horizon=0xd2dfe4, zenith=0x2f6fa8, haze
   return mesh;
 }
 
+function buildGroveWarehouseAnnex(x0,z0){
+  // The former Hood's public face, re-authored as one quiet Grove landmark.
+  // This is deliberately a single building rather than a second district:
+  // no housing quarter, civic square, duplicate sky or lift network follows it.
+  const stone=new THREE.MeshStandardMaterial({color:0xaaa092,roughness:.88,metalness:.06});
+  const dark=new THREE.MeshStandardMaterial({color:0x30383a,roughness:.58,metalness:.38});
+  const warm=new THREE.MeshStandardMaterial({color:0x8d684d,roughness:.84,metalness:.03});
+  const glass=new THREE.MeshBasicMaterial({color:0x9ed6df,toneMapped:false,transparent:true,opacity:.72});
+  const lit=new THREE.MeshBasicMaterial({color:0xeac47c,toneMapped:false});
+  const groundMat=new THREE.MeshStandardMaterial({color:0x718950,roughness:1});
+  const pathMat=new THREE.MeshStandardMaterial({color:0xbca986,roughness:.97});
+
+  const apron=new THREE.Mesh(new THREE.PlaneGeometry(62,76),groundMat);
+  apron.rotation.x=-Math.PI/2; apron.position.set(x0,0,z0+2); scene.add(apron);
+  const path=new THREE.Mesh(new THREE.PlaneGeometry(4.8,148),pathMat);
+  path.rotation.x=-Math.PI/2; path.position.set(x0,0.035,z0-38); scene.add(path);
+  const forecourt=new THREE.Mesh(new THREE.PlaneGeometry(30,18),pathMat);
+  forecourt.rotation.x=-Math.PI/2; forecourt.position.set(x0,0.04,z0+35); scene.add(forecourt);
+
+  // A deliberately unresolved vertical core. It disappears into haze above
+  // the Grove rather than ending as an ordinary tower, making the high-floor
+  // addresses believable while keeping the actual room installations intact.
+  const core=new THREE.Mesh(new THREE.BoxGeometry(13,226,13),dark);
+  core.position.set(x0+1,113,z0+2); scene.add(core);
+  const coreGlass=new THREE.Mesh(new THREE.BoxGeometry(8.8,218,.16),new THREE.MeshBasicMaterial({color:0x6fabb3,transparent:true,opacity:.34,toneMapped:false}));
+  coreGlass.position.set(x0+1,112,z0-4.55); scene.add(coreGlass);
+  for(let floor=100;floor<=270;floor+=10){
+    const band=new THREE.Mesh(new THREE.BoxGeometry(14.2,.18,14.2),floor%20?stone:warm);
+    band.position.set(x0+1,floor*.82,z0+2); scene.add(band);
+  }
+  Object.entries(WAREHOUSE_FLOORS).forEach(([place,floor])=>{
+    const title=place==='warehouse'?'WORKSHOP HALL':place.replaceAll('-',' ').toUpperCase();
+    const plaque=new THREE.Mesh(new THREE.PlaneGeometry(4.8,.34),new THREE.MeshBasicMaterial({map:makeSignTexture(`FLOOR ${floor}`,title),transparent:true,toneMapped:false}));
+    plaque.position.set(x0+1,floor*.82,z0-4.66); scene.add(plaque);
+  });
+
+  // Tall warehouse base: the original corridor is represented by the broad
+  // illuminated ground-floor opening, not by another entrance district.
+  const base=new THREE.Mesh(new THREE.BoxGeometry(34,10,31),warm);
+  base.position.set(x0,5,z0+1); scene.add(base);
+  const roof=new THREE.Mesh(new THREE.BoxGeometry(35.4,.55,32.4),dark);
+  roof.position.set(x0,10.25,z0+1); scene.add(roof);
+  const hall=new THREE.Mesh(new THREE.BoxGeometry(25.5,7.2,.18),dark);
+  hall.position.set(x0,4.15,z0-14.55); scene.add(hall);
+  const hallGlow=new THREE.Mesh(new THREE.PlaneGeometry(22.8,5.9),new THREE.MeshBasicMaterial({color:0xffd6a0,transparent:true,opacity:.18,toneMapped:false}));
+  hallGlow.position.set(x0,4.15,z0-14.42); scene.add(hallGlow);
+
+  // Uneven vertical composition: four economical masses, one shared window
+  // geometry and two materials, so the tower reads strongly without a mesh
+  // for every aperture.
+  const levels=[
+    {y:18,w:25,d:22,dx:-2,dz:0,m:0},
+    {y:30,w:19,d:18,dx:2,dz:2,m:1},
+    {y:43,w:14,d:14,dx:-1,dz:-1,m:0},
+    {y:56,w:9,d:11,dx:1,dz:2,m:1},
+  ];
+  levels.forEach((l,i)=>{
+    const bottom=i?levels[i-1].y:10.5;
+    const body=new THREE.Mesh(new THREE.BoxGeometry(l.w,l.y-bottom,l.d),i%2?dark:stone);
+    body.position.set(x0+l.dx,bottom+(l.y-bottom)/2,z0+l.dz+2); scene.add(body);
+    const slab=new THREE.Mesh(new THREE.BoxGeometry(l.w+1.1,.28,l.d+1.1),i%2?stone:warm);
+    slab.position.set(x0+l.dx,l.y,z0+l.dz+2); scene.add(slab);
+  });
+  const crown=new THREE.Mesh(new THREE.BoxGeometry(7,.5,9),warm);
+  crown.position.set(x0+1,56.35,z0+4); scene.add(crown);
+
+  const geo=new THREE.PlaneGeometry(1.05,1.48);
+  const windows=new THREE.InstancedMesh(geo,glass,48);
+  const lights=new THREE.InstancedMesh(geo,lit,16);
+  const matrix=new THREE.Matrix4(), pos=new THREE.Vector3(), quat=new THREE.Quaternion().setFromEuler(new THREE.Euler(0,0,0));
+  let wi=0,li=0;
+  levels.forEach((l,i)=>{
+    const bottom=i?levels[i-1].y+2:l.y*.18;
+    for(let row=0;row<Math.max(1,Math.floor((l.y-bottom)/3.2));row++){
+      for(let col=-1;col<=1;col++){
+        pos.set(x0+l.dx+col*l.w*.27,z0+l.dz+2-l.d/2-.03,bottom+row*3.2);
+        // PlaneGeometry is XY; rotate it upright and face the approach.
+        pos.set(x0+l.dx+col*l.w*.27,bottom+row*3.2,z0+l.dz+2-l.d/2-.03);
+        matrix.compose(pos,quat,new THREE.Vector3(1,1,1));
+        if((row+col+i+4)%4===0) lights.setMatrixAt(li++,matrix); else windows.setMatrixAt(wi++,matrix);
+      }
+    }
+  });
+  windows.count=wi; lights.count=li; windows.instanceMatrix.needsUpdate=true; lights.instanceMatrix.needsUpdate=true;
+  scene.add(windows,lights);
+
+  const sign=new THREE.Mesh(new THREE.PlaneGeometry(9,.8),new THREE.MeshBasicMaterial({map:makeSignTexture('WAREHOUSE LOBBY','the original corridor · Grove annex'),transparent:true,toneMapped:false}));
+  sign.position.set(x0,8.2,z0-14.7); scene.add(sign);
+  const door=addPremiumPortalDoor({x:x0,y:3.0,z:z0-15.05,width:4.6,height:5.8,orientation:'front',title:'WAREHOUSE LOBBY',subtitle:'enter the corridor',accent:0xc8b48f,dark:0x171411});
+  registerPortal({mesh:door.slab,field:door.field,doorParts:door.doorParts,openAxis:door.openAxis,room:'gallery',fromRoom:'outdoor',label:'Warehouse Lobby',targetPos:new THREE.Vector3(hallHalfWidth-3.4,cameraHeight,tunnelMouthZ+tunnelLength-8),targetYaw:Math.PI/2,slideAxis:door.openAxis,slideDist:3.2});
+
+  const liftBox=new THREE.Mesh(new THREE.BoxGeometry(5.2,6.2,4.2),new THREE.MeshStandardMaterial({color:0x171c1e,roughness:.3,metalness:.72}));
+  liftBox.position.set(x0+12.5,3.1,z0-2.5); scene.add(liftBox);
+  const liftFace=new THREE.Mesh(new THREE.PlaneGeometry(3.9,4.8),new THREE.MeshBasicMaterial({color:0x8fc2c8,transparent:true,opacity:.22,toneMapped:false}));
+  liftFace.position.set(x0+12.5,3.2,z0-4.62); scene.add(liftFace);
+  const liftSign=new THREE.Mesh(new THREE.PlaneGeometry(4.4,.62),new THREE.MeshBasicMaterial({map:makeSignTexture('WAREHOUSE LIFT','floors 100+ · rooms at scale'),transparent:true,toneMapped:false}));
+  liftSign.position.set(x0+12.5,7.0,z0-4.65); scene.add(liftSign);
+  registerInteractable({type:'lift',room:'outdoor',mesh:liftFace,label:'Warehouse lift · floors 100+',hintId:'warehouse-lift',priority:10,
+    hintText:'The building continues above the visible roof. Choose a room by its floor address.',prompt:()=>'Open the warehouse floor directory',onUse:openWarehouseLift});
+
+  const treeGeo=new THREE.CylinderGeometry(.28,.42,5.4,8), crownGeo=new THREE.SphereGeometry(1,14,10);
+  const trunks=new THREE.InstancedMesh(treeGeo,new THREE.MeshStandardMaterial({color:0x654936,roughness:1}),12);
+  const crowns=new THREE.InstancedMesh(crownGeo,new THREE.MeshStandardMaterial({color:0x3e6937,roughness:1}),12);
+  const t=new THREE.Object3D();
+  [[-22,-24],[22,-24],[-25,-4],[25,-2],[-22,22],[23,25],[-16,35],[18,36],[-27,45],[28,47],[-12,56],[14,58]].forEach(([dx,dz],i)=>{
+    const s=1+(i%3)*.14;t.position.set(x0+dx,2.7,z0+dz);t.scale.set(s,s,s);t.updateMatrix();trunks.setMatrixAt(i,t.matrix);
+    t.position.set(x0+dx,7.0*s,z0+dz);t.scale.set(2.5*s,1.55*s,2.2*s);t.updateMatrix();crowns.setMatrixAt(i,t.matrix);
+  });
+  trunks.instanceMatrix.needsUpdate=true; crowns.instanceMatrix.needsUpdate=true; scene.add(trunks,crowns);
+  const glow=new THREE.PointLight(0xffd8aa,1.7,25,1.7);glow.position.set(x0,5,z0-11);scene.add(glow);regLight('outdoor',glow);
+}
+
 function buildOutdoorSpace(){
   // THE GROVE (batch 131 redesign): a human-scaled Mediterranean garden.
   // The visitor enters through the actual door onto a gravel roundabout with a
@@ -6058,7 +6191,7 @@ function buildOutdoorSpace(){
   // rosemary — after the reference gardens.
   const x0 = outdoorOrigin.x;
   const z0 = outdoorOrigin.z;
-  const depth = outdoorDepth;
+  const depth = outdoorMainDepth;
   const hw = outdoorHalfWidth;
   const midZ = z0 + depth/2;
   const doorZ = z0 + depth;              // the only way in and out
@@ -6493,6 +6626,9 @@ function buildOutdoorSpace(){
     for(const sx of [-5.8,5.8]){ const stageLight=new THREE.SpotLight(0xffd7a2,2.4,28,.42,.55,1.5); stageLight.position.set(ax+sx,7.4,az-2); stageLight.target.position.set(ax,1.0,az); scene.add(stageLight,stageLight.target); regLight('outdoor',stageLight); }
   }
 
+  // The old Headquarters gateway is retired: the Grove is now continuous and
+  // the former Hood no longer appears as a separate destination.
+  if(false){
   // Monumental Headquarters portal. It replaces the underscaled vehicle and
   // keeps the long route as a clean spatial transition rather than a prop.
   {
@@ -6517,6 +6653,11 @@ function buildOutdoorSpace(){
       targetYaw:Math.PI
     });
   }
+  }
+
+  // The annex occupies the Grove's quiet rear landscape, approximately 140 m
+  // beyond the pond and square and clear of the amphitheatre sightlines.
+  buildGroveWarehouseAnnex(x0-46,z0+170);
 
   const hemi = new THREE.HemisphereLight(0xf5fbff,0x71884c,1.62); scene.add(hemi); regLight('outdoor', hemi);
   const sun = new THREE.DirectionalLight(0xfff1d3,2.35); sun.position.set(x0-26,29,z0+10); scene.add(sun); regLight('outdoor', sun);
@@ -7818,7 +7959,7 @@ function buildHood(){
        targetPos:()=>new THREE.Vector3(tunnelRoomOrigin.x+7.97, cameraHeight, tunnelRoomOrigin.z+15.15), targetYaw:Math.PI/2},
       // east row — doors face west into the square
       {side:1,z:cqFrontZ,        title:'THE GROVE',         subtitle:'garden · amphitheatre',room:'outdoor', accent:0xc8b48f, dark:0x181614, motif:'pergola',
-       targetPos:()=>new THREE.Vector3(outdoorOrigin.x, cameraHeight, outdoorOrigin.z + outdoorDepth - 4.6), targetYaw:0},
+       targetPos:()=>new THREE.Vector3(outdoorOrigin.x, cameraHeight, outdoorOrigin.z + outdoorMainDepth - 4.6), targetYaw:0},
       {side:1,z:cqFrontZ+cqStep, title:'THE STUDIO',        subtitle:'listening room',       room:'studio',  accent:0x9d6de2, dark:0x130d1c, motif:'shed',
        targetPos:()=>new THREE.Vector3(studioOrigin.x, cameraHeight, studioOrigin.z + studioDepth - 3.2), targetYaw:0},
       {side:1,z:cqFrontZ+cqStep*2, title:'SUNSET LOUNGE',   subtitle:'viewing room',         room:'night',   accent:0xe0a05c, dark:0x1a1310, motif:'lantern',
@@ -10778,7 +10919,7 @@ function buildTunnelPassage(){
   registerPortal({
     mesh:ret.slab,field:ret.field,doorParts:ret.doorParts,openAxis:ret.openAxis,
     room:'outdoor',fromRoom:'tunnel',label:'The Grove',
-    targetPos:new THREE.Vector3(outdoorOrigin.x+10.5,cameraHeight,outdoorOrigin.z+outdoorDepth-15),
+    targetPos:new THREE.Vector3(outdoorOrigin.x+10.5,cameraHeight,outdoorOrigin.z+outdoorMainDepth-15),
     targetYaw:Math.PI/2,slideAxis:ret.openAxis,slideDist:2.9
   });
 }
@@ -13605,24 +13746,9 @@ function fastTravel(place){
     },
     outdoor: {
       room:'outdoor',
-      pos:new THREE.Vector3(outdoorOrigin.x,cameraHeight,outdoorOrigin.z+outdoorDepth-4.6),
+      pos:new THREE.Vector3(outdoorOrigin.x,cameraHeight,outdoorOrigin.z+outdoorMainDepth-4.6),
       yaw:0,
       label:'The Grove'
-    },
-    headquarters: {
-      room:'hood',
-      pos:new THREE.Vector3(hoodOrigin.x-72,cameraHeight,hoodOrigin.z+72),
-      yaw:Math.PI/2,
-      label:'Headquarters'
-    },
-    // The square's south entrance, on the Water Garden's axis, looking north
-    // up the quarter. This is also the hall's direct route to the Hood — its
-    // own walls had no free bay for a Headquarters door.
-    'civic-quarter': {
-      room:'hood',
-      pos:new THREE.Vector3(hoodOrigin.x-18,cameraHeight,hoodOrigin.z+300),
-      yaw:Math.PI,
-      label:'The Civic Quarter'
     },
     studio: {
       room:'studio',
