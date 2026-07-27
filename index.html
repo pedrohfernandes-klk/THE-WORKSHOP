@@ -2934,8 +2934,43 @@ function applyRoomFog(){
   scene.fog.color.setHex(f.color);
   scene.fog.density = f.density;
 }
+// Forward rendering evaluates EVERY visible light in EVERY material, and the
+// museum had grown past what that allows: 315 lights, with 52 visible at once
+// in the hall and 51 in the Hood. Past roughly 40 the fragment shader exceeds
+// MAX_FRAGMENT_UNIFORM_VECTORS(1024), materials fail to compile, and the tab
+// stalls compiling permutations — which is the lag and the crashes.
+//
+// The budget keeps a FIXED number of punctual lights alive: fixed, because
+// three.js recompiles every material whenever the light COUNT changes, so a
+// budget that varied would trade one stall for another. Ambient-style lights
+// (hemisphere, directional) are cheap and global, and are never budgeted.
+const PUNCTUAL_LIGHT_BUDGET = 14;
+const _lightBudgetPos = new THREE.Vector3();
+let lightBudgetTimer = 0;
+function isPunctualLight(l){ return l && (l.isPointLight || l.isSpotLight || l.isRectAreaLight); }
+function applyLightBudget(){
+  const pool = [];
+  for(const r in roomLights){
+    if(r !== currentRoom) continue;
+    (roomLights[r]||[]).forEach(l=>{ if(isPunctualLight(l)) pool.push(l); });
+  }
+  if(!pool.length) return;
+  if(pool.length <= PUNCTUAL_LIGHT_BUDGET){ pool.forEach(l=>{ l.visible = true; }); return; }
+  const here = getVisitorPosition();
+  pool.forEach(l=>{
+    l.getWorldPosition(_lightBudgetPos);
+    // Range matters as much as distance: a lamp you are inside the falloff of
+    // is worth more than a brighter one you are well outside.
+    const d = _lightBudgetPos.distanceTo(here);
+    const reach = l.distance > 0 ? l.distance : 40;
+    l.userData._budgetScore = d - reach;
+  });
+  pool.sort((a,b)=>a.userData._budgetScore - b.userData._budgetScore);
+  for(let i=0;i<pool.length;i++) pool[i].visible = i < PUNCTUAL_LIGHT_BUDGET;
+}
 function applyRoomLighting(){
   for(const r in roomLights) (roomLights[r]||[]).forEach(l=>{ if(l) l.visible = (r === currentRoom); });
+  applyLightBudget();
   // The Lab artwork circuit is intentionally independent from normal room
   // lighting. Its photographs remain completely dark until the visitor uses
   // the physical spotlight switch.
@@ -14133,6 +14168,10 @@ function updateWorld(dt, t){
   updateHallWindow(dt);
   const visitor=getVisitorPosition();
   if(hoodWaterfallFX?.material?.uniforms?.uTime) hoodWaterfallFX.material.uniforms.uTime.value=t;
+  // Re-pick which lights are alive as the visitor moves. The COUNT never
+  // changes, only which ones, so this costs no shader recompile.
+  lightBudgetTimer += dt;
+  if(lightBudgetTimer > .45){ lightBudgetTimer = 0; applyLightBudget(); }
   // Drift the sky only where a sky is actually visible. Both domes are
   // outdoors, so in the nine interior rooms this costs nothing.
   if(skyFX.length && !reducedMotion && (isHoodRoom(currentRoom) || currentRoom==='outdoor')){
