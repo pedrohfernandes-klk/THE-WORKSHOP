@@ -4,6 +4,23 @@ import { readFile } from 'node:fs/promises';
 import { allowlistedProjectionUrl, PROJECTION_IFRAME_SANDBOX } from '../assets/js/workshop-projection-policy.js';
 
 const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+const loopSketchpad = await readFile(new URL('../assets/apps/loop-sketchpad.html', import.meta.url), 'utf8');
+
+test('the document policy constrains resource origins and blocks raw HTML projection', () => {
+  const policy = html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)">/)?.[1] || '';
+  assert.match(policy, /default-src 'self'/);
+  assert.match(policy, /base-uri 'none'/);
+  assert.match(policy, /object-src 'none'/);
+  assert.match(policy, /form-action 'none'/);
+  assert.match(policy, /script-src 'self' 'unsafe-inline' https:\/\/cdn\.jsdelivr\.net/);
+  assert.match(policy, /connect-src 'self' https:\/\/en\.wikipedia\.org/);
+  assert.match(policy, /frame-src 'self' https:\/\/www\.youtube\.com https:\/\/www\.youtube-nocookie\.com https:\/\/pedrohfernandes-klk\.github\.io/);
+  assert.match(policy, /upgrade-insecure-requests/);
+  assert.doesNotMatch(policy, /default-src \*/);
+  assert.doesNotMatch(policy, /frame-src[^;]*data:/);
+  assert.doesNotMatch(html, /data:text\/html/);
+  assert.doesNotMatch(loopSketchpad, /to-wall|buildVisualizer|id="wallBtn"/);
+});
 
 test('projection surfaces reject untrusted origins and remain sandboxed', () => {
   assert.equal(allowlistedProjectionUrl('https://www.youtube.com/embed/abc'), 'https://www.youtube.com/embed/abc');
