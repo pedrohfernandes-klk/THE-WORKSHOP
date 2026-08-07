@@ -41,7 +41,6 @@
   <header>
     <h1>Loop Sketchpad</h1><span class="sub">beat station</span>
     <span class="sp"></span>
-    <button id="wallBtn" type="button">To wall</button>
     <button id="closeBtn" type="button">Close ✕</button>
   </header>
   <div class="controls">
@@ -51,7 +50,7 @@
     <div class="presets" id="presets"></div>
   </div>
   <div class="grid" id="grid"></div>
-  <footer><kbd>Space</kbd> play/stop · click cells to build a loop · <kbd>To wall</kbd> shows it on the Studio wall</footer>
+  <footer><kbd>Space</kbd> play/stop · click cells to build a loop</footer>
 
 <script>
 (function(){
@@ -175,24 +174,9 @@
   // ---- bridge to the parent world ----
   function post(msg){ try{ window.parent.postMessage(Object.assign({type:'workshop-loop'},msg),'*'); }catch(e){} }
   document.getElementById('closeBtn').onclick=()=>{ stop(); post({action:'close'}); };
-  document.getElementById('wallBtn').onclick=()=>{ post({action:'to-wall', html:buildVisualizer()}); };
   window.addEventListener('message',e=>{
     if(e.data && e.data.type==='workshop-loop' && e.data.action==='stop'){ stop(); }
   });
-
-  // Self-contained visualizer for the Studio wall: draws the pattern cycling at
-  // the current tempo (no audio; the wall just shows the beat moving).
-  function buildVisualizer(){
-    const data=JSON.stringify({pattern, bpm, names:TRACKS.map(t=>t.name)});
-    return '<!doctype html><meta charset="utf-8"><style>html,body{margin:0;height:100%;background:#0c0a12;overflow:hidden;font-family:Arial}'+
-      'canvas{display:block;width:100%;height:100%}</style><canvas id="c"></canvas><script>'+
-      'var D='+data+';var cv=document.getElementById("c"),x=cv.getContext("2d");function rs(){cv.width=innerWidth;cv.height=innerHeight;}rs();onresize=rs;'+
-      'var N=16,R=D.pattern.length,t0=Date.now();function f(){var w=cv.width,h=cv.height,pad=w*0.05,gw=(w-pad*2)/N,gh=(h-pad*2)/R;'+
-      'var sp=(60/D.bpm)/4*1000,step=Math.floor((Date.now()-t0)/sp)%N;x.fillStyle="#0c0a12";x.fillRect(0,0,w,h);'+
-      'for(var r=0;r<R;r++){for(var s=0;s<N;s++){var on=D.pattern[r][s];x.fillStyle=on?(s==step?"#7cf6ff":"#ffd166"):(s==step?"#2f2b3d":"#1d1a26");'+
-      'x.fillRect(pad+s*gw+2,pad+r*gh+2,gw-4,gh-4);}x.fillStyle="#9d97ac";x.font=Math.round(gh*0.3)+"px Arial";x.fillText(D.names[r],4,pad+r*gh+gh*0.6);}'+
-      'requestAnimationFrame(f);}f();'+String.fromCharCode(60)+'/scr'+'ipt>';
-  }
 
   // Test hook (mirrors the desk's __deskAudioProbe): exposes the audio context,
   // transport state and the number of active steps for the museum selftest.
