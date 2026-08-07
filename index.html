@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' https://en.wikipedia.org; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://pedrohfernandes-klk.github.io; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' https://en.wikipedia.org; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://pedrohfernandes-klk.github.io; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>THE WORKSHOP — a museum of rooms, images, machines</title>
 <meta name="description" content="THE WORKSHOP: a walkable 3D museum of rooms, images and machines by HrM. Explore galleries, a screening venue, a music studio, an experiment garden and more, in one continuous space.">
@@ -1770,7 +1770,7 @@ body.rpgMode #rpgModeBadge{display:block}
 <script type="importmap">
 {
   "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"
+    "three": "./assets/vendor/three/three.module.js"
   }
 }
 </script>
@@ -2032,7 +2032,7 @@ body.rpgMode #rpgModeBadge{display:block}
 
 <script type="module">
 import * as THREE from 'three';
-import { CSS3DRenderer, CSS3DObject } from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/renderers/CSS3DRenderer.js';
+import { CSS3DRenderer, CSS3DObject } from './assets/vendor/three/CSS3DRenderer.js';
 import { PASSPORT_ACTS, createPassportState, isPassportStamped, passportEvidenceLine, passportProgress, runIdleBuildQueue } from './assets/js/workshop-foundation.js';
 import { createResetVisitState, createVisitGuidanceScheduler, createVisitState, journeyGuidance, visitOrientationStatus } from './assets/js/workshop-visit.js';
 import { recordWorkshopEventState } from './assets/js/workshop-record.js';
