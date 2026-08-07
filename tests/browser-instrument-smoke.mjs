@@ -68,8 +68,9 @@ try {
     analyser.getFloatTimeDomainData(buf);
     let peak = 0;
     for (const v of buf) peak = Math.max(peak, Math.abs(v));
+    const voices = ctx.voices();
     ['a', 's', 'd'].forEach(lift);
-    return { probed: true, peak, voices: ctx.voices() };
+    return { probed: true, peak, voices };
   });
   if (results.audio.probed) {
     if (!(results.audio.peak > 0.001)) fail(`Synth produced no audio (peak ${results.audio.peak})`);
