@@ -96,17 +96,18 @@ try {
   const museumErrors = [];
   museum.on('pageerror', e => museumErrors.push(e.message));
   await museum.goto('http://127.0.0.1:4188/index.html?selftest', { waitUntil: 'domcontentloaded' });
-  await museum.waitForFunction(() => document.getElementById('posterEnter')?.disabled === false, null, { timeout: 60000 });
-  await museum.waitForFunction(() => /SELFTEST/i.test(document.body.innerText), null, { timeout: 60000 });
+  await museum.locator('#posterEnter:not([disabled])').waitFor({ state: 'visible', timeout: 60000 });
+  const museumBody = museum.locator('body');
+  await museumBody.filter({ hasText: /SELFTEST/i }).waitFor({ state: 'visible', timeout: 60000 });
 
-  results.selftest = await museum.evaluate(() => (document.body.innerText.match(/SELFTEST[^\n]*/i) || ['?'])[0]);
+  results.selftest = ((await museumBody.innerText()).match(/SELFTEST[^\n]*/i) || ['?'])[0];
   if (!/PASSED/i.test(results.selftest)) fail(`Museum selftest did not pass: ${results.selftest}`);
 
   // Every projection wall must own a real iframe with a resolved source.
-  results.screens = await museum.evaluate(() => {
-    const frames = [...document.querySelectorAll('iframe')];
-    return { count: frames.length, withSrc: frames.filter(f => f.src && f.src !== 'about:blank').length };
-  });
+  results.screens = {
+    count: await museum.locator('iframe').count(),
+    withSrc: await museum.locator('iframe[src]:not([src="about:blank"])').count()
+  };
   if (museumErrors.length) fail(`Museum page errors: ${museumErrors.join('\n')}`);
 
   console.log(JSON.stringify(results, null, 2));
