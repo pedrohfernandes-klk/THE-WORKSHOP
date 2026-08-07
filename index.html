@@ -1995,7 +1995,7 @@ body.rpgMode #rpgModeBadge{display:block}
         <button id="studioFollowBtn" title="Keep the music playing in other rooms">Music follows: ON</button>
         <div class="studioStatus" id="studioStatus">Paste a YouTube video, live stream or playlist. Playback remains active while you walk.</div>
       </div>
-      <iframe id="playFrame" title="Embedded experience" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" referrerpolicy="no-referrer-when-downgrade"></iframe>
+      <iframe id="playFrame" title="Embedded experience" sandbox="allow-scripts allow-same-origin allow-presentation" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" referrerpolicy="no-referrer-when-downgrade"></iframe>
       <p id="playFallbackNote">If this stays blank, the site may block embedding — use "Open in new tab" instead.</p>
     </div>
   </div>
@@ -2036,6 +2036,7 @@ import { PASSPORT_ACTS, createPassportState, isPassportStamped, passportEvidence
 import { createResetVisitState, createVisitGuidanceScheduler, createVisitState, journeyGuidance, visitOrientationStatus } from './assets/js/workshop-visit.js';
 import { recordWorkshopEventState } from './assets/js/workshop-record.js';
 import { createGardenStudyStore, normalizeGardenStudy, formatGardenStudyCaption } from './assets/js/workshop-garden-study.js';
+import { allowlistedProjectionUrl, PROJECTION_IFRAME_SANDBOX } from './assets/js/workshop-projection-policy.js';
 const gardenStudyStore = createGardenStudyStore();
 let activeGardenStudy = null;
 const GUERNICA_IMAGE_SRC = 'assets/extracted/guernica-image.webp';
@@ -8654,6 +8655,7 @@ function createPassiveWallIframe(url, title, worldW, worldH){
   const iframe = document.createElement('iframe');
   iframe.title = title;
   iframe.src = url;
+  iframe.sandbox = PROJECTION_IFRAME_SANDBOX;
   iframe.allow = 'autoplay; fullscreen; encrypted-media; picture-in-picture';
   iframe.referrerPolicy = 'strict-origin-when-cross-origin';
   iframe.setAttribute('allowfullscreen','');
@@ -12881,7 +12883,7 @@ function projectionEmbedFrom(text,forWall=false){
   const raw=(text||'').trim();
   if(!raw) return null;
   const yt=studioEmbedFrom(raw,forWall); if(yt) return yt;
-  if(/^https?:\/\//i.test(raw)) return raw;
+  const allowedUrl=allowlistedProjectionUrl(raw); if(allowedUrl) return allowedUrl;
   if(/^<!doctype|^<html|^<body|^<canvas|^<svg/i.test(raw)) return 'data:text/html;charset=utf-8,'+encodeURIComponent(raw);
   return null;
 }
