@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' https://en.wikipedia.org; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://pedrohfernandes-klk.github.io; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>THE WORKSHOP — a museum of rooms, images, machines</title>
 <meta name="description" content="THE WORKSHOP: a walkable 3D museum of rooms, images and machines by HrM. Explore galleries, a screening venue, a music studio, an experiment garden and more, in one continuous space.">
@@ -12884,7 +12885,6 @@ function projectionEmbedFrom(text,forWall=false){
   if(!raw) return null;
   const yt=studioEmbedFrom(raw,forWall); if(yt) return yt;
   const allowedUrl=allowlistedProjectionUrl(raw); if(allowedUrl) return allowedUrl;
-  if(/^<!doctype|^<html|^<body|^<canvas|^<svg/i.test(raw)) return 'data:text/html;charset=utf-8,'+encodeURIComponent(raw);
   return null;
 }
 
@@ -13085,8 +13085,7 @@ function closeLoopSketchpad(){
 // Loop Sketchpad — a compact maker panel modeled on openStudioMaker (a
 // fullscreen iframe host + a namespaced postMessage bridge). Simpler than the
 // desk: no mini dock, audio lives only while the panel is open. The bridge
-// carries 'close' and 'to-wall' (a self-contained visualizer the child builds,
-// projected onto the Studio wall via projectionEmbedFrom's raw-HTML path).
+// only carries lifecycle messages; generated HTML is never projected.
 function openLoopSketchpad(){
   if(document.pointerLockElement) document.exitPointerLock();
   let panel=$('loopMakerPanel');
@@ -13117,17 +13116,6 @@ function openLoopSketchpad(){
       if(event.source!==frame.contentWindow || event.data?.type!=='workshop-loop') return;
       const data=event.data;
       if(data.action==='close'){ closeLoopSketchpad(); return; }
-      if(data.action==='to-wall'){
-        const url=projectionEmbedFrom(String(data.html||''),true);
-        if(url && studioWallIframe){
-          studioWallIframe.src=url;
-          studioWallIframe.dataset.studioStopped='0';
-          msg('Loop sent to the Studio wall');
-        }else{
-          msg('The Studio wall could not accept the loop');
-        }
-        return;
-      }
     });
   }
   const frame=$('loopMakerFrame');
