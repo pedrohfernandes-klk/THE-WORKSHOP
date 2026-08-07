@@ -1,8 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { allowlistedProjectionUrl, PROJECTION_IFRAME_SANDBOX } from '../assets/js/workshop-projection-policy.js';
 
 const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+
+test('projection surfaces reject untrusted origins and remain sandboxed', () => {
+  assert.equal(allowlistedProjectionUrl('https://www.youtube.com/embed/abc'), 'https://www.youtube.com/embed/abc');
+  assert.equal(allowlistedProjectionUrl('https://pedrohfernandes-klk.github.io/SayWhat/'), 'https://pedrohfernandes-klk.github.io/SayWhat/');
+  assert.equal(allowlistedProjectionUrl('http://pedrohfernandes-klk.github.io/SayWhat/'), null);
+  assert.equal(allowlistedProjectionUrl('https://evil.example/'), null);
+  assert.equal(allowlistedProjectionUrl('https://pedrohfernandes-klk.github.io.evil.example/'), null);
+  assert.equal(allowlistedProjectionUrl('javascript:alert(1)'), null);
+  assert.equal(PROJECTION_IFRAME_SANDBOX, 'allow-scripts allow-same-origin allow-presentation');
+  assert.match(html, /from ['"]\.\/assets\/js\/workshop-projection-policy\.js['"]/);
+  assert.match(html, /id="playFrame"[^>]+sandbox="allow-scripts allow-same-origin allow-presentation"/);
+  assert.match(html, /iframe\.sandbox\s*=\s*PROJECTION_IFRAME_SANDBOX/);
+  assert.match(html, /const allowedUrl=allowlistedProjectionUrl\(raw\); if\(allowedUrl\) return allowedUrl;/);
+  assert.doesNotMatch(html, /if\(\/\^https\?:\\\/\\\//);
+});
 
 test('workshop imports and runs the progressive foundation', () => {
   assert.match(html, /from ['"]\.\/assets\/js\/workshop-foundation\.js['"]/);
