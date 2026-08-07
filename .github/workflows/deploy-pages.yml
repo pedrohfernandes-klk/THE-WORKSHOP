@@ -33,10 +33,28 @@ jobs:
       - name: Run unit and browser smoke tests
         run: npm run test:all
 
+  package:
+    name: Package static site
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Prepare curated site
+        run: |
+          mkdir _site
+          cp index.html yt.html .nojekyll _site/
+          cp -R assets _site/assets
+      - name: Upload static site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
   deploy:
     name: Deploy GitHub Pages
     if: github.event_name != 'pull_request'
-    needs: test
+    needs: package
     permissions:
       contents: read
       pages: write
@@ -46,14 +64,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
       - name: Configure Pages
         uses: actions/configure-pages@v5
-      - name: Upload static site
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: .
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
