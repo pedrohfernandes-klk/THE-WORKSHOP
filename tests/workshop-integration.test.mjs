@@ -12,7 +12,8 @@ test('the document policy constrains resource origins and blocks raw HTML projec
   assert.match(policy, /base-uri 'none'/);
   assert.match(policy, /object-src 'none'/);
   assert.match(policy, /form-action 'none'/);
-  assert.match(policy, /script-src 'self' 'unsafe-inline' https:\/\/cdn\.jsdelivr\.net/);
+  assert.match(policy, /script-src 'self' 'unsafe-inline'/);
+  assert.doesNotMatch(policy, /cdn\.jsdelivr\.net/);
   assert.match(policy, /connect-src 'self' https:\/\/en\.wikipedia\.org/);
   assert.match(policy, /frame-src 'self' https:\/\/www\.youtube\.com https:\/\/www\.youtube-nocookie\.com https:\/\/pedrohfernandes-klk\.github\.io/);
   assert.match(policy, /upgrade-insecure-requests/);
@@ -20,6 +21,13 @@ test('the document policy constrains resource origins and blocks raw HTML projec
   assert.doesNotMatch(policy, /frame-src[^;]*data:/);
   assert.doesNotMatch(html, /data:text\/html/);
   assert.doesNotMatch(loopSketchpad, /to-wall|buildVisualizer|id="wallBtn"/);
+});
+
+test('production JavaScript is served locally from locked dependencies', () => {
+  assert.match(html, /"three": "\.\/assets\/vendor\/three\/three\.module\.js"/);
+  assert.match(html, /from ['"]\.\/assets\/vendor\/three\/CSS3DRenderer\.js['"]/);
+  assert.doesNotMatch(html, /https:\/\/cdn\.jsdelivr\.net/);
+  assert.doesNotMatch(html, /<script[^>]+src=["']https?:\/\//i);
 });
 
 test('projection surfaces reject untrusted origins and remain sandboxed', () => {
