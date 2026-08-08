@@ -1,10 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { allowlistedProjectionUrl, PROJECTION_IFRAME_SANDBOX } from '../assets/js/workshop-projection-policy.js';
 
 const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 const loopSketchpad = await readFile(new URL('../assets/apps/loop-sketchpad.html', import.meta.url), 'utf8');
+
+test('branch-served Pages contains its runtime modules', async () => {
+  const three = await stat(new URL('../assets/vendor/three/three.module.js', import.meta.url));
+  const css3d = await stat(new URL('../assets/vendor/three/CSS3DRenderer.js', import.meta.url));
+  assert.ok(three.size > 1_000_000, 'the locked Three.js module is committed for branch-based Pages');
+  assert.ok(css3d.size > 5_000, 'the CSS3D renderer is committed for branch-based Pages');
+});
+
+test('tower lift exposes every constructed tower floor', () => {
+  assert.match(html, /function liftFloorSet\(mode\)\{ return mode==='tower'\?TOWER_FLOORS:HOOD_ALL_FLOORS; \}/);
+  assert.doesNotMatch(html, /ROOM_BUILD_IDS[^}]*tunnel:'threshold'/s);
+  assert.doesNotMatch(html, /PLACE_BUILD_IDS[^}]*'waiting-room'/s);
+  assert.doesNotMatch(html, /screen\.action === 'cave'/);
+  assert.doesNotMatch(html, /overlayMode === 'cave'/);
+});
 
 test('the document policy constrains resource origins and blocks raw HTML projection', () => {
   const policy = html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)">/)?.[1] || '';

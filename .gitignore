@@ -1,6 +1,5 @@
 *.bak-*
 node_modules/
-assets/vendor/
 .DS_Store
 Thumbs.db
 .claude/settings.local.json

@@ -3418,14 +3418,14 @@ let worldReady = false;
 let worldFullyReady = false;
 const builtDistricts = new Set(['threshold']);
 const ROOM_BUILD_IDS = Object.freeze({
-  gallery:'threshold', tunnel:'threshold', theatre:'venue', lab:'laboratory',
+  gallery:'threshold', theatre:'venue', lab:'laboratory',
   maze:'experiment-garden', maps:'many-maps', spark:'spark-tools',
   thinking:'thinking-room', night:'sunset-lounge', studio:'studio',
   outdoor:'grove', hood:'headquarters'
 });
 const PLACE_BUILD_IDS = Object.freeze({
   warehouse:'threshold', guernica:'threshold', 'end-gallery':'threshold',
-  'the-tunnel':'threshold', 'waiting-room':'threshold', venue:'venue',
+  venue:'venue',
   lab:'laboratory', garden:'experiment-garden', maps:'many-maps',
   spark:'spark-tools', thinking:'thinking-room', 'night-room':'sunset-lounge',
   studio:'studio', outdoor:'grove'
@@ -4745,24 +4745,21 @@ function runWorkshopSelfTest(){
   check(!!hoodHorizon && hoodHorizon.material?.fog !== false, 'Hood ocean takes the coastal haze', hoodHorizon?.material?.fog);
   check(!!hoodHorizon && Math.abs(hoodHorizon.rotation.x + Math.PI/2) < .01, 'Hood ocean lies flat', hoodHorizon?.rotation?.x?.toFixed(3));
   check(!!hoodSky && hoodSky.geometry?.parameters?.radius >= 2000, 'Hood sky dome encloses the terrain apron', hoodSky?.geometry?.parameters?.radius);
-  check(!!hoodCaveWallScreen && screens.includes(hoodCaveWallScreen), 'Hood wide projection registered', hoodCaveWallScreen?.title || 'missing');
-
   // Every projection wall must actually be drivable by the remote: it needs an
   // action the control paths recognise AND a live iframe to write into. The
   // Cave shipped with neither, which is why projecting there did nothing, and
   // nothing caught it. These checks fail loudly if a wall is ever added or
   // changed without being wired up.
   {
-    const REMOTE_ACTIONS = ['studio','venue','amph','cave','garden','thinking-tv'];
+    const REMOTE_ACTIONS = ['studio','venue','amph','garden','thinking-tv'];
     const walls = screens.filter(s => REMOTE_ACTIONS.includes(s.action));
-    check(walls.length >= 6, 'projection walls registered with a remote action', `${walls.length} walls`);
+    check(walls.length >= 5, 'projection walls registered with a remote action', `${walls.length} walls`);
     walls.forEach(s=>{
       check(!!(s.css && s.css.userData && s.css.userData.iframe),
         `projection wall drivable · ${s.action}`, s.title || s.action);
     });
-    check(!!caveWallIframe, 'Cave projection iframe wired', caveWallIframe ? 'ok' : 'missing');
     check(!!amphWallIframe, 'Amphitheatre projection iframe wired', amphWallIframe ? 'ok' : 'missing');
-    ['amph','cave','venue'].forEach(m=>{
+    ['amph','venue'].forEach(m=>{
       const t = projectionTarget(m);
       check(!!t && !!t.iframe, `remote resolves a target · ${m}`, t && t.label);
     });
@@ -6782,7 +6779,7 @@ function buildOutdoorSpace(){
   const skyFill = new THREE.PointLight(0xe5f4ff,1.08,100,1.75); skyFill.position.set(x0,18,midZ); scene.add(skyFill); regLight('outdoor', skyFill);
 }
 
-function liftFloorSet(mode){ return mode==='tower'?TOWER_FLOORS:(mode==='private'?HOOD_PRIVATE_FLOORS:HOOD_MAIN_FLOORS); }
+function liftFloorSet(mode){ return mode==='tower'?TOWER_FLOORS:HOOD_ALL_FLOORS; }
 function hoodFloorDefinition(room,mode){
   if(mode) return liftFloorSet(mode).find(f=>f.id===room) || liftFloorSet(mode)[0];
   return HOOD_ALL_FLOORS.find(f=>f.id===room) || TOWER_FLOORS.find(f=>f.id===room) || HOOD_MAIN_FLOORS[1];
@@ -6802,7 +6799,7 @@ function hoodFloorBounds(room){
 }
 function ensureHoodLiftPanel(){
   if(hoodLiftPanel) return hoodLiftPanel;
-  hoodLiftPanel=document.createElement('div'); hoodLiftPanel.id='hoodLiftPanel'; hoodLiftPanel.setAttribute('role','dialog'); hoodLiftPanel.setAttribute('aria-modal','true'); hoodLiftPanel.setAttribute('aria-label','Warehouse lift controls');
+  hoodLiftPanel=document.createElement('div'); hoodLiftPanel.id='hoodLiftPanel'; hoodLiftPanel.setAttribute('role','dialog'); hoodLiftPanel.setAttribute('aria-modal','true'); hoodLiftPanel.setAttribute('aria-label','Tower lift controls');
   document.body.appendChild(hoodLiftPanel);
   hoodLiftPanel.addEventListener('click',e=>{ if(e.target===hoodLiftPanel) closeHoodLift(); });
   return hoodLiftPanel;
@@ -12656,7 +12653,7 @@ function updateRoomsPanel(){
   const current=$('fastMapCurrent');
   if(current) current.innerHTML=`You are in <strong>${esc(roomNameForNotes(currentRoom))}</strong>`;
   const beatForRoom={
-    gallery:'threshold', tunnel:'search', maps:'search', thinking:'search', spark:'search', lab:'search',
+    gallery:'threshold', maps:'search', thinking:'search', spark:'search', lab:'search',
     theatre:'projection', studio:'projection', maze:'projection', night:'projection',
     outdoor:'outside', hood:'return'
   };
@@ -12676,14 +12673,10 @@ function updateRoomsPanel(){
   });
   const primaryPlaces={
     gallery:['warehouse'], theatre:['venue'], lab:['lab'], maze:['garden'], outdoor:['outdoor'],
-    studio:['studio'], tunnel:['the-tunnel','waiting-room'], night:['night-room'], maps:['maps'],
-    thinking:['thinking'], spark:['spark'], hood:['headquarters','civic-quarter']
+    studio:['studio'], night:['night-room'], maps:['maps'],
+    thinking:['thinking'], spark:['spark'], hood:['headquarters']
   };
   let activePlace=(primaryPlaces[currentRoom]||[])[0]||null;
-  if(currentRoom==='tunnel') activePlace = getVisitorPosition().z < tunnelRoomOrigin.z + 21.0 ? 'waiting-room' : 'the-tunnel';
-  // The Hood had no entry at all, so its button never lit. It now splits the
-  // same way the tunnel does: north of the Water Garden you are in the quarter.
-  if(currentRoom==='hood') activePlace = getVisitorPosition().z > hoodOrigin.z + 292 ? 'civic-quarter' : 'headquarters';
   document.querySelectorAll('.fastMapBtn[data-room]').forEach(btn=>{
     const active=btn.dataset.place===activePlace;
     btn.classList.toggle('active',active);
@@ -12906,7 +12899,6 @@ function enterWallScreenControl(screen){
 function openWallControls(screen){
   if(!screen) return;
   const place = screen.room === 'theatre' ? 'venue'
-    : screen.action === 'cave' ? 'headquarters'
     : screen.action === 'amph' ? 'outdoor'
     : screen.action === 'garden' ? 'garden'
     : 'studio';
@@ -13238,8 +13230,6 @@ function projectionTarget(mode=overlayMode){
   switch(mode){
     case 'amph': return {iframe:amphWallIframe, label:'the Grove Amphitheatre',
       get:()=>amphCurrentChannel, set:v=>{amphCurrentChannel=v;}};
-    case 'cave': return {iframe:caveWallIframe, label:'The Cave auditorium',
-      get:()=>caveCurrentChannel, set:v=>{caveCurrentChannel=v;}};
     default: return {iframe:venueWallIframe, label:'The Venue large screen',
       get:()=>venueCurrentChannel, set:v=>{venueCurrentChannel=v;}};
   }
@@ -13311,17 +13301,6 @@ function openPlayOverlay(screen){
     $('channelBar').classList.add('show');
     $('studioBar').classList.toggle('show',amphCurrentChannel==='youtube');
     setChannelActive(amphCurrentChannel);
-    showPlayOverlay();
-    return;
-  }
-  if(screen.action === 'cave'){
-    overlayMode='cave';
-    $('playOverlayCard').classList.add('studioMode');
-    $('playTitle').textContent='THE CAVE · headquarters auditorium remote';
-    $('playOpenLink').href=caveCurrentChannel==='youtube'?'https://www.youtube.com':(CHANNEL_URLS[caveCurrentChannel]||'#');
-    $('channelBar').classList.add('show');
-    $('studioBar').classList.toggle('show',caveCurrentChannel==='youtube');
-    setChannelActive(caveCurrentChannel);
     showPlayOverlay();
     return;
   }
@@ -13407,7 +13386,7 @@ function loadStudioVideo(){
     else if(raw.trim()){$('studioInput').value='';$('studioInput').placeholder='Use a YouTube link, public web URL, or HTML source';}
     return;
   }
-  if(overlayMode === 'venue' || overlayMode === 'amph' || overlayMode === 'cave'){
+  if(overlayMode === 'venue' || overlayMode === 'amph'){
     const url = studioEmbedFrom(raw,false);
     const t = projectionTarget();
     if(url && t.iframe){
@@ -13539,7 +13518,7 @@ document.querySelectorAll('.channelBtn').forEach(btn=>{
     // to the generic tail, which only swapped the little overlay preview, so
     // the channel buttons never reached the actual stage wall. 'cave' had no
     // path at all.
-    if(overlayMode === 'amph' || overlayMode === 'cave'){
+    if(overlayMode === 'amph'){
       const t=projectionTarget();
       t.set(ch);
       $('studioBar').classList.toggle('show',ch==='youtube');
