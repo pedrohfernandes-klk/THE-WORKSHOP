@@ -160,6 +160,16 @@ test('Rooms distinguishes current, stamped and next acts with situational guidan
     'situational guidance sits directly beneath the narrative map');
 });
 
+test('visitor-facing narrative presents the Tower as the museum identity and throughline', () => {
+  assert.match(html, /a museum gathered around the Tower/);
+  assert.match(html, /Every route belongs to the Tower/);
+  assert.match(html, /Inside the Tower<span>the collection by floor<\/span>/);
+  assert.match(html, /the image and address of The Workshop/);
+  assert.match(html, /one building · one collection · every floor/);
+  assert.match(html, /Tower Hall · corridor galleries/);
+  assert.doesNotMatch(html.slice(html.indexOf('const TOWER_FLOORS'), html.indexOf('const HOOD_ALL_FLOORS')), /The Grove|Roof garden/);
+});
+
 test('Research Desk link synchronisation is non-recursive and maintains the wider-web URL', () => {
   const start = html.indexOf('function syncResearchExternalLinks(){');
   const end = html.indexOf('function stripHtmlSnippet', start);
@@ -280,4 +290,29 @@ test('known runtime regressions remain removed', () => {
   const animateBlock = html.slice(html.indexOf('function animate(){'), html.indexOf("document.addEventListener('visibilitychange'"));
   assert.equal((animateBlock.match(/updateHallWindow\(dt\)/g) || []).length, 0,
     'animate does not duplicate the hall-window update already performed by updateWorld');
+});
+
+test('complete Cadavre Expat sequence is recovered once in the main gallery', () => {
+  const setStart=html.indexOf('const CADAVRE_EXPAT_WORKS = Object.freeze([');
+  const setEnd=html.indexOf(']);',setStart);
+  const set=html.slice(setStart,setEnd);
+  assert.ok(setStart > -1 && setEnd > setStart, 'the recovered collection is declared');
+  assert.equal((set.match(/title:'CADAVRE EXPAT [IV]+'/g) || []).length,4,
+    'exactly four named works are declared');
+  assert.equal((set.match(/src:CADAVRE_EXPAT(?:_II|_III|_IV)?_SRC/g) || []).length,4,
+    'all four supplied sources are used');
+  assert.match(html,/const corridorArtworks=galleryCorridorArtworks\(\)/,
+    'the full source-backed collection enters the main gallery layout');
+  const liveTower=html.slice(html.lastIndexOf('function buildHood(){'),html.indexOf('function buildTunnel(){'));
+  assert.doesNotMatch(liveTower,/CADAVRE_EXPAT_(?:II|III|IV)?_?SRC/,
+    'the rebuilt Tower does not duplicate or own the recovered works');
+  assert.match(html,/cadavreObjects\.length===4/,
+    'runtime self-test requires exactly four live registered works');
+});
+
+test('Laboratory is visibly lit on entry and never described as totally dark', () => {
+  assert.match(html, /const architecturalFill=new THREE\.HemisphereLight/);
+  assert.match(html, /const entryFill=new THREE\.PointLight/);
+  assert.match(html, /illuminated projection gallery/);
+  assert.doesNotMatch(html, /totally dark projection room|barely visible return trace/);
 });
