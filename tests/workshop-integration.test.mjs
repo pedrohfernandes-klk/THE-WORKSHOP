@@ -236,6 +236,17 @@ test('Hall entry remains a plain threshold without a chaperone apparatus', () =>
     'the ordinary Hall floor remains the arrival surface');
 });
 
+test('every entered room receives broad fill and the Hall has no dead destination doors', () => {
+  assert.match(html, /function ensureRoomBaselineLight\(room=currentRoom\)/,
+    'room entry owns a guaranteed non-punctual fill light');
+  assert.match(html, /function applyRoomLighting\(\)\{[\s\S]*?ensureRoomBaselineLight\(currentRoom\);[\s\S]*?applyLightBudget\(\);/,
+    'broad fill is installed before the punctual accent-light budget runs');
+  assert.doesNotMatch(html, /const outDoor\s*=\s*addPremiumPortalDoor/,
+    'the unregistered Square & Amphitheatre Hall door is removed');
+  assert.doesNotMatch(html, /const nightDoor\s*=\s*addPremiumPortalDoor/,
+    'the unregistered Sunset Lounge Hall door is removed');
+});
+
 test('Garden Study capture is explicit, metadata-rich and safe around dialogs', () => {
   assert.match(html, /from ['"]\.\/assets\/js\/workshop-garden-study\.js['"]/,
     'Garden Studies use a focused local-only module');
