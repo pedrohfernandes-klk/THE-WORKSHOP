@@ -22,6 +22,7 @@ export function createWorkshopFilmController({ THREE, screens, onStateChange = (
   let texture = null;
   let active = false;
   let audible = false;
+  let resumeAfterVisibility = false;
   const originals = new WeakMap();
   const state = () => ({ active, audible, paused: video.paused, rate: video.playbackRate, video });
 
@@ -59,7 +60,7 @@ export function createWorkshopFilmController({ THREE, screens, onStateChange = (
     try { await video.play(); } catch (_) {
       audible = false;
       video.muted = true;
-      await video.play().catch(() => {});
+      await video.play().catch(() => { active = false; screens.forEach(restore); });
     }
     onStateChange(state());
     return state();
@@ -67,6 +68,7 @@ export function createWorkshopFilmController({ THREE, screens, onStateChange = (
 
   function disable() {
     active = false;
+    resumeAfterVisibility = false;
     video.pause();
     screens.forEach(restore);
     onStateChange(state());
@@ -92,6 +94,15 @@ export function createWorkshopFilmController({ THREE, screens, onStateChange = (
   }
 
   try { video.playbackRate = normaliseFilmRate(localStorage.getItem('workshop:film-rate')); } catch (_) {}
-  document.addEventListener('visibilitychange', () => { if (document.hidden && !video.paused) video.pause(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      resumeAfterVisibility = active && !video.paused;
+      if (resumeAfterVisibility) video.pause();
+      onStateChange(state());
+      return;
+    }
+    if (resumeAfterVisibility && active) video.play().catch(() => {}).finally(() => onStateChange(state()));
+    resumeAfterVisibility = false;
+  });
   return { video, state, enable, disable, applyTo, togglePlayback, toggleSound, setRate };
 }
