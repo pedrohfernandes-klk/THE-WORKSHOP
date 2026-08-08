@@ -21,26 +21,33 @@ const server = createServer(async (req, res) => {
     const file = join(ROOT, path === '/' ? 'index.html' : path);
     if (!file.startsWith(ROOT)) { res.writeHead(403).end(); return; }
     const ext = file.slice(file.lastIndexOf('.'));
+    const body = await readFile(file);
     res.writeHead(200, { 'content-type': TYPES[ext] || 'application/octet-stream' });
-    res.end(await readFile(file));
+    res.end(body);
   } catch { res.writeHead(404).end(); }
 });
-await new Promise(resolve => server.listen(4188, '127.0.0.1', resolve));
-
-// --allow-file-access / fake media so getUserMedia and autoplay do not prompt.
-const browser = await chromium.launch({
-  headless: true,
-  args: ['--autoplay-policy=no-user-gesture-required', '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream']
+await new Promise((resolve,reject) => {
+  server.once('error',reject);
+  server.listen(0, '127.0.0.1', resolve);
 });
+const port = server.address().port;
+const baseUrl = `http://127.0.0.1:${port}`;
 const results = {};
 const fail = m => { throw new Error(m); };
+let browser;
 
 try {
+  // --allow-file-access / fake media so getUserMedia and autoplay do not prompt.
+  browser = await chromium.launch({
+    headless: true,
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined,
+    args: ['--autoplay-policy=no-user-gesture-required', '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream']
+  });
   // ===== 1. The synthesiser actually makes sound =====
   const desk = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
   const deskErrors = [];
   desk.on('pageerror', e => deskErrors.push(e.message));
-  await desk.goto('http://127.0.0.1:4188/assets/apps/studio-mixing-desk.html', { waitUntil: 'domcontentloaded' });
+  await desk.goto(`${baseUrl}/assets/apps/studio-mixing-desk.html`, { waitUntil: 'domcontentloaded' });
   await desk.waitForSelector('#keybed .wkey');
 
   results.keys = await desk.evaluate(() => ({
@@ -72,10 +79,9 @@ try {
     ['a', 's', 'd'].forEach(lift);
     return { probed: true, peak, voices };
   });
-  if (results.audio.probed) {
-    if (!(results.audio.peak > 0.001)) fail(`Synth produced no audio (peak ${results.audio.peak})`);
-    if (results.audio.voices < 3) fail(`Chord did not allocate 3 voices (got ${results.audio.voices})`);
-  }
+  if (!results.audio.probed) fail('Synth audio probe is missing');
+  if (!(results.audio.peak > 0.001)) fail(`Synth produced no audio (peak ${results.audio.peak})`);
+  if (results.audio.voices < 3) fail(`Chord did not allocate 3 voices (got ${results.audio.voices})`);
 
   // Transport, arp and MIDI wiring must exist regardless of hardware.
   results.controls = await desk.evaluate(() => ({
@@ -91,28 +97,29 @@ try {
   }
   if (deskErrors.length) fail(`Desk page errors: ${deskErrors.join('\n')}`);
 
-  // ===== 2. Projection screens really load =====
+  // ===== 2. Museum registries and projection wiring survive a real browser =====
   const museum = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   const museumErrors = [];
   museum.on('pageerror', e => museumErrors.push(e.message));
-  await museum.goto('http://127.0.0.1:4188/index.html?selftest', { waitUntil: 'domcontentloaded' });
+  await museum.goto(`${baseUrl}/index.html?selftest`, { waitUntil: 'domcontentloaded' });
   await museum.locator('#posterEnter:not([disabled])').waitFor({ state: 'visible', timeout: 60000 });
-  const museumBody = museum.locator('body');
-  await museumBody.filter({ hasText: /SELFTEST/i }).waitFor({ state: 'visible', timeout: 60000 });
+  await museum.locator('body').filter({ hasText: /SELFTEST/i }).waitFor({ state: 'visible', timeout: 60000 });
+  const selftestResults = await museum.evaluate(() => window.__workshopSelfTestResults);
+  if(!Array.isArray(selftestResults)) fail('Museum selftest did not publish structured results');
+  const failed = selftestResults.filter(result => !result.ok);
+  results.selftest = `${selftestResults.length - failed.length}/${selftestResults.length} passed`;
+  if (failed.length) fail(`Museum selftest failures:\n${JSON.stringify(failed, null, 2)}`);
 
-  results.selftest = ((await museumBody.innerText()).match(/SELFTEST[^\n]*/i) || ['?'])[0];
-  if (!/PASSED/i.test(results.selftest)) fail(`Museum selftest did not pass: ${results.selftest}`);
-
-  // Every projection wall must own a real iframe with a resolved source.
-  results.screens = {
-    count: await museum.locator('iframe').count(),
-    withSrc: await museum.locator('iframe[src]:not([src="about:blank"])').count()
-  };
+  const projectionChecks=selftestResults.filter(result=>/projection|remote resolves a target|Amphitheatre projection iframe/.test(result.test));
+  if(projectionChecks.length<8 || projectionChecks.some(result=>!result.ok)){
+    fail(`Projection wiring checks missing or failed:\n${JSON.stringify(projectionChecks, null, 2)}`);
+  }
+  results.screens = { wiringChecks:projectionChecks.length };
   if (museumErrors.length) fail(`Museum page errors: ${museumErrors.join('\n')}`);
 
   console.log(JSON.stringify(results, null, 2));
   console.log('browser-instrument-smoke: OK');
 } finally {
-  await browser.close();
+  if(browser) await browser.close();
   await new Promise(resolve => server.close(resolve));
 }

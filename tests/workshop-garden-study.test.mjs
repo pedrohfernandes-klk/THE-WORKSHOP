@@ -29,3 +29,7 @@ test('formats a removable location caption from the capture record', () => {
   assert.match(formatGardenStudyCaption({ room: 'maze', capturedAt: '2026-07-22T18:00:00.000Z' }), /^Experiment Garden · 22 Jul 2026\s+\d{2}:00$/);
   assert.equal(formatGardenStudyCaption({ room: 'maze', capturedAt: 'not-a-date' }), 'Experiment Garden');
 });
+
+test('outdoor captures use the Tower public-ground identity', () => {
+  assert.match(formatGardenStudyCaption({ room:'outdoor', capturedAt:'not-a-date' }), /^Tower Square & Amphitheatre$/);
+});
