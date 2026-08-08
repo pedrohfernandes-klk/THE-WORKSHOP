@@ -6,6 +6,12 @@ export function normaliseFilmRate(value) {
   return WORKSHOP_FILM_RATES.includes(rate) ? rate : 1;
 }
 
+export function normaliseFilmVolume(value) {
+  const volume = Number(value);
+  if (!Number.isFinite(volume)) return 1;
+  return Math.min(1, Math.max(0, volume));
+}
+
 export function createWorkshopFilmController({ THREE, screens, onStateChange = () => {} }) {
   const video = document.createElement('video');
   video.id = 'workshopSharedFilm';
@@ -24,7 +30,7 @@ export function createWorkshopFilmController({ THREE, screens, onStateChange = (
   let audible = false;
   let resumeAfterVisibility = false;
   const originals = new WeakMap();
-  const state = () => ({ active, audible, paused: video.paused, rate: video.playbackRate, video });
+  const state = () => ({ active, audible, paused: video.paused, rate: video.playbackRate, volume: video.volume, video });
 
   function ensureTexture() {
     if (!texture) {
@@ -52,7 +58,7 @@ export function createWorkshopFilmController({ THREE, screens, onStateChange = (
     originals.delete(screen);
   }
 
-  async function enable({ sound = true } = {}) {
+  async function enable({ sound = false } = {}) {
     active = true;
     audible = !!sound;
     video.muted = !audible;
@@ -66,16 +72,23 @@ export function createWorkshopFilmController({ THREE, screens, onStateChange = (
     return state();
   }
 
-  function disable() {
+  function disable({ reset = true } = {}) {
     active = false;
     resumeAfterVisibility = false;
     video.pause();
+    video.muted = true;
+    audible = false;
+    if (reset) {
+      video.currentTime = 0;
+      video.playbackRate = 1;
+      video.volume = 1;
+    }
     screens.forEach(restore);
     onStateChange(state());
   }
 
   function togglePlayback() {
-    if (!active) return enable({ sound: true });
+    if (!active) return enable({ sound: false });
     if (video.paused) return video.play().then(() => onStateChange(state())).catch(() => {});
     video.pause(); onStateChange(state());
   }
@@ -89,11 +102,18 @@ export function createWorkshopFilmController({ THREE, screens, onStateChange = (
 
   function setRate(value) {
     video.playbackRate = normaliseFilmRate(value);
-    try { localStorage.setItem('workshop:film-rate', String(video.playbackRate)); } catch (_) {}
     onStateChange(state());
   }
 
-  try { video.playbackRate = normaliseFilmRate(localStorage.getItem('workshop:film-rate')); } catch (_) {}
+  function setVolume(value) {
+    video.volume = normaliseFilmVolume(value);
+    if (video.volume === 0) {
+      audible = false;
+      video.muted = true;
+    }
+    onStateChange(state());
+  }
+
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       resumeAfterVisibility = active && !video.paused;
@@ -104,5 +124,5 @@ export function createWorkshopFilmController({ THREE, screens, onStateChange = (
     if (resumeAfterVisibility && active) video.play().catch(() => {}).finally(() => onStateChange(state()));
     resumeAfterVisibility = false;
   });
-  return { video, state, enable, disable, applyTo, togglePlayback, toggleSound, setRate };
+  return { video, state, enable, disable, applyTo, togglePlayback, toggleSound, setRate, setVolume };
 }
