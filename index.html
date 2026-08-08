@@ -5,7 +5,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' https://en.wikipedia.org; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://pedrohfernandes-klk.github.io; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>THE WORKSHOP — a museum of rooms, images, machines</title>
-<meta name="description" content="THE WORKSHOP: a walkable 3D museum of rooms, images and machines by HrM. Explore galleries, a screening venue, a music studio, an experiment garden and more, in one continuous space.">
+<meta name="description" content="THE WORKSHOP by HrM: a walkable 3D museum gathered around a tower of galleries, images, films and machines.">
 <meta name="theme-color" content="#020202">
 <meta property="og:title" content="THE WORKSHOP">
 <meta property="og:description" content="A walkable 3D museum of rooms, images and machines by HrM.">
@@ -1796,7 +1796,7 @@ body.rpgMode #rpgModeBadge{display:block}
     <div id="posterCard">
       <div id="posterIntroTopline">HrM</div>
       <h1>THE WORKSHOP</h1>
-      <div id="posterSubtitle">museum of rooms · images · machines</div>
+      <div id="posterSubtitle">a museum gathered around the Tower</div>
     </div>
     <button id="posterEnter" type="button" disabled aria-live="polite">Loading…</button>
   </div>
@@ -1804,7 +1804,7 @@ body.rpgMode #rpgModeBadge{display:block}
   <header id="topbar">
     <div id="brand">
       <h1>The Workshop</h1>
-      <p>Night museum</p>
+      <p>The Tower · museum after dark</p>
       <img id="brandSignature" alt="HrM signature">
     </div>
     <nav id="actions" aria-label="Gallery controls">
@@ -1841,24 +1841,24 @@ body.rpgMode #rpgModeBadge{display:block}
       <button class="btn" id="fastMapCloseBtn" type="button">Close</button>
     </div>
     <div class="fastMapCurrent" id="fastMapCurrent">You are in <strong>Workshop Hall</strong></div>
-    <p class="fastMapIntro">Choose a destination directly. The Tower is the vertical centre of the campus; the square and amphitheatre form its public ground.</p>
+    <p class="fastMapIntro">Every route belongs to the Tower: begin in its hall, move through the collection, gather in the square, then ascend.</p>
     <div class="journeyMap" id="journeyMap" aria-label="Narrative progress">
-      <button class="journeyBeat" type="button" data-beat="threshold"><b>Arrival</b><span>Workshop Hall</span></button>
-      <button class="journeyBeat" type="button" data-beat="search"><b>Explore</b><span>Thinking, Maps, Lab</span></button>
-      <button class="journeyBeat" type="button" data-beat="projection"><b>Watch</b><span>Venue, Studio, Garden</span></button>
-      <button class="journeyBeat" type="button" data-beat="outside"><b>Gather</b><span>Square &amp; Amphitheatre</span></button>
-      <button class="journeyBeat" type="button" data-beat="return"><b>Ascend</b><span>The Tower</span></button>
+      <button class="journeyBeat" type="button" data-beat="threshold"><b>Enter</b><span>Tower Hall</span></button>
+      <button class="journeyBeat" type="button" data-beat="search"><b>Read</b><span>Maps, thought, experiment</span></button>
+      <button class="journeyBeat" type="button" data-beat="projection"><b>Transmit</b><span>Film, sound, machines</span></button>
+      <button class="journeyBeat" type="button" data-beat="outside"><b>Gather</b><span>Tower Square &amp; Amphitheatre</span></button>
+      <button class="journeyBeat" type="button" data-beat="return"><b>Ascend</b><span>The Tower galleries</span></button>
     </div>
-    <p class="journeyGuidance" id="journeyGuidance" aria-live="polite">Threshold is current; look closely and use a work in the Hall.</p>
-    <p class="passportEvidence" id="passportEvidence" aria-live="polite">THRESHOLD — Not yet stamped.</p>
+    <p class="journeyGuidance" id="journeyGuidance" aria-live="polite">Enter is current; look closely and use a work in the Hall.</p>
+    <p class="passportEvidence" id="passportEvidence" aria-live="polite">ENTER — Not yet stamped.</p>
     <div class="passportSummary">
       <div id="passportProgress" aria-live="polite"><strong>Visitor Passport</strong> · 0 of 5 acts stamped</div>
       <button id="passportResetBtn" type="button">New visit</button>
     </div>
     <section class="fastMapDistrict">
-      <h4 class="fastMapDistrictTitle">The Workshop<span>main building</span></h4>
+      <h4 class="fastMapDistrictTitle">Inside the Tower<span>the collection by floor</span></h4>
       <div class="fastMapGrid">
-        <button class="fastMapBtn" data-place="warehouse" data-room="gallery"><b>Workshop Hall</b><span>Main hall and gallery corridor.</span></button>
+        <button class="fastMapBtn" data-place="warehouse" data-room="gallery"><b>Tower Hall</b><span>Entrance hall, gallery corridor and the beginning of the ascent.</span></button>
         <button class="fastMapBtn" data-place="venue" data-room="theatre"><b>The Venue</b><span>Auditorium with one large SAYWHAT / NO WORRIES / YouTube screen.</span></button>
         <button class="fastMapBtn" data-place="studio" data-room="studio"><b>The Studio</b><span>Music salon, listening bay and giant wall screen.</span></button>
         <button class="fastMapBtn" data-place="lab" data-room="lab"><b>The Laboratory</b><span>Projection chamber that becomes a long illuminated gallery.</span></button>
@@ -1870,9 +1870,9 @@ body.rpgMode #rpgModeBadge{display:block}
       </div>
     </section>
     <section class="fastMapDistrict">
-      <h4 class="fastMapDistrictTitle">The Tower Campus<span>vertical galleries and public landscape</span></h4>
+      <h4 class="fastMapDistrictTitle">The Tower<span>the image and address of The Workshop</span></h4>
       <div class="fastMapGrid">
-        <button class="fastMapBtn" data-place="headquarters" data-room="hood"><b>The Tower</b><span>Walkable stacked galleries, served by one lift.</span></button>
+        <button class="fastMapBtn" data-place="headquarters" data-room="hood"><b>Tower Lobby</b><span>Enter the landmark and begin the vertical collection.</span></button>
         <button class="fastMapBtn" data-place="outdoor" data-room="outdoor"><b>Square &amp; Amphitheatre</b><span>Open civic square and outdoor performance space.</span></button>
         <button class="fastMapBtn towerDirectoryBtn" id="towerDirectoryBtn" type="button"><b>Open tower directory</b><span>Choose any floor directly.</span></button>
       </div>
@@ -1963,7 +1963,7 @@ body.rpgMode #rpgModeBadge{display:block}
     <p><code>←/→</code> or <code>Q/E</code>: turn. Drag the view on touch devices.</p>
     <p>Click the gallery to capture the mouse. Move mouse to look. Wheel zooms.</p>
     <p><code>G</code>: Rooms. <code>F</code>: focus nearest work. <code>C</code>: Catalogue. <code>O</code>: Archive. <code>N</code>: Notes. <code>L</code>: brighten room. <code>Esc</code>: release / close.</p>
-    <p>Open <b>Rooms</b> to travel directly to every principal space, including MANY MAPS and Sunset Lounge. In the Tower lobby, use the lift directory to choose a floor.</p>
+    <p>The Tower is the address of the whole museum. Open <b>Rooms</b> for the narrative route, or open the <b>Tower directory</b> to choose a floor. The lift connects the hall, galleries, salons and public ground.</p>
     <p>Aim at a door, artwork or screen and click to use it. <b>Projection</b> opens the nearest screen in the current room; <code>R</code> does the same. <b>Restore</b> returns the room screens after Film mode.</p>
     <p><b>Film</b> starts muted. Use <b>Sound</b> to hear it, then choose <b>0.75&times;</b>, <b>1&times;</b> or <b>1.5&times;</b> with the speed selector.</p>
   </aside>
@@ -2187,6 +2187,14 @@ const MIXED_MEDIA_3_SRC = "assets/extracted/mixed-media-3.webp";
 const MIXED_MEDIA_4_SRC = "assets/extracted/mixed-media-4.webp";
 
 const CADAVRE_EXPAT_SRC = 'assets/extracted/cadavre-expat.webp';
+const CADAVRE_EXPAT_WORKS = Object.freeze([
+  {title:'CADAVRE EXPAT I',catalogueId:'HrM-CE-001',collection:'Cadavre Expat',medium:'handmade mixed-media collage · HrM',room:'Tower Hall',wing:'Cadavre Expat sequence',summary:'The first recovered Cadavre Expat collage opens the sequence: a body assembled from displacement, fracture and stubborn continuity.',aspect:7.4/4.9,src:CADAVRE_EXPAT_SRC,hero:true,targetHeight:4.8,series:'Cadavre Expat'},
+  {title:'CADAVRE EXPAT II',catalogueId:'HrM-CE-002',collection:'Cadavre Expat',medium:'impasto, glue, oil and acrylic echo · HrM',room:'Tower Hall',wing:'Cadavre Expat sequence',summary:'Dense material and a squared field turn the second work into the sequence’s compressed, resistant centre.',aspect:1,src:CADAVRE_EXPAT_II_SRC,hero:true,targetHeight:4.8,series:'Cadavre Expat'},
+  {title:'CADAVRE EXPAT III',catalogueId:'HrM-CE-003',collection:'Cadavre Expat',medium:'reclaimed cardboard and fading impressions · HrM',room:'Tower Hall',wing:'Cadavre Expat sequence',summary:'Fading impressions and reclaimed support make the third collage read as an image surviving its own erasure.',aspect:7.6/5.5,src:CADAVRE_EXPAT_III_SRC,hero:true,targetHeight:4.8,series:'Cadavre Expat'},
+  {title:'CADAVRE EXPAT IV',catalogueId:'HrM-CE-004',collection:'Cadavre Expat',medium:'reclaimed cardboard, oil, acrylic, glue and digital echo · HrM',room:'Tower Hall',wing:'Cadavre Expat sequence',summary:'The final work expands the recovered fragments into a wide closing image, holding physical residue against its digital echo.',aspect:11.2/7,src:CADAVRE_EXPAT_IV_SRC,hero:true,targetHeight:4.8,series:'Cadavre Expat'}
+]);
+artworks.push(...CADAVRE_EXPAT_WORKS);
+function galleryCorridorArtworks(){ return artworks; }
 const STUDIO_DECOR_MORE_SRCS = STUDIO_DECOR_SRCS.slice(5);
 // The base "Cadavre Expat" pool entry was removed: the whole Cadavre Expat
 // series now lives only in the Headquarters grand hall. CADAVRE_EXPAT_SRC stays
@@ -2630,7 +2638,9 @@ const mobileInput = {
 let suppressNextMobileTap = false;
 const artworkObjects = [];
 const labelObjects = [];
-const tunnelLength = 112;
+// Expanded for the complete Cadavre Expat sequence. This is the surviving
+// main gallery corridor, not the deleted Tunnel/waiting-room attraction.
+const tunnelLength = 148;
 const halfWidth = 6.4;
 const cameraHeight = 2.2;
 // Entrance hall: a tall arrival space in front of the existing gallery tunnel.
@@ -2652,7 +2662,9 @@ const mapWorldFront = hallFront - 2;
 // The tunnel's own geometry physically ends at tunnelFarZ; the hub picks up
 // exactly there so there's no gap or overlap between the two.
 const tunnelFarZ = -tunnelLength + 2;
-const hubDepth = 32;
+// A deeper terminal gallery preserves long sightlines and generous viewing
+// distance after the corridor collection expansion.
+const hubDepth = 40;
 const hubBackZ = tunnelFarZ - hubDepth;
 const hubHalfWidth = 12;
 const hubHeight = 15; // chapel: raised for verticality and hush
@@ -2799,29 +2811,29 @@ const HOOD_PRIVATE_FLOORS = [
 // journey length. `at()` is the arrival spot, resolved lazily so this can sit
 // beside the other constants; height is left to setPlayerLocation.
 const TOWER_FLOORS = [
-  {id:'hood',    code:'G', label:'Tower square & lobby', y:-14,
+  {id:'hood',    code:'G', label:'Tower Square & Lobby', y:-14,
    // Arrive on the centre axis, outside the front door, looking directly at
    // the illuminated tower. The former stop faced away from the building.
    at:()=>({x:hoodOrigin.x, z:hoodOrigin.z+42, yaw:Math.PI})},
-  {id:'gallery', code:'L', label:'Lobby · hall & corridor', y:0,
+  {id:'gallery', code:'L', label:'Tower Hall · corridor galleries', y:0,
    at:()=>({x:0, z:tunnelMouthZ+hallDepth*.50+4.0, yaw:Math.PI})},
-  {id:'theatre', code:'1', label:'The Venue · cinema', y:8,
+  {id:'theatre', code:'1', label:'The Venue · moving image', y:8,
    at:()=>({x:theatreOrigin.x, z:theatreOrigin.z+theatreDepth-10, yaw:0})},
-  {id:'lab',     code:'2', label:'The Laboratory', y:16,
+  {id:'lab',     code:'2', label:'The Laboratory · projection', y:16,
    at:()=>({x:labOrigin.x, z:labOrigin.z+labDepth-3, yaw:0})},
-  {id:'maze',    code:'3', label:'Experiment Garden', y:24,
+  {id:'maze',    code:'3', label:'Experiment Garden · making', y:24,
    at:()=>({x:mazeOrigin.x, z:mazeOrigin.z+mazeCell*.92, yaw:0})},
-  {id:'maps',    code:'4', label:'MANY MAPS · atlas', y:32,
+  {id:'maps',    code:'4', label:'MANY MAPS · atlas gallery', y:32,
    at:()=>({x:mapGalleryOrigin.x, z:mapGalleryOrigin.z+mapGalleryDepth-9.2, yaw:0})},
-  {id:'spark',   code:'5', label:'Spark Tools Labs', y:40,
+  {id:'spark',   code:'5', label:'Spark Tools Labs · machines', y:40,
    at:()=>({x:sparkOrigin.x, z:sparkOrigin.z+4.2, yaw:Math.PI})},
-  {id:'thinking',code:'6', label:'Thinking Room', y:48,
+  {id:'thinking',code:'6', label:'Thinking Room · library', y:48,
    at:()=>({x:thinkingOrigin.x, z:thinkingOrigin.z+4.4, yaw:Math.PI})},
-  {id:'night',   code:'7', label:'Sunset Lounge', y:56,
+  {id:'night',   code:'7', label:'Sunset Lounge · evening salon', y:56,
    at:()=>({x:nightRoomOrigin.x, z:nightRoomOrigin.z+5.2, yaw:Math.PI})},
-  {id:'studio',  code:'8', label:'The Studio · listening room', y:64,
+  {id:'studio',  code:'8', label:'The Studio · sound', y:64,
    at:()=>({x:studioOrigin.x, z:studioOrigin.z+studioDepth-3.2, yaw:0})},
-  {id:'outdoor', code:'R', label:'Roof garden · The Grove', y:72,
+  {id:'outdoor', code:'R', label:'Tower Square & Amphitheatre', y:72,
    at:()=>({x:outdoorOrigin.x, z:outdoorOrigin.z+outdoorDepth-4.6, yaw:0})}
 ];
 
@@ -4879,6 +4891,15 @@ function runWorkshopSelfTest(){
 
   check(archiveHotspots.length >= 1, 'archive hotspots registered', `${archiveHotspots.length}`);
   check(artworkObjects.length >= 10, 'artworks registered', `${artworkObjects.length} works`);
+  const cadavreObjects=artworkObjects.filter(o=>o.data?.series==='Cadavre Expat');
+  check(CADAVRE_EXPAT_WORKS.length===4 && new Set(CADAVRE_EXPAT_WORKS.map(w=>w.src)).size===4,
+    'Cadavre Expat source set complete','four unique supplied sources');
+  check(cadavreObjects.length===4,
+    'Cadavre Expat sequence installed in main gallery',`${cadavreObjects.length} of 4 works`);
+  check(cadavreObjects.every(o=>o.group?.parent===scene && o.art?.visible!==false),
+    'Cadavre Expat works visible and registered','all four live in scene');
+  check(wallArtPieces.filter(a=>a.series==='Cadavre Expat').length===4,
+    'Cadavre Expat measured for wall clearance','four registered footprints');
 
   // Regression guard for the cave-art aspect bug (batch: base64 migration
   // follow-up): a work's displayed plane must keep its declared aspect
@@ -4900,12 +4921,16 @@ function runWorkshopSelfTest(){
   });
 
   Object.entries(roomLights).forEach(([room, ls])=>{
-    if(room === 'lab'){
-      check(ls.length === 0 && labArtworkLights.length >= 1, 'room deliberately dark · lab', `${ls.length} ambient · ${labArtworkLights.length} switched artwork lights`);
-    }else{
-      check(ls.length >= 1, `room lit · ${room}`, `${ls.length} lights`);
+    check(ls.some(light=>light && light.userData._baseIntensity>0),
+      `room has authored readable light · ${room}`,`${ls.length} registered lights`);
+    if(room==='lab'){
+      check(labArtworkLights.length>=1 && labArtworkLightsOn,
+        'Lab artwork circuit starts readable',`${labArtworkLights.length} artwork lights · on ${labArtworkLightsOn}`);
     }
   });
+  const activeBaseline=roomBaselineLights.get(currentRoom);
+  check(!!activeBaseline && activeBaseline.isHemisphereLight && activeBaseline.userData._baseIntensity>0,
+    'entered room has guaranteed fill',currentRoom);
 
   // Wall art must never crowd a doorway or its neighbours. Art creeping into
   // door swings has been a repeated fault (Studio, Sunset Lounge), and it was
@@ -4973,7 +4998,7 @@ function runWorkshopSelfTest(){
   }
 
   check(wallArtPieces.length>=30, 'wall art registered', `${wallArtPieces.length} pieces`);
-    check(doorFootprints.length>=23, 'retained doors registered', `${doorFootprints.length} doors`);
+    check(doorFootprints.length===12, 'only functional doors registered', `${doorFootprints.length} doors`);
     check(doorClashes===0, 'no wall art crowds a doorway', doorClashes?worstDoor:'all clear');
     check(artClashes===0, 'no wall art crowds its neighbour', artClashes?worstArt:'all clear');
   }
@@ -5457,12 +5482,12 @@ function buildHall(){
     {
       const liftDoor = addPremiumPortalDoor({
         x:-hw+.13, y:doorH/2, z:z0 + depth*.50, width:doorW+.8, height:doorH,
-        orientation:'left', title:'THE LIFT', subtitle:'all floors · lobby to roof garden',
+        orientation:'left', title:'THE LIFT', subtitle:'all floors · Tower Hall to square',
         accent:0xc9b27a, dark:0x17120d
       });
       registerInteractable({id:'lift:gallery',type:'lift',room:'gallery',mesh:liftDoor.slab,
         label:'The lift',hintId:'tower-lift',priority:20,
-        hintText:'One lift serves the whole building — lobby, every room, and the roof garden.',
+        hintText:'One lift serves the whole building — Tower Hall, every gallery and Tower Square.',
         prompt:()=>'Call the lift',onUse:()=>openHoodLift('tower')});
     }
 
@@ -6012,7 +6037,7 @@ function buildNightRoom(){
   // this room; it calls the one car that serves every floor.
   registerInteractable({id:'lift:night',type:'lift',room:'night',mesh:hallDoor.slab,
     label:'The lift',hintId:'tower-lift',priority:20,
-    hintText:'One lift serves the whole building — lobby, every room, and the roof garden.',
+    hintText:'One lift serves the whole building — Tower Hall, every gallery and Tower Square.',
     prompt:()=>'Call the lift',onUse:()=>openHoodLift('tower')});
 
   const outdoorDoor = addPremiumPortalDoor({
@@ -6020,11 +6045,6 @@ function buildNightRoom(){
     title:'Square & Amphitheatre', subtitle:'outdoor stage', accent:0xc8b48f, dark:0x181614
   });
 
-  // Second return leg: the tunnel's waiting hall (batch: room rewiring).
-  const tunnelReturnDoor = addPremiumPortalDoor({
-    x:x0-hw+.12, y:3.0, z:z0 + depth*.56, width:3.2, height:6.0, orientation:'left',
-    title:'The Tunnel', subtitle:'return', accent:0xc98d4a, dark:0x17110b
-  });
   const hemi = new THREE.HemisphereLight(0xdfe5ef,0x5b4636,.82);
   scene.add(hemi); regLight('night', hemi);
 
@@ -6602,7 +6622,7 @@ function buildOutdoorSpace(){
   // this room; it calls the one car that serves every floor.
   registerInteractable({id:'lift:outdoor',type:'lift',room:'outdoor',mesh:ret.slab,
     label:'The lift',hintId:'tower-lift',priority:20,
-    hintText:'One lift serves the whole building — lobby, every room, and the roof garden.',
+    hintText:'One lift serves the whole building — Tower Hall, every gallery and Tower Square.',
     prompt:()=>'Call the lift',onUse:()=>openHoodLift('tower')});
 
   // --- Grove enrichment (batch 136): denser Mediterranean under-planting and a
@@ -6633,21 +6653,6 @@ function buildOutdoorSpace(){
     corkOak(x0-22.0, pondZ+14.0, 1.15);
     corkOak(x0+23.5, pondZ-13.5, 1.30);
     corkOak(x0-24.0, z0+depth*.42, 1.10);
-  }
-
-  // --- The Tunnel: a stone doorway down to the 100 m underground passage. ---
-  {
-    const jamb = new THREE.MeshStandardMaterial({color:0x8a7f6d, roughness:.9, metalness:.03});
-    const arch = new THREE.Mesh(new THREE.BoxGeometry(4.4,.5,1.4), jamb);
-    arch.position.set(x0+13.5, 3.35, doorZ-14.6); scene.add(arch);
-    for(const dxx of [-1.75,1.75]){
-      const pier = new THREE.Mesh(new THREE.BoxGeometry(.9,3.2,1.4), jamb);
-      pier.position.set(x0+13.5+dxx,1.6,doorZ-14.6); scene.add(pier);
-    }
-    const tunnelDoor = addPremiumPortalDoor({
-      x:x0+13.5, y:1.62, z:doorZ-14.35, width:2.6, height:3.2, orientation:'front',
-      title:'The Tunnel', subtitle:'descend', accent:0xc98d4a, dark:0x17110b
-    });
   }
 
   // --- CLIFFSIDE AMPHITHEATRE: a restored stone theatre added east of the Grove. ---
@@ -6819,7 +6824,7 @@ function openHoodLift(mode='main'){
   if(mode!=='tower' && !isHoodRoom()) return;
   const panel=ensureHoodLiftPanel(); const floors=liftFloorSet(mode);
   panel.dataset.mode=mode;
-  panel.innerHTML=`<div class="liftCabinet"><div class="liftHead"><div><b>${mode==="tower"?"THE TOWER":(mode==="private"?"PENTHOUSE LIFT":"TOWER LIFT")}</b><span>${mode==='private'?'private five-level residence':(mode==='tower'?'grounds · lobby · galleries · roof':'passenger lift')}</span></div><button class="liftClose" type="button">Close</button></div><div class="liftIndicator"><span class="liftArrow up">&#9650;</span><span class="liftCode">${hoodFloorDefinition(currentRoom,mode).code}</span><span class="liftArrow down">&#9660;</span></div><div class="liftGrid">${floors.map(f=>`<button class="liftFloor${f.id===currentRoom?' current':''}" type="button" data-floor="${f.id}"><i>${f.code}</i><small>${f.label}</small></button>`).join('')}</div><div class="liftStatus">At ${hoodFloorDefinition(currentRoom,mode).label} · select a destination</div></div>`;
+  panel.innerHTML=`<div class="liftCabinet"><div class="liftHead"><div><b>${mode==="tower"?"THE TOWER":(mode==="private"?"PENTHOUSE LIFT":"TOWER LIFT")}</b><span>${mode==='private'?'private five-level residence':(mode==='tower'?'one building · one collection · every floor':'passenger lift')}</span></div><button class="liftClose" type="button">Close</button></div><div class="liftIndicator"><span class="liftArrow up">&#9650;</span><span class="liftCode">${hoodFloorDefinition(currentRoom,mode).code}</span><span class="liftArrow down">&#9660;</span></div><div class="liftGrid">${floors.map(f=>`<button class="liftFloor${f.id===currentRoom?' current':''}" type="button" data-floor="${f.id}"><i>${f.code}</i><small>${f.label}</small></button>`).join('')}</div><div class="liftStatus">At ${hoodFloorDefinition(currentRoom,mode).label} · choose where the Tower opens next</div></div>`;
   panel.querySelector('.liftClose').onclick=closeHoodLift;
   panel.querySelectorAll('[data-floor]').forEach(b=>b.onclick=()=>hoodLiftTravel(b.dataset.floor,mode));
   panel.classList.add('show');
@@ -8083,13 +8088,6 @@ function buildHood(){
     }
   });
 
-  const towerArt=[
-    {src:CADAVRE_EXPAT_SRC,title:'CADAVRE EXPAT I',room:'hood-m1',y:HOOD_MAIN_FLOORS[2].y+2.7},
-    {src:CADAVRE_EXPAT_II_SRC,title:'CADAVRE EXPAT II',room:'hood-a1',y:HOOD_MAIN_FLOORS[3].y+2.7},
-    {src:CADAVRE_EXPAT_III_SRC,title:'CADAVRE EXPAT III',room:'hood-a3',y:HOOD_MAIN_FLOORS[5].y+2.7},
-    {src:CADAVRE_EXPAT_IV_SRC,title:'CADAVRE EXPAT IV',room:'hood-ph3',y:HOOD_PRIVATE_FLOORS[3].y+2.7}
-  ];
-  towerArt.forEach((a,i)=>addFramedWallArt({src:a.src,title:a.title,subtitle:`Tower collection · ${a.room}`,width:6.8,height:4.4,x:x+(i%2?-7:7),y:a.y,z:z+D/2-.42,rotationY:Math.PI,frameColor:0x181818,matteColor:0xe8e0d2,showLabel:true}));
   const sign=new THREE.Mesh(new THREE.PlaneGeometry(15,1.8),new THREE.MeshBasicMaterial({map:makeSignTexture('THE TOWER','rooms by lift · square and amphitheatre outside'),transparent:true,toneMapped:false}));
   sign.position.set(x,7,z-D/2-.3);sign.rotation.y=Math.PI;scene.add(sign);
   const daylight=new THREE.HemisphereLight(0xf3f8ff,0x53634b,1.8);scene.add(daylight);regLight('hood',daylight);
@@ -8184,7 +8182,7 @@ function buildTunnel(){
     // Wall skirting and picture rails removed; only the framed works remain on the walls.
 
     // One quiet light bar per paired bay: strengthens rhythm without touching walls.
-    const rows = Math.ceil(artworks.filter(a=>!/^Cadavre Expat/i.test(a.title)).length/2);
+    const rows = Math.ceil(galleryCorridorArtworks().length/2);
     const baySpacing = Math.min(17.6, (tunnelLength - 15) / Math.max(1, rows - 1));
     const lampMat = new THREE.MeshBasicMaterial({
       color:0xffe3b2, transparent:true, opacity:.46,
@@ -8975,20 +8973,9 @@ function buildTheatre(){
   // this room; it calls the one car that serves every floor.
   registerInteractable({id:'lift:theatre',type:'lift',room:'theatre',mesh:built.slab,
     label:'The lift',hintId:'tower-lift',priority:20,
-    hintText:'One lift serves the whole building — lobby, every room, and the roof garden.',
+    hintText:'One lift serves the whole building — Tower Hall, every gallery and Tower Square.',
     prompt:()=>'Call the lift',onUse:()=>openHoodLift('tower')});
 
-  // Second return leg: the tunnel's waiting hall (batch: room rewiring).
-  const tunnelReturn = addPremiumPortalDoor({
-    x:theatreOrigin.x-6.5, y:3.0, z:z1-.18, width:2.8, height:5.0, orientation:'front',
-    title:'The Tunnel', subtitle:'return', accent:0xc98d4a, dark:0x17110b
-  });
-  // Third leg: back to the Civic Quarter, landing in front of this room's own
-  // pavilion. Mirrors the tunnel door's offset into the bay opposite it.
-  const hqReturn = addPremiumPortalDoor({
-    x:theatreOrigin.x+6.5, y:3.0, z:z1-.18, width:2.8, height:5.0, orientation:'front',
-    title:'HEADQUARTERS', subtitle:'civic quarter', accent:0xd8c39a, dark:0x1b1713
-  });
 
   // --- Venue theatrical polish (absorbed from buildExhibitionSpacesPolish, session 4) ---
   {
@@ -9085,9 +9072,9 @@ function buildLaboratory(){
   const entryZ = labOrigin.z + labDepth;
   const midZ = (screenZ + entryZ) / 2;
 
-  const floorMat = new THREE.MeshStandardMaterial({color:0x000000, roughness:.86, metalness:.02});
-  const wallMat = new THREE.MeshStandardMaterial({color:0x000000, roughness:.92, metalness:0});
-  const ceilMat = new THREE.MeshStandardMaterial({color:0x000000, roughness:.94});
+  const floorMat = new THREE.MeshStandardMaterial({color:0x181512, roughness:.86, metalness:.02});
+  const wallMat = new THREE.MeshStandardMaterial({color:0x211d19, roughness:.92, metalness:0});
+  const ceilMat = new THREE.MeshStandardMaterial({color:0x29231d, roughness:.94});
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(hw*2, labDepth), floorMat);
   floor.rotation.x = -Math.PI/2; floor.position.set(labOrigin.x,0,midZ); floor.receiveShadow = true; scene.add(floor);
   const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(hw*2, labDepth), ceilMat);
@@ -9101,7 +9088,8 @@ function buildLaboratory(){
   const screenWall = new THREE.Mesh(new THREE.PlaneGeometry(hw*2,labHeight), wallMat);
   screenWall.position.set(labOrigin.x,labHeight/2,screenZ-.08); scene.add(screenWall);
 
-  // The room stays totally dark; only the NO WORRIES surface is alive.
+  // The projection remains dominant, but the architecture and return route
+  // stay legible from the instant a visitor enters.
   const labScreenW = hw*2 - .36;
   const labScreenH = labHeight - .60;
   const backing = new THREE.Mesh(new THREE.PlaneGeometry(labScreenW+.18, labScreenH+.16),
@@ -9121,8 +9109,11 @@ function buildLaboratory(){
 
   registerScreen({mesh:preview, css:live, url:'https://pedrohfernandes-klk.github.io/NO-WORRIES/', title:'NO WORRIES', room:'lab'});
 
-  // No screen spill: the live surface emits visually but cannot reveal the
-  // gallery walls. The artworks have their own deliberately isolated circuit.
+  const architecturalFill=new THREE.HemisphereLight(0xffead2,0x51463b,1.55);
+  scene.add(architecturalFill); regLight('lab',architecturalFill);
+  const entryFill=new THREE.PointLight(0xffd6a8,2.4,18,1.7);
+  entryFill.position.set(labOrigin.x,4.7,entryZ-3.0);
+  scene.add(entryFill); regLight('lab',entryFill);
 
   // Ten original artist-character works form two spacious, museum-style runs.
   const loader = new THREE.TextureLoader();
@@ -9221,18 +9212,9 @@ function buildLaboratory(){
   // this room; it calls the one car that serves every floor.
   registerInteractable({id:'lift:lab',type:'lift',room:'lab',mesh:built.slab,
     label:'The lift',hintId:'tower-lift',priority:20,
-    hintText:'One lift serves the whole building — lobby, every room, and the roof garden.',
+    hintText:'One lift serves the whole building — Tower Hall, every gallery and Tower Square.',
     prompt:()=>'Call the lift',onUse:()=>openHoodLift('tower')});
 
-  // Second return leg: the tunnel's waiting hall (batch: room rewiring).
-  const tunnelReturn = addPremiumPortalDoor({
-    x:labOrigin.x-3.3, y:2.3, z:entryZ-.18, width:2.2, height:4.2, orientation:'front',
-    title:'The Tunnel', subtitle:'return', accent:0xc98d4a, dark:0x17110b
-  });
-  const hqReturn = addPremiumPortalDoor({
-    x:labOrigin.x+3.3, y:2.3, z:entryZ-.18, width:2.2, height:4.2, orientation:'front',
-    title:'HEADQUARTERS', subtitle:'civic quarter', accent:0xd8c39a, dark:0x1b1713
-  });
 
   // --- NO WORRIES projection framing (absorbed from buildExhibitionSpacesPolish, session 4) ---
   {
@@ -9579,19 +9561,8 @@ function buildMazeGarden(){
     // this room; it calls the one car that serves every floor.
     registerInteractable({id:'lift:maze',type:'lift',room:'maze',mesh:hallDoor.slab,
       label:'The lift',hintId:'tower-lift',priority:20,
-      hintText:'One lift serves the whole building — lobby, every room, and the roof garden.',
+      hintText:'One lift serves the whole building — Tower Hall, every gallery and Tower Square.',
       prompt:()=>'Call the lift',onUse:()=>openHoodLift('tower')});
-
-    // Second return leg: the tunnel's waiting hall (batch: room rewiring).
-    const tunnelReturn = addPremiumPortalDoor({
-      x:x0+12.7, y:3.0, z:zFront-.18, width:3.0, height:5.0, orientation:'front',
-      title:'The Tunnel', subtitle:'return', accent:0xc98d4a, dark:0x17110b
-    });
-    // The hall and tunnel doors sit at x0-+12.7, so the centre bay is free.
-    const hqReturn = addPremiumPortalDoor({
-      x:x0, y:3.0, z:zFront-.18, width:3.0, height:5.0, orientation:'front',
-      title:'HEADQUARTERS', subtitle:'civic quarter', accent:0xd8c39a, dark:0x1b1713
-    });
 
     // The maze's door to MANY MAPS is gone with its portal: both rooms are
     // floors of the tower now, reached by the lift.
@@ -9953,10 +9924,6 @@ function buildMapGallery(){
     const glow = new THREE.PointLight(0xffcf96, 3.6, 24, 1.55); glow.position.set(x0, 4.2, zFront-3.5); scene.add(glow); regLight('maps', glow);
   }
   const built = addEmpirePortalDoor({ x:x0, y:4.2, z:zFront-.22, width:5.4, height:8.0, title:'Experiment Garden', subtitle:'return portal', room:'maps' });
-  const mapsHqReturn = addPremiumPortalDoor({
-    x:x0+9, y:3.5, z:zFront-.22, width:3.2, height:5.6, orientation:'front',
-    title:'HEADQUARTERS', subtitle:'civic quarter', accent:0xd8c39a, dark:0x1b1713
-  });
 
   // --- MANY MAPS cartographic polish (absorbed from buildExhibitionSpacesPolish, session 4) ---
   {
@@ -9984,7 +9951,7 @@ function buildMapGallery(){
       });
       registerInteractable({id:'lift:maps',type:'lift',room:'maps',mesh:liftDoor.slab,
         label:'The lift',hintId:'tower-lift',priority:20,
-        hintText:'One lift serves the whole building — lobby, every room, and the roof garden.',
+        hintText:'One lift serves the whole building — Tower Hall, every gallery and Tower Square.',
         prompt:()=>'Call the lift',onUse:()=>openHoodLift('tower')});
     }
 
@@ -10052,6 +10019,11 @@ function buildMapGallery(){
   }
 }
 
+function fitArtworkWithinBounds(width,height,maxWidth=4.45,maxHeight=4.85){
+  const scale=Math.min(1,maxWidth/width,maxHeight/height);
+  return {width:width*scale,height:height*scale};
+}
+
 function buildArtworks(){
   const loader = new THREE.TextureLoader();
   loader.crossOrigin = 'anonymous';
@@ -10063,7 +10035,7 @@ function buildArtworks(){
   const mouthX = halfWidth + 1.05;
   const wallX = halfWidth + .8;
   const poolTex = makePoolTexture();
-  const corridorArtworks=artworks.filter(a=>!/^Cadavre Expat/i.test(a.title));
+  const corridorArtworks=galleryCorridorArtworks();
   const totalRows = Math.ceil(corridorArtworks.length/2);
   const baySpacing = Math.min(17.6, (tunnelLength - 15) / Math.max(1, totalRows - 1));
 
@@ -10090,8 +10062,9 @@ function buildArtworks(){
       artW = 4.05;
       artH = artW / aspect;
     }
-    artW = clamp(artW, 1.70, 4.45);
-    artH = clamp(artH, 2.05, 4.85);
+    // Scale both dimensions by one factor. Independent clamps distorted wide
+    // Cadavre hero works after their initial aspect-correct sizing.
+    ({width:artW,height:artH}=fitArtworkWithinBounds(artW,artH));
 
     const frameW = artW + .42;
     const frameH = artH + .42;
@@ -10128,6 +10101,12 @@ function buildArtworks(){
     group.userData.index = i;
     group.userData.side = side;
     group.userData.z = z;
+    group.userData.series = a.series || '';
+    if(a.series==='Cadavre Expat'){
+      // Include the recovered sequence in the same measured wall registry used
+      // to catch doorway and neighbour collisions elsewhere in the museum.
+      wallArtPieces.push({title:a.title,width:frameW,height:frameH,x:backX,y:centerY,z,rotationY:group.rotation.y,series:a.series});
+    }
 
     const frame = new THREE.Mesh(new THREE.BoxGeometry(frameW, frameH, .12), edgeMat);
     frame.position.z = -.065;
@@ -10185,7 +10164,7 @@ function buildArtworks(){
     lamp.position.set(0, frameH/2 + .22, .075);
     group.add(lamp);
 
-    const spot = new THREE.SpotLight(0xffefd0, 3.9, 11.5, Math.PI/6.0, .62, 1.6);
+    const spot = new THREE.SpotLight(0xffefd0, a.series==='Cadavre Expat'?5.2:3.9, 11.5, Math.PI/6.0, .62, 1.6);
     spot.position.set(0, Math.max(2.35, artH*.86), 1.42);
     spot.target.position.set(0,-.18,.05);
     group.add(spot);
@@ -10476,12 +10455,8 @@ function buildSparkToolsLab(){
   // this room; it calls the one car that serves every floor.
   registerInteractable({id:'lift:spark',type:'lift',room:'spark',mesh:returnBuilt.slab,
     label:'The lift',hintId:'tower-lift',priority:20,
-    hintText:'One lift serves the whole building — lobby, every room, and the roof garden.',
+    hintText:'One lift serves the whole building — Tower Hall, every gallery and Tower Square.',
     prompt:()=>'Call the lift',onUse:()=>openHoodLift('tower')});
-  const sparkHqReturn = addPremiumPortalDoor({
-    x:x0-7.5, y:2.9, z:z0+.12, width:3.0, height:4.6, orientation:'front',
-    title:'HEADQUARTERS', subtitle:'civic quarter', accent:0xd8c39a, dark:0x1b1713
-  });
 }
 
 let thinkingWallIframe = null;
@@ -11341,7 +11316,7 @@ function buildStudio(){
   // this room; it calls the one car that serves every floor.
   registerInteractable({id:'lift:studio',type:'lift',room:'studio',mesh:ret.slab,
     label:'The lift',hintId:'tower-lift',priority:20,
-    hintText:'One lift serves the whole building — lobby, every room, and the roof garden.',
+    hintText:'One lift serves the whole building — Tower Hall, every gallery and Tower Square.',
     prompt:()=>'Call the lift',onUse:()=>openHoodLift('tower')});
   // No Headquarters door in the Studio: this return wall is full. It already
   // carries the hall and tunnel doors plus DAMN. and Rubber Soul, leaving only
@@ -11836,14 +11811,8 @@ function buildThinkingRoom(){
   // this room; it calls the one car that serves every floor.
   registerInteractable({id:'lift:thinking',type:'lift',room:'thinking',mesh:returnBuilt.slab,
     label:'The lift',hintId:'tower-lift',priority:20,
-    hintText:'One lift serves the whole building — lobby, every room, and the roof garden.',
+    hintText:'One lift serves the whole building — Tower Hall, every gallery and Tower Square.',
     prompt:()=>'Call the lift',onUse:()=>openHoodLift('tower')});
-  // Second leg for the Thinking Room, which was previously a hall-only leaf.
-  const thinkingHqReturn = addPremiumPortalDoor({
-    x:x0+6.5, y:2.95, z:z0+.12, width:3.0, height:4.8, orientation:'front',
-    title:'HEADQUARTERS', subtitle:'civic quarter', accent:0xd8c39a, dark:0x1b1713
-  });
-
   const hemi = new THREE.HemisphereLight(0xfffbef,0xbca48a,1.16);
   scene.add(hemi);
   regLight('thinking', hemi);
@@ -12324,7 +12293,7 @@ function researchToNotes(){
 
 function archiveRoomLabel(room){
   return ({
-    gallery:'Warehouse / Corridor',
+    gallery:'Tower Hall / Gallery Corridor',
     theatre:'The Venue',
     lab:'NO WORRIES room',
     maze:'Experiment Garden',
@@ -12362,10 +12331,10 @@ function buildArchiveData(){
   const entries = [];
 
   const roomEntries = [
-    {id:'room_gallery', tab:'rooms', title:'Warehouse / Hall', type:'Room', room:'gallery', goPlace:'warehouse',
-      note:'Grand threshold space for Chartres, Guernica, destination portals and the tunnel entrance.', tags:['warehouse','threshold','portals','major works']},
-    {id:'room_tunnel', tab:'rooms', title:'Corridor / Tunnel Gallery', type:'Room', room:'gallery', goPlace:'tunnel',
-      note:'Clean wall-gallery for HrM works only. Side wall windows are intentionally removed so art can breathe.', tags:['corridor','hrm works','clean walls']},
+    {id:'room_gallery', tab:'rooms', title:'Tower Hall', type:'Room', room:'gallery', goPlace:'warehouse',
+      note:'The Tower threshold: Chartres, Guernica and the entrance to the principal gallery corridor.', tags:['tower hall','threshold','major works']},
+    {id:'room_tunnel', tab:'rooms', title:'Gallery Corridor', type:'Room', room:'gallery', goPlace:'tunnel',
+      note:'A measured wall-gallery for HrM works, culminating in the recovered Cadavre Expat sequence.', tags:['gallery corridor','cadavre expat','hrm works']},
     {id:'room_end_gallery', tab:'rooms', title:'End Gallery', type:'Room', room:'gallery', goPlace:'end-gallery',
       note:'Terminal gallery for enlarged HrM works and the monumental end sequence.', tags:['end gallery','monumental','hrm works']},
     {id:'room_garden', tab:'rooms', title:'Experiment Garden', type:'Room', room:'maze', goPlace:'garden',
@@ -12711,9 +12680,9 @@ function updateRoomUI(){
   }else if(currentRoom === 'lab'){
     $('workTitle').textContent = 'The Laboratory';
     $('workCollection').textContent = 'Experimental wing';
-    $('workMeta').textContent = 'totally dark projection room · live wall preview';
-    $('workText').textContent = 'A totally dark projection room for NO WORRIES: only the screen is alive, with a barely visible return trace.';
-    ariaStatus.textContent = 'Laboratory. Projecting No Worries.';
+    $('workMeta').textContent = 'illuminated projection gallery · live wall preview';
+    $('workText').textContent = 'An illuminated projection gallery for NO WORRIES, with ten artist-character works, warm architectural light and an unmistakable route back to the lift.';
+    ariaStatus.textContent = 'Laboratory. Illuminated gallery projecting No Worries.';
   }else if(currentRoom === 'maze'){
     $('workTitle').textContent = 'Experiment Garden';
     $('workCollection').textContent = 'Living gallery / projection / making desk';
@@ -12756,14 +12725,14 @@ function updateRoomUI(){
       $('workTitle').textContent = 'THE TOWER';
       $('workCollection').textContent = 'Vertical museum';
       $('workMeta').textContent = 'lobby · lift directory · stacked galleries';
-      $('workText').textContent = 'The vertical centre of The Workshop: a walkable lobby and stacked gallery rooms connected by one clearly marked lift.';
-      ariaStatus.textContent = 'The Tower. Walkable lobby with a lift serving the stacked galleries.';
+      $('workText').textContent = 'The image and address of The Workshop: one walkable landmark holding the collection, its public square and its vertical sequence of galleries.';
+      ariaStatus.textContent = 'The Tower. Landmark, lobby and lift serving the full collection.';
     }else{
       $('workTitle').textContent = floor.label.toUpperCase();
-      $('workCollection').textContent = 'Tower gallery / main lift';
+      $('workCollection').textContent = 'The Tower collection';
       $('workMeta').textContent = `${floor.code} · elevation ${floor.y.toFixed(1)} m · lift-served room`;
-      $('workText').textContent = 'A walkable room in the Tower, connected to the lobby and the rest of the collection by the main lift.';
-      ariaStatus.textContent = `${floor.label}. Lift-connected room in The Tower.`;
+      $('workText').textContent = 'One chapter in the Tower: a full-scale room connected to every other part of the collection by the main lift.';
+      ariaStatus.textContent = `${floor.label}. A gallery floor in The Tower.`;
     }
   }else if(currentRoom === 'studio'){
     $('workTitle').textContent = 'THE STUDIO';
@@ -13228,7 +13197,7 @@ function setChannelActive(name){
 // remembering four separate ternaries. Now a screen is added here once.
 function projectionTarget(mode=overlayMode){
   switch(mode){
-    case 'amph': return {iframe:amphWallIframe, label:'the Grove Amphitheatre',
+    case 'amph': return {iframe:amphWallIframe, label:'the Tower Amphitheatre',
       get:()=>amphCurrentChannel, set:v=>{amphCurrentChannel=v;}};
     default: return {iframe:venueWallIframe, label:'The Venue large screen',
       get:()=>venueCurrentChannel, set:v=>{venueCurrentChannel=v;}};

@@ -7,7 +7,7 @@ const roomLabels = {
   studio: 'The Studio',
   thinking: 'Thinking Room',
   maps: 'Many Maps',
-  outdoor: 'The Grove'
+  outdoor: 'Tower Square & Amphitheatre'
 };
 
 function finiteVector(vector) {

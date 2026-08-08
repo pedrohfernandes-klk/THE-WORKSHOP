@@ -21,6 +21,15 @@ test('passport starts with five unstamped acts', () => {
   assert.deepEqual(passportProgress(state), { completed: 0, total: 5, percent: 0 });
 });
 
+test('passport language makes the Tower the narrative destination', () => {
+  assert.deepEqual(PASSPORT_ACTS.map(act => act.label), [
+    'Enter', 'Read', 'Transmit', 'Gather', 'Ascend',
+  ]);
+  assert.match(PASSPORT_ACTS.find(act => act.id === 'outside').detail, /Tower Square/);
+  assert.match(PASSPORT_ACTS.find(act => act.id === 'return').detail, /Enter the Tower/);
+  assert.doesNotMatch(PASSPORT_ACTS.map(act => `${act.detail} ${act.guidance}`).join(' '), /Grove|Headquarters/);
+});
+
 test('passport records the five kinds of meaningful evidence', () => {
   let state = createPassportState();
   state = recordPassportEvent(state, {
@@ -56,7 +65,7 @@ test('passport records the five kinds of meaningful evidence', () => {
       type:'screen',id:'thinking:research-desk',label:'Research Desk',
     },
   });
-  assert.equal(passportEvidenceLine(state,'search'),'SEARCH — Consulted Research Desk, Thinking Room.');
+  assert.equal(passportEvidenceLine(state,'search'),'READ — Consulted Research Desk, Thinking Room.');
   assert.deepEqual(passportProgress(state), { completed: 5, total: 5, percent: 100 });
 });
 
@@ -108,8 +117,8 @@ test('passport restores legacy timestamps as truthful fallback evidence', () => 
     threshold:{at:10,eventId:null,legacy:true,evidence:null},
     search:{at:20,eventId:null,legacy:true,evidence:null},
   });
-  assert.equal(passportEvidenceLine(restored,'search'),'SEARCH — Legacy stamp; detailed evidence unavailable.');
-  assert.equal(passportEvidenceLine(restored,'outside'),'OUTSIDE — Not yet stamped.');
+  assert.equal(passportEvidenceLine(restored,'search'),'READ — Legacy stamp; detailed evidence unavailable.');
+  assert.equal(passportEvidenceLine(restored,'outside'),'GATHER — Not yet stamped.');
   assert.deepEqual(createPassportState('{bad json').stamps, {});
 });
 
