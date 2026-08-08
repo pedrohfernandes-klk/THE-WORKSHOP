@@ -247,7 +247,7 @@ test('Hall entry remains a plain threshold without a chaperone apparatus', () =>
 });
 
 test('every entered room receives broad fill and the Hall has no dead destination doors', () => {
-  assert.match(html, /new THREE\.AmbientLight\(0xfff1dc, 2\.35\)/,
+  assert.match(html, /new THREE\.AmbientLight\(0xfff1dc, 4\.20\)/,
     'a global visibility light bypasses room switching and the punctual-light budget');
   assert.match(html, /function applyRoomLighting\(\)\{[\s\S]*?ensureGuaranteedVisibilityLight\(currentRoom\);/,
     'the always-on visibility light is refreshed at every room entry');
@@ -255,6 +255,8 @@ test('every entered room receives broad fill and the Hall has no dead destinatio
     'room entry owns a guaranteed non-punctual fill light');
   assert.match(html, /function applyRoomLighting\(\)\{[\s\S]*?ensureRoomBaselineLight\(currentRoom\);[\s\S]*?applyLightBudget\(\);/,
     'broad fill is installed before the punctual accent-light budget runs');
+  assert.match(html, /currentRoom==='spark' \? \.48 : currentRoom==='lab' \? \.34/,
+    'the two deliberately dark-material rooms receive additional entry exposure');
   assert.doesNotMatch(html, /const outDoor\s*=\s*addPremiumPortalDoor/,
     'the unregistered Square & Amphitheatre Hall door is removed');
   assert.doesNotMatch(html, /const nightDoor\s*=\s*addPremiumPortalDoor/,

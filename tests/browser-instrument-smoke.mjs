@@ -115,6 +115,34 @@ try {
     fail(`Projection wiring checks missing or failed:\n${JSON.stringify(projectionChecks, null, 2)}`);
   }
   results.screens = { wiringChecks:projectionChecks.length };
+
+  // Structural light registries are insufficient: sample the rendered WebGL
+  // framebuffer after travelling to every public destination. This catches
+  // black materials, exposure mistakes and lights that exist but illuminate
+  // nothing in the visitor's actual view.
+  await museum.locator('#posterEnter').evaluate(button=>button.click());
+  await museum.waitForTimeout(1800);
+  const sampleRenderedLight=()=>museum.locator('#renderCanvas').evaluate(canvas=>{
+    const gl=canvas.getContext('webgl2')||canvas.getContext('webgl');
+    const width=gl.drawingBufferWidth,height=gl.drawingBufferHeight;
+    const pixels=new Uint8Array(width*height*4);
+    gl.readPixels(0,0,width,height,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
+    let luminance=0,dark=0,count=0;
+    for(let i=0;i<pixels.length;i+=40){
+      const value=.2126*pixels[i]+.7152*pixels[i+1]+.0722*pixels[i+2];
+      luminance+=value; dark+=value<20; count++;
+    }
+    return {mean:+(luminance/count).toFixed(1),darkRatio:+(dark/count).toFixed(3)};
+  });
+  results.lighting=[];
+  for(const room of ['gallery','theatre','studio','lab','thinking','maze','maps','spark','night','hood','outdoor']){
+    await museum.locator('#mapBtn').evaluate(button=>button.click());
+    await museum.locator(`.fastMapBtn[data-room="${room}"]`).first().evaluate(button=>button.click());
+    await museum.waitForTimeout(650);
+    const sample=await sampleRenderedLight();
+    results.lighting.push({room,...sample});
+    if(sample.mean<90 || sample.darkRatio>.30) fail(`Room renders too dark: ${room} ${JSON.stringify(sample)}`);
+  }
   if (museumErrors.length) fail(`Museum page errors: ${museumErrors.join('\n')}`);
 
   console.log(JSON.stringify(results, null, 2));
