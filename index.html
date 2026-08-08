@@ -1,0 +1,1245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' https://en.wikipedia.org; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://pedrohfernandes-klk.github.io; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>THE WORKSHOP â€” a museum of rooms, images, machines</title>
+<meta name="description" content="THE WORKSHOP: a walkable 3D museum of rooms, images and machines by HrM. Explore galleries, a screening venue, a music studio, an experiment garden and more, in one continuous space.">
+<meta name="theme-color" content="#020202">
+<meta property="og:title" content="THE WORKSHOP">
+<meta property="og:description" content="A walkable 3D museum of rooms, images and machines by HrM.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23020202'/%3E%3Crect x='18' y='14' width='28' height='40' rx='1' fill='none' stroke='%23c7aa70' stroke-width='2.4'/%3E%3Cline x1='32' y1='14' x2='32' y2='54' stroke='%23c7aa70' stroke-width='1.4'/%3E%3Ccircle cx='27' cy='34' r='1.8' fill='%23ffc478'/%3E%3Ccircle cx='37' cy='34' r='1.8' fill='%23ffc478'/%3E%3C/svg%3E">
+<style>
+:root{
+  --paper:#f7f0e2;
+  --paper2:#e6d5b5;
+  --paper3:#c7aa70;
+  --ink:#17120d;
+  --muted:rgba(23,18,13,.64);
+  --line:rgba(23,18,13,.18);
+  --soft:rgba(255,250,239,.84);
+  --red:#a94c44;
+  --cyan:#74e8ff;
+}
+*{box-sizing:border-box}
+html,body{
+  margin:0;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 50% -16%, #fff 0%, rgba(255,255,255,.80) 25%, transparent 50%),
+    radial-gradient(circle at 12% 20%, rgba(169,124,52,.12), transparent 30%),
+    radial-gradient(circle at 88% 86%, rgba(169,76,68,.10), transparent 30%),
+    linear-gradient(180deg,#f8f2e6,#e3d0aa 74%,#c7aa70);
+  color:var(--ink);
+  font-family:Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+button,input{font:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid rgba(169,76,68,.62);outline-offset:3px}
+#app{
+  position:fixed;
+  inset:0;
+  overflow:hidden;
+  background:#111;
+}
+
+#css3dLayer{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  z-index:2;
+  pointer-events:none;
+  overflow:hidden;
+}
+#css3dLayer.screen-interact{
+  pointer-events:auto;
+}
+.liveWallApp{
+  width:1600px;
+  height:900px;
+  overflow:hidden;
+  border:0;
+  background:#050706;
+  box-shadow:
+    0 0 0 18px rgba(8,10,10,.94),
+    0 0 0 24px rgba(255,250,239,.18),
+    0 34px 90px rgba(0,0,0,.42),
+    inset 0 0 70px rgba(120,238,255,.12);
+  transform-style:preserve-3d;
+  pointer-events:none;
+}
+.liveWallApp iframe{
+  width:100%;
+  height:100%;
+  display:block;
+  border:0;
+  background:#050706;
+  pointer-events:none;
+}
+.liveWallApp.interactive{
+  pointer-events:auto;
+  box-shadow:
+    0 0 0 18px rgba(8,10,10,.94),
+    0 0 0 25px rgba(255,250,239,.48),
+    0 0 46px rgba(116,232,255,.38),
+    0 34px 90px rgba(0,0,0,.42),
+    inset 0 0 70px rgba(120,238,255,.12);
+}
+.liveWallApp.interactive iframe{
+  pointer-events:auto;
+}
+
+.passiveWallIframe.interactive,
+.passiveWallIframe.interactive iframe{
+  pointer-events:auto!important;
+}
+.liveWallApp::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:
+    linear-gradient(0deg, rgba(116,232,255,.12) 1px, transparent 1px) 0 0/100% 9px,
+    radial-gradient(ellipse at 50% 50%, transparent 0 62%, rgba(0,0,0,.24) 100%);
+  mix-blend-mode:screen;
+}
+
+#renderCanvas{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  display:block;
+  background:#05070d;
+  touch-action:none;
+}
+
+/* Entry screen. Deliberately just the wordmark and one button on a plain
+   beige field. Earlier versions were an articulated door and then a
+   see-through portal aperture; the aperture sat under the wordmark, so the
+   black letters fell on the dark hall showing through and became unreadable.
+   Everything here is in normal flow and centred, so nothing can overlap
+   anything. The button states the loading wait plainly and only becomes the
+   live ENTER control once the world has finished building (markEntryReady).
+   Opening is a straight opacity fade driven per-frame from JS in lockstep
+   with the camera's forward dolly (see updatePosterReveal/beginPosterOpen). */
+#poster{
+  position:absolute;
+  inset:0;
+  z-index:20;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:34px;
+  padding:24px;
+  overflow:hidden;
+  background:#f4ecd9;
+  color:#17120d;
+  transition:opacity .55s ease, visibility .55s ease;
+}
+#poster.hide{
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+}
+#posterCard{
+  text-align:center;
+  color:#17120d;
+}
+#posterIntroTopline{
+  font:800 11px/1 ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+  letter-spacing:.5em;
+  text-transform:uppercase;
+  color:#a94c44;
+  margin:0 0 14px;
+}
+#posterCard h1{
+  margin:0;
+  font-family:ui-serif, Georgia, "Times New Roman", serif;
+  font-size:clamp(46px, 7.4vw, 88px);
+  line-height:.92;
+  font-weight:700;
+  letter-spacing:.16em;
+  text-indent:.16em;
+  text-transform:uppercase;
+  color:#17120d;
+}
+#posterCard h1::after{
+  content:"";
+  display:block;
+  width:132px;
+  height:3px;
+  margin:16px auto 0;
+  background:linear-gradient(90deg, #a94c44, #e6a12e 46%, #6db7c9);
+}
+#posterSubtitle{
+  margin:14px 0 0;
+  font:600 10px/1.4 ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+  letter-spacing:.34em;
+  text-transform:uppercase;
+  color:rgba(23,18,13,.55);
+}
+#posterEnter{
+  padding:15px 52px;
+  font:800 13px/1 ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+  letter-spacing:.42em;
+  text-indent:.42em;
+  text-transform:uppercase;
+  color:#17120d;
+  background:transparent;
+  border:2px solid #17120d;
+  border-radius:2px;
+  cursor:pointer;
+  transition:background .2s ease, color .2s ease, opacity .2s ease;
+}
+#posterEnter:not([disabled]):hover,
+#posterEnter:not([disabled]):focus-visible{
+  background:#17120d;
+  color:#f4ecd9;
+  outline:none;
+}
+/* Loading is stated plainly on the button itself, so the wait is legible
+   instead of looking like a dead control. */
+#posterEnter[disabled]{
+  cursor:default;
+  opacity:.45;
+  border-style:dashed;
+}
+@media (prefers-reduced-motion: no-preference){
+  #posterEnter[disabled]{ animation:posterWait 1.5s ease-in-out infinite; }
+}
+@keyframes posterWait{ 0%,100%{opacity:.32} 50%{opacity:.62} }
+#posterControls,.ctrlGroup,.keyRow,.key,.ctrlIcon,.ctrlLabel{display:none}
+
+#poster.opening #posterCard,
+#poster.opening #posterEnter{ opacity:0; transition:opacity .4s ease; }
+
+@media (max-width:820px){
+  #posterCard h1{ font-size:clamp(40px, 10vw, 60px); }
+}
+
+#topbar{
+  position:absolute;
+  left:16px;
+  right:16px;
+  top:14px;
+  z-index:12;
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:14px;
+  pointer-events:none;
+}
+#brand,#actions,#workPanel,#mapPanel,#helpPanel,#catalogue,#archivePanel,#notesPanel,#researchPanel{
+  pointer-events:auto;
+  border:1px solid rgba(23,18,13,.16);
+  background:rgba(255,250,239,.78);
+  box-shadow:0 18px 44px rgba(84,58,22,.16), inset 0 0 18px rgba(255,255,255,.58);
+  backdrop-filter:blur(9px);
+}
+#brand{
+  border-radius:18px;
+  padding:12px 15px 10px;
+  min-width:260px;
+}
+#brand h1{
+  margin:0;
+  font-family:ui-serif, Georgia, "Times New Roman", serif;
+  font-weight:500;
+  line-height:.92;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  font-size:clamp(24px,3.2vw,42px);
+}
+#brand p{
+  margin:7px 0 0;
+  color:var(--muted);
+  font-size:10px;
+  line-height:1.34;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+}
+#brandSignature{
+  display:block;
+  margin-top:10px;
+  width:96px;
+  height:auto;
+  opacity:.85;
+}
+#actions{
+  border-radius:999px;
+  padding:7px;
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  gap:7px;
+}
+.btn{
+  border:1px solid rgba(23,18,13,.18);
+  border-radius:999px;
+  background:rgba(255,255,255,.42);
+  color:rgba(23,18,13,.78);
+  padding:9px 11px;
+  font-size:10px;
+  font-weight:850;
+  letter-spacing:.13em;
+  text-transform:uppercase;
+  transition:transform .18s ease, filter .18s ease, background .18s ease;
+}
+.btn:hover{transform:translateY(-1px);filter:brightness(1.04)}
+.btn.dark,.btn.active{
+  background:#17120d;
+  color:#fff8eb;
+  border-color:#17120d;
+}
+#workPanel{
+  position:absolute;
+  left:16px;
+  bottom:16px;
+  z-index:12;
+  width:min(410px,calc(100vw - 32px));
+  border-radius:20px;
+  padding:15px 16px;
+}
+#workPanel h2{
+  margin:0;
+  font-family:ui-serif, Georgia, "Times New Roman", serif;
+  font-weight:500;
+  letter-spacing:.075em;
+  text-transform:uppercase;
+  font-size:30px;
+  line-height:1;
+}
+#workCollection{
+  display:block;
+  margin-top:7px;
+  color:rgba(169,76,68,.80);
+  font-size:11px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+}
+#workMeta{
+  display:block;
+  margin-top:6px;
+  color:rgba(23,18,13,.56);
+  font-size:10px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+#workText{
+  margin:10px 0 0;
+  color:rgba(23,18,13,.72);
+  font-size:13px;
+  line-height:1.48;
+}
+#mapPanel{
+  position:absolute;
+  right:16px;
+  bottom:16px;
+  z-index:12;
+  width:220px;
+  height:172px;
+  border-radius:20px;
+  padding:10px;
+}
+#miniMap{
+  width:100%;
+  height:100%;
+  display:block;
+}
+#hud{
+  position:absolute;
+  left:50%;
+  bottom:22px;
+  transform:translateX(-50%);
+  z-index:13;
+  width:min(480px,calc(100vw - 470px));
+  min-width:270px;
+  pointer-events:none;
+}
+#depthBar{
+  height:5px;
+  border-radius:999px;
+  overflow:hidden;
+  background:rgba(255,250,239,.50);
+  border:1px solid rgba(23,18,13,.12);
+  box-shadow:0 12px 30px rgba(84,58,22,.12);
+}
+#depthFill{
+  width:0%;
+  height:100%;
+  background:#17120d;
+}
+#hint{
+  margin-top:8px;
+  text-align:center;
+  color:rgba(23,18,13,.64);
+  text-transform:uppercase;
+  letter-spacing:.13em;
+  font-size:10px;
+  line-height:1.35;
+}
+#lookingAt{
+  margin:0 auto 9px;
+  width:max-content;
+  max-width:100%;
+  padding:7px 14px;
+  border:1px solid rgba(23,18,13,.16);
+  border-radius:999px;
+  background:rgba(255,250,239,.82);
+  box-shadow:0 12px 28px rgba(84,58,22,.14);
+  color:rgba(23,18,13,.74);
+  text-align:center;
+  text-transform:uppercase;
+  letter-spacing:.12em;
+  font-size:10px;
+  opacity:0;
+  transform:translateY(4px);
+  transition:opacity .22s ease, transform .22s ease;
+}
+#lookingAt.show{opacity:1;transform:translateY(0)}
+#hintBanner{
+  position:absolute;
+  left:50%;
+  top:96px;
+  z-index:16;
+  transform:translate(-50%,-8px);
+  max-width:min(480px,calc(100vw - 40px));
+  padding:11px 18px;
+  border:1px solid rgba(23,18,13,.16);
+  border-radius:14px;
+  background:rgba(255,250,239,.92);
+  box-shadow:0 18px 40px rgba(84,58,22,.18);
+  color:rgba(23,18,13,.78);
+  font-size:12.5px;
+  line-height:1.4;
+  text-align:center;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .3s ease, transform .3s ease;
+}
+#hintBanner.show{opacity:1;transform:translate(-50%,0)}
+#catalogue{
+  position:absolute;
+  left:16px;
+  top:104px;
+  z-index:15;
+  width:min(390px,calc(100vw - 32px));
+  max-height:calc(100svh - 250px);
+  border-radius:20px;
+  padding:14px;
+  overflow:hidden;
+  display:none;
+}
+#catalogue.open{display:block}
+#search{
+  width:100%;
+  border:1px solid rgba(23,18,13,.18);
+  border-radius:999px;
+  background:rgba(255,255,255,.48);
+  color:#17120d;
+  padding:11px 13px;
+  outline:none;
+}
+#collectionBar{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+  margin:12px 0;
+}
+.collectionChip{
+  border:1px solid rgba(23,18,13,.16);
+  border-radius:999px;
+  background:rgba(255,255,255,.38);
+  color:rgba(23,18,13,.70);
+  padding:7px 9px;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+.collectionChip.active{
+  background:#17120d;
+  color:#fff8eb;
+  border-color:#17120d;
+}
+#list{
+  overflow:auto;
+  max-height:calc(100svh - 390px);
+  display:grid;
+  gap:8px;
+  padding-right:4px;
+}
+.item{
+  display:grid;
+  grid-template-columns:44px 1fr;
+  gap:10px;
+  align-items:center;
+  border:1px solid rgba(23,18,13,.12);
+  border-radius:12px;
+  background:rgba(255,255,255,.34);
+  padding:7px;
+  text-align:left;
+}
+.item img{width:44px;height:58px;object-fit:cover;border:1px solid rgba(23,18,13,.16)}
+.item b{display:block;color:#17120d;font-size:11px;letter-spacing:.10em;text-transform:uppercase}
+.item em{display:block;margin-top:3px;color:rgba(169,76,68,.68);font-size:10px;font-style:normal;letter-spacing:.10em;text-transform:uppercase}
+.item span{display:block;margin-top:3px;color:rgba(23,18,13,.58);font-size:11px}
+.item.active{border-color:rgba(169,76,68,.44);background:rgba(255,250,239,.86);box-shadow:0 10px 20px rgba(84,58,22,.10)}
+
+#archivePanel{
+  position:absolute;
+  right:16px;
+  top:104px;
+  z-index:16;
+  width:min(760px,calc(100vw - 32px));
+  max-height:calc(100svh - 128px);
+  border-radius:22px;
+  padding:14px;
+  overflow:hidden;
+  display:none;
+  color:rgba(23,18,13,.76);
+}
+#archivePanel.open{display:block}
+#archiveHead{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+  margin-bottom:10px;
+}
+#archiveHead b{
+  display:block;
+  font-family:ui-serif, Georgia, "Times New Roman", serif;
+  font-size:34px;
+  font-weight:500;
+  letter-spacing:.08em;
+  line-height:.92;
+  text-transform:uppercase;
+  color:#17120d;
+}
+#archiveHead span{
+  display:block;
+  margin-top:5px;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.13em;
+  text-transform:uppercase;
+  color:rgba(23,18,13,.50);
+}
+#archiveProgress{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:8px;
+  margin:8px 0 11px;
+}
+.archiveProgressCard{
+  border:1px solid rgba(23,18,13,.12);
+  border-radius:13px;
+  background:rgba(255,255,255,.30);
+  padding:8px 9px;
+}
+.archiveProgressCard b{
+  display:block;
+  font-size:18px;
+  color:#17120d;
+  line-height:1;
+}
+.archiveProgressCard span{
+  display:block;
+  margin-top:4px;
+  font-size:9px;
+  font-weight:850;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:rgba(23,18,13,.50);
+}
+#archiveTabs{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+  margin:0 0 10px;
+}
+.archiveTab{
+  border:1px solid rgba(23,18,13,.16);
+  border-radius:999px;
+  background:rgba(255,255,255,.38);
+  color:rgba(23,18,13,.70);
+  padding:7px 9px;
+  font-size:10px;
+  font-weight:850;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+.archiveTab.active{
+  background:#17120d;
+  color:#fff8eb;
+  border-color:#17120d;
+}
+#archiveSearch{
+  width:100%;
+  border:1px solid rgba(23,18,13,.18);
+  border-radius:999px;
+  background:rgba(255,255,255,.50);
+  color:#17120d;
+  padding:11px 13px;
+  outline:none;
+  margin-bottom:11px;
+}
+#archiveBody{
+  display:grid;
+  grid-template-columns:minmax(220px,.85fr) minmax(300px,1.2fr);
+  gap:12px;
+  min-height:360px;
+}
+#archiveList{
+  overflow:auto;
+  max-height:calc(100svh - 350px);
+  display:grid;
+  align-content:start;
+  gap:8px;
+  padding-right:4px;
+}
+.archiveItem{
+  display:grid;
+  grid-template-columns:48px 1fr;
+  gap:10px;
+  align-items:center;
+  border:1px solid rgba(23,18,13,.12);
+  border-radius:13px;
+  background:rgba(255,255,255,.34);
+  padding:7px;
+  text-align:left;
+}
+.archiveItem.noThumb{grid-template-columns:1fr}
+.archiveItem img{width:48px;height:58px;object-fit:cover;border:1px solid rgba(23,18,13,.16);background:#fff8eb}
+.archiveItem b{display:block;color:#17120d;font-size:11px;letter-spacing:.10em;text-transform:uppercase}
+.archiveItem em{display:block;margin-top:3px;color:rgba(169,76,68,.72);font-size:10px;font-style:normal;letter-spacing:.10em;text-transform:uppercase}
+.archiveItem span{display:block;margin-top:3px;color:rgba(23,18,13,.56);font-size:11px}
+.archiveItem.active{border-color:rgba(169,76,68,.46);background:rgba(255,250,239,.90);box-shadow:0 10px 20px rgba(84,58,22,.10)}
+#archiveDetail{
+  overflow:auto;
+  max-height:calc(100svh - 350px);
+  border:1px solid rgba(23,18,13,.12);
+  border-radius:17px;
+  background:rgba(255,255,255,.30);
+  padding:14px;
+}
+#archiveDetail h3{
+  margin:0 0 8px;
+  font-family:ui-serif, Georgia, "Times New Roman", serif;
+  font-size:28px;
+  font-weight:500;
+  letter-spacing:.06em;
+  line-height:1;
+  text-transform:uppercase;
+  color:#17120d;
+}
+#archiveDetail .archiveType{
+  display:block;
+  margin:0 0 12px;
+  color:rgba(169,76,68,.80);
+  font-size:10px;
+  font-weight:850;
+  letter-spacing:.13em;
+  text-transform:uppercase;
+}
+#archiveDetail img.archiveHero{
+  width:100%;
+  max-height:310px;
+  object-fit:contain;
+  background:#110f0c;
+  border:1px solid rgba(23,18,13,.16);
+  border-radius:13px;
+  margin:0 0 12px;
+}
+#archiveDetail p{
+  margin:0 0 10px;
+  line-height:1.48;
+  font-size:13px;
+}
+.archiveTags{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin:10px 0 12px;
+}
+.archiveTags span{
+  border:1px solid rgba(23,18,13,.12);
+  border-radius:999px;
+  background:rgba(255,255,255,.34);
+  padding:5px 7px;
+  font-size:9px;
+  font-weight:850;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+.archiveActions{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.archiveActions .btn{font-size:9px;padding:8px 10px}
+
+#helpPanel{
+  position:absolute;
+  right:16px;
+  top:104px;
+  z-index:15;
+  width:min(380px,calc(100vw - 32px));
+  border-radius:20px;
+  padding:16px;
+  color:rgba(23,18,13,.72);
+  display:none;
+}
+#helpPanel.open{display:block}
+#helpToggles{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+  margin:0 0 12px;
+}
+#helpPanel b{
+  display:block;
+  font-family:ui-serif, Georgia, "Times New Roman", serif;
+  color:#17120d;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  font-size:30px;
+  font-weight:500;
+  margin-bottom:10px;
+}
+#helpPanel p{
+  margin:0 0 9px;
+  line-height:1.45;
+  font-size:13px;
+}
+#helpPanel code{
+  border:1px solid rgba(23,18,13,.13);
+  border-radius:999px;
+  background:rgba(255,255,255,.40);
+  padding:2px 6px;
+  font-size:11px;
+}
+#reticle{
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:20px;
+  height:20px;
+  z-index:10;
+  transform:translate(-50%,-50%);
+  pointer-events:none;
+  opacity:.42;
+  transition:opacity .18s ease, transform .18s ease;
+}
+#reticle::before,#reticle::after{
+  content:"";
+  position:absolute;
+  background:rgba(23,18,13,.48);
+}
+#reticle::before{left:9px;top:0;width:1px;height:20px}
+#reticle::after{left:0;top:9px;width:20px;height:1px}
+#reticle.hit{opacity:.92;transform:translate(-50%,-50%) scale(1.25)}
+#reticle.hit::before,#reticle.hit::after{background:var(--red)}
+#toast{
+  position:absolute;
+  left:50%;
+  top:90px;
+  z-index:30;
+  transform:translateX(-50%);
+  padding:10px 14px;
+  border:1px solid rgba(23,18,13,.16);
+  border-radius:999px;
+  background:rgba(255,250,239,.88);
+  color:var(--muted);
+  box-shadow:0 14px 32px rgba(84,58,22,.14);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .2s ease;
+  font-size:12px;
+  letter-spacing:.09em;
+  text-transform:uppercase;
+}
+#toast.show{opacity:1}
+#ariaStatus{
+  position:absolute;
+  width:1px;
+  height:1px;
+  overflow:hidden;
+  clip:rect(0 0 0 0);
+}
+#fadeOverlay{
+  position:absolute;
+  inset:0;
+  z-index:40;
+  background:#0b0906;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .24s ease;
+}
+#fadeOverlay.show{opacity:1}
+#playOverlay{
+  position:absolute;
+  inset:0;
+  z-index:50;
+  display:grid;
+  place-items:center;
+  background:rgba(11,9,6,.86);
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transition:opacity .25s ease, visibility .25s ease;
+  padding:26px;
+}
+#playOverlay.show{opacity:1;visibility:visible;pointer-events:auto}
+#playOverlayCard{
+  width:min(1280px,100%);
+  height:min(820px,100%);
+  display:flex;
+  flex-direction:column;
+ …189380 tokens truncated…ows*mazeCell-.9, mazeOrigin.z+mazeCell*1.35);
+  }else if(currentRoom === 'maps'){
+    clampWithVelocity(movePos, mapGalleryOrigin.x-mapGalleryHalfWidth+1.0, mapGalleryOrigin.x+mapGalleryHalfWidth-1.0, mapGalleryOrigin.z+1.2, mapGalleryOrigin.z+mapGalleryDepth-1.2);
+  }else if(currentRoom === 'spark'){
+    clampWithVelocity(movePos, sparkOrigin.x-sparkLabHalfWidth+1.4, sparkOrigin.x+sparkLabHalfWidth-1.4, sparkOrigin.z+1.3, sparkOrigin.z+sparkLabDepth-1.0);
+  }else if(currentRoom === 'thinking'){
+    clampWithVelocity(movePos, thinkingOrigin.x-thinkingHalfWidth+1.2, thinkingOrigin.x+thinkingHalfWidth-1.2, thinkingOrigin.z+1.1, thinkingOrigin.z+thinkingDepth-1.2);
+  }else if(currentRoom === 'night'){
+    clampWithVelocity(movePos, nightRoomOrigin.x-nightRoomHalfWidth+1.15, nightRoomOrigin.x+nightRoomHalfWidth-1.15, nightRoomOrigin.z+1.05, nightRoomOrigin.z+nightRoomDepth-1.05);
+  }else if(currentRoom === 'studio'){
+    clampWithVelocity(movePos, studioOrigin.x-studioHalfWidth+.85, studioOrigin.x+studioHalfWidth-.85, studioOrigin.z+1.0, studioOrigin.z+studioDepth-1.0);
+  }else if(currentRoom === 'tunnel'){
+    const inWaiting = movePos.z < tunnelRoomOrigin.z + 18.35;
+    const hwNow = inWaiting ? 10.05 : tunnelRoomHalfWidth - .55;
+    clampWithVelocity(movePos, tunnelRoomOrigin.x-hwNow, tunnelRoomOrigin.x+hwNow, tunnelRoomOrigin.z+1.2, tunnelRoomOrigin.z+tunnelRoomLength-1.0);
+  }else if(currentRoom === 'outdoor'){
+    clampWithVelocity(movePos, outdoorOrigin.x-outdoorHalfWidth+1.2, outdoorOrigin.x+outdoorHalfWidth-1.2, outdoorOrigin.z+1.1, outdoorOrigin.z+outdoorDepth-1.2);
+  }else if(isHoodRoom(currentRoom)){
+    const bounds=hoodFloorBounds(currentRoom);
+    clampWithVelocity(movePos,bounds.minX,bounds.maxX,bounds.minZ,bounds.maxZ);
+  }else{
+    const rhw = galleryHalfWidthAt(movePos.z);
+    clampWithVelocity(movePos, -rhw, rhw, hubBackZ+.7, hallFront-2);
+    const wallGap = rhw - Math.abs(movePos.x);
+    if(wallGap < .48){
+      const push = (movePos.x > 0 ? -1 : 1) * (.48 - wallGap) * 1.6 * dt;
+      movePos.x += push;
+      velX *= .82;
+    }
+  }
+
+  const speed = Math.hypot(velX, velZ);
+  smoothSpeed = damp(smoothSpeed, speed, 8, dt);
+  if(!reducedMotion){
+    bobPhase += smoothSpeed * dt * 1.45;
+    const targetBob = smoothSpeed > .08 ? Math.sin(bobPhase * Math.PI * 2) * Math.min(.026, smoothSpeed*.0046) : 0;
+    bodyBob = damp(bodyBob, targetBob, 12, dt);
+    const lateral = velX * Math.cos(yaw) + velZ * Math.sin(yaw);
+    roll = damp(roll, clamp(-lateral * .0042, -.024, .024), 8, dt);
+    const targetFov = fov + (sprinting && speed > 1.2 ? 1.55 : 0) + Math.min(.85, smoothSpeed*.07);
+    camera.fov = damp(camera.fov, targetFov, 6, dt);
+    camera.updateProjectionMatrix();
+  }else{
+    bodyBob = 0; roll = 0;
+    camera.fov = fov;
+  }
+
+  const viewHeight = (currentRoom === 'studio' && seatedStudioView) ? 1.28 : (currentRoom==='outdoor'&&seatedAmphView) ? amphSeatEyeY : cameraHeight;
+  // visitorFloorY is position-aware (it raises you onto the Cave's tiers);
+  // the old inline expression only knew a single flat height per Hood level.
+  // Damp the walking-floor height so the Cave's 0.34 m seating tiers read as a
+  // smooth rise, not a per-frame lurch. A jump larger than a single tier (level
+  // change, teleport, first spawn) is snapped so lift trips don't glide.
+  const floorTarget = visitorFloorY(movePos);
+  if(Math.abs(floorTarget - smoothFloorY) > 1.5) smoothFloorY = floorTarget;
+  else smoothFloorY = damp(smoothFloorY, floorTarget, 11, dt);
+  movePos.y = smoothFloorY + viewHeight + bodyBob;
+  if(rpgMode) updateRpgAvatar(dt,speed);
+}
+
+function updateWorld(dt, t){
+  updateHallWindow(dt);
+  const visitor=getVisitorPosition();
+  if(hoodWaterfallFX?.material?.uniforms?.uTime) hoodWaterfallFX.material.uniforms.uTime.value=t;
+  // Re-pick which lights are alive as the visitor moves. The COUNT never
+  // changes, only which ones, so this costs no shader recompile.
+  lightBudgetTimer += dt;
+  if(lightBudgetTimer > .45){ lightBudgetTimer = 0; applyLightBudget(); }
+  // Drift the sky only where a sky is actually visible. Both domes are
+  // outdoors, so in the nine interior rooms this costs nothing.
+  if(skyFX.length && !reducedMotion && (isHoodRoom(currentRoom) || currentRoom==='outdoor')){
+    for(const material of skyFX) material.uniforms.uTime.value=t;
+  }
+  // Entering either real lift cabin opens its destination panel. The latch is
+  // cleared only after walking away, so closing the panel does not trap users
+  // in a loop.
+  if(isHoodRoom() && hoodLiftLayout && !hoodLiftPanel?.classList.contains('travelling')){
+    const L=hoodLiftLayout;
+    const privateAvailable=currentRoom==='hood-a5' || /^hood-ph[1-5]$/.test(currentRoom);
+    const candidates=[{mode:'main',x:L.lx,z:L.lz},{mode:'private',x:L.plx,z:L.plz,enabled:privateAvailable}];
+    let inside='';
+    for(const c of candidates){
+      if(c.mode==='private' && !c.enabled) continue;
+      if(Math.hypot(visitor.x-c.x,visitor.z-c.z)<1.62){inside=`${c.mode}:${currentRoom}`;if(hoodLiftAutoKey!==inside){hoodLiftAutoKey=inside;openHoodLift(c.mode);}break;}
+    }
+    if(!inside && hoodLiftAutoKey){
+      const allFar=candidates.every(c=>Math.hypot(visitor.x-c.x,visitor.z-c.z)>3.0);
+      if(allFar)hoodLiftAutoKey='';
+    }
+  }
+  screens.forEach(s=>{
+    if(s.css){
+      const inRoom=s.room === currentRoom || (screenControlMode && controlledScreen === s);
+      s.css.visible = inRoom && !screenIsOccluded(s);
+    }
+  });
+
+  if(!reducedMotion && pageVisible){
+    holograms.forEach((h,i)=>{
+      if(h.material.uniforms) h.material.uniforms.uTime.value = t;
+      if(h.userData.baseY === undefined) h.userData.baseY = h.position.y;
+      h.position.y = h.userData.baseY + Math.sin(t*.65+i)*.035;
+    });
+    extraShaderPlanes.forEach(h=>{
+      if(h.material.uniforms) h.material.uniforms.uTime.value = t;
+    });
+    if(hallHologram && hallHologram.rings){
+      hallHologram.rings.forEach(r=>{
+        if(r.axis===0) r.mesh.rotation.z = t*r.speed;
+        else if(r.axis===1) r.mesh.rotation.y = t*r.speed;
+        else r.mesh.rotation.x = Math.PI/2.3 + t*r.speed*.5;
+      });
+      if(hallHologram.figure) hallHologram.figure.rotation.y = Math.sin(t*.15)*.12;
+      if(hallHologram.column && hallHologram.colBase){
+        const arr = hallHologram.column.geometry.attributes.position.array;
+        const base = hallHologram.colBase;
+        for(let i=1;i<arr.length;i+=3){
+          arr[i] += dt*.9;
+          if(arr[i] > 9) arr[i] = 2;
+        }
+        hallHologram.column.geometry.attributes.position.needsUpdate = true;
+      }
+    }
+    // Particles live in the gallery's z-corridor (invisible from other
+    // districts), so only animate their per-vertex drift + buffer re-upload
+    // when the visitor is actually in the gallery.
+    if(particles && currentRoom==='gallery'){
+      const arr = particles.geometry.attributes.position.array;
+      for(let i=2;i<arr.length;i+=3){
+        arr[i] += dt*.42;
+        if(arr[i] > mapWorldFront) arr[i] = mapWorldBack - Math.random()*20;
+      }
+      particles.geometry.attributes.position.needsUpdate = true;
+    }
+  }
+  // The artworks are gallery-only (registered with regLight('gallery')); their
+  // per-frame scale-lerp and opacity writes were running in all 11 rooms.
+  if(currentRoom==='gallery') artworkObjects.forEach((o,i)=>{
+    const dist = Math.abs(visitor.z - o.z);
+    const scale = i===selected ? 1.055 : 1;
+    o.group.scale.lerp(tmpVec.set(scale,scale,scale), .12);
+    const opacity = dist < 18 ? 1 : .62;
+    o.art.material.opacity = opacity;
+    o.art.material.transparent = opacity < 1;
+  });
+}
+function showHint(id, text, duration=4200, paintSafe=false){
+  if(hintsShown.has(id)) return;
+  hintsShown.add(id);
+  const el = $('hintBanner');
+  el.textContent = text;
+  el.classList.add('show');
+  showHint.activeId=id;
+  ariaStatus.textContent=text;
+  const armDismissal=()=>{
+    if(showHint.activeId!==id) return;
+    clearTimeout(showHint._t);
+    showHint._t = setTimeout(()=>{
+      if(showHint.activeId===id){
+        el.classList.remove('show');
+        showHint.activeId=null;
+      }
+    }, duration);
+  };
+  if(paintSafe) requestAnimationFrame(()=>requestAnimationFrame(armDismissal));
+  else armDismissal();
+}
+function showVisitGuidance(id,text,duration=5200,paintSafe=false){showHint(id,text,duration,paintSafe);}
+const visitGuidanceScheduler=createVisitGuidanceScheduler({
+  getStatus:()=>visitOrientationStatus(visitState),
+  show:(id,payload={})=>showVisitGuidance(id,payload.text || '',payload.duration || 5200),
+});
+function queueVisitGuidanceAfterPaint(id,text,duration=5200){
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    if(id!=='visit-move' || visitOrientationStatus(visitState)==='move') showVisitGuidance(id,text,duration,true);
+  }));
+}
+function dismissVisitGuidance(id=null){
+  if(id) visitGuidanceScheduler.cancel(id);
+  else visitGuidanceScheduler.cancelAll();
+  if(!id || showHint.activeId===id){
+    clearTimeout(showHint._t);
+    $('hintBanner').classList.remove('show');
+    showHint.activeId=null;
+  }
+}
+function scheduleInteractionGuidance(){
+  if(visitGuidanceScheduler.has('visit-interaction') || visitState.firstInteractionAt!==null) return;
+  visitGuidanceScheduler.schedule('visit-interaction',{
+    delay:14000,
+    status:'interact',
+    payload:{
+      text:isCoarsePointer
+        ? 'Face an object, then tap Enter to use it.'
+        : 'Face an object, then press Enter or click to use it.',
+      duration:5600,
+    },
+  });
+}
+
+function updateLookRay(){
+  const el = $('lookingAt');
+  const reticle = $('reticle');
+  const target = getCenterInteractable();
+  const item = target?.interactable || null;
+  lookingAtInteractable = item;
+  if(item){
+    if(visitState.firstLookAt===null) recordWorkshopEvidence({kind:'target',action:'attended',room:item.room,roomLabel:item.roomLabel,type:item.type,id:item.id,label:item.label,source:'world'});
+    if(visitState.firstInteractionAt===null) scheduleInteractionGuidance();
+  }
+
+  const activePortals = portals.filter(p=>p.fromRoom===currentRoom);
+  const activeScreens = screens.filter(screen=>screen.room===currentRoom);
+  const activeArchiveHotspots = archiveHotspots.filter(h=>h.room===currentRoom);
+
+  lookingAt = item?.type === 'artwork' ? item.source.index : -1;
+  lookingAtPortal = item?.type === 'portal' ? activePortals.indexOf(item.source) : -1;
+  lookingAtScreen = item?.type === 'screen' ? activeScreens.indexOf(item.source) : -1;
+  lookingAtArchive = item?.type === 'archive' ? activeArchiveHotspots.indexOf(item.source) : -1;
+
+  // Aim-glow remains a visual property of portals, but targeting itself now
+  // comes from the shared registry.
+  activePortals.forEach(portal=>{
+    const u = portal.field && portal.field.material.uniforms && portal.field.material.uniforms.uBoost;
+    if(u) u.value += ((item?.type === 'portal' && item.source === portal ? 1 : 0) - u.value) * .16;
+  });
+
+  const hallWindowTargeted = !!(item?.type === 'window' && item.source === hallWindow);
+  const winControls = $('windowControls');
+  if(winControls) winControls.classList.toggle('show', hallWindowTargeted);
+
+  if(item){
+    if(item.type === 'artwork' && lookingAt !== selected) updateSelected(lookingAt, true);
+    el.textContent = interactionPrompt(item);
+    el.classList.add('show');
+    reticle.classList.add('hit');
+    if(item.hintText && visitState.firstInteractionAt!==null) showHint(item.hintId || item.type, item.hintText);
+  }else{
+    el.classList.remove('show');
+    reticle.classList.remove('hit');
+  }
+  if(isCoarsePointer){
+    const enterBtn = $('mobileInteractBtn');
+    if(enterBtn) enterBtn.classList.toggle('hasTarget', !!item);
+  }
+}
+function drawMap(){
+  const visitor=getVisitorPosition();
+  const w = miniMap.width, h = miniMap.height;
+  const top = 30, bottom = h-30;
+  miniCtx.clearRect(0,0,w,h);
+  miniCtx.fillStyle='rgba(255,250,239,.92)';
+  miniCtx.fillRect(0,0,w,h);
+  miniCtx.strokeStyle='rgba(23,18,13,.28)';
+  miniCtx.lineWidth=3;
+  miniCtx.strokeRect(74,top,w-148,bottom-top);
+  miniCtx.beginPath();
+  miniCtx.moveTo(w/2,top); miniCtx.lineTo(w/2,bottom);
+  miniCtx.strokeStyle='rgba(23,18,13,.12)';
+  miniCtx.stroke();
+
+  miniCtx.fillStyle='rgba(23,18,13,.56)';
+  miniCtx.font='700 14px Arial, sans-serif';
+  miniCtx.textAlign='center';
+  miniCtx.fillText('ENTRANCE', w/2, 16);
+  miniCtx.fillText('END', w/2, h-9);
+
+  artworks.forEach((a,i)=>{
+    const o = artworkObjects[i];
+    // Artwork textures are streamed after the first frame. During that
+    // window the catalogue can contain entries whose scene object does not
+    // exist yet; the map must simply omit those entries until they arrive.
+    if(!o) return;
+    const x = o.side < 0 ? 88 : w-88;
+    const y = top + ((mapWorldFront - o.z) / mapWorldSpan) * (bottom-top);
+    if(i===selected){
+      miniCtx.beginPath();
+      miniCtx.arc(x,y,9,0,Math.PI*2);
+      miniCtx.strokeStyle='rgba(169,76,68,.55)';
+      miniCtx.lineWidth=2;
+      miniCtx.stroke();
+    }
+    miniCtx.fillStyle = i===selected ? '#a94c44' : 'rgba(23,18,13,.40)';
+    miniCtx.beginPath(); miniCtx.arc(x,y,i===selected?5.5:3.2,0,Math.PI*2); miniCtx.fill();
+  });
+
+  const regionHW = currentRoom === 'gallery' ? galleryHalfWidthAt(visitor.z) : halfWidth;
+  const px = 74 + ((visitor.x + regionHW)/(regionHW*2))*(w-148);
+  const py = top + ((mapWorldFront - visitor.z) / mapWorldSpan) * (bottom-top);
+  // heading-aware visitor marker: an arrow pointing the way the visitor is facing
+  const dx = -Math.sin(yaw), dy = Math.cos(yaw);
+  const perpX = -dy, perpY = dx;
+  miniCtx.beginPath();
+  miniCtx.moveTo(px+dx*9, py+dy*9);
+  miniCtx.lineTo(px-dx*7+perpX*6, py-dy*7+perpY*6);
+  miniCtx.lineTo(px-dx*3, py-dy*3);
+  miniCtx.lineTo(px-dx*7-perpX*6, py-dy*7-perpY*6);
+  miniCtx.closePath();
+  miniCtx.fillStyle='#17120d';
+  miniCtx.fill();
+
+  $('depthFill').style.width = clamp(((mapWorldFront-visitor.z)/mapWorldSpan)*100,0,100).toFixed(1)+'%';
+}
+
+// Runtime performance ladder (batch 127): if the average frame stays above
+// ~42 ms across a 4-second window, step the pixel ratio down once (max two
+// steps, floor 0.85) instead of letting weak devices grind.
+// Bidirectional performance ladder: sample average frame time over a 2 s
+// window and adjust pixel ratio both ways. Ease DOWN when frames are slow
+// (>33 ms â‰ˆ 30 fps) toward a floor of 60% of the initial DPR; RESTORE up
+// toward that initial DPR (the ceiling) when there is headroom (<22 ms â‰ˆ
+// 45 fps). A dead zone between the two thresholds prevents oscillation.
+let perfAccum = 0, perfFrames = 0, perfBasePR = 0;
+function updatePerformanceLadder(dt){
+  perfAccum += dt; perfFrames++;
+  if(perfAccum < 2) return;
+  const avg = perfAccum / perfFrames;
+  perfAccum = 0; perfFrames = 0;
+  if(!perfBasePR) perfBasePR = renderer.getPixelRatio();   // initial/adaptive DPR = ceiling
+  const cur = renderer.getPixelRatio();
+  let next = cur;
+  if(avg > 0.033 && cur > perfBasePR*0.6) next = Math.max(perfBasePR*0.6, cur*0.85);
+  else if(avg < 0.022 && cur < perfBasePR) next = Math.min(perfBasePR, cur*1.12);
+  if(Math.abs(next - cur) > 0.001){
+    renderer.setPixelRatio(next);
+    renderer.setSize(innerWidth, innerHeight);
+    if(cssRenderer) cssRenderer.setSize(innerWidth, innerHeight);
+    if(next < cur) msg('Performance mode: resolution eased');
+  }
+}
+
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(.05, clock.getDelta());
+  const t = clock.elapsedTime;
+  if(pageVisible){
+    if(isCoarsePointer) syncMobileUiVisibility();
+    updatePerformanceLadder(dt);
+    if(cameraTransition.active){
+      updateCameraTransition(dt);
+    }else{
+      updateMovement(dt);
+      updateCameraRotation();
+    }
+    updateLookRay();
+    if(currentRoom === 'gallery'){
+      selectNearest(true);
+    }
+    updateArchitecturalWindowMedia();
+    if(sparkGlitchLights && sparkGlitchLights.length){
+      sparkGlitchLights.forEach((g,i)=>{
+        const active = currentRoom === 'spark' ? 1 : 0.45;
+        if(reducedMotion){
+          // Steady light under reduced motion: no pulses, no glitch dips.
+          g.light.intensity = g.base * active;
+          if(g.diffuser && g.diffuser.material) g.diffuser.material.emissiveIntensity = 0.65 + g.base*active*.22;
+          return;
+        }
+        const pulse = 0.94 + 0.08*Math.sin(t*1.7 + g.phase);
+        // Glitch dips softened (batch 128): brief dims to ~55/62%, never a
+        // near-blackout strobe â€” arcade mood without the flash hazard.
+        const burstA = Math.sin(t*g.speed + g.phase*2.7) > 0.992 ? 0.55 : 1;
+        const burstB = Math.sin(t*(g.speed*1.53) + g.phase*1.1) > 0.997 ? 0.62 : 1;
+        const intensity = g.base * pulse * Math.min(burstA, burstB) * active;
+        g.light.intensity = intensity;
+        if(g.diffuser && g.diffuser.material) g.diffuser.material.emissiveIntensity = 0.65 + intensity*.22;
+      });
+    }
+    if(studioFX){
+      // THE STUDIO choreography: colour-cycling dancefloor, breathing speaker
+      // rings and drifting orbs. Dimmed when the visitor is elsewhere; frozen
+      // under reduced motion.
+      const active = currentRoom === 'studio' ? 1 : 0;
+      if(active && !reducedMotion){
+        studioFX.tileTimer += dt;
+        if(studioFX.tiles && studioFX.tileTimer > .16){
+          studioFX.tileTimer = 0;
+          const col = new THREE.Color();
+          const N = studioFX.tileN;
+          for(let i=0;i<N;i++) for(let j=0;j<N;j++){
+            const n = i*N + j;
+            const hshift = ((i+j)*.055 + t*.075) % 1;
+            const l = .26 + .20*Math.max(0, Math.sin(t*2.4 + (i*1.3 + j*.7)));
+            col.setHSL(hshift, .74, l);
+            studioFX.tiles.setColorAt(n, col);
+          }
+          if(studioFX.tiles.instanceColor) studioFX.tiles.instanceColor.needsUpdate = true;
+        }
+        studioFX.speakerRings.forEach(r=>{
+          r.mat.opacity = .22 + .34*Math.abs(Math.sin(t*3.3 + r.phase));
+        });
+        studioFX.orbs.forEach(o=>{
+          o.mesh.position.y = o.baseY + Math.sin(t*.9 + o.phase)*.5;
+          o.mesh.position.x = o.baseX + Math.sin(t*.42 + o.phase*1.7)*o.rad;
+        });
+        if(studioFX.ball) studioFX.ball.rotation.y += dt*.55;
+      }
+    }
+    if(tunnelTorchFX && currentRoom === 'tunnel' && !reducedMotion){
+      tunnelTorchFX.flameMat.opacity = .82 + .13*Math.sin(t*9.2) + .05*Math.sin(t*23.7);
+      tunnelTorchFX.glows.material.opacity = .58 + .18*Math.sin(t*7.1 + 1.3);
+    }
+    updateWorld(dt,t);
+    if(currentRoom === 'gallery' && artworkObjects.length){
+      drawMap();
+    }
+    renderer.render(scene,camera);
+    if(cssRenderer) cssRenderer.render(scene,camera);
+    updateTrackedWallPlayers();
+  }
+}
+document.addEventListener('visibilitychange', ()=>{
+  pageVisible = !document.hidden;
+  if(hallWindow && hallWindow.video){
+    if(document.hidden){ try{ hallWindow.video.pause(); }catch(e){} }
+    else if(hallWindow.open){ const p = hallWindow.video.play(); if(p&&p.catch) p.catch(()=>{}); }
+  }
+  updateArchitecturalWindowMedia();
+});
+// Boot as soon as the document structure and module are ready. Waiting only
+// for window.load made a slow video/image request able to hold the entire
+// museum behind the Loading button forever. The load listener remains as a
+// safety net for unusual embedding environments, but can never initialise a
+// second copy of the world.
+let workshopBooted=false;
+function bootWorkshop(){
+  if(workshopBooted) return;
+  workshopBooted=true;
+  try{
+    init();
+  }catch(err){
+    console.error(err);
+    window.__lastInitError = err;
+    const msgText = (err && (err.stack || err.message)) ? String(err.stack || err.message).slice(0,900) : 'Unknown renderer error';
+    $('posterCard').innerHTML = `<h1>BUILD<br>ERROR</h1><p>${esc(msgText)}</p>`;
+  }
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bootWorkshop,{once:true});
+else queueMicrotask(bootWorkshop);
+window.addEventListener('load',bootWorkshop,{once:true});
+</script>
+</body>
+</html>
