@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; form-action 'none'; script-src 'self' 'unsafe-inline' https://www.youtube.com https://s.ytimg.com; style-src 'unsafe-inline'; img-src https: data:; frame-src https://www.youtube.com https://www.youtube-nocookie.com; connect-src https://www.youtube.com">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>HrM · YouTube relay</title>
 <style>
@@ -20,9 +22,11 @@
 // Usage from the museum:
 //   yt.html?v=VIDEO_ID           — play one video (looping)
 //   yt.html?list=PLAYLIST_ID     — play a playlist
-// The museum can control playback by posting messages to this window:
-//   {func:'playVideo'|'pauseVideo'|'unMute'|'mute'}  or the YT-style
-//   {"event":"command","func":...} JSON string — both are forwarded.
+// The embedding museum can control playback by posting messages to this window:
+//   {func:'playVideo'|'pauseVideo'|'stopVideo'|'mute'|'unMute'}
+//   {func:'setVolume', args:[0-100]}
+// or the YT-style {"event":"command","func":...} JSON string. Only those verbs
+// are accepted, and only from the framing page — see the listener below.
 var params = new URLSearchParams(location.search);
 var videoId = params.get('v') || 'jfKfPfyJRdk';
 var listId = params.get('list') || '';
@@ -54,15 +58,45 @@ window.onYouTubeIframeAPIReady = function(){
   player = new YT.Player('player', opts);
 };
 
+// Only the page that framed this relay may drive it, and only through the
+// playback verbs listed here. Without these checks any site could frame this
+// public page and invoke arbitrary YT.Player methods with arbitrary arguments.
+//
+// An origin allowlist cannot carry the weight on its own: the relay exists so a
+// museum opened from file:// can embed YouTube, and a file:// page posts with
+// origin "null". ev.source is therefore the real gate.
+var ALLOWED_FUNCS = {
+  playVideo:1, pauseVideo:1, stopVideo:1, mute:1, unMute:1, setVolume:1
+};
+
 window.addEventListener('message', function(ev){
+  // Reject anything that is not the embedding page. Sibling frames and
+  // window.open handles are not window.parent.
+  if(ev.source !== window.parent) return;
+
   var data = ev.data;
   if(typeof data === 'string'){
     try{ data = JSON.parse(data); }catch(e){ return; }
   }
-  if(!data) return;
+  if(!data || typeof data !== 'object') return;
+
   var func = data.func || (data.event === 'command' ? data.func : null);
-  if(!func || !player || typeof player[func] !== 'function') return;
-  try{ player[func].apply(player, Array.isArray(data.args) ? data.args : []); }catch(e){}
+  if(typeof func !== 'string') return;
+  // Own-property check, so inherited keys ('constructor', 'toString') cannot
+  // pass as commands.
+  if(!Object.prototype.hasOwnProperty.call(ALLOWED_FUNCS, func)) return;
+  if(!player || typeof player[func] !== 'function') return;
+
+  // setVolume is the only verb that takes an argument. Clamp it rather than
+  // forwarding whatever arrived.
+  var args = [];
+  if(func === 'setVolume'){
+    var vol = Array.isArray(data.args) ? Number(data.args[0]) : NaN;
+    if(!isFinite(vol)) return;
+    args = [Math.max(0, Math.min(100, vol))];
+  }
+
+  try{ player[func].apply(player, args); }catch(e){}
 });
 </script>
 </body>
