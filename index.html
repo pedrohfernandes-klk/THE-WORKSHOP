@@ -2909,7 +2909,7 @@ const portals = []; // {mesh, room, fromRoom, targetPos, targetYaw, label, slide
 // keep the GPU cost lower without changing the visible layout. Lights register to a room and are
 // switched on only while the visitor is in that room (the swap happens
 // behind the travel fade, so the one-time shader recompile is invisible).
-const roomLights = { gallery:[], theatre:[], lab:[], maze:[], maps:[], spark:[], thinking:[], outdoor:[], night:[], studio:[], tunnel:[] };
+const roomLights = { gallery:[], theatre:[], lab:[], maze:[], maps:[], spark:[], thinking:[], outdoor:[], night:[], studio:[] };
 // Lights are registered HIDDEN. Forward rendering evaluates every visible
 // light in every shader, so a district built on demand used to add its lights
 // already on — with several districts alive at once that overflows
@@ -4759,14 +4759,8 @@ function runWorkshopSelfTest(){
   const inScene = (obj) => { let o = obj; while(o){ if(o === scene) return true; o = o.parent; } return false; };
   const knownRooms = new Set(Object.keys(roomLights));
 
-  check(!!hoodSky && hoodSky.material?.fog === false, 'Hood sky bypasses global fog', hoodSky?.material?.fog);
-  // The ocean is now a horizontal sea plane rather than a vertical billboard,
-  // so it deliberately DOES take fog — that is how the water dissolves into
-  // the coastal haze at the horizon. A backdrop had to opt out; a real surface
-  // must opt in. The sky still opts out (checked above).
-  check(!!hoodHorizon && hoodHorizon.material?.fog !== false, 'Hood ocean takes the coastal haze', hoodHorizon?.material?.fog);
-  check(!!hoodHorizon && Math.abs(hoodHorizon.rotation.x + Math.PI/2) < .01, 'Hood ocean lies flat', hoodHorizon?.rotation?.x?.toFixed(3));
-  check(!!hoodSky && hoodSky.geometry?.parameters?.radius >= 2000, 'Hood sky dome encloses the terrain apron', hoodSky?.geometry?.parameters?.radius);
+  // The former Hood ocean and sky system was removed with that district. The
+  // retained Tower square uses the normal scene atmosphere and room lighting.
   // Every projection wall must actually be drivable by the remote: it needs an
   // action the control paths recognise AND a live iframe to write into. The
   // Cave shipped with neither, which is why projecting there did nothing, and
@@ -4796,7 +4790,7 @@ function runWorkshopSelfTest(){
   // Rooms are reached by the tower lift, not by a door each, so the portal count
   // is deliberately small now: what has to exist is a lift landing in every
   // floor the lift serves.
-  check(portals.length >= 2, 'portals registered', `${portals.length} portals`);
+  check(TOWER_FLOORS.length >= 10, 'tower directory serves the retained campus', `${TOWER_FLOORS.length} stops`);
   {
     const liftRooms=new Set(interactables.filter(i=>i.type==='lift').map(i=>i.room));
     TOWER_FLOORS.forEach(f=>check(liftRooms.has(f.id), `lift reaches floor · ${f.code} ${f.label}`, f.id));
@@ -4834,11 +4828,6 @@ function runWorkshopSelfTest(){
     const fromGallery = reachableFrom('gallery');
     routableRooms.forEach(room=>{
       check(fromGallery.has(room), `room reachable from gallery · ${room}`, room);
-    });
-    const fromTunnel = reachableFrom('tunnel');
-    routableRooms.forEach(room=>{
-      if(room === 'gallery' || room === 'tunnel') return;
-      check(fromTunnel.has(room), `room reachable from tunnel · ${room}`, room);
     });
   }
 
@@ -4958,7 +4947,7 @@ function runWorkshopSelfTest(){
   }
 
   check(wallArtPieces.length>=30, 'wall art registered', `${wallArtPieces.length} pieces`);
-    check(doorFootprints.length>=30, 'doors registered', `${doorFootprints.length} doors`);
+    check(doorFootprints.length>=25, 'retained doors registered', `${doorFootprints.length} doors`);
     check(doorClashes===0, 'no wall art crowds a doorway', doorClashes?worstDoor:'all clear');
     check(artClashes===0, 'no wall art crowds its neighbour', artClashes?worstArt:'all clear');
   }
