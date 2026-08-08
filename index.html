@@ -1956,7 +1956,7 @@ body.rpgMode #rpgModeBadge{display:block}
       <button class="btn" id="focusBtn">Focus</button>
       <button class="btn" id="tourBtn">Tour</button>
       <button class="btn active" id="motionBtn">Motion</button>
-      <button class="btn" id="lightsBtn">Lights</button>
+      <button class="btn active" id="lightsBtn">Lights on</button>
     </div>
     <p><code>W/S</code> or <code>↑/↓</code>: walk forward / backward. Hold <code>Shift</code> to run.</p>
     <p><code>A/D</code>: left / right strafe.</p>
@@ -2927,9 +2927,9 @@ function regLight(room, ...ls){ if(!roomLights[room]) roomLights[room]=[]; ls.fo
 // now brighter than the old first boost, and the two boost steps move up with
 // it so the Lights button still has real headroom.
 const LIGHT_LEVELS = [
-  { label:'Lights',   mult:1.62, exp:1.32 },
-  { label:'Lights+',  mult:2.10, exp:1.46 },
-  { label:'Lights++', mult:2.70, exp:1.60 }
+  { label:'Lights on', mult:1.85, exp:1.48 },
+  { label:'Lights+',   mult:2.30, exp:1.62 },
+  { label:'Lights++',  mult:2.85, exp:1.76 }
 ];
 let lightLevelIndex = 0;
 function applyLightBoost(){
@@ -2984,6 +2984,19 @@ const _lightBudgetPos = new THREE.Vector3();
 let lightBudgetTimer = 0;
 function isPunctualLight(l){ return l && (l.isPointLight || l.isSpotLight || l.isRectAreaLight); }
 const roomBaselineLights = new Map();
+let guaranteedVisibilityLight = null;
+function ensureGuaranteedVisibilityLight(room=currentRoom){
+  if(!guaranteedVisibilityLight){
+    guaranteedVisibilityLight = new THREE.AmbientLight(0xfff1dc, 2.35);
+    guaranteedVisibilityLight.name = 'Guaranteed visitor visibility';
+    scene.add(guaranteedVisibilityLight);
+  }
+  const exterior = room === 'outdoor' || isHoodRoom(room);
+  guaranteedVisibilityLight.color.setHex(exterior ? 0xf2f8ff : 0xfff1dc);
+  guaranteedVisibilityLight.intensity = exterior ? 1.65 : 2.35;
+  guaranteedVisibilityLight.visible = true;
+  return guaranteedVisibilityLight;
+}
 function ensureRoomBaselineLight(room=currentRoom){
   if(!room || roomBaselineLights.has(room) || typeof scene === 'undefined' || !scene) return roomBaselineLights.get(room);
   const exterior = room === 'outdoor' || isHoodRoom(room);
@@ -3016,6 +3029,7 @@ function applyLightBudget(){
 }
 function applyRoomLighting(){
   if(currentRoom==='lab') labArtworkLightsOn=true;
+  ensureGuaranteedVisibilityLight(currentRoom);
   ensureRoomBaselineLight(currentRoom);
   for(const r in roomLights) (roomLights[r]||[]).forEach(l=>{ if(l) l.visible = (r === currentRoom); });
   applyLightBudget();

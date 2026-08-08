@@ -237,6 +237,10 @@ test('Hall entry remains a plain threshold without a chaperone apparatus', () =>
 });
 
 test('every entered room receives broad fill and the Hall has no dead destination doors', () => {
+  assert.match(html, /new THREE\.AmbientLight\(0xfff1dc, 2\.35\)/,
+    'a global visibility light bypasses room switching and the punctual-light budget');
+  assert.match(html, /function applyRoomLighting\(\)\{[\s\S]*?ensureGuaranteedVisibilityLight\(currentRoom\);/,
+    'the always-on visibility light is refreshed at every room entry');
   assert.match(html, /function ensureRoomBaselineLight\(room=currentRoom\)/,
     'room entry owns a guaranteed non-punctual fill light');
   assert.match(html, /function applyRoomLighting\(\)\{[\s\S]*?ensureRoomBaselineLight\(currentRoom\);[\s\S]*?applyLightBudget\(\);/,
