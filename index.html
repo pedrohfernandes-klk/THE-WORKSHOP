@@ -2983,6 +2983,17 @@ const PUNCTUAL_LIGHT_BUDGET = 14;
 const _lightBudgetPos = new THREE.Vector3();
 let lightBudgetTimer = 0;
 function isPunctualLight(l){ return l && (l.isPointLight || l.isSpotLight || l.isRectAreaLight); }
+const roomBaselineLights = new Map();
+function ensureRoomBaselineLight(room=currentRoom){
+  if(!room || roomBaselineLights.has(room) || typeof scene === 'undefined' || !scene) return roomBaselineLights.get(room);
+  const exterior = room === 'outdoor' || isHoodRoom(room);
+  const fill = new THREE.HemisphereLight(exterior ? 0xf6fbff : 0xfff4df, exterior ? 0x66704f : 0x5d554b, exterior ? 1.55 : 1.34);
+  fill.name = `Guaranteed room fill · ${room}`;
+  scene.add(fill);
+  regLight(room, fill);
+  roomBaselineLights.set(room, fill);
+  return fill;
+}
 function applyLightBudget(){
   const pool = [];
   for(const r in roomLights){
@@ -3005,6 +3016,7 @@ function applyLightBudget(){
 }
 function applyRoomLighting(){
   if(currentRoom==='lab') labArtworkLightsOn=true;
+  ensureRoomBaselineLight(currentRoom);
   for(const r in roomLights) (roomLights[r]||[]).forEach(l=>{ if(l) l.visible = (r === currentRoom); });
   applyLightBudget();
   // The Lab artwork circuit is intentionally independent from normal room
@@ -4947,7 +4959,7 @@ function runWorkshopSelfTest(){
   }
 
   check(wallArtPieces.length>=30, 'wall art registered', `${wallArtPieces.length} pieces`);
-    check(doorFootprints.length>=25, 'retained doors registered', `${doorFootprints.length} doors`);
+    check(doorFootprints.length>=23, 'retained doors registered', `${doorFootprints.length} doors`);
     check(doorClashes===0, 'no wall art crowds a doorway', doorClashes?worstDoor:'all clear');
     check(artClashes===0, 'no wall art crowds its neighbour', artClashes?worstArt:'all clear');
   }
@@ -5118,43 +5130,6 @@ function buildHall(){
   scene.add(hallFill);
   regLight('gallery', hallFill);
 
-
-  // --- Outdoor Space door: a dedicated exit from the main hall, not hidden inside the garden ---
-  {
-    const outdoorDoorH = 6.8;
-    const outdoorDoorW = 3.9;
-    const outZ = z0 + depth*.155;
-    const outDoor = addPremiumPortalDoor({
-      x:hw-.13, y:outdoorDoorH/2, z:outZ,
-      width:outdoorDoorW, height:outdoorDoorH, orientation:'right',
-      title:'Square & Amphitheatre', subtitle:'outdoor stage',
-      accent:0xc8b48f, dark:0x1a1712
-    });
-    const pad = new THREE.Mesh(new THREE.CircleGeometry(1.42, 36), new THREE.MeshBasicMaterial({map:makePoolTexture(), transparent:true, opacity:.22, blending:THREE.AdditiveBlending, depthWrite:false}));
-    pad.rotation.x = -Math.PI/2;
-    pad.position.set(hw-2.15,.018,outZ);
-    scene.add(pad);
-  }
-
-
-  // --- Sunset Lounge door: placed on the right side of Guernica as a calm viewing-room threshold ---
-  {
-    const nightDoorH = 6.65;
-    const nightDoorW = 3.85;
-    const nightZ = midZ + 11.6;
-    const nightDoor = addPremiumPortalDoor({
-      x:hw-.13, y:nightDoorH/2, z:nightZ,
-      width:nightDoorW, height:nightDoorH, orientation:'right',
-      title:'Sunset Lounge', subtitle:'sunset room',
-      accent:0xb8aa92, dark:0x171512
-    });
-    const pad = new THREE.Mesh(new THREE.CircleGeometry(1.32, 36), new THREE.MeshBasicMaterial({
-      map:makePoolTexture(), transparent:true, opacity:.16, blending:THREE.AdditiveBlending, depthWrite:false
-    }));
-    pad.rotation.x = -Math.PI/2;
-    pad.position.set(hw-2.05,.018,nightZ);
-    scene.add(pad);
-  }
 
   // --- Guernica, wall-scale, on the uninterrupted right-hand exhibition wall ---
   {
