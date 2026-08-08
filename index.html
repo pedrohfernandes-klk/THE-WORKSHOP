@@ -12144,7 +12144,10 @@ function renderNotes(){
   }
   notesList.innerHTML = workshopNotes.slice().reverse().map(n=>{
     const date = new Date(n.at);
-    const stamp = isNaN(date) ? n.at : date.toLocaleString([], {dateStyle:'short', timeStyle:'short'});
+    // n.at comes back from localStorage unvalidated; when it will not parse as
+    // a date it is interpolated verbatim, so it needs escaping like every other
+    // field below.
+    const stamp = esc(isNaN(date) ? String(n.at ?? '') : date.toLocaleString([], {dateStyle:'short', timeStyle:'short'}));
     const body = esc(n.text || '');
     const ctx = esc(n.context?.roomName || 'Workshop');
     const act = esc(n.context?.activity || 'Viewing');

@@ -372,3 +372,25 @@ test('Laboratory is visibly lit on entry and never described as totally dark', (
   assert.match(html, /illuminated projection gallery/);
   assert.doesNotMatch(html, /totally dark projection room|barely visible return trace/);
 });
+
+test('the notes list escapes every localStorage-derived field it interpolates', () => {
+  // n.at is written straight into the noteItemMeta template when it will not
+  // parse as a date, so it must be escaped like body/ctx/act/id beside it.
+  assert.match(html, /const stamp = esc\(isNaN\(date\)/,
+    'the note timestamp is escaped before interpolation');
+  assert.doesNotMatch(html, /const stamp = isNaN\(date\) \? n\.at :/,
+    'the unescaped timestamp form has not returned');
+});
+
+test('the YouTube relay only accepts playback verbs from its embedding page', async () => {
+  const relay = await readFile(new URL('../yt.html', import.meta.url), 'utf8');
+  assert.match(relay, /if\(ev\.source !== window\.parent\) return;/,
+    'the relay rejects messages from anything but the framing page');
+  assert.match(relay, /hasOwnProperty\.call\(ALLOWED_FUNCS, func\)/,
+    'the relay checks the verb against an own-property allowlist');
+  assert.doesNotMatch(relay, /typeof player\[func\] === 'function'\) return;\s*\n\s*try\{ player\[func\]\.apply\(player, Array\.isArray\(data\.args\)/,
+    'the unguarded arbitrary-method form has not returned');
+  const policy = relay.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)">/)?.[1] || '';
+  assert.match(policy, /default-src 'none'/, 'the relay carries its own policy');
+  assert.match(policy, /frame-src https:\/\/www\.youtube\.com/);
+});
