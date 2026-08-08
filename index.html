@@ -1153,6 +1153,9 @@ body.reduced *{animation:none!important;transition:none!important}
   letter-spacing:.13em;
   text-transform:uppercase;
 }
+#filmControls{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+#filmControls button,#filmControls select{border:1px solid rgba(23,18,13,.2);border-radius:999px;background:#fffaf0;color:#17120d;padding:7px 11px;font:800 10px/1 Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase}
+#filmControls button.active{background:#17120d;color:#fffaf0}
 
 #windowControls{
   position:absolute;
@@ -1799,6 +1802,8 @@ body.rpgMode #rpgModeBadge{display:block}
       <button class="btn" id="mapBtn" title="Choose a room (G)">Rooms</button>
       <button class="btn" id="viewModeBtn" title="Toggle first-person / RPG view (V)" aria-pressed="false">RPG</button>
       <button class="btn" id="screenControlBtn">Projection</button>
+      <button class="btn" id="filmQuickBtn" aria-pressed="false">Film</button>
+      <button class="btn" id="filmQuickRateBtn" title="Change film speed">1x</button>
       <button class="btn" id="helpBtn">Help</button>
       <button class="btn" id="catalogueBtn" hidden>Catalogue</button>
       <button class="btn" id="archiveBtn" hidden>Archive</button>
@@ -1810,11 +1815,11 @@ body.rpgMode #rpgModeBadge{display:block}
     <h2 id="workTitle">Loading</h2>
     <span id="workCollection"></span>
     <span id="workMeta"></span>
-    <p id="workText">Preparing the tunnel.</p>
+    <p id="workText">Preparing the tower.</p>
   </aside>
 
   <aside id="mapPanel">
-    <canvas id="miniMap" width="440" height="344" aria-label="Mini-map showing visitor location in the tunnel"></canvas>
+    <canvas id="miniMap" width="440" height="344" aria-label="Mini-map showing visitor location in The Workshop"></canvas>
   </aside>
 
 
@@ -1839,7 +1844,7 @@ body.rpgMode #rpgModeBadge{display:block}
       <button id="passportResetBtn" type="button">New visit</button>
     </div>
     <section class="fastMapDistrict">
-      <h4 class="fastMapDistrictTitle">The Workshop<span>main building &amp; underground</span></h4>
+      <h4 class="fastMapDistrictTitle">The Workshop<span>main building</span></h4>
       <div class="fastMapGrid">
         <button class="fastMapBtn" data-place="warehouse" data-room="gallery"><b>Workshop Hall</b><span>Main hall and gallery corridor.</span></button>
         <button class="fastMapBtn" data-place="venue" data-room="theatre"><b>The Venue</b><span>Auditorium with one large SAYWHAT / NO WORRIES / YouTube screen.</span></button>
@@ -1848,13 +1853,13 @@ body.rpgMode #rpgModeBadge{display:block}
         <button class="fastMapBtn" data-place="thinking" data-room="thinking"><b>Thinking Room</b><span>Reading and research room.</span></button>
         <button class="fastMapBtn" data-place="garden" data-room="maze"><b>Experiment Garden</b><span>Projection wall, maker desk and window exhibitions.</span></button>
         <button class="fastMapBtn" data-place="spark" data-room="spark"><b>Spark Tools Labs</b><span>Playable retropunk arcade.</span></button>
-        <button class="fastMapBtn" data-place="the-tunnel" data-room="tunnel"><b>The Tunnel</b><span>Underground passage and waiting room.</span></button>
       </div>
     </section>
     <section class="fastMapDistrict">
-      <h4 class="fastMapDistrictTitle">The Grove<span>gardens east of the building</span></h4>
+      <h4 class="fastMapDistrictTitle">The Tower Campus<span>vertical galleries and public landscape</span></h4>
       <div class="fastMapGrid">
-        <button class="fastMapBtn" data-place="outdoor" data-room="outdoor"><b>The Grove</b><span>Garden, monument and cliffside amphitheatre.</span></button>
+        <button class="fastMapBtn" data-place="headquarters" data-room="hood"><b>The Tower</b><span>Walkable stacked galleries, served by one lift.</span></button>
+        <button class="fastMapBtn" data-place="outdoor" data-room="outdoor"><b>Square &amp; Amphitheatre</b><span>Open civic square and outdoor performance space.</span></button>
       </div>
     </section>
   </aside>
@@ -1983,10 +1988,18 @@ body.rpgMode #rpgModeBadge{display:block}
         </div>
       </div>
       <div id="channelBar">
+        <button class="channelBtn" id="filmEnableBtn" data-channel="film">FILM</button>
         <button class="channelBtn" data-channel="youtube">YOUTUBE</button>
         <button class="channelBtn" data-channel="saywhat">SAYWHAT</button>
         <button class="channelBtn" data-channel="noworries">NO WORRIES</button>
         <button id="channelProjectBtn" type="button">PROJECT TO VENUE</button>
+      </div>
+      <div id="filmControls" aria-label="Film controls">
+        <button id="filmPlayBtn" type="button">Play</button>
+        <button id="filmSoundBtn" type="button">Sound on</button>
+        <label for="filmRate">Speed</label>
+        <select id="filmRate"><option value="0.75">0.75x</option><option value="1" selected>1x</option><option value="1.5">1.5x</option></select>
+        <button id="filmStopBtn" type="button">Restore screens</button>
       </div>
       <div id="studioBar">
         <input id="studioInput" type="text" placeholder="Paste a YouTube link or video ID and press Enter…" autocomplete="off" spellcheck="false">
@@ -2031,6 +2044,7 @@ body.rpgMode #rpgModeBadge{display:block}
 </div>
 
 <script type="module">
+import { createWorkshopFilmController } from './assets/js/workshop-screen-film.js';
 import * as THREE from 'three';
 import { CSS3DRenderer, CSS3DObject } from './assets/vendor/three/CSS3DRenderer.js';
 import { PASSPORT_ACTS, createPassportState, isPassportStamped, passportEvidenceLine, passportProgress, runIdleBuildQueue } from './assets/js/workshop-foundation.js';
@@ -2792,6 +2806,7 @@ const TOWER_FLOORS = [
    at:()=>({x:outdoorOrigin.x, z:outdoorOrigin.z+outdoorDepth-4.6, yaw:0})}
 ];
 
+TOWER_FLOORS.splice(0,TOWER_FLOORS.length,...TOWER_FLOORS.filter(f=>f.id!=='tunnel'));
 const HOOD_ALL_FLOORS = [...HOOD_MAIN_FLOORS, ...HOOD_PRIVATE_FLOORS.filter(f=>f.id!=='hood-a5')];
 function hoodFloorY(room){ return HOOD_ALL_FLOORS.find(f=>f.id===room)?.y || 0; }
 function isHoodRoom(room=currentRoom){ return room==='hood' || String(room||'').startsWith('hood-'); }
@@ -2971,6 +2986,7 @@ function applyLightBudget(){
   for(let i=0;i<pool.length;i++) pool[i].visible = i < PUNCTUAL_LIGHT_BUDGET;
 }
 function applyRoomLighting(){
+  if(currentRoom==='lab') labArtworkLightsOn=true;
   for(const r in roomLights) (roomLights[r]||[]).forEach(l=>{ if(l) l.visible = (r === currentRoom); });
   applyLightBudget();
   // The Lab artwork circuit is intentionally independent from normal room
@@ -2987,6 +3003,7 @@ function applyRoomLighting(){
 const wallArtPieces = [];
 const doorFootprints = [];
 const screens = [];
+let workshopFilm = null;
 const archiveHotspots = [];
 let lookingAtArchive = -1;
 let archiveEntries = [];
@@ -3258,6 +3275,7 @@ function registerPortal(portal){
 const _screenGateVec = new THREE.Vector3();
 function registerScreen(screen){
   screens.push(screen);
+  workshopFilm?.applyTo(screen);
   // Batch 160: proximity gate. Projection walls are large planes, so previously
   // the reticle "hit" them (and the start prompt / accidental activation fired)
   // from anywhere across the room. Now a screen is only interactive when the
@@ -3286,6 +3304,26 @@ function registerScreen(screen){
   });
   return screen;
 }
+
+function updateFilmControls(state){
+  const play=$('filmPlayBtn'), sound=$('filmSoundBtn'), rate=$('filmRate'), enable=$('filmEnableBtn');
+  if(play) play.textContent=state.paused?'Play':'Pause';
+  if(sound){ sound.textContent=state.audible?'Sound on':'Sound off'; sound.classList.toggle('active',state.audible); }
+  if(rate) rate.value=String(state.rate);
+  if(enable) enable.classList.toggle('active',state.active);
+  const quick=$('filmQuickBtn'),quickRate=$('filmQuickRateBtn');
+  if(quick){quick.textContent=state.active?(state.paused?'Film paused':'Film on'):'Film';quick.classList.toggle('active',state.active);quick.setAttribute('aria-pressed',String(state.active));}
+  if(quickRate) quickRate.textContent=`${state.rate}x`;
+}
+workshopFilm=createWorkshopFilmController({THREE,screens,onStateChange:updateFilmControls});
+$('filmEnableBtn').onclick=()=>workshopFilm.enable({sound:true}).then(()=>{updateFilmControls(workshopFilm.state());msg('Because You Say So is playing on every screen');});
+$('filmPlayBtn').onclick=()=>workshopFilm.togglePlayback();
+$('filmSoundBtn').onclick=()=>workshopFilm.toggleSound();
+$('filmRate').onchange=e=>workshopFilm.setRate(e.target.value);
+$('filmStopBtn').onclick=()=>{workshopFilm.disable();msg('Screens restored');};
+$('filmQuickBtn').onclick=()=>{const s=workshopFilm.state();if(!s.active)workshopFilm.enable({sound:true}).then(()=>msg('Because You Say So is playing with sound on every screen'));else workshopFilm.disable();};
+$('filmQuickRateBtn').onclick=()=>{const rates=[.75,1,1.5],s=workshopFilm.state(),next=rates[(rates.indexOf(s.rate)+1)%rates.length];workshopFilm.setRate(next);msg(`Film speed · ${next}x`);};
+updateFilmControls(workshopFilm.state());
 function registerArchiveHotspot(hotspot){
   archiveHotspots.push(hotspot);
   hotspot.interactable = registerInteractable({
@@ -4629,7 +4667,6 @@ function init(){
   // deliberately streamed after the first usable frame; waiting for those
   // did not improve the entrance, but made the whole experience feel stuck.
   buildHall();
-  buildTunnelPassage();
   addChannelScreens();
   buildTunnel();
   buildHub();
@@ -6866,7 +6903,7 @@ function liftChime(){
   }catch(e){}
 }
 
-function buildHood(){
+function buildHoodLegacy(){
   const x0=hoodOrigin.x,z0=hoodOrigin.z,z1=z0+hoodDepth,hw=hoodHalfWidth,mid=(z0+z1)/2;
 
   // Textured base materials (batch: Hood design pass, phase 3a). The district
@@ -8009,6 +8046,57 @@ function buildHood(){
   HOOD_ALL_FLOORS.filter(f=>f.id!=='hood').forEach((f,i)=>{const h=new THREE.HemisphereLight(0xe9eef0,0x292624,.44);scene.add(h);regLight(f.id,h);const p=new THREE.PointLight(i%2?0xffdfbd:0xcde5ef,2.15,38,1.65);p.position.set(/^hood-ph/.test(f.id)?px:tx,f.y+4.3,/^hood-ph/.test(f.id)?pz:tz);scene.add(p);regLight(f.id,p);});
 }
 
+// A single walkable tower replaces every former Hood outbuilding and cave.
+// Its restrained square opens toward the existing outdoor amphitheatre.
+function buildHood(){
+  const x=hoodOrigin.x, z=hoodOrigin.z+86, W=32, D=38;
+  const stone=new THREE.MeshStandardMaterial({color:0xbcb4a7,roughness:.84,metalness:.03});
+  const floorMat=new THREE.MeshStandardMaterial({color:0x786f64,roughness:.92});
+  const dark=new THREE.MeshStandardMaterial({color:0x202427,roughness:.42,metalness:.55});
+  const glass=new THREE.MeshPhysicalMaterial({color:0xcfe8ee,roughness:.08,transmission:.72,transparent:true,opacity:.34,depthWrite:false});
+  hoodLiftLayout={lx:x,lz:z,tx:x,tz:z,px:x,pz:z,plx:x,plz:z};
+  hoodCaveLayout=null;
+
+  const square=new THREE.Mesh(new THREE.PlaneGeometry(92,86),new THREE.MeshStandardMaterial({color:0xc9c1b3,roughness:.96}));
+  square.rotation.x=-Math.PI/2;square.position.set(x,0,z-47);scene.add(square);
+  const axis=new THREE.Mesh(new THREE.PlaneGeometry(8,86),floorMat);axis.rotation.x=-Math.PI/2;axis.position.set(x,.02,z-47);scene.add(axis);
+  for(const sx of [-1,1]) for(let i=0;i<4;i++){
+    const tree=new THREE.Group();tree.position.set(x+sx*28,0,z-76+i*18);scene.add(tree);
+    const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.25,.38,4.2,8),dark);trunk.position.y=2.1;tree.add(trunk);
+    const crown=new THREE.Mesh(new THREE.SphereGeometry(2.5,12,9),new THREE.MeshStandardMaterial({color:0x355d3b,roughness:1}));crown.position.y=5.2;tree.add(crown);
+  }
+
+  HOOD_ALL_FLOORS.forEach((f,index)=>{
+    const y=f.y;
+    const slab=new THREE.Mesh(new THREE.BoxGeometry(W,.34,D),floorMat);slab.position.set(x,y-.17,z);scene.add(slab);
+    const back=new THREE.Mesh(new THREE.BoxGeometry(W,5.3,.35),stone);back.position.set(x,y+2.65,z+D/2);scene.add(back);
+    for(const sx of [-1,1]){const side=new THREE.Mesh(new THREE.BoxGeometry(.35,5.3,D),stone);side.position.set(x+sx*W/2,y+2.65,z);scene.add(side);}
+    const front=new THREE.Mesh(new THREE.BoxGeometry(W,5.3,.18),glass);front.position.set(x,y+2.65,z-D/2);scene.add(front);
+    const ceiling=new THREE.Mesh(new THREE.BoxGeometry(W,.22,D),dark);ceiling.position.set(x,y+5.3,z);scene.add(ceiling);
+    const ambient=new THREE.HemisphereLight(0xfff7e9,0x30363a,.82);scene.add(ambient);regLight(f.id,ambient);
+    for(const sx of [-8,0,8]){const light=new THREE.PointLight(0xffe5c0,2.1,20,1.7);light.position.set(x+sx,y+4.3,z);scene.add(light);regLight(f.id,light);}
+    const liftDoor=new THREE.Mesh(new THREE.BoxGeometry(3.8,4.2,.28),dark);liftDoor.position.set(x,y+2.1,z-D/2+.28);scene.add(liftDoor);
+    registerInteractable({id:`lift:tower:${f.id}`,type:'lift',room:f.id,mesh:liftDoor,label:'Tower lift',priority:20,prompt:()=>'Call the lift',onUse:()=>openHoodLift('main')});
+    if(index===1){
+      const backing=new THREE.Mesh(new THREE.PlaneGeometry(10,5.625),new THREE.MeshBasicMaterial({color:0x090909}));
+      backing.position.set(x,y+2.8,z+D/2-.22);backing.rotation.y=Math.PI;scene.add(backing);
+      registerScreen({id:'screen:tower',mesh:backing,title:'TOWER CINEMA',room:f.id,action:'channels',activeRadius:14,url:CHANNEL_URLS.saywhat});
+    }
+  });
+
+  const towerArt=[
+    {src:CADAVRE_EXPAT_SRC,title:'CADAVRE EXPAT I',room:'hood-m1',y:HOOD_MAIN_FLOORS[2].y+2.7},
+    {src:CADAVRE_EXPAT_II_SRC,title:'CADAVRE EXPAT II',room:'hood-a1',y:HOOD_MAIN_FLOORS[3].y+2.7},
+    {src:CADAVRE_EXPAT_III_SRC,title:'CADAVRE EXPAT III',room:'hood-a3',y:HOOD_MAIN_FLOORS[5].y+2.7},
+    {src:CADAVRE_EXPAT_IV_SRC,title:'CADAVRE EXPAT IV',room:'hood-ph3',y:HOOD_PRIVATE_FLOORS[3].y+2.7}
+  ];
+  towerArt.forEach((a,i)=>addFramedWallArt({src:a.src,title:a.title,subtitle:`Tower collection · ${a.room}`,width:6.8,height:4.4,x:x+(i%2?-7:7),y:a.y,z:z+D/2-.42,rotationY:Math.PI,frameColor:0x181818,matteColor:0xe8e0d2,showLabel:true}));
+  const sign=new THREE.Mesh(new THREE.PlaneGeometry(15,1.8),new THREE.MeshBasicMaterial({map:makeSignTexture('THE TOWER','rooms by lift · square and amphitheatre outside'),transparent:true,toneMapped:false}));
+  sign.position.set(x,7,z-D/2-.3);sign.rotation.y=Math.PI;scene.add(sign);
+  const daylight=new THREE.HemisphereLight(0xf3f8ff,0x53634b,1.8);scene.add(daylight);regLight('hood',daylight);
+  const sun=new THREE.DirectionalLight(0xffe3bd,2.2);sun.position.set(x-30,52,z-35);scene.add(sun);regLight('hood',sun);
+}
+
 function buildTunnel(){
   const innerW = halfWidth*2 + 1.6;
   const wallX = innerW/2;
@@ -8959,7 +9047,7 @@ function buildTheatre(){
 }
 
 
-let labArtworkLightsOn=false;
+let labArtworkLightsOn=true;
 const labArtworkLights=[];
 const labArtworkMaterials=[];
 const labGalleryObjects=[];
@@ -9120,8 +9208,8 @@ function buildLaboratory(){
   switchHit.position.set(panelX,1.42,entryZ-.36); switchHit.rotation.y=Math.PI; scene.add(switchHit);
   registerInteractable({type:'switch',room:'lab',mesh:switchHit,label:'Gallery lights',hintId:'lab-spots',priority:5,
     hintText:'Use the wall switch to reveal the artist-character exhibition.',
-    prompt:()=>labArtworkLightsOn?'Turn artwork spotlights off':'Turn artwork spotlights on',
-    onUse:()=>{ labArtworkLightsOn=!labArtworkLightsOn; setLabArtworkLighting(); rocker.rotation.x=labArtworkLightsOn?-.16:.16; standby.material.color.setHex(labArtworkLightsOn?0x32f08d:0xd89b36); msg(labArtworkLightsOn?'Lab gallery lighting on':'Lab returned to complete darkness'); }
+    prompt:()=>labArtworkLightsOn?'Dim artwork spotlights':'Turn artwork spotlights on',
+    onUse:()=>{ labArtworkLightsOn=!labArtworkLightsOn; setLabArtworkLighting(); rocker.rotation.x=labArtworkLightsOn?-.16:.16; standby.material.color.setHex(labArtworkLightsOn?0x32f08d:0xd89b36); msg(labArtworkLightsOn?'Lab gallery lighting on':'Lab artwork lights dimmed'); }
   });
 
   const built = addPremiumPortalDoor({
@@ -12007,7 +12095,7 @@ function applyFilters(){
 search.addEventListener('input', applyFilters);
 
 function roomNameForNotes(room=currentRoom){
-  if(isHoodRoom(room)) return hoodFloorDefinition(room,mode).label;
+  if(isHoodRoom(room)) return hoodFloorDefinition(room).label;
   return ({
     gallery:'Workshop / main gallery',
     theatre:'The Venue',
@@ -13410,6 +13498,11 @@ $('studioNowStop').onclick = ()=>{
 document.querySelectorAll('.channelBtn').forEach(btn=>{
   btn.onclick = ()=>{
     const ch = btn.dataset.channel;
+    if(ch==='film'){
+      workshopFilm.enable({sound:true}).then(()=>{setChannelActive('film');updateFilmControls(workshopFilm.state());msg('Because You Say So is playing with sound on every screen');});
+      return;
+    }
+    if(workshopFilm.state().active) workshopFilm.disable();
     setChannelActive(ch);
     $('playOpenLink').href = ch === 'youtube' ? 'https://www.youtube.com' : CHANNEL_URLS[ch];
     if(overlayMode === 'thinking-tv'){
@@ -13602,23 +13695,17 @@ function fastTravel(place){
       yaw:0,
       label:'The Grove'
     },
+    headquarters: {
+      room:'hood',
+      pos:new THREE.Vector3(hoodOrigin.x,cameraHeight,hoodOrigin.z+18),
+      yaw:0,
+      label:'The Tower Square'
+    },
     studio: {
       room:'studio',
       pos:new THREE.Vector3(studioOrigin.x,cameraHeight,studioOrigin.z+studioDepth-3.2),
       yaw:0,
       label:'The Studio'
-    },
-    'the-tunnel': {
-      room:'tunnel',
-      pos:new THREE.Vector3(tunnelRoomOrigin.x,cameraHeight,tunnelRoomOrigin.z+tunnelRoomLength-4.2),
-      yaw:0,
-      label:'The Tunnel'
-    },
-    'waiting-room': {
-      room:'tunnel',
-      pos:new THREE.Vector3(tunnelRoomOrigin.x,cameraHeight,tunnelRoomOrigin.z+7.4),
-      yaw:0,
-      label:'Waiting Room'
     },
     'night-room': {
       room:'night',

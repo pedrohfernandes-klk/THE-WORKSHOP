@@ -5,7 +5,7 @@
   "type": "module",
   "description": "THE WORKSHOP — a walkable museum of rooms, images and machines.",
   "scripts": {
-    "test": "node --test tests/workshop-foundation.test.mjs tests/workshop-integration.test.mjs tests/workshop-visit.test.mjs tests/workshop-record.test.mjs tests/workshop-garden-study.test.mjs",
+    "test": "node --test tests/workshop-foundation.test.mjs tests/workshop-integration.test.mjs tests/workshop-visit.test.mjs tests/workshop-record.test.mjs tests/workshop-garden-study.test.mjs tests/workshop-screen-film.test.mjs",
     "test:browser": "node tests/browser-hotfix-smoke.mjs",
     "test:instrument": "node tests/browser-instrument-smoke.mjs",
     "prepare:vendor": "node scripts/prepare-vendor.mjs",
