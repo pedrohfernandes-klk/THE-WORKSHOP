@@ -1,0 +1,21 @@
+{
+  "name": "the-workshop",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "THE WORKSHOP â€” a walkable museum of rooms, images and machines.",
+  "scripts": {
+    "test": "node --test tests/workshop-foundation.test.mjs tests/workshop-integration.test.mjs tests/workshop-visit.test.mjs tests/workshop-record.test.mjs tests/workshop-garden-study.test.mjs tests/workshop-screen-film.test.mjs",
+    "test:browser": "node tests/browser-hotfix-smoke.mjs",
+    "test:instrument": "node tests/browser-instrument-smoke.mjs",
+    "prepare:vendor": "node scripts/prepare-vendor.mjs",
+    "test:all": "npm run prepare:vendor && npm test && npm run test:browser && npm run test:instrument",
+    "serve": "python -m http.server 8834"
+  },
+  "dependencies": {
+    "three": "0.170.0"
+  },
+  "devDependencies": {
+    "playwright": "1.47.0"
+  }
+}
