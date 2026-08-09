@@ -1794,7 +1794,7 @@ body.rpgMode #rpgModeBadge{display:block}
 </head>
 <body>
 <div id="app">
-  <canvas id="renderCanvas" aria-label="The Workshop 3D museum. Use W A S D or arrow keys to walk. Move mouse to look. Mouse wheel zooms."></canvas>
+  <canvas id="renderCanvas" tabindex="0" aria-label="The Workshop 3D museum. Use W A S D or arrow keys to walk. Move mouse to look. Mouse wheel zooms."></canvas>
 
   <div id="poster">
     <div id="posterCard">
@@ -3611,7 +3611,7 @@ function beginPosterOpen(){
     poster.classList.remove('opening');
     poster.style.transition = '';
     poster.style.opacity = '';
-    if(!isCoarsePointer && canvas.requestPointerLock) canvas.requestPointerLock();
+    requestWalkCapture();
     posterOpening = false;
     if(visitOrientationStatus(visitState)==='move'){
       queueVisitGuidanceAfterPaint('visit-move',isCoarsePointer
@@ -13824,17 +13824,26 @@ miniMap.addEventListener('click', e=>{
 });
 
 
+function requestWalkCapture(){
+  canvas.tabIndex=0;
+  try{ canvas.focus({preventScroll:true}); }catch(e){ canvas.focus?.(); }
+  if(isCoarsePointer || !canvas.requestPointerLock) return;
+  try{
+    const lock=canvas.requestPointerLock();
+    if(lock && typeof lock.catch==='function') lock.catch(()=>msg('Walk active · use WASD or arrow keys'));
+  }catch(e){ msg('Walk active · use WASD or arrow keys'); }
+}
 function enterPointer(){
   if(poster && !poster.classList.contains('hide')){ beginPosterOpen(); return; }
   exitScreenControl();
-  if(!isCoarsePointer && canvas.requestPointerLock) canvas.requestPointerLock();
+  requestWalkCapture();
 }
 function interactAtCenter({requestLock=true, types=null}={}){
   if(screenControlMode) return false;
   if(suppressNextMobileTap){ suppressNextMobileTap = false; return false; }
   if($('playOverlay').classList.contains('show')) return false;
   if(poster && !poster.classList.contains('hide')){ beginPosterOpen(); return true; }
-  if(!isCoarsePointer && requestLock && !document.pointerLockElement && canvas.requestPointerLock) canvas.requestPointerLock();
+  if(requestLock && !document.pointerLockElement) requestWalkCapture();
   const target = getCenterInteractable({types});
   if(target) return useInteractable(target.interactable, {source:'centre', hit:target.hit});
   // Touch fallback: precise centring is hard on a phone, so ENTER also accepts
