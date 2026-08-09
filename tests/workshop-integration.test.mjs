@@ -428,3 +428,17 @@ test('walk and lighting controls are compact, explicit and persistent', () => {
     'architectural surfaces remain visible independently of direct-light shading');
   assert.doesNotMatch(html, /label:'(?:Dark|Lights off)'/);
 });
+
+
+test('walking remains available when pointer lock is rejected', () => {
+  assert.match(html, /id="renderCanvas" tabindex="0"/,
+    'the walk surface can retain keyboard focus without mouse capture');
+  assert.match(html, /function requestWalkCapture\(\)/);
+  assert.match(html, /const lock=canvas\.requestPointerLock\(\)/);
+  assert.match(html, /lock\.catch\(\(\)=>msg\('Walk active · use WASD or arrow keys'\)\)/,
+    'asynchronous pointer-lock rejection is handled');
+  assert.match(html, /catch\(e\)\{ msg\('Walk active · use WASD or arrow keys'\); \}/,
+    'synchronous pointer-lock rejection is handled');
+  assert.match(html, /if\(requestLock && !document\.pointerLockElement\) requestWalkCapture\(\)/,
+    'interaction returns to keyboard walking without requiring pointer lock');
+});
