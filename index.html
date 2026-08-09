@@ -2959,6 +2959,8 @@ function applyLightBoost(){
   const lv=LIGHT_LEVELS[lightLevelIndex] || LIGHT_LEVELS[LIGHT_LEVELS.length-1];
   const profile=compatibilityLightProfile(currentRoom);
   const rig=ensureCompatibilityRig();
+  rig.hemi.color.setHex(profile.sky);
+  rig.hemi.groundColor.setHex(profile.ground);
   for(const key of ['ambient','hemi','key','fill']){
     const light=rig[key];
     light.intensity=light.userData._baseIntensity * profile[key] * lv.mult;
@@ -3014,18 +3016,18 @@ function applyRoomFog(){
 const PUNCTUAL_LIGHT_BUDGET = 0;
 let lightBudgetTimer = 0;
 const COMPATIBILITY_LIGHT_PROFILES=Object.freeze({
-  _default:{ambient:1,hemi:1,key:1,fill:1,exposure:0,sky:0xfff4e5,ground:0x514c49},
-  gallery:{ambient:.96,hemi:.96,key:1.02,fill:.92,exposure:-.02,sky:0xfff3e1,ground:0x554c46},
-  theatre:{ambient:.96,hemi:.88,key:1.08,fill:.78,exposure:-.04,sky:0xffead3,ground:0x3d3735},
-  studio:{ambient:.94,hemi:.90,key:1.04,fill:.84,exposure:-.04,sky:0xfff2df,ground:0x4b4548},
-  lab:{ambient:1.12,hemi:1.06,key:1.08,fill:.92,exposure:.06,sky:0xffe9d0,ground:0x514941},
-  thinking:{ambient:1.02,hemi:.98,key:1.02,fill:.88,exposure:0,sky:0xfff0dc,ground:0x4d4944},
-  maze:{ambient:1.02,hemi:1.02,key:1.08,fill:.90,exposure:0,sky:0xffedda,ground:0x504942},
-  maps:{ambient:.90,hemi:.84,key:1.12,fill:.68,exposure:-.06,sky:0xfff0dc,ground:0x4b4742},
-  spark:{ambient:1.12,hemi:1.08,key:1.12,fill:.94,exposure:.06,sky:0xffe5f7,ground:0x443647},
-  night:{ambient:.92,hemi:.82,key:1.02,fill:.72,exposure:-.06,sky:0xffdfbd,ground:0x403a37},
-  outdoor:{ambient:.88,hemi:1.08,key:1.10,fill:.90,exposure:0,sky:0xe9f5ff,ground:0x66704f},
-  hood:{ambient:.88,hemi:1.08,key:1.10,fill:.90,exposure:0,sky:0xe9f5ff,ground:0x66704f}
+  _default:{ambient:1.04,hemi:1,key:1.04,fill:.92,exposure:0,sky:0xfff4e5,ground:0x514c49},
+  gallery:{ambient:.98,hemi:.96,key:1.04,fill:.90,exposure:-.02,sky:0xfff3e1,ground:0x554c46},
+  theatre:{ambient:1,hemi:.90,key:1.10,fill:.82,exposure:-.02,sky:0xffead3,ground:0x3d3735},
+  studio:{ambient:1,hemi:.94,key:1.06,fill:.88,exposure:0,sky:0xfff2df,ground:0x4b4548},
+  lab:{ambient:1.18,hemi:1.10,key:1.12,fill:.98,exposure:.08,sky:0xffe9d0,ground:0x514941},
+  thinking:{ambient:1.06,hemi:1,key:1.04,fill:.90,exposure:0,sky:0xfff0dc,ground:0x4d4944},
+  maze:{ambient:1.10,hemi:1.04,key:1.10,fill:.94,exposure:.02,sky:0xffedda,ground:0x504942},
+  maps:{ambient:1,hemi:.90,key:1.14,fill:.78,exposure:-.02,sky:0xfff0dc,ground:0x4b4742},
+  spark:{ambient:1.20,hemi:1.14,key:1.16,fill:1,exposure:.10,sky:0xffe5f7,ground:0x443647},
+  night:{ambient:1,hemi:.88,key:1.04,fill:.80,exposure:-.02,sky:0xffdfbd,ground:0x403a37},
+  outdoor:{ambient:.92,hemi:1.10,key:1.12,fill:.94,exposure:0,sky:0xe9f5ff,ground:0x66704f},
+  hood:{ambient:.92,hemi:1.10,key:1.12,fill:.94,exposure:0,sky:0xe9f5ff,ground:0x66704f}
 });
 let compatibilityRig=null;
 function compatibilityLightProfile(room=currentRoom){
@@ -3053,10 +3055,13 @@ function applyMaterialVisibilityFloor(root=scene){
     const materials=Array.isArray(object.material)?object.material:[object.material];
     for(const material of materials){
       if(!material || material.userData?._visibilityFloor || !(material.isMeshStandardMaterial||material.isMeshPhysicalMaterial)) continue;
-      const fallback=material.color?.clone?.().multiplyScalar(.12) || new THREE.Color(0x11100f);
-      if(fallback.r+fallback.g+fallback.b<.08) fallback.setHex(0x11100f);
-      material.emissive.copy(fallback);
-      material.emissiveIntensity=Math.max(material.emissiveIntensity||0,.18);
+      const authored=material.emissive && (material.emissive.r+material.emissive.g+material.emissive.b)>=.03;
+      if(!authored){
+        const fallback=material.color?.clone?.().multiplyScalar(.10) || new THREE.Color(0x11100f);
+        if(fallback.r+fallback.g+fallback.b<.08) fallback.setHex(0x11100f);
+        material.emissive.copy(fallback);
+        material.emissiveIntensity=Math.max(material.emissiveIntensity||0,.12);
+      }
       material.userData._visibilityFloor=true;
       material.needsUpdate=true;
     }
