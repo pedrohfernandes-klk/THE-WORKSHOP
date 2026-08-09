@@ -1811,6 +1811,7 @@ body.rpgMode #rpgModeBadge{display:block}
       <button class="btn dark" id="enterBtn">Enter</button>
       <button class="btn" id="mapBtn" title="Choose a room (G)">Rooms</button>
       <button class="btn" id="viewModeBtn" title="Toggle first-person / RPG view (V)" aria-pressed="false">RPG</button>
+      <button class="btn active" id="lightsBtn" title="Room brightness: Bright. Press L to change." aria-label="Room brightness: Bright">Bright</button>
       <button class="btn" id="screenControlBtn" title="Open the projection in this room (R)">Projection</button>
       <button class="btn" id="filmQuickBtn" aria-pressed="false" title="Play the film on every screen">Film off</button>
       <button class="btn" id="filmQuickSoundBtn" aria-pressed="false" title="Mute or unmute the film">Sound off</button>
@@ -1956,7 +1957,7 @@ body.rpgMode #rpgModeBadge{display:block}
       <button class="btn" id="focusBtn">Focus</button>
       <button class="btn" id="tourBtn">Tour</button>
       <button class="btn active" id="motionBtn">Motion</button>
-      <button class="btn active" id="lightsBtn">Lights on</button>
+      <button class="btn active" id="helpLightsBtn">Bright</button>
     </div>
     <p><code>W/S</code> or <code>↑/↓</code>: walk forward / backward. Hold <code>Shift</code> to run.</p>
     <p><code>A/D</code>: left / right strafe.</p>
@@ -2939,9 +2940,9 @@ function regLight(room, ...ls){ if(!roomLights[room]) roomLights[room]=[]; ls.fo
 // now brighter than the old first boost, and the two boost steps move up with
 // it so the Lights button still has real headroom.
 const LIGHT_LEVELS = [
-  { label:'Lights on', mult:2.40, exp:1.82 },
-  { label:'Lights+',   mult:3.00, exp:2.04 },
-  { label:'Lights++',  mult:3.65, exp:2.28 }
+  { label:'Bright',    mult:2.40, exp:1.82 },
+  { label:'Brighter',  mult:3.00, exp:2.04 },
+  { label:'Brightest', mult:3.65, exp:2.28 }
 ];
 let lightLevelIndex = 0;
 function applyLightBoost(){
@@ -2956,9 +2957,15 @@ function cycleLightBoost(){
   lightLevelIndex = (lightLevelIndex + 1) % LIGHT_LEVELS.length;
   applyLightBoost();
   const lv = LIGHT_LEVELS[lightLevelIndex];
-  const btn = document.getElementById('lightsBtn');
-  if(btn){ btn.textContent = lv.label; btn.classList.toggle('active', lightLevelIndex !== 0); }
-  msg(lightLevelIndex === 0 ? 'Room lighting · normal' : `Room lighting · ${lv.label}`);
+  for(const id of ['lightsBtn','helpLightsBtn']){
+    const btn=document.getElementById(id);
+    if(!btn) continue;
+    btn.textContent=lv.label;
+    btn.classList.add('active');
+    btn.setAttribute('aria-label',`Room brightness: ${lv.label}`);
+    btn.title=`Room brightness: ${lv.label}. Press L to change.`;
+  }
+  msg(`Room lighting · ${lv.label}`);
 }
 // Fog is per-room. Interiors keep the original deep navy falloff, but the
 // daylit exterior districts need a pale coastal haze instead. With one global
@@ -14066,6 +14073,7 @@ function toggleMotion(){
 $('motionBtn').onclick = toggleMotion;
 if($('viewModeBtn')) $('viewModeBtn').onclick = ()=>setRpgMode(!rpgMode);
 if($('lightsBtn')) $('lightsBtn').onclick = cycleLightBoost;
+if($('helpLightsBtn')) $('helpLightsBtn').onclick = cycleLightBoost;
 if($('windowSoundBtn')) $('windowSoundBtn').onclick = toggleHallWindowSound;
 
 function updateMovement(dt){
