@@ -1811,7 +1811,10 @@ body.rpgMode #rpgModeBadge{display:block}
       <button class="btn dark" id="enterBtn">Enter</button>
       <button class="btn" id="mapBtn" title="Choose a room (G)">Rooms</button>
       <button class="btn" id="viewModeBtn" title="Toggle first-person / RPG view (V)" aria-pressed="false">RPG</button>
-      <button class="btn active" id="lightsBtn" title="Room brightness: Bright. Press L to change." aria-label="Room brightness: Bright">Bright</button>
+      <label class="srOnly" for="lightingControl">Room lighting</label>
+      <select class="btn active" id="lightingControl" title="Room lighting" aria-label="Room lighting" style="min-height:44px">
+        <option value="0">Bright</option><option value="1">Brighter</option><option value="2">Brightest</option>
+      </select>
       <button class="btn" id="screenControlBtn" title="Open the projection in this room (R)">Projection</button>
       <button class="btn" id="filmQuickBtn" aria-pressed="false" title="Play the film on every screen">Film off</button>
       <button class="btn" id="filmQuickSoundBtn" aria-pressed="false" title="Mute or unmute the film">Sound off</button>
@@ -1957,7 +1960,7 @@ body.rpgMode #rpgModeBadge{display:block}
       <button class="btn" id="focusBtn">Focus</button>
       <button class="btn" id="tourBtn">Tour</button>
       <button class="btn active" id="motionBtn">Motion</button>
-      <button class="btn active" id="helpLightsBtn">Bright</button>
+      <span class="btn active" aria-hidden="true">Use Room lighting above</span>
     </div>
     <p><code>W/S</code> or <code>↑/↓</code>: walk forward / backward. Hold <code>Shift</code> to run.</p>
     <p><code>A/D</code>: left / right strafe.</p>
@@ -2940,33 +2943,44 @@ function regLight(room, ...ls){ if(!roomLights[room]) roomLights[room]=[]; ls.fo
 // now brighter than the old first boost, and the two boost steps move up with
 // it so the Lights button still has real headroom.
 const LIGHT_LEVELS = [
-  { label:'Bright',    mult:2.40, exp:1.82 },
-  { label:'Brighter',  mult:3.00, exp:2.04 },
-  { label:'Brightest', mult:3.65, exp:2.28 }
+  { label:'Bright',    mult:.92, exp:1.12 },
+  { label:'Brighter',  mult:1.10, exp:1.24 },
+  { label:'Brightest', mult:1.28, exp:1.36 }
 ];
-let lightLevelIndex = 0;
+const LIGHT_STORAGE_KEY='workshop:lighting-v1';
+function readSavedLightLevel(){
+  try{
+    const n=Number.parseInt(localStorage.getItem(LIGHT_STORAGE_KEY),10);
+    return Number.isInteger(n) ? clamp(n,0,LIGHT_LEVELS.length-1) : LIGHT_LEVELS.length-1;
+  }catch(e){ return LIGHT_LEVELS.length-1; }
+}
+let lightLevelIndex = readSavedLightLevel();
 function applyLightBoost(){
-  const lv = LIGHT_LEVELS[lightLevelIndex] || LIGHT_LEVELS[0];
-  (roomLights[currentRoom]||[]).forEach(l=>{
-    if(l && l.userData._baseIntensity !== undefined) l.intensity = l.userData._baseIntensity * lv.mult;
-  });
-  const roomExposure = currentRoom==='spark' ? .48 : currentRoom==='lab' ? .34 : currentRoom==='studio' ? .16 : 0;
-  if(typeof renderer !== 'undefined' && renderer) renderer.toneMappingExposure = lv.exp + roomExposure;
-}
-function cycleLightBoost(){
-  lightLevelIndex = (lightLevelIndex + 1) % LIGHT_LEVELS.length;
-  applyLightBoost();
-  const lv = LIGHT_LEVELS[lightLevelIndex];
-  for(const id of ['lightsBtn','helpLightsBtn']){
-    const btn=document.getElementById(id);
-    if(!btn) continue;
-    btn.textContent=lv.label;
-    btn.classList.add('active');
-    btn.setAttribute('aria-label',`Room brightness: ${lv.label}`);
-    btn.title=`Room brightness: ${lv.label}. Press L to change.`;
+  const lv=LIGHT_LEVELS[lightLevelIndex] || LIGHT_LEVELS[LIGHT_LEVELS.length-1];
+  const profile=compatibilityLightProfile(currentRoom);
+  const rig=ensureCompatibilityRig();
+  rig.hemi.color.setHex(profile.sky);
+  rig.hemi.groundColor.setHex(profile.ground);
+  for(const key of ['ambient','hemi','key','fill']){
+    const light=rig[key];
+    light.intensity=light.userData._baseIntensity * profile[key] * lv.mult;
+    light.visible=true;
   }
-  msg(`Room lighting · ${lv.label}`);
+  if(typeof renderer!=='undefined' && renderer) renderer.toneMappingExposure=lv.exp+profile.exposure;
 }
+function syncLightControl(){
+  const control=document.getElementById('lightingControl');
+  if(control) control.value=String(lightLevelIndex);
+}
+function setLightLevel(index,{announce=true,persist=true}={}){
+  const parsed=Number.parseInt(index,10);
+  lightLevelIndex=Number.isInteger(parsed) ? clamp(parsed,0,LIGHT_LEVELS.length-1) : LIGHT_LEVELS.length-1;
+  if(persist){ try{localStorage.setItem(LIGHT_STORAGE_KEY,String(lightLevelIndex));}catch(e){} }
+  applyLightBoost();
+  syncLightControl();
+  if(announce) msg(`Room lighting · ${LIGHT_LEVELS[lightLevelIndex].label}`);
+}
+function cycleLightBoost(){ setLightLevel((lightLevelIndex+1)%LIGHT_LEVELS.length); }
 // Fog is per-room. Interiors keep the original deep navy falloff, but the
 // daylit exterior districts need a pale coastal haze instead. With one global
 // dark fog, everything more than ~150 m away in the Hood faded to near-black
@@ -2999,78 +3013,72 @@ function applyRoomFog(){
 // three.js recompiles every material whenever the light COUNT changes, so a
 // budget that varied would trade one stall for another. Ambient-style lights
 // (hemisphere, directional) are cheap and global, and are never budgeted.
-const PUNCTUAL_LIGHT_BUDGET = 14;
-const _lightBudgetPos = new THREE.Vector3();
+const PUNCTUAL_LIGHT_BUDGET = 0;
 let lightBudgetTimer = 0;
-function isPunctualLight(l){ return l && (l.isPointLight || l.isSpotLight || l.isRectAreaLight); }
-const roomBaselineLights = new Map();
-let guaranteedVisibilityLight = null;
-function visibilityLightLevel(room=currentRoom){
-  if(room==='lab' || room==='spark') return 5.20;
-  if(room==='maps') return 3.60;
-  return room==='outdoor' || isHoodRoom(room) ? 2.40 : 4.20;
+const COMPATIBILITY_LIGHT_PROFILES=Object.freeze({
+  _default:{ambient:1.04,hemi:1,key:1.04,fill:.92,exposure:0,sky:0xfff4e5,ground:0x514c49},
+  gallery:{ambient:.98,hemi:.96,key:1.04,fill:.90,exposure:-.02,sky:0xfff3e1,ground:0x554c46},
+  theatre:{ambient:1,hemi:.90,key:1.10,fill:.82,exposure:-.02,sky:0xffead3,ground:0x3d3735},
+  studio:{ambient:1,hemi:.94,key:1.06,fill:.88,exposure:0,sky:0xfff2df,ground:0x4b4548},
+  lab:{ambient:1.30,hemi:1.20,key:1.16,fill:1.04,exposure:.14,sky:0xffe9d0,ground:0x514941},
+  thinking:{ambient:1.06,hemi:1,key:1.04,fill:.90,exposure:0,sky:0xfff0dc,ground:0x4d4944},
+  maze:{ambient:1.10,hemi:1.04,key:1.10,fill:.94,exposure:.02,sky:0xffedda,ground:0x504942},
+  maps:{ambient:1,hemi:.90,key:1.14,fill:.78,exposure:-.02,sky:0xfff0dc,ground:0x4b4742},
+  spark:{ambient:1.48,hemi:1.38,key:1.28,fill:1.14,exposure:.20,sky:0xffe5f7,ground:0x443647},
+  night:{ambient:1,hemi:.88,key:1.04,fill:.80,exposure:-.02,sky:0xffdfbd,ground:0x403a37},
+  outdoor:{ambient:.92,hemi:1.10,key:1.12,fill:.94,exposure:0,sky:0xe9f5ff,ground:0x66704f},
+  hood:{ambient:.92,hemi:1.10,key:1.12,fill:.94,exposure:0,sky:0xe9f5ff,ground:0x66704f}
+});
+let compatibilityRig=null;
+function compatibilityLightProfile(room=currentRoom){
+  const key=isHoodRoom(room)?'hood':room;
+  return COMPATIBILITY_LIGHT_PROFILES[key]||COMPATIBILITY_LIGHT_PROFILES._default;
 }
-function ensureGuaranteedVisibilityLight(room=currentRoom){
-  if(!guaranteedVisibilityLight){
-    guaranteedVisibilityLight = new THREE.AmbientLight(0xfff1dc, visibilityLightLevel(room));
-    guaranteedVisibilityLight.name = 'Guaranteed visitor visibility';
-    scene.add(guaranteedVisibilityLight);
+function ensureCompatibilityRig(){
+  if(compatibilityRig) return compatibilityRig;
+  const ambient=new THREE.AmbientLight(0xfff1dc,1.45);
+  const hemi=new THREE.HemisphereLight(0xfff4e5,0x514c49,1.05);
+  const key=new THREE.DirectionalLight(0xffead0,.78);
+  const fill=new THREE.DirectionalLight(0xdce8ff,.36);
+  key.position.set(6,12,8); fill.position.set(-8,7,-5);
+  for(const light of [ambient,hemi,key,fill]){
+    light.castShadow=false; light.visible=true;
+    light.userData._baseIntensity=light.intensity;
+    scene.add(light);
   }
-  const exterior = room === 'outdoor' || isHoodRoom(room);
-  guaranteedVisibilityLight.color.setHex(exterior ? 0xf2f8ff : 0xfff1dc);
-  guaranteedVisibilityLight.intensity = visibilityLightLevel(room);
-  guaranteedVisibilityLight.visible = true;
-  return guaranteedVisibilityLight;
+  compatibilityRig={ambient,hemi,key,fill};
+  return compatibilityRig;
 }
-function maintainGuaranteedVisibility(){
-  if(!guaranteedVisibilityLight) return ensureGuaranteedVisibilityLight(currentRoom);
-  const required=visibilityLightLevel(currentRoom);
-  if(!guaranteedVisibilityLight.visible || guaranteedVisibilityLight.intensity<required){
-    guaranteedVisibilityLight.visible=true;
-    guaranteedVisibilityLight.intensity=required;
-  }
-  const fill=roomBaselineLights.get(currentRoom);
-  if(fill) fill.visible=true;
-}
-function ensureRoomBaselineLight(room=currentRoom){
-  if(!room || roomBaselineLights.has(room) || typeof scene === 'undefined' || !scene) return roomBaselineLights.get(room);
-  const exterior = room === 'outdoor' || isHoodRoom(room);
-  const fill = new THREE.HemisphereLight(exterior ? 0xf6fbff : 0xfff4df, exterior ? 0x66704f : 0x6b6258, exterior ? 2.10 : 2.65);
-  fill.name = `Guaranteed room fill · ${room}`;
-  scene.add(fill);
-  regLight(room, fill);
-  roomBaselineLights.set(room, fill);
-  return fill;
+function applyMaterialVisibilityFloor(root=scene){
+  root.traverse?.(object=>{
+    if(!object.isMesh) return;
+    const materials=Array.isArray(object.material)?object.material:[object.material];
+    for(const material of materials){
+      if(!material || material.userData?._visibilityFloor || !(material.isMeshStandardMaterial||material.isMeshPhysicalMaterial)) continue;
+      const authored=material.emissive && (material.emissive.r+material.emissive.g+material.emissive.b)>=.03;
+      if(!authored){
+        const fallback=material.color?.clone?.().multiplyScalar(.10) || new THREE.Color(0x11100f);
+        if(fallback.r+fallback.g+fallback.b<.08) fallback.setHex(0x11100f);
+        material.emissive.copy(fallback);
+        material.emissiveIntensity=Math.max(material.emissiveIntensity||0,.12);
+      }
+      material.userData._visibilityFloor=true;
+      material.needsUpdate=true;
+    }
+  });
 }
 function applyLightBudget(){
-  const pool = [];
-  for(const r in roomLights){
-    if(r !== currentRoom) continue;
-    (roomLights[r]||[]).forEach(l=>{ if(isPunctualLight(l)) pool.push(l); });
-  }
-  if(!pool.length) return;
-  if(pool.length <= PUNCTUAL_LIGHT_BUDGET){ pool.forEach(l=>{ l.visible = true; }); return; }
-  const here = getVisitorPosition();
-  pool.forEach(l=>{
-    l.getWorldPosition(_lightBudgetPos);
-    // Range matters as much as distance: a lamp you are inside the falloff of
-    // is worth more than a brighter one you are well outside.
-    const d = _lightBudgetPos.distanceTo(here);
-    const reach = l.distance > 0 ? l.distance : 40;
-    l.userData._budgetScore = d - reach;
-  });
-  pool.sort((a,b)=>a.userData._budgetScore - b.userData._budgetScore);
-  for(let i=0;i<pool.length;i++) pool[i].visible = i < PUNCTUAL_LIGHT_BUDGET;
+  for(const room in roomLights) (roomLights[room]||[]).forEach(light=>{ if(light) light.visible=false; });
+}
+function maintainGuaranteedVisibility(){
+  const rig=ensureCompatibilityRig();
+  for(const light of Object.values(rig)) light.visible=true;
 }
 function applyRoomLighting(){
   if(currentRoom==='lab') labArtworkLightsOn=true;
-  ensureGuaranteedVisibilityLight(currentRoom);
-  ensureRoomBaselineLight(currentRoom);
-  for(const r in roomLights) (roomLights[r]||[]).forEach(l=>{ if(l) l.visible = (r === currentRoom); });
-  applyLightBudget();
-  // The Lab artwork circuit is independent from the general room lights, but
-  // it is forced on at every entry so the exhibition is never encountered dark.
   setLabArtworkLighting();
+  applyMaterialVisibilityFloor(scene);
+  applyLightBudget();
   applyLightBoost();
   applyRoomFog();
 }
@@ -4724,7 +4732,7 @@ function init(){
   renderer.setSize(innerWidth, innerHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = LIGHT_LEVELS[0].exp; // keep in step with the baseline light level
+  renderer.toneMappingExposure = LIGHT_LEVELS[lightLevelIndex].exp; // hydrate the saved always-on light level
   renderer.shadowMap.enabled = false;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -4950,9 +4958,12 @@ function runWorkshopSelfTest(){
         'Lab artwork circuit starts readable',`${labArtworkLights.length} artwork lights · on ${labArtworkLightsOn}`);
     }
   });
-  const activeBaseline=roomBaselineLights.get(currentRoom);
-  check(!!activeBaseline && activeBaseline.isHemisphereLight && activeBaseline.userData._baseIntensity>0,
-    'entered room has guaranteed fill',currentRoom);
+  const activeRig=ensureCompatibilityRig();
+  check(activeRig && activeRig.ambient?.visible && activeRig.hemi?.visible &&
+      activeRig.key?.visible && activeRig.fill?.visible,
+    'entered room has fixed compatibility lighting',currentRoom);
+  check(Object.values(roomLights).flat().every(light=>!light?.visible),
+    'authored room lights remain GPU-safe and disabled',currentRoom);
 
   // Wall art must never crowd a doorway or its neighbours. Art creeping into
   // door swings has been a repeated fault (Studio, Sunset Lounge), and it was
@@ -14072,8 +14083,10 @@ function toggleMotion(){
 }
 $('motionBtn').onclick = toggleMotion;
 if($('viewModeBtn')) $('viewModeBtn').onclick = ()=>setRpgMode(!rpgMode);
-if($('lightsBtn')) $('lightsBtn').onclick = cycleLightBoost;
-if($('helpLightsBtn')) $('helpLightsBtn').onclick = cycleLightBoost;
+if($('lightingControl')){
+  $('lightingControl').value=String(lightLevelIndex);
+  $('lightingControl').addEventListener('change',e=>setLightLevel(e.target.value));
+}
 if($('windowSoundBtn')) $('windowSoundBtn').onclick = toggleHallWindowSound;
 
 function updateMovement(dt){

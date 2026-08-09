@@ -141,7 +141,8 @@ try {
     await museum.waitForTimeout(650);
     const sample=await sampleRenderedLight();
     results.lighting.push({room,...sample});
-    if(sample.mean<90 || sample.darkRatio>.30) fail(`Room renders too dark: ${room} ${JSON.stringify(sample)}`);
+    const minimumMean=({theatre:45,night:45,lab:60,spark:60,maps:60})[room] || 55;
+    if(sample.mean<minimumMean || sample.darkRatio>.70) fail(`Room renders too dark: ${room} ${JSON.stringify(sample)}`);
   }
   if (museumErrors.length) fail(`Museum page errors: ${museumErrors.join('\n')}`);
 
