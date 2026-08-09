@@ -251,7 +251,7 @@ test('every entered room receives compatibility fill and the Hall has no dead de
     'room entry applies the material floor, disables authored lights and refreshes the fixed rig');
   assert.match(html, /const COMPATIBILITY_LIGHT_PROFILES=Object\.freeze/,
     'rooms retain curated colour and contrast profiles');
-  assert.match(html, /lab:\{ambient:1\.30[\s\S]*spark:\{ambient:1\.30/,
+  assert.match(html, /lab:\{ambient:1\.30[\s\S]*spark:\{ambient:1\.48/,
     'the formerly dark Lab and Spark receive explicit visibility profiles');
   assert.doesNotMatch(html, /const outDoor\s*=\s*addPremiumPortalDoor/,
     'the unregistered Square & Amphitheatre Hall door is removed');
