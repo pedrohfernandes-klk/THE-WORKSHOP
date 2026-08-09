@@ -410,20 +410,21 @@ test('fixed compatibility rig prevents pitch-black GPU shader failures', () => {
     'standard and physical materials receive a subtle visibility floor');
 });
 
-test('room lighting is always-on, accessible and persistent', () => {
+test('walk and lighting controls are compact, explicit and persistent', () => {
+  assert.match(html, /id="enterBtn"[^>]*title="Start walking[^"]*"[^>]*>Walk<\/button>/,
+    'the pointer-lock action explains that it starts walking');
   assert.match(html, /id="actions"[\s\S]*id="lightingControl"[\s\S]*id="screenControlBtn"/,
-    'the canonical lighting selector is permanently visible in the toolbar');
-  assert.equal((html.match(/id="lightingControl"/g)||[]).length,1,
-    'there is exactly one interactive lighting control');
-  assert.match(html, /option value="0">Bright<\/option>.*option value="1">Brighter<\/option>.*option value="2">Brightest<\/option>/s);
+    'the compact lighting control remains permanently visible');
+  assert.equal((html.match(/id="lightingControl"/g)||[]).length,1);
+  assert.match(html, /id="lightingControl"[^>]*aria-label="Room lighting: Brightest"[^>]*>☀ Brightest<\/button>/);
+  assert.match(html, /\.srOnly\{position:absolute!important;width:1px!important/,
+    'accessibility labels no longer consume toolbar space');
   assert.match(html, /const LIGHT_STORAGE_KEY='workshop:lighting-v1'/);
-  assert.match(html, /let lightLevelIndex = readSavedLightLevel\(\)/,
-    'the saved level hydrates before renderer initialization');
-  assert.match(html, /LIGHT_LEVELS\[lightLevelIndex\]\.exp/,
-    'the first rendered frame uses the hydrated level');
-  assert.match(html, /addEventListener\('change',e=>setLightLevel\(e\.target\.value\)\)/);
-  assert.match(html, /function cycleLightBoost\(\)\{ setLightLevel/,
-    'the L shortcut shares the canonical setter');
-  assert.doesNotMatch(html, /label:'(?:Dark|Lights off)'/,
-    'no selectable setting disables illumination');
+  assert.match(html, /let lightLevelIndex = readSavedLightLevel\(\)/);
+  assert.match(html, /LIGHT_LEVELS\[lightLevelIndex\]\.exp/);
+  assert.match(html, /addEventListener\('click',cycleLightBoost\)/,
+    'the visible sun control shares the L-key cycle');
+  assert.match(html, /material\.emissiveIntensity=Math\.max\(material\.emissiveIntensity\|\|0,\.55\)/,
+    'architectural surfaces remain visible independently of direct-light shading');
+  assert.doesNotMatch(html, /label:'(?:Dark|Lights off)'/);
 });
