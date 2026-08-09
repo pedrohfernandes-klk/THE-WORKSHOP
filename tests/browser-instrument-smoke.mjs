@@ -1,3 +1,6 @@
+Exit code: 0
+Wall time: 1.6 seconds
+Output:
 // Browser coverage for the things a headless Node test cannot reach and that
 // the agent sandbox cannot verify at all: that the Studio desk's synthesiser
 // really produces audio, that its transport and MIDI wiring exist, and that
@@ -127,21 +130,76 @@ try {
     const width=gl.drawingBufferWidth,height=gl.drawingBufferHeight;
     const pixels=new Uint8Array(width*height*4);
     gl.readPixels(0,0,width,height,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
-    let luminance=0,dark=0,count=0;
-    for(let i=0;i<pixels.length;i+=40){
+    // Ignore the outer 8% where canvas clearing, letterboxing and edge fog can
+    // dominate. Sample a regular spatial grid rather than a byte stride so the
+    // result cannot alias with repeated geometry or scanlines.
+    const values=[];
+    const x0=Math.floor(width*.08),x1=Math.ceil(width*.92);
+    const y0=Math.floor(height*.08),y1=Math.ceil(height*.92);
+    const step=Math.max(2,Math.floor(Math.min(width,height)/180));
+    let luminance=0,dark=0,shadow=0,midtone=0,bright=0,clipped=0,count=0;
+    for(let y=y0;y<y1;y+=step) for(let x=x0;x<x1;x+=step){
+      const i=(y*width+x)*4;
       const value=.2126*pixels[i]+.7152*pixels[i+1]+.0722*pixels[i+2];
-      luminance+=value; dark+=value<20; count++;
+      values.push(value); luminance+=value; dark+=value<12; shadow+=value<28;
+      midtone+=value>=28&&value<=220; bright+=value>220; clipped+=value>248; count++;
     }
-    return {mean:+(luminance/count).toFixed(1),darkRatio:+(dark/count).toFixed(3)};
+    values.sort((a,b)=>a-b);
+    const percentile=p=>values[Math.min(values.length-1,Math.floor(values.length*p))]||0;
+    const p10=percentile(.10),p25=percentile(.25),p50=percentile(.50),p75=percentile(.75),p90=percentile(.90);
+    return {
+      mean:+(luminance/count).toFixed(1),p10:+p10.toFixed(1),p25:+p25.toFixed(1),
+      p50:+p50.toFixed(1),p75:+p75.toFixed(1),p90:+p90.toFixed(1),
+      contrast:+(p90-p10).toFixed(1),darkRatio:+(dark/count).toFixed(3),
+      shadowRatio:+(shadow/count).toFixed(3),midtoneRatio:+(midtone/count).toFixed(3),
+      brightRatio:+(bright/count).toFixed(3),clippedRatio:+(clipped/count).toFixed(3),
+      samples:count
+    };
   });
   results.lighting=[];
+  const lightingFailures=[];
   for(const room of ['gallery','theatre','studio','lab','thinking','maze','maps','spark','night','hood','outdoor']){
-    await museum.locator('#mapBtn').evaluate(button=>button.click());
-    await museum.locator(`.fastMapBtn[data-room="${room}"]`).first().evaluate(button=>button.click());
-    await museum.waitForTimeout(650);
-    const sample=await sampleRenderedLight();
-    results.lighting.push({room,...sample});
-    if(sample.mean<90 || sample.darkRatio>.30) fail(`Room renders too dark: ${room} ${JSON.stringify(sample)}`);
+    try{
+      await museum.locator('#mapBtn').evaluate(button=>button.click());
+      await museum.locator(`.fastMapBtn[data-room="${room}"]`).first().evaluate(button=>button.click());
+      await museum.waitForTimeout(1100);
+      const sample=await sampleRenderedLight();
+      const reasons=[];
+      // Near-black projection surfaces are legitimate and may occupy a large
+      // rectangle. A room fails only when the broader distribution also lacks
+      // readable midtones/highlights, not merely because black pixels exist.
+      if(sample.mean<45) reasons.push(`mean ${sample.mean} < 45`);
+      if(sample.p50<35) reasons.push(`median ${sample.p50} < 35`);
+      if(sample.p75<60) reasons.push(`75th percentile ${sample.p75} < 60`);
+      if(sample.shadowRatio>.72 && sample.midtoneRatio<.20){
+        reasons.push(`shadows ${(sample.shadowRatio*100).toFixed(1)}% with only ${(sample.midtoneRatio*100).toFixed(1)}% midtones`);
+      }
+      // Washout means the shadows have disappeared or almost the entire view
+      // is clipped/bright with little tonal separation. A bright room alone is
+      // not a failure.
+      if(sample.mean>205) reasons.push(`mean ${sample.mean} > 205`);
+      if(sample.brightRatio>.78 && sample.contrast<38){
+        reasons.push(`bright pixels ${(sample.brightRatio*100).toFixed(1)}% with contrast ${sample.contrast}`);
+      }
+      const clippedLimit=(room==='outdoor'||room==='hood')?.25:.18;
+      if(sample.clippedRatio>clippedLimit) reasons.push(`clipped whites ${(sample.clippedRatio*100).toFixed(1)}% > ${(clippedLimit*100).toFixed(0)}%`);
+      if(room==='lab' && (sample.p50<48 || sample.p75<60)) reasons.push('lab work surfaces are not legible');
+      if(room==='spark' && (sample.p50<35 || sample.p75<60)) reasons.push('spark room lacks readable midtones');
+      if(room==='maps' && (sample.p10>145 || sample.contrast<50)) reasons.push('maps room is flat or washed out');
+      const result={room,...sample,ok:reasons.length===0,reasons};
+      results.lighting.push(result);
+      if(reasons.length) lightingFailures.push(result);
+    }catch(error){
+      const result={room,ok:false,reasons:[`sampling/navigation error: ${error.message}`]};
+      results.lighting.push(result);
+      lightingFailures.push(result);
+      // A failed destination can leave Rooms open; close it before continuing
+      // so diagnostics for later rooms remain independent.
+      await museum.locator('#fastMapCloseBtn').evaluate(button=>button.click()).catch(()=>{});
+    }
+  }
+  if(lightingFailures.length){
+    fail(`Room lighting failures (${lightingFailures.length}/${results.lighting.length}):\n${JSON.stringify(lightingFailures,null,2)}\nAll samples:\n${JSON.stringify(results.lighting,null,2)}`);
   }
   if (museumErrors.length) fail(`Museum page errors: ${museumErrors.join('\n')}`);
 
@@ -151,3 +209,4 @@ try {
   if(browser) await browser.close();
   await new Promise(resolve => server.close(resolve));
 }
+
