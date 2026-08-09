@@ -2998,17 +2998,32 @@ let lightBudgetTimer = 0;
 function isPunctualLight(l){ return l && (l.isPointLight || l.isSpotLight || l.isRectAreaLight); }
 const roomBaselineLights = new Map();
 let guaranteedVisibilityLight = null;
+function visibilityLightLevel(room=currentRoom){
+  if(room==='lab' || room==='spark') return 5.20;
+  if(room==='maps') return 3.60;
+  return room==='outdoor' || isHoodRoom(room) ? 2.40 : 4.20;
+}
 function ensureGuaranteedVisibilityLight(room=currentRoom){
   if(!guaranteedVisibilityLight){
-    guaranteedVisibilityLight = new THREE.AmbientLight(0xfff1dc, 4.20);
+    guaranteedVisibilityLight = new THREE.AmbientLight(0xfff1dc, visibilityLightLevel(room));
     guaranteedVisibilityLight.name = 'Guaranteed visitor visibility';
     scene.add(guaranteedVisibilityLight);
   }
   const exterior = room === 'outdoor' || isHoodRoom(room);
   guaranteedVisibilityLight.color.setHex(exterior ? 0xf2f8ff : 0xfff1dc);
-  guaranteedVisibilityLight.intensity = exterior ? 2.40 : 4.20;
+  guaranteedVisibilityLight.intensity = visibilityLightLevel(room);
   guaranteedVisibilityLight.visible = true;
   return guaranteedVisibilityLight;
+}
+function maintainGuaranteedVisibility(){
+  if(!guaranteedVisibilityLight) return ensureGuaranteedVisibilityLight(currentRoom);
+  const required=visibilityLightLevel(currentRoom);
+  if(!guaranteedVisibilityLight.visible || guaranteedVisibilityLight.intensity<required){
+    guaranteedVisibilityLight.visible=true;
+    guaranteedVisibilityLight.intensity=required;
+  }
+  const fill=roomBaselineLights.get(currentRoom);
+  if(fill) fill.visible=true;
 }
 function ensureRoomBaselineLight(room=currentRoom){
   if(!room || roomBaselineLights.has(room) || typeof scene === 'undefined' || !scene) return roomBaselineLights.get(room);
@@ -14472,6 +14487,7 @@ function animate(){
   const dt = Math.min(.05, clock.getDelta());
   const t = clock.elapsedTime;
   if(pageVisible){
+    maintainGuaranteedVisibility();
     if(isCoarsePointer) syncMobileUiVisibility();
     updatePerformanceLadder(dt);
     if(cameraTransition.active){
