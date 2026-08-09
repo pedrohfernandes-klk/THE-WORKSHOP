@@ -394,3 +394,17 @@ test('the YouTube relay only accepts playback verbs from its embedding page', as
   assert.match(policy, /default-src 'none'/, 'the relay carries its own policy');
   assert.match(policy, /frame-src https:\/\/www\.youtube\.com/);
 });
+
+
+test('room visibility fill is continuously enforced for every entered room', () => {
+  assert.match(html, /function visibilityLightLevel\(room=currentRoom\)/,
+    'room visibility has an explicit authored floor');
+  assert.match(html, /room==='lab' \|\| room==='spark'\) return 5\.20/,
+    'the two persistently dark rooms receive the strongest visibility floor');
+  assert.match(html, /function maintainGuaranteedVisibility\(\)/,
+    'a runtime guard repairs lights changed after room entry');
+  assert.match(html, /if\(pageVisible\)\{\s*maintainGuaranteedVisibility\(\)/,
+    'the visibility guard runs throughout the visible render loop');
+  assert.match(html, /const fill=roomBaselineLights\.get\(currentRoom\);\s*if\(fill\) fill\.visible=true/,
+    'the active room fill cannot remain disabled');
+});
