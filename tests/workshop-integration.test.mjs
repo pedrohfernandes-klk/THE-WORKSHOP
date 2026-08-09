@@ -408,3 +408,19 @@ test('room visibility fill is continuously enforced for every entered room', () 
   assert.match(html, /const fill=roomBaselineLights\.get\(currentRoom\);\s*if\(fill\) fill\.visible=true/,
     'the active room fill cannot remain disabled');
 });
+
+
+test('room brightness controls are visible, synchronized and never offer darkness', () => {
+  assert.match(html, /id="actions"[\s\S]*id="lightsBtn"[\s\S]*id="screenControlBtn"/,
+    'the primary toolbar exposes brightness beside the view controls');
+  assert.match(html, /id="helpLightsBtn"/,
+    'Help mirrors the same brightness control without duplicating its DOM id');
+  assert.match(html, /\{ label:'Bright',[\s\S]*\{ label:'Brighter',[\s\S]*\{ label:'Brightest'/,
+    'every selectable level remains explicitly illuminated');
+  assert.doesNotMatch(html, /label:'(?:Dark|Lights off)'/,
+    'the visitor cannot accidentally switch the room lights off');
+  assert.match(html, /for\(const id of \['lightsBtn','helpLightsBtn'\]\)/,
+    'both visible controls always report the active room brightness');
+  assert.match(html, /if\(\$\('helpLightsBtn'\)\) \$\('helpLightsBtn'\)\.onclick = cycleLightBoost/,
+    'the Help control operates the same lighting system');
+});
