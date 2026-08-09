@@ -360,8 +360,8 @@ test('selftest requires readable Lab lighting instead of deliberate darkness', (
     'selftest does not create the condition it claims to inspect');
   assert.match(html,/room has authored readable light · \$\{room\}/,
     'selftest verifies authored readable lighting without mutating it');
-  assert.match(html,/const activeBaseline=roomBaselineLights\.get\(currentRoom\)/,
-    'selftest verifies the entered room already received guaranteed fill');
+  assert.match(html,/const activeRig=ensureCompatibilityRig\(\)/,
+    'selftest verifies the fixed compatibility rig is active');
   assert.match(html,/Lab artwork circuit starts readable/,
     'Lab also verifies its artwork circuit begins switched on');
 });
@@ -396,31 +396,35 @@ test('the YouTube relay only accepts playback verbs from its embedding page', as
 });
 
 
-test('room visibility fill is continuously enforced for every entered room', () => {
-  assert.match(html, /function visibilityLightLevel\(room=currentRoom\)/,
-    'room visibility has an explicit authored floor');
-  assert.match(html, /room==='lab' \|\| room==='spark'\) return 5\.20/,
-    'the two persistently dark rooms receive the strongest visibility floor');
-  assert.match(html, /function maintainGuaranteedVisibility\(\)/,
-    'a runtime guard repairs lights changed after room entry');
-  assert.match(html, /if\(pageVisible\)\{\s*maintainGuaranteedVisibility\(\)/,
-    'the visibility guard runs throughout the visible render loop');
-  assert.match(html, /const fill=roomBaselineLights\.get\(currentRoom\);\s*if\(fill\) fill\.visible=true/,
-    'the active room fill cannot remain disabled');
+test('fixed compatibility rig prevents pitch-black GPU shader failures', () => {
+  assert.match(html, /const PUNCTUAL_LIGHT_BUDGET = 0/,
+    'authored point and spot lights are disabled by default');
+  assert.match(html, /new THREE\.AmbientLight/);
+  assert.match(html, /new THREE\.HemisphereLight/);
+  assert.equal((html.match(/new THREE\.DirectionalLight/g)||[]).length >= 2,true,
+    'the fixed rig contains two directional lights');
+  assert.match(html, /for\(const room in roomLights\)[\s\S]*light\.visible=false/,
+    'every registered authored light remains hidden');
+  assert.match(html, /compatibilityRig=\{ambient,hemi,key,fill\}/,
+    'the same four-light signature is reused in every room');
+  assert.match(html, /applyMaterialVisibilityFloor\(scene\)/,
+    'standard and physical materials receive a subtle visibility floor');
 });
 
-
-test('room brightness controls are visible, synchronized and never offer darkness', () => {
-  assert.match(html, /id="actions"[\s\S]*id="lightsBtn"[\s\S]*id="screenControlBtn"/,
-    'the primary toolbar exposes brightness beside the view controls');
-  assert.match(html, /id="helpLightsBtn"/,
-    'Help mirrors the same brightness control without duplicating its DOM id');
-  assert.match(html, /\{ label:'Bright',[\s\S]*\{ label:'Brighter',[\s\S]*\{ label:'Brightest'/,
-    'every selectable level remains explicitly illuminated');
+test('room lighting is always-on, accessible and persistent', () => {
+  assert.match(html, /id="actions"[\s\S]*id="lightingControl"[\s\S]*id="screenControlBtn"/,
+    'the canonical lighting selector is permanently visible in the toolbar');
+  assert.equal((html.match(/id="lightingControl"/g)||[]).length,1,
+    'there is exactly one interactive lighting control');
+  assert.match(html, /option value="0">Bright<\/option>.*option value="1">Brighter<\/option>.*option value="2">Brightest<\/option>/s);
+  assert.match(html, /const LIGHT_STORAGE_KEY='workshop:lighting-v1'/);
+  assert.match(html, /let lightLevelIndex = readSavedLightLevel\(\)/,
+    'the saved level hydrates before renderer initialization');
+  assert.match(html, /LIGHT_LEVELS\[lightLevelIndex\]\.exp/,
+    'the first rendered frame uses the hydrated level');
+  assert.match(html, /addEventListener\('change',e=>setLightLevel\(e\.target\.value\)\)/);
+  assert.match(html, /function cycleLightBoost\(\)\{ setLightLevel/,
+    'the L shortcut shares the canonical setter');
   assert.doesNotMatch(html, /label:'(?:Dark|Lights off)'/,
-    'the visitor cannot accidentally switch the room lights off');
-  assert.match(html, /for\(const id of \['lightsBtn','helpLightsBtn'\]\)/,
-    'both visible controls always report the active room brightness');
-  assert.match(html, /if\(\$\('helpLightsBtn'\)\) \$\('helpLightsBtn'\)\.onclick = cycleLightBoost/,
-    'the Help control operates the same lighting system');
+    'no selectable setting disables illumination');
 });
