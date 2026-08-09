@@ -4953,9 +4953,12 @@ function runWorkshopSelfTest(){
         'Lab artwork circuit starts readable',`${labArtworkLights.length} artwork lights · on ${labArtworkLightsOn}`);
     }
   });
-  const activeBaseline=roomBaselineLights.get(currentRoom);
-  check(!!activeBaseline && activeBaseline.isHemisphereLight && activeBaseline.userData._baseIntensity>0,
-    'entered room has guaranteed fill',currentRoom);
+  const activeRig=ensureCompatibilityRig();
+  check(activeRig && activeRig.ambient?.visible && activeRig.hemi?.visible &&
+      activeRig.key?.visible && activeRig.fill?.visible,
+    'entered room has fixed compatibility lighting',currentRoom);
+  check(Object.values(roomLights).flat().every(light=>!light?.visible),
+    'authored room lights remain GPU-safe and disabled',currentRoom);
 
   // Wall art must never crowd a doorway or its neighbours. Art creeping into
   // door swings has been a repeated fault (Studio, Sunset Lounge), and it was
