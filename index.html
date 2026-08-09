@@ -1779,6 +1779,10 @@ body.rpgMode #rpgModeBadge{display:block}
 #hoodLiftPanel.travelling .liftCabinet{animation:liftTravel .72s ease-in-out infinite alternate}
 @keyframes liftTravel{from{transform:translateY(-2px);filter:brightness(.88)}to{transform:translateY(2px);filter:brightness(1.06)}}
 @media(max-width:620px){.liftGrid{grid-template-columns:1fr}.liftCabinet{padding:14px}.liftFloor{min-height:52px}.liftCode{font-size:30px}}
+.srOnly{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+#lightingControl{min-width:106px;min-height:44px}
+#enterBtn{min-height:44px}
+@media(max-width:720px){#lightingControl{min-width:82px;padding-inline:10px}#actions{overflow-x:auto;scrollbar-width:none}}
 </style>
 <script type="importmap">
 {
@@ -1808,13 +1812,10 @@ body.rpgMode #rpgModeBadge{display:block}
       <img id="brandSignature" alt="HrM signature">
     </div>
     <nav id="actions" aria-label="Gallery controls">
-      <button class="btn dark" id="enterBtn">Enter</button>
+      <button class="btn dark" id="enterBtn" title="Start walking · use WASD or arrow keys">Walk</button>
       <button class="btn" id="mapBtn" title="Choose a room (G)">Rooms</button>
       <button class="btn" id="viewModeBtn" title="Toggle first-person / RPG view (V)" aria-pressed="false">RPG</button>
-      <label class="srOnly" for="lightingControl">Room lighting</label>
-      <select class="btn active" id="lightingControl" title="Room lighting" aria-label="Room lighting" style="min-height:44px">
-        <option value="0">Bright</option><option value="1">Brighter</option><option value="2">Brightest</option>
-      </select>
+      <button class="btn active" id="lightingControl" type="button" title="Change room lighting" aria-label="Room lighting: Brightest">☀ Brightest</button>
       <button class="btn" id="screenControlBtn" title="Open the projection in this room (R)">Projection</button>
       <button class="btn" id="filmQuickBtn" aria-pressed="false" title="Play the film on every screen">Film off</button>
       <button class="btn" id="filmQuickSoundBtn" aria-pressed="false" title="Mute or unmute the film">Sound off</button>
@@ -2970,7 +2971,11 @@ function applyLightBoost(){
 }
 function syncLightControl(){
   const control=document.getElementById('lightingControl');
-  if(control) control.value=String(lightLevelIndex);
+  if(!control) return;
+  const label=LIGHT_LEVELS[lightLevelIndex].label;
+  control.textContent=`☀ ${label}`;
+  control.setAttribute('aria-label',`Room lighting: ${label}`);
+  control.title=`Room lighting: ${label}. Click or press L to change.`;
 }
 function setLightLevel(index,{announce=true,persist=true}={}){
   const parsed=Number.parseInt(index,10);
@@ -3057,10 +3062,10 @@ function applyMaterialVisibilityFloor(root=scene){
       if(!material || material.userData?._visibilityFloor || !(material.isMeshStandardMaterial||material.isMeshPhysicalMaterial)) continue;
       const authored=material.emissive && (material.emissive.r+material.emissive.g+material.emissive.b)>=.03;
       if(!authored){
-        const fallback=material.color?.clone?.().multiplyScalar(.10) || new THREE.Color(0x11100f);
-        if(fallback.r+fallback.g+fallback.b<.08) fallback.setHex(0x11100f);
+        const fallback=material.color?.clone?.().multiplyScalar(.30) || new THREE.Color(0x292621);
+        if(fallback.r+fallback.g+fallback.b<.14) fallback.setHex(0x292621);
         material.emissive.copy(fallback);
-        material.emissiveIntensity=Math.max(material.emissiveIntensity||0,.12);
+        material.emissiveIntensity=Math.max(material.emissiveIntensity||0,.55);
       }
       material.userData._visibilityFloor=true;
       material.needsUpdate=true;
@@ -14084,8 +14089,8 @@ function toggleMotion(){
 $('motionBtn').onclick = toggleMotion;
 if($('viewModeBtn')) $('viewModeBtn').onclick = ()=>setRpgMode(!rpgMode);
 if($('lightingControl')){
-  $('lightingControl').value=String(lightLevelIndex);
-  $('lightingControl').addEventListener('change',e=>setLightLevel(e.target.value));
+  syncLightControl();
+  $('lightingControl').addEventListener('click',cycleLightBoost);
 }
 if($('windowSoundBtn')) $('windowSoundBtn').onclick = toggleHallWindowSound;
 
