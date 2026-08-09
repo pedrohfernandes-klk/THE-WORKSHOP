@@ -403,6 +403,9 @@ test('fixed compatibility rig prevents pitch-black GPU shader failures', () => {
     'every registered authored light remains hidden');
   assert.match(html, /compatibilityRig=\{ambient,hemi,key,fill\}/,
     'the same four-light signature is reused in every room');
+  assert.match(html, /rig\.hemi\.color\.setHex\(profile\.sky\)/);
+  assert.match(html, /rig\.hemi\.groundColor\.setHex\(profile\.ground\)/,
+    'room palettes change colour temperature without changing light types');
   assert.match(html, /applyMaterialVisibilityFloor\(scene\)/,
     'standard and physical materials receive a subtle visibility floor');
 });
