@@ -1,3 +1,6 @@
+Exit code: 0
+Wall time: 1.5 seconds
+Output:
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, stat } from 'node:fs/promises';
@@ -5,6 +8,7 @@ import { allowlistedProjectionUrl, PROJECTION_IFRAME_SANDBOX } from '../assets/j
 
 const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 const loopSketchpad = await readFile(new URL('../assets/apps/loop-sketchpad.html', import.meta.url), 'utf8');
+const browserInstrument = await readFile(new URL('./browser-instrument-smoke.mjs', import.meta.url), 'utf8');
 
 test('branch-served Pages contains its runtime modules', async () => {
   const three = await stat(new URL('../assets/vendor/three/three.module.js', import.meta.url));
@@ -165,8 +169,8 @@ test('visitor-facing narrative presents the Tower as the museum identity and thr
   assert.match(html, /Every route belongs to the Tower/);
   assert.match(html, /Inside the Tower<span>the collection by floor<\/span>/);
   assert.match(html, /the image and address of The Workshop/);
-  assert.match(html, /one building · one collection · every floor/);
-  assert.match(html, /Tower Hall · corridor galleries/);
+  assert.match(html, /one building Â· one collection Â· every floor/);
+  assert.match(html, /Tower Hall Â· corridor galleries/);
   assert.doesNotMatch(html.slice(html.indexOf('const TOWER_FLOORS'), html.indexOf('const HOOD_ALL_FLOORS')), /The Grove|Roof garden/);
 });
 
@@ -247,7 +251,7 @@ test('Hall entry remains a plain threshold without a chaperone apparatus', () =>
 });
 
 test('every entered room receives broad fill and the Hall has no dead destination doors', () => {
-  assert.match(html, /new THREE\.AmbientLight\(0xfff1dc, 4\.20\)/,
+  assert.match(html, /new THREE\.AmbientLight\(0xfff1dc, roomLightProfile\(room\)\.ambient\)/,
     'a global visibility light bypasses room switching and the punctual-light budget');
   assert.match(html, /function applyRoomLighting\(\)\{[\s\S]*?ensureGuaranteedVisibilityLight\(currentRoom\);/,
     'the always-on visibility light is refreshed at every room entry');
@@ -255,12 +259,31 @@ test('every entered room receives broad fill and the Hall has no dead destinatio
     'room entry owns a guaranteed non-punctual fill light');
   assert.match(html, /function applyRoomLighting\(\)\{[\s\S]*?ensureRoomBaselineLight\(currentRoom\);[\s\S]*?applyLightBudget\(\);/,
     'broad fill is installed before the punctual accent-light budget runs');
-  assert.match(html, /currentRoom==='spark' \? \.48 : currentRoom==='lab' \? \.34/,
-    'the two deliberately dark-material rooms receive additional entry exposure');
+  assert.match(html, /const ROOM_LIGHT_PROFILES = Object\.freeze\(/,
+    'each priority room owns a deliberate ambient, hemisphere and exposure profile');
   assert.doesNotMatch(html, /const outDoor\s*=\s*addPremiumPortalDoor/,
     'the unregistered Square & Amphitheatre Hall door is removed');
   assert.doesNotMatch(html, /const nightDoor\s*=\s*addPremiumPortalDoor/,
     'the unregistered Sunset Lounge Hall door is removed');
+});
+
+test('browser lighting audit rejects darkness and washout with complete room diagnostics', () => {
+  assert.match(browserInstrument,/const lightingFailures=\[\]/,
+    'lighting failures accumulate across rooms');
+  assert.match(browserInstrument,/if\(lightingFailures\.length\)/,
+    'the audit fails only after every destination has been sampled');
+  assert.doesNotMatch(browserInstrument,/if\(sample\.mean<[^\n]+\) fail\(/,
+    'the room loop does not abort on its first luminance failure');
+  assert.match(browserInstrument,/sample\.p75<60/,
+    'darkness detection requires the upper tonal distribution to remain unreadable');
+  assert.match(browserInstrument,/sample\.shadowRatio>\.72 && sample\.midtoneRatio<\.20/,
+    'black screen pixels alone cannot condemn an otherwise readable room');
+  assert.match(browserInstrument,/room==='maps'.*sample\.p10>145.*sample\.contrast<50/,
+    'maps washout detection catches flat views whose shadows have disappeared');
+  assert.match(browserInstrument,/sample\.clippedRatio>clippedLimit/,
+    'washout detection also catches widespread clipped whites');
+  assert.match(browserInstrument,/All samples:/,
+    'failure output includes the complete cross-room evidence set');
 });
 
 test('Garden Study capture is explicit, metadata-rich and safe around dialogs', () => {
@@ -355,10 +378,10 @@ test('active navigation and archive language belongs to the Tower', () => {
 });
 
 test('selftest requires readable Lab lighting instead of deliberate darkness', () => {
-  assert.doesNotMatch(html,/room deliberately dark · lab/);
+  assert.doesNotMatch(html,/room deliberately dark Â· lab/);
   assert.doesNotMatch(html,/const baseline=ensureRoomBaselineLight\(room\)/,
     'selftest does not create the condition it claims to inspect');
-  assert.match(html,/room has authored readable light · \$\{room\}/,
+  assert.match(html,/room has authored readable light Â· \$\{room\}/,
     'selftest verifies authored readable lighting without mutating it');
   assert.match(html,/const activeBaseline=roomBaselineLights\.get\(currentRoom\)/,
     'selftest verifies the entered room already received guaranteed fill');
@@ -372,3 +395,4 @@ test('Laboratory is visibly lit on entry and never described as totally dark', (
   assert.match(html, /illuminated projection gallery/);
   assert.doesNotMatch(html, /totally dark projection room|barely visible return trace/);
 });
+
