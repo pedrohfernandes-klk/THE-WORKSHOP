@@ -1,7 +1,11 @@
-INDEX150 DEPLOYMENT
+DEPLOYMENT
 
-Upload the complete contents of this folder to the GitHub Pages publishing root. Keep index.html, yt.html, assets/, and regression/ together.
+Deployment is automatic: pushing to main runs .github/workflows/deploy-pages.yml,
+which tests, packages a curated _site/ and publishes it to GitHub Pages. Do not
+upload files by hand, and leave Settings -> Pages -> Source set to "GitHub Actions".
 
-The Studio uses direct YouTube embeds over HTTPS and yt.html only when the museum runs from file://.
+See README.md for the full description.
 
-For regression captures, serve locally: python3 -m http.server 8765, then run regression/capture_regression.sh.
+The Studio uses direct YouTube embeds over HTTPS, and falls back to yt.html only
+when the museum runs from file://. yt.html is published to the site root by the
+package step, so no separate upload is needed.
