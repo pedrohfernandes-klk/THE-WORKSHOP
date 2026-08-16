@@ -5,3 +5,6 @@ Thumbs.db
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 .worktrees/
+
+# Agent scratch, not project material
+.hermes/
