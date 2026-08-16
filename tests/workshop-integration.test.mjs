@@ -210,3 +210,15 @@ test('known runtime regressions remain removed', () => {
   assert.equal((animateBlock.match(/updateHallWindow\(dt\)/g) || []).length, 0,
     'animate does not duplicate the hall-window update already performed by updateWorld');
 });
+
+test('Grove stays monument-free and uses no portrait loader or external head asset', () => {
+  const groveStart = html.indexOf('function buildOutdoorSpace(){');
+  const groveEnd = html.indexOf('function build', groveStart + 1);
+  const grove = html.slice(groveStart, groveEnd);
+  assert.doesNotMatch(grove, /portraitLoader\.load\('assets\/models\/grove-bronze-portrait\.glb'/,
+    'no local portrait loader remains in the Grove');
+  assert.doesNotMatch(grove, /lee-perry-smith|portraitHeadLoader|maskGardenFace|MASK_GARDEN_FACE_SRC/,
+    'no external head assets or mask references remain in the Grove');
+  assert.match(grove, /Grove stays monument-free/,
+    'the Grove carries the cancellation marker');
+});
