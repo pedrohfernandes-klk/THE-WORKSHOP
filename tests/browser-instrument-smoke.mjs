@@ -5,33 +5,10 @@
 //
 // Run with: npm run test:instrument   (needs `npx playwright install chromium`)
 import { chromium } from 'playwright';
-import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
-import { dirname, join, normalize } from 'node:path';
+import { startStaticServer } from '../scripts/static-server.mjs';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const TYPES = { '.html':'text/html', '.js':'text/javascript', '.mjs':'text/javascript',
-  '.css':'text/css', '.json':'application/json', '.webp':'image/webp', '.png':'image/png',
-  '.jpg':'image/jpeg', '.svg':'image/svg+xml', '.mp4':'video/mp4', '.webm':'video/webm' };
-
-const server = createServer(async (req, res) => {
-  try {
-    const path = normalize(decodeURIComponent(req.url.split('?')[0])).replace(/^(\.\.[/\\])+/, '');
-    const file = join(ROOT, path === '/' ? 'index.html' : path);
-    if (!file.startsWith(ROOT)) { res.writeHead(403).end(); return; }
-    const ext = file.slice(file.lastIndexOf('.'));
-    const body = await readFile(file);
-    res.writeHead(200, { 'content-type': TYPES[ext] || 'application/octet-stream' });
-    res.end(body);
-  } catch { res.writeHead(404).end(); }
-});
-await new Promise((resolve,reject) => {
-  server.once('error',reject);
-  server.listen(0, '127.0.0.1', resolve);
-});
-const port = server.address().port;
-const baseUrl = `http://127.0.0.1:${port}`;
+// Port 0 lets the OS pick a free one, so parallel runs never collide.
+const { server, origin: baseUrl } = await startStaticServer(0);
 const results = {};
 const fail = m => { throw new Error(m); };
 let browser;
