@@ -188,10 +188,16 @@ test('world movement and shortcuts do not conflict with focused interface contro
   const end = html.indexOf("window.addEventListener('keyup'", start);
   const input = html.slice(start, end);
   assert.ok(start > -1 && end > start, 'global keyboard handler exists');
-  assert.match(input, /interactiveTarget/,
-    'interactive browser controls are recognised before world shortcuts run');
-  assert.match(input, /if\(\(typingTarget\s*\|\|\s*interactiveTarget\).*return;/,
+  // The invariant this test names is that a focused control keeps its native
+  // keyboard behaviour. That is now expressed as "the world responds only while
+  // the world holds focus", which preserves the invariant and additionally
+  // gives keyboard visitors a route back: matching the e.target selector alone
+  // meant activating any button stopped walking permanently, because nothing
+  // could return focus to the canvas.
+  assert.match(input, /if\(\(typingTarget\s*\|\|\s*!worldHasFocus\(\)\).*return;/,
     'focused controls retain native keyboard behaviour');
+  assert.doesNotMatch(input, /interactiveTarget/,
+    'the selector-match form that trapped keyboard visitors has not returned');
   assert.doesNotMatch(input, /if\(k==='a'\) openArchive/,
     'A remains exclusively a left-strafe key');
   assert.match(input, /if\(k==='o'\) openArchive\('rooms'\)/,
@@ -441,4 +447,39 @@ test('walking remains available when pointer lock is rejected', () => {
     'synchronous pointer-lock rejection is handled');
   assert.match(html, /if\(requestLock && !document\.pointerLockElement\) requestWalkCapture\(\)/,
     'interaction returns to keyboard walking without requiring pointer lock');
+});
+
+test('the world is focusable and every dismissal hands focus back', () => {
+  assert.match(html, /<canvas id="renderCanvas" tabindex="0" role="application"/,
+    'the canvas is focusable and declared as an application');
+  assert.match(html, /function worldHasFocus\(\)\{/);
+  assert.match(html, /function focusWorld\(\)\{/);
+  assert.match(html, /\}else focusWorld\(\);/,
+    'closing the Rooms panel returns focus to the world');
+  assert.match(html, /if\(screenControlMode\)\{ exitScreenControl\(\); focusWorld\(\); return; \}/,
+    'Escape returns focus to the world');
+  assert.match(html, /msg\(label \|\| 'Moved'\);[\s\S]{0,220}?focusWorld\(\);/,
+    'arriving in a room returns focus to the world');
+});
+
+test('keyboard visitors can aim above and below eye level', () => {
+  assert.match(html, /const tilt = \(keys\.has\('pageup'\) \? 1 : 0\) - \(keys\.has\('pagedown'\) \? 1 : 0\);/);
+  assert.match(html, /pitch = clamp\(pitch \+ tilt \* 1\.15 \* dt, -1\.25, 1\.40\);/,
+    'key-driven pitch uses the same clamp as the pointer paths');
+  assert.match(html, /<code>Page Up<\/code> \/ <code>Page Down<\/code>/,
+    'Help documents the pitch keys');
+});
+
+test('an OS-level reduced-motion preference applies without being toggled', () => {
+  assert.match(html, /const reducedMotionQuery = window\.matchMedia\('\(prefers-reduced-motion: reduce\)'\)/);
+  assert.match(html, /function syncMotionUi\(\)\{/);
+  assert.match(html, /reducedMotionQuery\.addEventListener\('change'/,
+    'the preference is followed while the page is open');
+  assert.doesNotMatch(html, /function toggleMotion\(\)\{\s*\n\s*reducedMotion = !reducedMotion;\s*\n\s*document\.body\.classList\.toggle\('reduced'/,
+    'the manual toggle no longer owns the class exclusively');
+});
+
+test('panel disclosure state is exposed to assistive technology', () => {
+  assert.match(html, /function syncPanelExpandedState\(\)\{/);
+  assert.match(html, /btn\.setAttribute\('aria-expanded', String\(panel\.classList\.contains\('open'\)\)\)/);
 });

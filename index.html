@@ -39,7 +39,12 @@ html,body{
 }
 button,input{font:inherit}
 button{cursor:pointer}
-button:focus-visible,input:focus-visible{outline:2px solid rgba(169,76,68,.62);outline-offset:3px}
+/* select, textarea and links styled as buttons need the same ring; several
+   rules below set outline:none and would otherwise leave them with none. */
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a[href]:focus-visible,[tabindex]:focus-visible{outline:2px solid rgba(169,76,68,.62);outline-offset:3px}
+/* The canvas is focusable so keyboard visitors can return to the world, but a
+   ring drawn over the 3D view reads as a rendering artefact. */
+#renderCanvas:focus,#renderCanvas:focus-visible{outline:none}
 #app{
   position:fixed;
   inset:0;
@@ -1794,7 +1799,10 @@ body.rpgMode #rpgModeBadge{display:block}
 </head>
 <body>
 <div id="app">
-  <canvas id="renderCanvas" tabindex="0" aria-label="The Workshop 3D museum. Use W A S D or arrow keys to walk. Move mouse to look. Mouse wheel zooms."></canvas>
+  <!-- role=application tells assistive technology this element consumes its own
+       keystrokes, which is what makes the already-focusable canvas usable
+       rather than merely reachable. -->
+  <canvas id="renderCanvas" tabindex="0" role="application" aria-label="The Workshop 3D museum. Use W A S D or arrow keys to walk. Q and E turn, Page Up and Page Down look up and down. Enter uses what you are facing. G opens the Rooms menu, H opens help."></canvas>
 
   <div id="poster">
     <div id="posterCard">
@@ -1966,6 +1974,8 @@ body.rpgMode #rpgModeBadge{display:block}
     <p><code>W/S</code> or <code>↑/↓</code>: walk forward / backward. Hold <code>Shift</code> to run.</p>
     <p><code>A/D</code>: left / right strafe.</p>
     <p><code>←/→</code> or <code>Q/E</code>: turn. Drag the view on touch devices.</p>
+    <p><code>Page Up</code> / <code>Page Down</code>: look up and down without a mouse.</p>
+    <p>Keyboard only: <code>Tab</code> reaches the panels, <code>Esc</code> hands focus back to the museum so you can walk again.</p>
     <p>Click the gallery to capture the mouse. Move mouse to look. Wheel zooms.</p>
     <p><code>G</code>: Rooms. <code>F</code>: focus nearest work. <code>C</code>: Catalogue. <code>O</code>: Archive. <code>N</code>: Notes. <code>L</code>: brighten room. <code>Esc</code>: release / close.</p>
     <p>The Tower is the address of the whole museum. Open <b>Rooms</b> for the narrative route, or open the <b>Tower directory</b> to choose a floor. The lift connects the hall, galleries, salons and public ground.</p>
@@ -2289,6 +2299,38 @@ const $ = id => document.getElementById(id);
 const app = $('app');
 const canvas = $('renderCanvas');
 const poster = $('poster');
+
+// Walking and looking are live only while the world holds focus. A mouse
+// visitor returns to it by clicking (see requestWalkCapture, which also takes
+// pointer lock); these are the keyboard equivalent, without grabbing the
+// pointer. Every panel dismissal calls focusWorld() so a keyboard visitor is
+// never stranded on a control with no way back into the museum.
+function worldHasFocus(){
+  const active = document.activeElement;
+  return !active || active === document.body || active === canvas;
+}
+function focusWorld(){
+  if(worldHasFocus()) return;
+  try{ canvas.focus({preventScroll:true}); }catch(e){ canvas.focus?.(); }
+}
+
+// These panels are toggled by a topbar button, so the button carries the
+// disclosure state. Without aria-expanded a screen-reader visitor gets no
+// signal that pressing Rooms or Help did anything.
+const PANEL_DISCLOSURES = [
+  ['mapBtn','fastMapPanel'],
+  ['helpBtn','helpPanel'],
+  ['catalogueBtn','catalogue'],
+  ['archiveBtn','archivePanel'],
+  ['notesBtn','notesPanel'],
+];
+function syncPanelExpandedState(){
+  for(const [btnId, panelId] of PANEL_DISCLOSURES){
+    const btn = $(btnId), panel = $(panelId);
+    if(!btn || !panel) continue;
+    btn.setAttribute('aria-expanded', String(panel.classList.contains('open')));
+  }
+}
 const toast = $('toast');
 const miniMap = $('miniMap');
 const miniCtx = miniMap.getContext('2d');
@@ -2612,7 +2654,13 @@ function setRpgMode(next,{silent=false}={}){
   if(rpgMode){updateRpgAvatar(0,0);updateRpgCamera(0,true);}else updateCameraRotation();
   if(!silent) msg(rpgMode?'RPG view · character camera active':'First-person view');
 }
-let reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+// The JS animation paths read this flag, but body.reduced is what disables CSS
+// animation and transition. Applying it only from the manual toggle meant an
+// OS-level reduce preference left every CSS transition running and started the
+// Motion button in the wrong state, so a visitor's first press turned reduced
+// motion off. Applied at boot below, and followed while the page is open.
+const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+let reducedMotion = reducedMotionQuery.matches;
 let autoTour = false;
 let pageVisible = true;
 let selected = 0;
@@ -12706,6 +12754,18 @@ function toggleRoomsPanel(force){
     updateRoomsPanel();
   }
   fastMapPanel.classList.toggle('open',open);
+  syncPanelExpandedState();
+  if(open){
+    // Queried in priority order rather than as one selector list: a selector
+    // list matches in document order, so a plain .btn earlier in the panel
+    // would win over the room button we want to land on. Focused synchronously
+    // because the panel is already laid out by the toggle above, and a
+    // requestAnimationFrame here would never run in a background tab.
+    const first = fastMapPanel.querySelector('.fastMapBtn.active')
+      || fastMapPanel.querySelector('.fastMapBtn')
+      || fastMapPanel.querySelector('button');
+    if(first) try{ first.focus({preventScroll:true}); }catch(e){ first.focus?.(); }
+  }else focusWorld();
 }
 
 function updateRoomUI(){
@@ -13628,8 +13688,12 @@ function setPlayerLocation(room, pos, newYaw, label, newPitch=0){
   closeNotes();
   helpPanel.classList.remove('open');
   fastMapPanel.classList.remove('open');
+  syncPanelExpandedState();
   updateRoomUI();
   msg(label || 'Moved');
+  // Arriving from the Rooms menu or a lift leaves focus on the button that was
+  // pressed. Hand it back so the visitor can walk the moment they arrive.
+  focusWorld();
 }
 function fastTravel(place){
   if(!placeBuildReady(place)){
@@ -14020,22 +14084,29 @@ const moveKeySet = new Set(['w','a','s','d','arrowup','arrowdown','arrowleft','a
 window.addEventListener('keydown', e=>{
   const k = e.key.toLowerCase();
   const typingTarget = e.target && (e.target.isContentEditable || ['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName));
-  const interactiveTarget = e.target instanceof Element && e.target.closest('button,a[href],[role="button"],[role="dialog"],aside');
   // Browser controls and panels own their keystrokes; the world only responds
-  // while focus is on the canvas/body, apart from Escape closing a dialog.
-  if((typingTarget || interactiveTarget) && e.key !== 'Escape') return;
+  // while focus rests on the canvas or the body, apart from Escape closing a
+  // dialog. Testing focus rather than matching e.target against a control
+  // selector is what makes this recoverable: the selector form returned before
+  // keys.add with no way to move focus back, so activating any button stopped
+  // walking permanently for anyone not using a mouse.
+  if((typingTarget || !worldHasFocus()) && e.key !== 'Escape') return;
   keys.add(k);
   if(moveKeySet.has(k)){
     cameraTransition.active = false;
   }
-  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
+  if(['arrowup','arrowdown','arrowleft','arrowright','pageup','pagedown',' '].includes(k)) e.preventDefault();
   if(e.key === 'Escape'){
-    if(screenControlMode){ exitScreenControl(); return; }
-    if($('playOverlay').classList.contains('show')){ closePlayOverlay(); return; }
-    if(archivePanel.classList.contains('open')){ closeArchive(); return; }
-    if(notesPanel && notesPanel.classList.contains('open')){ closeNotes(); return; }
-    if(researchPanel && researchPanel.classList.contains('open')){ closeResearchPanel(); return; }
+    // Every branch dismisses something, so each hands focus back rather than
+    // leaving it stranded on a control that is now hidden.
+    if(screenControlMode){ exitScreenControl(); focusWorld(); return; }
+    if($('playOverlay').classList.contains('show')){ closePlayOverlay(); focusWorld(); return; }
+    if(archivePanel.classList.contains('open')){ closeArchive(); syncPanelExpandedState(); focusWorld(); return; }
+    if(notesPanel && notesPanel.classList.contains('open')){ closeNotes(); syncPanelExpandedState(); focusWorld(); return; }
+    if(researchPanel && researchPanel.classList.contains('open')){ closeResearchPanel(); focusWorld(); return; }
     catalogue.classList.remove('open'); closeArchive(); closeNotes(); closeResearchPanel(); helpPanel.classList.remove('open'); fastMapPanel.classList.remove('open');
+    syncPanelExpandedState();
+    focusWorld();
   }
   if(k==='enter' && !typingTarget){ e.preventDefault(); interactAtCenter({requestLock:false}); }
   if(k==='f') focusNearest();
@@ -14089,13 +14160,24 @@ $('tourBtn').onclick = ()=>{
   msg(autoTour ? 'Tour on' : 'Tour off');
 };
 $('screenControlBtn').onclick = toggleNearestScreenControl;
+function syncMotionUi(){
+  document.body.classList.toggle('reduced', reducedMotion);
+  const btn = $('motionBtn');
+  if(btn){
+    btn.classList.toggle('active', !reducedMotion);
+    btn.setAttribute('aria-pressed', String(reducedMotion));
+  }
+}
 function toggleMotion(){
   reducedMotion = !reducedMotion;
-  document.body.classList.toggle('reduced', reducedMotion);
-  $('motionBtn').classList.toggle('active', !reducedMotion);
+  syncMotionUi();
   msg(reducedMotion ? 'Motion reduced' : 'Motion restored');
 }
 $('motionBtn').onclick = toggleMotion;
+// Honour the OS preference at boot, and keep following it if it changes.
+syncMotionUi();
+reducedMotionQuery.addEventListener('change', e=>{ reducedMotion = e.matches; syncMotionUi(); });
+syncPanelExpandedState();
 if($('viewModeBtn')) $('viewModeBtn').onclick = ()=>setRpgMode(!rpgMode);
 if($('lightingControl')){
   syncLightControl();
@@ -14138,6 +14220,14 @@ function updateMovement(dt){
   const turn = (keys.has('arrowleft') || keys.has('q') ? 1 : 0) - (keys.has('arrowright') || keys.has('e') ? 1 : 0);
   if(turn && document.pointerLockElement !== canvas){
     yaw += turn * (sprinting ? 2.55 : 1.75) * dt;
+    updateCameraRotation();
+  }
+  // Pitch was mouse-only, so anything above or below eye level — the tower
+  // windows, the ceiling projections, the floor cabinets — could not be aimed
+  // at without a pointer. Same clamp as the mouse and touch look paths.
+  const tilt = (keys.has('pageup') ? 1 : 0) - (keys.has('pagedown') ? 1 : 0);
+  if(tilt && document.pointerLockElement !== canvas){
+    pitch = clamp(pitch + tilt * 1.15 * dt, -1.25, 1.40);
     updateCameraRotation();
   }
 
