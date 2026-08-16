@@ -566,3 +566,20 @@ test('the lift reads as a lift rather than a door', () => {
   assert.doesNotMatch(html, /const button=new THREE\.Mesh\(new THREE\.SphereGeometry\(\.095,18,12\)/,
     'the protruding sphere button is replaced by a flush backlit plate');
 });
+
+test('entering the museum does not capture the pointer', () => {
+  // Auto-locking on entry hid the cursor before the visitor acted, and a
+  // captured pointer cannot reach any button: Rooms, Help and Projection all
+  // silently stopped responding while the keyboard kept working. Look-capture
+  // is opt-in, via a click on the world.
+  const open = html.slice(html.indexOf('function beginPosterOpen(){'), html.indexOf('function makeGridTexture'));
+  assert.doesNotMatch(open, /requestWalkCapture\(\);/,
+    'the entry path does not request pointer lock');
+  assert.match(open, /canvas\.focus\(\{preventScroll:true\}\)/,
+    'entry still focuses the world so the keyboard works immediately');
+  // Clicking the world must still engage it.
+  assert.match(html, /function enterPointer\(\)\{[\s\S]{0,200}?requestWalkCapture\(\);/,
+    'clicking the world still captures the mouse');
+  assert.match(html, /msg\('Mouse captured · press Esc to use the menus'\)/,
+    'the way out is stated where the visitor can see it, since #hint is hidden');
+});

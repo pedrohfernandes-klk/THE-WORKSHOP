@@ -3741,7 +3741,15 @@ function beginPosterOpen(){
     poster.classList.remove('opening');
     poster.style.transition = '';
     poster.style.opacity = '';
-    requestWalkCapture();
+    // Entering focuses the world so the keyboard works immediately, but must
+    // NOT capture the pointer. Auto-locking on entry hid the cursor before the
+    // visitor had done anything, and a locked pointer cannot reach any button:
+    // Rooms, Help, Projection and the rest all silently stopped responding,
+    // while the keyboard kept working. That read as "the mouse does nothing and
+    // the commands are off". Look-capture is now something the visitor opts
+    // into by clicking the world.
+    canvas.tabIndex = 0;
+    try{ canvas.focus({preventScroll:true}); }catch(e){ canvas.focus?.(); }
     posterOpening = false;
     if(visitOrientationStatus(visitState)==='move'){
       queueVisitGuidanceAfterPaint('visit-move',isCoarsePointer
@@ -14162,7 +14170,10 @@ canvas.addEventListener('click', e=>interactAtCenter({requestLock:!isCoarsePoint
 document.addEventListener('pointerlockchange', ()=>{
   const hint = $('hint');
   if(document.pointerLockElement === canvas){
-    msg('Mouse captured');
+    // #hint is display:none !important (line ~1345), so anything written there
+    // is invisible. A captured pointer cannot click any button, so the way out
+    // has to be said somewhere the visitor actually sees.
+    msg('Mouse captured · press Esc to use the menus');
     hint.textContent = rpgMode ? 'RPG view · W/S move · A/D strafe · mouse orbits · V first person' : 'Mouse captured · W/S move · A/D strafe · arrows turn/walk · G map';
   }else{
     hint.textContent = isCoarsePointer ? `Drag to look · joystick moves · ${rpgMode?'VIEW changes camera':'ENTER uses the centred interaction'}` : `Click to capture mouse · WASD moves · ${rpgMode?'V returns to first person':'V opens RPG view'}`;
