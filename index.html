@@ -1805,6 +1805,14 @@ body.rpgMode #rpgModeBadge{display:block}
 .srOnly{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
 #lightingControl{min-width:106px;min-height:44px}
 #enterBtn{min-height:44px}
+/* Says the render loop has stalled. A frozen canvas was previously
+   indistinguishable from a slow one. Never intercepts the pointer, so a scene
+   recovering underneath stays usable. */
+#renderNotice{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:60;display:none;flex-direction:column;gap:8px;align-items:center;text-align:center;max-width:min(420px,calc(100vw - 48px));padding:20px 26px;border-radius:12px;background:rgba(20,16,12,.93);color:#f4ecd9;pointer-events:none}
+#renderNotice.show{display:flex}
+#renderNotice strong{font:600 13px/1.3 ui-sans-serif,system-ui,sans-serif;letter-spacing:.09em;text-transform:uppercase}
+#renderNotice span{font:400 13px/1.5 ui-sans-serif,system-ui,sans-serif;color:rgba(244,236,217,.8)}
+#renderNotice button{margin-top:6px;padding:10px 24px;border:0;border-radius:999px;background:#f4ecd9;color:#17120d;font:600 12px/1 ui-sans-serif,system-ui,sans-serif;letter-spacing:.09em;text-transform:uppercase;cursor:pointer;pointer-events:auto}
 @media(max-width:720px){#lightingControl{min-width:82px;padding-inline:10px}#actions{overflow-x:auto;scrollbar-width:none}}
 </style>
 <script type="importmap">
@@ -2695,7 +2703,13 @@ let smoothSpeed = 0;
 let smoothFloorY = 0;
 let lookingAt = -1;
 const keys = new Set();
-const isCoarsePointer = window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+// Must match the CSS gate at `@media (pointer:coarse), (max-width:760px)`
+// exactly, or the two disagree and the visitor gets neither control scheme.
+// `'ontouchstart' in window` is true on any touch-capable Windows laptop even
+// when a mouse is the primary pointer, so it used to suppress pointer lock
+// while CSS kept the on-screen joystick hidden: no mouse look, no touch
+// controls, on a large class of desktop machines.
+const isCoarsePointer = window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 760;
 const mobileInput = {
   forward:0,
   strafe:0,
@@ -3634,13 +3648,63 @@ function ensureDistrictBuild(id){
     }
   },0));
   districtBuildPromises.set(id,promise);
+  // A rejected promise stayed cached, so every later attempt replayed the same
+  // failure without re-running the builder: one transient hiccup made a
+  // district unreachable for the rest of the session. Evicting on failure lets
+  // the next attempt genuinely retry. The catch also marks the rejection as
+  // handled, so a build failure no longer surfaces as an unhandled rejection.
+  promise.catch(()=>districtBuildPromises.delete(id));
   return promise;
 }
 let animationStarted = false;
+let contextLost = false;
+let framesRendered = 0;
+let lastFrameAt = 0;
+
+// Watchdog. If the loop is supposed to be running and no frame has landed for
+// several seconds, the visitor is looking at a still image with no way to know
+// the difference. Say so, and offer the one action that reliably helps.
+function startRenderWatchdog(){
+  setInterval(() => {
+    if(!animationStarted || !pageVisible || contextLost || !lastFrameAt) return;
+    const stalledFor = performance.now() - lastFrameAt;
+    if(stalledFor > 5000){
+      showRenderNotice('The museum has stopped responding',
+        'Rendering stalled. Reloading usually recovers it — your visit record is kept.',
+        {fatal:true});
+    }else if(stalledFor < 1200){
+      hideRenderNotice();
+    }
+  }, 2000);
+}
+
+// A frozen canvas used to be indistinguishable from a slow one: the visitor sat
+// looking at a still image with no way to tell whether the museum had died.
+// This is the single place that says so, and it never blocks the pointer so a
+// recovering scene stays usable underneath.
+function showRenderNotice(title, detail, {fatal = false} = {}){
+  let el = $('renderNotice');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'renderNotice';
+    el.setAttribute('role', 'alert');
+    document.getElementById('app').appendChild(el);
+  }
+  el.innerHTML = `<strong></strong><span></span>${fatal ? '<button type="button" id="renderNoticeReload">Reload</button>' : ''}`;
+  el.querySelector('strong').textContent = title;
+  el.querySelector('span').textContent = detail;
+  el.classList.add('show');
+  const reload = $('renderNoticeReload');
+  if(reload) reload.onclick = () => location.reload();
+}
+function hideRenderNotice(){ $('renderNotice')?.classList.remove('show'); }
+
 function ensureAnimationStarted(){
   if(animationStarted) return;
   animationStarted = true;
+  lastFrameAt = performance.now();
   animate();
+  startRenderWatchdog();
 }
 function hidePoster(){ poster.classList.add('hide'); }
 // Grows a clip-path window on the door's own screen position, and fades
@@ -4044,6 +4108,43 @@ function makeShaftTexture(){
   return tex;
 }
 const signTexCache = new Map();
+// Digital floor indicator for the lift landings. A modern lift announces
+// itself with a lit readout above the doors, which is most of what separates
+// one from a doorway at a glance.
+const liftIndicatorCache = new Map();
+function liftIndicatorTexture(code, tint = '#8fe3ff'){
+  const key = `liftind|${code}|${tint}`;
+  if(liftIndicatorCache.has(key)) return liftIndicatorCache.get(key);
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = '#07090a';
+  g.fillRect(0, 0, c.width, c.height);
+  // Faint scanlines keep it reading as a screen rather than painted text.
+  g.fillStyle = 'rgba(255,255,255,.028)';
+  for(let y = 0; y < c.height; y += 4) g.fillRect(0, y, c.width, 1);
+
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.shadowColor = tint;
+  g.shadowBlur = 26;
+  g.fillStyle = tint;
+  g.font = '600 66px ui-monospace, SFMono-Regular, Menlo, monospace';
+  g.fillText(String(code).toUpperCase(), c.width / 2 + 34, c.height / 2 + 2);
+
+  // Travel arrow, the other half of the visual grammar.
+  g.beginPath();
+  g.moveTo(96, 44); g.lineTo(130, 84); g.lineTo(62, 84);
+  g.closePath();
+  g.fill();
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  liftIndicatorCache.set(key, tex);
+  return tex;
+}
+
 function makeSignTexture(title, sub){
   const key = `v156door|${title}|${sub||''}`;
   if(signTexCache.has(key)) return signTexCache.get(key);
@@ -4799,6 +4900,31 @@ function init(){
   const dprCap = isCoarsePointer ? (memGB <= 4 ? 1.0 : 1.15) : 1.32;
   const dpr = Math.min(window.devicePixelRatio || 1, dprCap);
   renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:false, preserveDrawingBuffer:true, powerPreference:'high-performance'});
+
+  // A lost GL context is not an edge case on the desktop: driver resets, GPU
+  // sleep/wake, and hybrid-graphics laptops switching between integrated and
+  // discrete cards all drop it, and powerPreference:'high-performance' makes
+  // that switch more likely. Without these listeners the canvas freezes on its
+  // last frame forever, with nothing logged and nothing shown, so the museum
+  // reads as broken rather than interrupted.
+  //
+  // preventDefault() is mandatory: without it the browser never fires
+  // webglcontextrestored and recovery is impossible.
+  canvas.addEventListener('webglcontextlost', event => {
+    event.preventDefault();
+    contextLost = true;
+    showRenderNotice('Graphics interrupted', 'The browser dropped the 3D context. Waiting for it to come back.');
+  }, false);
+
+  canvas.addEventListener('webglcontextrestored', () => {
+    // Three cannot repopulate GPU-side resources for a scene this size by
+    // itself, so a reload is the honest recovery. The visit record lives in
+    // localStorage, so nothing the visitor earned is lost.
+    contextLost = false;
+    showRenderNotice('Graphics restored', 'Reloading the museum…');
+    setTimeout(() => location.reload(), 700);
+  }, false);
+
   renderer.setPixelRatio(dpr);
   renderer.setSize(innerWidth, innerHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -6938,6 +7064,10 @@ function openHoodLift(mode='main'){
 }
 function hoodLiftTravel(room,mode='main'){
   if(room===currentRoom){msg('You are already on this floor');return;}
+  // Start the destination building now, so the journey covers the work rather
+  // than the visitor waiting once the doors have already opened. The gate in
+  // setPlayerLocation still catches it if the build outlasts the trip.
+  if(!roomBuildReady(room)) ensureDistrictBuild(roomBuildId(room)).catch(()=>{});
   const panel=ensureHoodLiftPanel(),status=panel.querySelector('.liftStatus');panel.classList.add('travelling');
   if(status)status.textContent=`Doors closing · ${hoodFloorDefinition(room,mode).label}`;
   // Car indicator: light the travel direction, then land on the new floor code.
@@ -7872,12 +8002,56 @@ function buildHoodLegacy(){
   liftShaft(plx,plz,49,87.2,true);   // extended past the cap to the roof studio
 
   function makeLiftLanding(room,y,x,z,privateLift=false){
-    const frame=new THREE.Mesh(new THREE.BoxGeometry(6.65,5.35,.55),privateLift?brass:steel);frame.position.set(x,y+2.68,z);scene.add(frame);
-    const recess=new THREE.Mesh(new THREE.BoxGeometry(5.45,4.40,.68),new THREE.MeshStandardMaterial({color:0x111719,roughness:.30,metalness:.80}));recess.position.set(x,y+2.24,z-.08);scene.add(recess);
-    const doorMat=new THREE.MeshStandardMaterial({color:privateLift?0xb89d66:0x8a9295,roughness:.24,metalness:.86});
+    // Modern lift, not a doorway. The grammar that does the work: a flush
+    // polished jamb rather than a chunky architrave, mirror-finish leaves with
+    // one crisp dark reveal down the centre, a lit portal surround, a digital
+    // floor readout overhead and a flush backlit call plate.
+    const accent=privateLift?0xffd9a0:0x8fe3ff;
+    const jambMat=new THREE.MeshStandardMaterial({color:privateLift?0x8f7440:0x2b3439,roughness:.16,metalness:.94});
+    // Slim surround: two stiles and a head, so the opening reads as a portal
+    // cut into the wall instead of a framed door panel.
+    for(const sx of [-1,1]){
+      const stile=new THREE.Mesh(new THREE.BoxGeometry(.42,5.05,.30),jambMat);
+      stile.position.set(x+sx*2.92,y+2.52,z-.20);scene.add(stile);
+    }
+    const head=new THREE.Mesh(new THREE.BoxGeometry(6.26,.46,.30),jambMat);
+    head.position.set(x,y+4.82,z-.20);scene.add(head);
+    const recess=new THREE.Mesh(new THREE.BoxGeometry(5.45,4.40,.68),new THREE.MeshStandardMaterial({color:0x0b1013,roughness:.22,metalness:.86}));recess.position.set(x,y+2.24,z-.08);scene.add(recess);
+
+    // Mirror-polished leaves. Low roughness plus high metalness is what reads
+    // as brushed stainless under the cabin light.
+    const doorMat=new THREE.MeshStandardMaterial({color:privateLift?0xcfae72:0xa8b4b9,roughness:.12,metalness:.95});
     const left=new THREE.Mesh(new THREE.BoxGeometry(2.65,4.28,.18),doorMat),right=left.clone();left.position.set(x-1.34,y+2.20,z-.43);right.position.set(x+1.34,y+2.20,z-.43);scene.add(left,right);
-    const panel=new THREE.Mesh(new THREE.BoxGeometry(.54,1.18,.24),new THREE.MeshStandardMaterial({color:0x171a1b,roughness:.25,metalness:.78}));panel.position.set(x+3.55,y+1.55,z-.46);scene.add(panel);
-    const button=new THREE.Mesh(new THREE.SphereGeometry(.095,18,12),new THREE.MeshBasicMaterial({color:0xf2ce79,toneMapped:false}));button.position.set(x+3.55,y+1.68,z-.60);scene.add(button);
+    // The centre reveal: a dark sliver that makes the pair read as two sliding
+    // leaves rather than one slab.
+    const reveal=new THREE.Mesh(new THREE.BoxGeometry(.055,4.28,.045),new THREE.MeshBasicMaterial({color:0x05080a}));
+    reveal.position.set(x,y+2.20,z-.53);scene.add(reveal);
+
+    // Lit surround, the strongest single modern-lift cue.
+    const stripMat=new THREE.MeshBasicMaterial({color:accent,toneMapped:false});
+    for(const sx of [-1,1]){
+      const s=new THREE.Mesh(new THREE.BoxGeometry(.05,4.42,.05),stripMat);
+      s.position.set(x+sx*2.74,y+2.24,z-.40);scene.add(s);
+    }
+    const stripTop=new THREE.Mesh(new THREE.BoxGeometry(5.53,.05,.05),stripMat);
+    stripTop.position.set(x,y+4.45,z-.40);scene.add(stripTop);
+    const stripGlow=new THREE.PointLight(accent,.55,7,2.1);stripGlow.position.set(x,y+4.30,z-.85);scene.add(stripGlow);regLight(room,stripGlow);
+
+    // Floor readout above the doors.
+    const indicator=new THREE.Mesh(new THREE.PlaneGeometry(1.72,.43),
+      new THREE.MeshBasicMaterial({map:liftIndicatorTexture(hoodFloorDefinition(room,privateLift?'private':'main').code,privateLift?'#ffd9a0':'#8fe3ff'),toneMapped:false}));
+    indicator.position.set(x,y+4.82,z-.36);indicator.rotation.y=Math.PI;scene.add(indicator);
+
+    // Flush call plate with a backlit ring, replacing the protruding sphere.
+    const panel=new THREE.Mesh(new THREE.BoxGeometry(.46,1.06,.07),new THREE.MeshStandardMaterial({color:0x0e1214,roughness:.18,metalness:.9}));panel.position.set(x+3.42,y+1.55,z-.50);scene.add(panel);
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(.10,.022,12,28),new THREE.MeshBasicMaterial({color:accent,toneMapped:false}));
+    ring.position.set(x+3.42,y+1.74,z-.55);scene.add(ring);
+    const ringCore=new THREE.Mesh(new THREE.CircleGeometry(.082,20),new THREE.MeshBasicMaterial({color:0x0e1214}));
+    ringCore.position.set(x+3.42,y+1.74,z-.545);scene.add(ringCore);
+
+    // Threshold sill, the detail that sells a lift car waiting behind.
+    const sill=new THREE.Mesh(new THREE.BoxGeometry(5.45,.06,.34),new THREE.MeshStandardMaterial({color:0x39434a,roughness:.2,metalness:.92}));
+    sill.position.set(x,y+.04,z-.42);scene.add(sill);
     // Full cabin volume behind the doors: stone floor, brass ceiling and soft
     // light make entry legible from outside and from every destination.
     const cabinFloor=new THREE.Mesh(new THREE.BoxGeometry(5.25,.14,4.35),privateLift?paleStone:darkConcrete);cabinFloor.position.set(x,y+.08,z+2.05);scene.add(cabinFloor);
@@ -8182,7 +8356,37 @@ function buildHood(){
     const ceiling=new THREE.Mesh(new THREE.BoxGeometry(W,.22,D),dark);ceiling.position.set(x,y+5.3,z);scene.add(ceiling);
     const ambient=new THREE.HemisphereLight(0xfff7e9,0x30363a,.82);scene.add(ambient);regLight(f.id,ambient);
     for(const sx of [-8,0,8]){const light=new THREE.PointLight(0xffe5c0,2.1,20,1.7);light.position.set(x+sx,y+4.3,z);scene.add(light);regLight(f.id,light);}
-    const liftDoor=new THREE.Mesh(new THREE.BoxGeometry(3.8,4.2,.28),dark);liftDoor.position.set(x,y+2.1,z-D/2+.28);scene.add(liftDoor);
+    // The tower lift was a plain dark slab, which read as a door rather than a
+    // lift. Same modern grammar as the warehouse landings: polished jamb,
+    // paired leaves with a centre reveal, lit surround and a floor readout.
+    const towerZ=z-D/2+.28;
+    const towerAccent=0x8fe3ff;
+    const towerJamb=new THREE.MeshStandardMaterial({color:0x2b3439,roughness:.16,metalness:.94});
+    const towerLeaf=new THREE.MeshStandardMaterial({color:0xa8b4b9,roughness:.12,metalness:.95});
+    const towerStrip=new THREE.MeshBasicMaterial({color:towerAccent,toneMapped:false});
+    for(const sx of [-1,1]){
+      const stile=new THREE.Mesh(new THREE.BoxGeometry(.30,4.72,.26),towerJamb);
+      stile.position.set(x+sx*2.14,y+2.30,towerZ+.04);scene.add(stile);
+      const glow=new THREE.Mesh(new THREE.BoxGeometry(.045,4.10,.045),towerStrip);
+      glow.position.set(x+sx*1.99,y+2.14,towerZ-.10);scene.add(glow);
+    }
+    const towerHead=new THREE.Mesh(new THREE.BoxGeometry(4.58,.34,.26),towerJamb);
+    towerHead.position.set(x,y+4.50,towerZ+.04);scene.add(towerHead);
+    // The interactable stays a single slab so the reticle target is unchanged;
+    // the two leaves in front of it carry the look.
+    const liftDoor=new THREE.Mesh(new THREE.BoxGeometry(3.8,4.2,.28),new THREE.MeshStandardMaterial({color:0x0b1013,roughness:.24,metalness:.8}));liftDoor.position.set(x,y+2.1,towerZ);scene.add(liftDoor);
+    for(const sx of [-1,1]){
+      const leaf=new THREE.Mesh(new THREE.BoxGeometry(1.86,4.16,.14),towerLeaf);
+      leaf.position.set(x+sx*.945,y+2.10,towerZ-.16);scene.add(leaf);
+    }
+    const towerReveal=new THREE.Mesh(new THREE.BoxGeometry(.05,4.16,.04),new THREE.MeshBasicMaterial({color:0x05080a}));
+    towerReveal.position.set(x,y+2.10,towerZ-.24);scene.add(towerReveal);
+    // Sits on the face of the lintel, not in the gap above the leaves, or the
+    // head occludes it and the readout is unreadable from the floor.
+    const towerIndicator=new THREE.Mesh(new THREE.PlaneGeometry(1.9,.48),
+      new THREE.MeshBasicMaterial({map:liftIndicatorTexture(f.code||'T','#8fe3ff'),toneMapped:false}));
+    towerIndicator.position.set(x,y+4.50,towerZ-.11);towerIndicator.rotation.y=Math.PI;scene.add(towerIndicator);
+    const towerGlow=new THREE.PointLight(towerAccent,.5,6,2.1);towerGlow.position.set(x,y+4.2,towerZ-.6);scene.add(towerGlow);regLight(f.id,towerGlow);
     registerInteractable({id:`lift:tower:${f.id}`,type:'lift',room:f.id,mesh:liftDoor,label:'Tower lift',hintId:'tower-lift',priority:20,
       hintText:'The directory serves the square, every gallery and the roof.',prompt:()=>'Open tower directory',onUse:()=>openHoodLift('tower')});
     if(index===1){
@@ -13656,6 +13860,19 @@ $('studioInput').addEventListener('keyup', e=>e.stopPropagation());
 $('playCloseBtn').onclick = closePlayOverlay;
 
 function setPlayerLocation(room, pos, newYaw, label, newPitch=0){
+  // Every route into a room funnels through here, so this is the only place
+  // the build gate can be enforced once. fastTravel and travelTo checked it
+  // themselves, but the lift did not — and the tower lift serves nine
+  // on-demand districts, so taking it from a fresh load dropped the visitor
+  // into empty space: no geometry, no lights, no collision.
+  if(!roomBuildReady(room)){
+    const id = roomBuildId(room);
+    msg('Preparing this district…');
+    ensureDistrictBuild(id)
+      .then(() => setPlayerLocation(room, pos, newYaw, label, newPitch))
+      .catch(() => msg('This district could not be opened'));
+    return;
+  }
   exitScreenControl();
   seatedStudioView = false;
   seatedAmphView = false;
@@ -14628,8 +14845,13 @@ function updatePerformanceLadder(dt){
 
 function animate(){
   requestAnimationFrame(animate);
+  // Rescheduled first on purpose, so one bad frame cannot end the loop.
   const dt = Math.min(.05, clock.getDelta());
   const t = clock.elapsedTime;
+  // Every GL call is a no-op while the context is gone, and three throws on
+  // some of them. Skipping the body keeps the loop alive and cheap until
+  // webglcontextrestored fires.
+  if(contextLost) return;
   if(pageVisible){
     maintainGuaranteedVisibility();
     if(isCoarsePointer) syncMobileUiVisibility();
@@ -14708,6 +14930,8 @@ function animate(){
     renderer.render(scene,camera);
     if(cssRenderer) cssRenderer.render(scene,camera);
     updateTrackedWallPlayers();
+    framesRendered++;
+    lastFrameAt = performance.now();
   }
 }
 document.addEventListener('visibilitychange', ()=>{
@@ -14724,16 +14948,45 @@ document.addEventListener('visibilitychange', ()=>{
 // safety net for unusual embedding environments, but can never initialise a
 // second copy of the world.
 let workshopBooted=false;
+// Probed on a throwaway canvas, so a refusal here never poisons the real one.
+// Browsers report this three different ways — a null context, a throw, or a
+// context that reports itself lost immediately — so all three are handled.
+function webglAvailable(){
+  try{
+    const probe = document.createElement('canvas');
+    const gl = probe.getContext('webgl2') || probe.getContext('webgl') || probe.getContext('experimental-webgl');
+    if(!gl) return false;
+    if(typeof gl.isContextLost === 'function' && gl.isContextLost()) return false;
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    return true;
+  }catch(err){
+    return false;
+  }
+}
+
 function bootWorkshop(){
   if(workshopBooted) return;
   workshopBooted=true;
+  // Without this the visitor gets "BUILD ERROR" over 900 characters of a
+  // Three.js stack trace, which reads as a broken site rather than an
+  // unsupported browser.
+  if(!webglAvailable()){
+    $('posterCard').innerHTML = `<h1>THE<br>WORKSHOP</h1><p>This museum is drawn with WebGL, which this browser has turned off or cannot run. Enabling hardware acceleration, or opening the site in a current Chrome, Firefox, Edge or Safari, will let it start.</p>`;
+    $('posterEnter').textContent = 'Unavailable';
+    $('posterEnter').disabled = true;
+    return;
+  }
   try{
     init();
   }catch(err){
     console.error(err);
     window.__lastInitError = err;
-    const msgText = (err && (err.stack || err.message)) ? String(err.stack || err.message).slice(0,900) : 'Unknown renderer error';
-    $('posterCard').innerHTML = `<h1>BUILD<br>ERROR</h1><p>${esc(msgText)}</p>`;
+    // Keep the detail for the console; show the visitor a sentence.
+    const detail = String(err?.message || err || 'unknown error').slice(0, 160);
+    $('posterCard').innerHTML = `<h1>THE<br>WORKSHOP</h1><p>The museum could not finish building in this browser. Reloading often clears it.</p><p style="opacity:.6;font-size:11px">${esc(detail)}</p>`;
+    $('posterEnter').textContent = 'Reload';
+    $('posterEnter').disabled = false;
+    $('posterEnter').onclick = () => location.reload();
   }
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bootWorkshop,{once:true});
