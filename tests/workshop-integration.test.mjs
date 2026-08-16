@@ -483,3 +483,33 @@ test('panel disclosure state is exposed to assistive technology', () => {
   assert.match(html, /function syncPanelExpandedState\(\)\{/);
   assert.match(html, /btn\.setAttribute\('aria-expanded', String\(panel\.classList\.contains\('open'\)\)\)/);
 });
+
+test('the page presents a real sharing card', async () => {
+  // Scrapers fetch og:image out of band and never run WebGL, so without a
+  // still every share of a visual museum renders as a bare text link.
+  const CARD = 'https://pedrohfernandes-klk.github.io/THE-WORKSHOP/assets/og-card.jpg';
+  assert.match(html, /<meta property="og:image" content="https:\/\//,
+    'og:image is absolute — relative paths are not resolved by most scrapers');
+  assert.ok(html.includes(`<meta property="og:image" content="${CARD}">`));
+  assert.match(html, /<meta property="og:image:width" content="1200">/);
+  assert.match(html, /<meta property="og:image:height" content="630">/);
+  assert.match(html, /<meta property="og:image:alt" content="[^"]+">/);
+  assert.match(html, /<meta name="twitter:card" content="summary_large_image">/);
+  assert.ok(html.includes(`<meta name="twitter:image" content="${CARD}">`));
+  assert.match(html, /<meta property="og:url" content="https:\/\/pedrohfernandes-klk\.github\.io\/THE-WORKSHOP\/">/);
+  assert.match(html, /<link rel="canonical" href="https:\/\/pedrohfernandes-klk\.github\.io\/THE-WORKSHOP\/">/);
+
+  const card = await stat(new URL('../assets/og-card.jpg', import.meta.url));
+  assert.ok(card.size > 5_000, 'the card image ships alongside the metadata');
+});
+
+test('the YouTube relay address points at a page that is actually published', () => {
+  // The package step copies yt.html to this site's root. The previous
+  // SayWhat/yt.html address was never uploaded and returns 404, which broke
+  // the whole file:// embed fallback.
+  assert.match(html, /const STUDIO_YT_RELAY = 'https:\/\/pedrohfernandes-klk\.github\.io\/THE-WORKSHOP\/yt\.html';/);
+  // Matches the quoted URL rather than the bare path, so the comment above the
+  // constant can still explain which address was wrong and why.
+  assert.doesNotMatch(html, /'https:\/\/[^']*SayWhat\/yt\.html'/,
+    'the 404 relay address has not returned');
+});
