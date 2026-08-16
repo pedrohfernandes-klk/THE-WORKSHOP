@@ -2703,7 +2703,13 @@ let smoothSpeed = 0;
 let smoothFloorY = 0;
 let lookingAt = -1;
 const keys = new Set();
-const isCoarsePointer = window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+// Must match the CSS gate at `@media (pointer:coarse), (max-width:760px)`
+// exactly, or the two disagree and the visitor gets neither control scheme.
+// `'ontouchstart' in window` is true on any touch-capable Windows laptop even
+// when a mouse is the primary pointer, so it used to suppress pointer lock
+// while CSS kept the on-screen joystick hidden: no mouse look, no touch
+// controls, on a large class of desktop machines.
+const isCoarsePointer = window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 760;
 const mobileInput = {
   forward:0,
   strafe:0,
@@ -3642,6 +3648,12 @@ function ensureDistrictBuild(id){
     }
   },0));
   districtBuildPromises.set(id,promise);
+  // A rejected promise stayed cached, so every later attempt replayed the same
+  // failure without re-running the builder: one transient hiccup made a
+  // district unreachable for the rest of the session. Evicting on failure lets
+  // the next attempt genuinely retry. The catch also marks the rejection as
+  // handled, so a build failure no longer surfaces as an unhandled rejection.
+  promise.catch(()=>districtBuildPromises.delete(id));
   return promise;
 }
 let animationStarted = false;
@@ -7052,6 +7064,10 @@ function openHoodLift(mode='main'){
 }
 function hoodLiftTravel(room,mode='main'){
   if(room===currentRoom){msg('You are already on this floor');return;}
+  // Start the destination building now, so the journey covers the work rather
+  // than the visitor waiting once the doors have already opened. The gate in
+  // setPlayerLocation still catches it if the build outlasts the trip.
+  if(!roomBuildReady(room)) ensureDistrictBuild(roomBuildId(room)).catch(()=>{});
   const panel=ensureHoodLiftPanel(),status=panel.querySelector('.liftStatus');panel.classList.add('travelling');
   if(status)status.textContent=`Doors closing · ${hoodFloorDefinition(room,mode).label}`;
   // Car indicator: light the travel direction, then land on the new floor code.
@@ -13844,6 +13860,19 @@ $('studioInput').addEventListener('keyup', e=>e.stopPropagation());
 $('playCloseBtn').onclick = closePlayOverlay;
 
 function setPlayerLocation(room, pos, newYaw, label, newPitch=0){
+  // Every route into a room funnels through here, so this is the only place
+  // the build gate can be enforced once. fastTravel and travelTo checked it
+  // themselves, but the lift did not — and the tower lift serves nine
+  // on-demand districts, so taking it from a fresh load dropped the visitor
+  // into empty space: no geometry, no lights, no collision.
+  if(!roomBuildReady(room)){
+    const id = roomBuildId(room);
+    msg('Preparing this district…');
+    ensureDistrictBuild(id)
+      .then(() => setPlayerLocation(room, pos, newYaw, label, newPitch))
+      .catch(() => msg('This district could not be opened'));
+    return;
+  }
   exitScreenControl();
   seatedStudioView = false;
   seatedAmphView = false;

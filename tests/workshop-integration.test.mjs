@@ -513,3 +513,56 @@ test('the YouTube relay address points at a page that is actually published', ()
   assert.doesNotMatch(html, /'https:\/\/[^']*SayWhat\/yt\.html'/,
     'the 404 relay address has not returned');
 });
+
+test('every route into a room waits for its district to exist', () => {
+  // fastTravel and travelTo checked the build gate themselves; the lift did
+  // not, and the tower lift serves nine on-demand districts. Enforcing it
+  // inside setPlayerLocation covers every caller at once.
+  const fn = html.slice(html.indexOf('function setPlayerLocation('), html.indexOf('function fastTravel('));
+  assert.match(fn, /if\(!roomBuildReady\(room\)\)\{/,
+    'setPlayerLocation itself refuses to land in an unbuilt district');
+  assert.match(fn, /ensureDistrictBuild\(id\)\s*\n?\s*\.then\(\(\) => setPlayerLocation\(room, pos, newYaw, label, newPitch\)\)/,
+    'it retries the same arrival once the district is built');
+  assert.match(html, /if\(!roomBuildReady\(room\)\) ensureDistrictBuild\(roomBuildId\(room\)\)\.catch\(\(\)=>\{\}\);/,
+    'the lift starts the build as the journey begins, not after the doors open');
+});
+
+test('a failed district build can be retried', () => {
+  assert.match(html, /promise\.catch\(\(\)=>districtBuildPromises\.delete\(id\)\);/,
+    'a rejected build is evicted so the next attempt re-runs the builder');
+});
+
+test('pointer-mode detection matches the CSS gate exactly', () => {
+  // 'ontouchstart' in window is true on touch-capable Windows laptops driven
+  // by a mouse, which suppressed pointer lock while CSS kept the on-screen
+  // controls hidden — leaving that whole class of machine with no controls.
+  assert.match(html, /const isCoarsePointer = window\.matchMedia\('\(pointer: coarse\)'\)\.matches \|\| window\.innerWidth <= 760;/);
+  // Matches the code form only; the comment above the constant still names the
+  // old sniff to explain why it was wrong.
+  assert.doesNotMatch(html, /\|\|\s*'ontouchstart' in window/,
+    'the touch-capability sniff has not returned');
+});
+
+test('a lost GL context is handled rather than silently freezing', () => {
+  assert.match(html, /addEventListener\('webglcontextlost'/);
+  assert.match(html, /addEventListener\('webglcontextrestored'/);
+  assert.match(html, /event\.preventDefault\(\);\s*\n\s*contextLost = true;/,
+    'preventDefault is required or the restore event never fires');
+  assert.match(html, /if\(contextLost\) return;/,
+    'the frame body is skipped while the context is gone');
+  assert.match(html, /function startRenderWatchdog\(\)\{/,
+    'a stalled render loop is reported instead of looking like a still image');
+  assert.match(html, /function webglAvailable\(\)\{/,
+    'WebGL is probed before init so an unsupported browser gets a sentence');
+  assert.doesNotMatch(html, /<h1>BUILD<br>ERROR<\/h1>/,
+    'the raw stack-trace error card is gone');
+});
+
+test('the lift reads as a lift rather than a door', () => {
+  assert.match(html, /function liftIndicatorTexture\(/,
+    'landings carry a digital floor readout');
+  assert.match(html, /const reveal=new THREE\.Mesh\(new THREE\.BoxGeometry\(\.055,4\.28,\.045\)/,
+    'paired leaves are separated by a centre reveal');
+  assert.doesNotMatch(html, /const button=new THREE\.Mesh\(new THREE\.SphereGeometry\(\.095,18,12\)/,
+    'the protruding sphere button is replaced by a flush backlit plate');
+});
