@@ -12,6 +12,7 @@ export const SPACES = [
   'metro', 'skyliner', 'aviation', 'npcs', 'ruins',
   // The indie touches: real objects with a pixel soul, each found rather than announced.
   'murals', 'floppies', 'vending', 'cat', 'radio', 'ghost', 'floorsnake', 'photobooth', 'gnome', 'oddities', 'duck',
+  'mercado', 'marginal',
 ];
 
 // Dense vegetation is drawn by the main camera but skipped by reflections and
@@ -38,6 +39,8 @@ export const AREAS = [
   { name: 'The Amphitheatre', minX: -68, maxX: -28, minZ: 12, maxZ: 48, minY: -6, maxY: 6 },
   { name: 'The Garden', minX: 24, maxX: 66, minZ: 12, maxZ: 52, minY: -1, maxY: 6 },
   { name: 'The Plaza', minX: -24, maxX: 24, minZ: 17.4, maxZ: 52.4, minY: -1, maxY: 6 },
+  { name: 'Mercado', minX: 92, maxX: 112, minZ: 20, maxZ: 44, minY: -1, maxY: 6 },
+  { name: 'Marginal', minX: -20, maxX: 28, minZ: 76, maxZ: 84, minY: -1, maxY: 6 },
 ];
 
 export function areaAt(x, y, z) {

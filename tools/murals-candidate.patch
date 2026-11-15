@@ -1,0 +1,18 @@
+--- a/assets/gallery/spaces/murals.js
++++ b/assets/gallery/spaces/murals.js
+@@ -665,6 +665,14 @@
+     const t = o && o.userData && o.userData.caption;
+     if (t && ctx.ui && typeof ctx.ui.toast === 'function') ctx.ui.toast(t);
+   }
+-  return { group, regions: [], colliders: [], pickables, update() {}, onPick };
++  // Candidate mitigation: validate murals/sun A/B before applying.
++  const exterior = group.children.filter(o => o.name === 'mural-voo' || o.name === 'mural-homem');
++  function update(dt, frame) {
++    const p = frame?.camera?.position;
++    if (!p) return;
++    const inside = Math.abs(p.x) < 6.8 && p.z > -17.5 && p.z < 17.5 && p.y < 6.4;
++    for (let i = 0; i < exterior.length; i++) exterior[i].visible = !inside;
++  }
++  return { group, regions: [], colliders: [], pickables, update, onPick };
+ }
+ 

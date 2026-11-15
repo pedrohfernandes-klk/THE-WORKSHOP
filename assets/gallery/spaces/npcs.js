@@ -730,7 +730,7 @@ export function build(ctx) {
   // gestures, slaps once or again and again). Missing keys fall back to their language.
   const LEVOU_NPC = ['Já levaste na boca!', 'Já levaste na boca, já!', 'Ahah, já levaste na boca!', 'AHAHAHAHA!', 'AHAHAH! Já levaste na boca!', 'LMFAO! Mas é o #%&@, ainda levas nessa fuça, irmão!'];
   const LEVOU_F = ['Já levaste na boca!', 'Já levaste na boca, já!', 'Ahah, já levaste na boca!'];
-  const LEVOU_VIS = ['Levaste na boca, boneco!', 'Levaste na boca, ó boneco!', 'Toma lá, boneco!', 'AHAHAHAHA!', 'AHAHAH! Já levaste na boca!', 'Já levaste na boca!', 'LMFAO! Mas é o #%&@, ainda levas nessa fuça, irmão!'];
+  const LEVOU_VIS = ['Levas na boca, porko!', 'Levaste na boca, boneco!', 'Levaste na boca, ó boneco!', 'Toma lá, boneco!', 'AHAHAHAHA!', 'AHAHAH! Já levaste na boca!', 'Já levaste na boca!', 'LMFAO! Mas é o #%&@, ainda levas nessa fuça, irmão!'];
   const DEF = {
     en: {
       run: ['No running on the campus!', 'Where is the fire?', 'Slow down. It is a gallery, not a race.'],
@@ -761,28 +761,28 @@ export function build(ctx) {
       tsk: ['Tsk.'],
     },
     pt: {
-      run: ['Olha a pressa!', 'Devagar, que isto não é a maratona!', 'Onde é o incêndio, pá?', 'Calma, bro!'],
+      run: ['Olha a pressa!', 'Devagar, que isto não é a maratona!', 'Onde é o incêndio, pá?', 'Calma, bro!', 'Pareces um pinguim com pressa!', 'Tens o cérebro em modo avião?', 'Desvia-te, ó camelo!'],
       scream: ['Ó bro, calma!', 'AI MÃE!', 'Foge!', 'Olha o carro!', 'Socorro! …Ah, és tu.'],
-      jump: ['Exibicionista.', 'Ó pá, que salto.', 'Queres uma medalha?', 'No meu tempo saltava-se mais alto.'],
+      jump: ['Exibicionista.', 'Ó pá, que salto.', 'Queres uma medalha?', 'No meu tempo saltava-se mais alto.', 'Olha este, é do mesmo tamanho sentado e de pé!'],
       sit: ['Senta-te, senta-te. Isso é que é vida.', 'Já cá estava primeiro, mas senta-te.'],
       sun: ['Que rico solinho!', 'Este sol até dá vontade de não fazer nada.'],
       storm: ['Ai, que vem aí chuva da grossa!', 'Eu bem disse que ia chover!'],
       night: ['Já é noite? Isto passa a correr.', 'A esta hora já devias estar em casa.'],
       rainbow: ['Olha, um arco-íris! Que bonito!', 'Arco-íris? Isso é para enganar os tolos.'],
-      again: ['Outra vez tu?', 'Ainda aqui andas?', 'Já te disse tudo o que sabia. Era pouco.'],
+      again: ['Outra vez tu?', 'Ainda aqui andas?', 'Já te disse tudo o que sabia. Era pouco.', 'Tens boa voz para escrever à máquina.'],
       ignored: ['Pronto, ninguém me liga.', 'Estava a falar contigo, pá!', 'Vai, vai. Vai pentear macacos!'],
       ouch: ['Ai!', 'Ui!', 'Ó pá!'],
       ouch2: ['Outra vez?!', 'Ó pá, outra vez?!', 'Mas isto é um vício?!'],
       ouch3: ['Ó seu #%&@!', 'Raios te partam!', 'Ai o caraças! Agora é que é!'],
-      up: ['Ó pá! Isso é maneira?', 'Eu ia dizer uma coisa e esqueci-me!', 'No meu tempo isto não se fazia.', 'Respeito, pá!', 'Vou fazer queixa… a alguém.'],
-      rude: ['Ó malcriado!', 'Na minha terra isso dava estalada!', 'Que falta de educação, pá!', 'Ó palerma!', 'Olha-me este cromo!', 'Vai dar banho ao cão!', 'Ó seu #%&@!'],
-      smug: ['Toma lá, boneco!', 'Levaste na boca, boneco!', 'Já levaste na boca!'],
+      up: ['Ó pá! Isso é maneira?', 'Eu ia dizer uma coisa e esqueci-me!', 'No meu tempo isto não se fazia.', 'Respeito, pá!', 'Vou fazer queixa… a alguém.', 'Chapada de amador!', 'Aprende a bater, ó mão de manteiga!', "Isso doeu-me na alma, ó cara d'urso!", 'Bate-me outra vez e faço queixinhas ao gnomo!'],
+      rude: ['Ó malcriado!', 'Na minha terra isso dava estalada!', 'Que falta de educação, pá!', 'Ó palerma!', 'Olha-me este cromo!', 'Vai dar banho ao cão!', 'Ó seu #%&@!', 'Ó porco!', 'Ó estupidozinho!', 'Ó cara de papo!'],
+      smug: ['Toma lá, boneco!', 'Levaste na boca, boneco!', 'Já levaste na boca!', 'Levas na boca, porko!'],
       miss: ['Fugiste, hã? Para a próxima!', 'Ai o caraças, falhei!'],
       tired: ['Pronto… pronto… já não tenho idade para isto.', 'Vai, vai… vai dar banho ao cão!'],
       floor: ['Agora não, estou no chão.', 'Deixa-me estar aqui um bocadinho.', 'O chão até está fresquinho.', 'Volta mais tarde, pá.'],
-      bump: ['Ó pá, olha a fila!', 'Com licença!', 'Ui! Devagar!', 'Há espaço para todos, pá.'],
+      bump: ['Ó pá, olha a fila!', 'Com licença!', 'Ui! Devagar!', 'Há espaço para todos, pá.', 'Queres o quê?', "Cara d'urso!", "Queres o quê, ó cara d'urso?", 'Tás a olhar porquê? Devo-te dinheiro?', 'Ó pá, desampara-me a loja!', 'Olha-me este cromo da caderneta!', 'Tens cara de quem perde o autocarro.', 'Que cara de segunda-feira!', 'Ó cabeça de abóbora, chega-te pra lá!', 'Ó nabo!', 'Ó porco!', 'Ó estupidozinho!', 'Ó cara de papo!', 'Tens uma testa que parece um papo seco!', 'Ó cabeça de melão!', 'Ó nariz de batata!', 'Ó cara de pudim!', 'Ó bochechas de broa!', 'Ó chouriço!', 'Tens uma testa onde dava para pôr publicidade!', 'Tens um nariz que faz sombra ao meio-dia!', 'Ó cara de bacalhau demolhado!', 'Ó cabeça de alho chocho!', 'Ó grande totó!'],
       ahem: ['Hum.', '…', 'Eu não me estava a rir. Era tosse.'],
-      murmur: ['Esta gente esquisita…', 'Tsk, tsk.', 'Ai, ai, ai…', 'Onde é que isto vai parar…', 'No meu tempo não era assim…', 'Olha-me para isto…', 'Credo!', 'Francamente…', 'Já não há respeito…', 'Isto agora é tudo assim…', 'Haja paciência…', 'Era o que faltava…', 'Isto não lembra a ninguém…', 'Cada um que me aparece…', 'Pois, pois…', 'Ora esta…'],
+      murmur: ['Esta gente esquisita…', 'Tsk, tsk.', 'Ai, ai, ai…', 'Onde é que isto vai parar…', 'No meu tempo não era assim…', 'Olha-me para isto…', 'Credo!', 'Francamente…', 'Já não há respeito…', 'Isto agora é tudo assim…', 'Haja paciência…', 'Era o que faltava…', 'Isto não lembra a ninguém…', 'Cada um que me aparece…', 'Pois, pois…', 'Ora esta…', 'Ó trengo…', 'Ó nabo…', 'Olha-me este pato-bravo…', 'Cara de quem comeu e não gostou.', 'Olha este, é do mesmo tamanho sentado e de pé.'],
       pardon: ['Com licença.', 'Desculpem. Foi o feijão.'],
       who: ['Quem foi?!', 'Não fui eu. Foi o pombo.', '…Está bom tempo, não está?'],
       wind: ['Anda cá, anda…', 'Espera aí, boneco…'],
