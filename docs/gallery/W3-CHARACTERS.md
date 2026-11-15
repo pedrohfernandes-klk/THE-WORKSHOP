@@ -1,5 +1,7 @@
 # W3 — personagens articuladas
 
+Base atual da integração: `facadcd423398477662ad2ea484617a05c412011`. Aplicar `tools/w3-integration.patch`; para integrar W2 em seguida, usar `tools/w2-after-w3.patch` do PR #129. Notas visuais não bloqueantes do Leo registadas em `W3-NEXT-ITERATION.md`, sem alteração dos modelos nesta revisão.
+
 Estado: código e proposta de integração. **Não testado**: por instrução do dono, testes, browser e medições pertencem ao Claude integrador. Sem afirmação de aprovação pelo Leo ou pela sala de argumentistas.
 
 ## Entrega

@@ -366,7 +366,7 @@ diff --git a/assets/gallery/spaces/npcs.js b/assets/gallery/spaces/npcs.js
 diff --git a/assets/gallery/main.js b/assets/gallery/main.js
 --- a/assets/gallery/main.js
 +++ b/assets/gallery/main.js
-@@ -217,6 +217,7 @@
+@@ -230,6 +230,7 @@
    onProgress: (k) => { state.worldProgress = k; },
  }).then((w) => {
    world = w;

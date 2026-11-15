@@ -2,7 +2,7 @@
 
 ## Estado da entrega
 
-Código novo: `assets/gallery/npc-onlookers.js`. Integração reunida no NOVO `tools/w3-integration.patch`, que inclui também a proposta de modelos W3. **Base do patch: main `b1e679190f01d37d961048949305164b8fe0fef8`**, após publicação do lote 1. Rebase efetuado por merge de texto contra snapshots, preservando as falas novas; aplicação e execução ficam para Claude. Nenhum ficheiro original foi alterado. Não foram executados testes, navegador ou medições: pertencem ao integrador por instrução do dono.
+Código novo: `assets/gallery/npc-onlookers.js`. Integração reunida no NOVO `tools/w3-integration.patch`, que inclui também a proposta de modelos W3. **Base do patch: main `facadcd423398477662ad2ea484617a05c412011`**, após integração W4/W5. Rebase efetuado por merge de texto contra snapshots, preservando as falas novas; aplicação e execução ficam para Claude. Nenhum ficheiro original foi alterado. Não foram executados testes, navegador ou medições: pertencem ao integrador por instrução do dono.
 
 ## Ativação concreta: catorze slots, cinco substituições
 
@@ -47,3 +47,5 @@ Aplicação do patch contra a base identificada, sintaxe/imports e testes existe
 ### Convivência com W2
 
 W2 e W3 tocam `say`, `audioOn`/sons e o ciclo dos NPCs. Integrar os dois patches em conjunto, independentemente da ordem: a guarda `questQuiet` de W2 precede qualquer efeito/`onEvent` em `say`; a limpeza de fala já ativa de W2 permanece no ciclo; conservar os hooks before/after de W3. W3 protege as suas próprias vozes, mas não substitui a supressão global de voz/som do W2. O collider usa a maior largura de torso entre perfil legado e modelo, com a escala limitada do rig, sem usar o comprimento de adereços como pau de selfie.
+
+Ordem de integração desta revisão: **W3 → W2**, usando exclusivamente `tools/w2-after-w3.patch` do PR #129 (não aplicar também `tools/w2-integration.patch`). O rebase W3 preserva imports e hooks W4/W5 da main `facadcd`.

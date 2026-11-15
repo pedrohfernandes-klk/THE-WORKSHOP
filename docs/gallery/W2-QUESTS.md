@@ -1,6 +1,8 @@
 # W2 — recados com consequências
 
-Base do patch: `b1e679190f01d37d961048949305164b8fe0fef8` (lote 1 publicado). Preserva W1, desempenho e novas falas do dono.
+Base: `facadcd423398477662ad2ea484617a05c412011` (lote 2 publicado). Preserva W1, desempenho, W4, W5 e falas atuais.
+
+**Integração conjunta: aplicar primeiro `tools/w3-integration.patch` e depois `tools/w2-after-w3.patch`.** Este segundo diff já combina as guardas de silêncio com os modelos e hooks W3. Para W2 isolado, usar apenas `tools/w2-integration.patch` sobre facadcd. As duas variantes W2 são alternativas: nunca aplicar ambas.
 
 ## Entrega ao integrador (menos de 250 palavras)
 

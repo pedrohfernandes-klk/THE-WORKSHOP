@@ -80,10 +80,10 @@ index 72756e9..851bf7e 100644
        A.muted = !!m;
        if (!A.started || !A.E) return;
 diff --git a/assets/gallery/main.js b/assets/gallery/main.js
-index 5bcbdc9..8ba121d 100644
+index a11258e..9066f4b 100644
 --- a/assets/gallery/main.js
 +++ b/assets/gallery/main.js
-@@ -260,6 +260,40 @@ camera.layers.enable(1);
+@@ -273,6 +273,40 @@ camera.layers.enable(1);
  const hang = shared ? shared.hang : initialHang(WORKS, slotKinds, 1);
  const curator = createCurator({ works: WORKS, slots: slotKinds, hang, fixed: !!shared });
  
@@ -124,7 +124,7 @@ index 5bcbdc9..8ba121d 100644
  room.setPower(0.06);
  
  // ------------------------------------------------------------ first hang --
-@@ -571,6 +605,11 @@ function clearSeatHint() {
+@@ -585,6 +619,11 @@ function clearSeatHint() {
  
  function act(found, hit) {
    const { action, module, object } = found;
@@ -136,7 +136,7 @@ index 5bcbdc9..8ba121d 100644
    if (action.type === 'sit') {
      if (hit && hit.distance > SIT_REACH) { ui.toast('Get closer to sit', 1400); return; }
      sitOn(nearestSeat(action.seats, hit ? hit.point : object.getWorldPosition(new THREE.Vector3())));
-@@ -1130,6 +1169,11 @@ function step() {
+@@ -1146,6 +1185,11 @@ function step() {
    }
  
    audio.setMotion({ speed: Math.min(controls.speed, 3.2), moving: state.entered && controls.speed > 0.25, airborne: controls.airborne });
@@ -147,7 +147,7 @@ index 5bcbdc9..8ba121d 100644
 +    (typeof speechSynthesis === 'undefined' || (!speechSynthesis.speaking && !speechSynthesis.pending));
    audio.update(dt);
    room.update(dt, camera);
-   // Walking or turning: the depth of field fades out (it only serves stillness).
+   interactions.update(dt, interactionFrame);
 diff --git a/assets/gallery/spaces/npcs.js b/assets/gallery/spaces/npcs.js
 index a1eaca8..1c253d8 100644
 --- a/assets/gallery/spaces/npcs.js
@@ -178,7 +178,7 @@ index a1eaca8..1c253d8 100644
      let budget = 2;                                        // bubble redraws per frame
      for (let i = 0; i < npcs.length; i++) {
 diff --git a/assets/gallery/world.js b/assets/gallery/world.js
-index 2be174a..6bc54f7 100644
+index 5377100..0b5ffa7 100644
 --- a/assets/gallery/world.js
 +++ b/assets/gallery/world.js
 @@ -13,6 +13,7 @@ export const SPACES = [
@@ -186,9 +186,9 @@ index 2be174a..6bc54f7 100644
    'murals', 'floppies', 'vending', 'cat', 'radio', 'ghost', 'floorsnake', 'photobooth', 'gnome', 'oddities', 'duck',
    'mercado', 'marginal',
 +  'arraial', 'quests',
+   'lightpools',
  ];
  
- // Dense vegetation is drawn by the main camera but skipped by reflections and
 diff --git a/assets/gallery/spaces/radio.js b/assets/gallery/spaces/radio.js
 index 8396808..149f8a7 100644
 --- a/assets/gallery/spaces/radio.js
