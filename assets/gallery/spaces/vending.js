@@ -225,7 +225,7 @@ export function build(ctx) {
   led('INSIRA MOEDA');
 
   // ================= enamel body (one mesh, vertex-coloured) =================
-  const TEAL = 0x2f7c78, TEAL_D = 0x1f5552, CREAM = 0xeee3c6, GRAPH = 0x2a2c30, DARK = 0x141414, LINER = 0x4a4d52, SHELFC = 0x8a8e94;
+  const TEAL = 0x23847c, TEAL_D = 0x1a5e58, CREAM = 0xf2e0b0, GRAPH = 0x2a2c30, DARK = 0x141414, LINER = 0x4a4d52, SHELFC = 0x8a8e94;
   const bodyGeos = [];
   const tint = new THREE.Color();
   function bb(x0, x1, y0, y1, z0, z1, hex) {

@@ -534,12 +534,15 @@ export function build(ctx) {
       goOn: false, gx: 0, gz: 0, gsp: 1, goT: -1, faceN: null, busy: false, gest: 0, kb: 0, reactCd: 0, armUp: 1.7, meant: true, monoCd: 25 + idx * 3, curText: '',
       d2: 1e9, near2: false, zone: zoneAt(S.home[0], S.home[1], 0), barker: !!BARK[S.name], barkCd: 14 + idx, jerk: 0, jerkAt: 0,
       seqStage: 0, seqT: 0, seqRest: '', glare: 0, fist: 0, gestAt: 0, gestKind: '', impT: -1, rofl: false, whistled: false,
-      lastFall: -1, lastOf: new Map(), dirty: false, blob, pestSide: 1, bumpCd: 0, bOff: S.top - 1.74,
+      lastFall: -1, lastOf: new Map(), dirty: false, blob, pestSide: 1, bumpCd: 0, bOff: S.top - 1.74, pushT: 0, ghostT: 0, col: null,
     };
     hit.userData.npc = n; root.userData.npc = n;
     npcs.push(n);
   });
   onFont.push(() => { for (const n of npcs) if (n.talkT > 0 && n.curText) drawBubble(n, n.curText); });
+  // One moving box per NPC. world.js keeps these very objects in its live list: mutate, never replace.
+  // Parked below the floor (inactive) until the visitor is near.
+  const colliders = npcs.map((n) => (n.col = { minX: n.x - 0.3, maxX: n.x + 0.3, minZ: n.z - 0.3, maxZ: n.z + 0.3, minY: -51, maxY: -50 }));
 
   // ---------- sound ----------
   // Web Audio is read lazily from ctx.audio (null until the visitor enters) and
@@ -800,6 +803,7 @@ export function build(ctx) {
   // A line: the bubble is redrawn on the next frame that has budget for it (flush() draws now).
   function say(n, text, withSound, up) {
     n.curText = text; n.talkT = Math.min(5, Math.max(2.2, 1.4 + text.length * 0.06)); n.armUp = up || 1.7;
+    if (n.near2) { const A = ctx.audio; if (A && typeof A.duck === 'function') { try { A.duck(n.talkT); } catch (e) { /* no score */ } } }
     n.dirty = true; n.bubble = Math.min(n.bubble, 0.55); n.mutterCd = 14;
     if (withSound) noise(n);
   }
@@ -863,6 +867,17 @@ export function build(ctx) {
     const K = RUDE_K[kind];
     say(n, K && Math.random() < 0.35 ? (n.S.pt ? K.pt : K.en) : pickFrom(n, RUDE[nm] || (n.S.pt ? RUDE_PT : RUDE_EN)), true);
     if (OLD[nm]) n.fist = 2.4; else n.gest = 0.9;
+  }
+  // Pushed into for half a second (a doorway, a corner): a side step towards home, collider off meanwhile.
+  function stepAside(n, dx, dz, d2) {
+    n.pushT = 0; n.ghostT = 1.0;
+    if (n.S.seated) { n.ghostT = 1.6; return; }
+    const d = Math.sqrt(d2) || 1, ux = dx / d, uz = dz / d;
+    let sx = -uz, sz = ux;
+    if (sx * (n.pts[0] - n.x) + sz * (n.pts[1] - n.z) < 0) { sx = -sx; sz = -sz; }
+    go(n, n.x + sx * 1.1 - ux * 0.35, n.z + sz * 1.1 - uz * 0.35, 2.4, 0.9);
+    n.wait = Math.max(n.wait, 1);
+    if (n.talkT <= 0 && n.bumpCd <= 0) { n.bumpCd = 6; say(n, pickFrom(n, ONLY[n.S.name] ? n.S.lines : n.S.pt ? BUMP_PT : BUMP_EN), false); }
   }
   // Doorways and building walls: wanderers and followers are gently put back outside.
   function keepOut(n) {
@@ -1142,14 +1157,33 @@ export function build(ctx) {
         } else {
           tyaw = Math.atan2(ex, ez); moving = true;
           const sp = S.speed * (reduced ? 0.5 : 1) * (Math.abs(wrapA(tyaw - n.yaw)) < 0.8 ? 1 : 0.2);
-          n.x += (ex / ed) * sp * dt; n.z += (ez / ed) * sp * dt;
-          n.ph += sp * dt * 7;
+          const nx = n.x + (ex / ed) * sp * dt, nz = n.z + (ez / ed) * sp * dt, qx = pcx - nx, qz = pcz - nz, q2 = qx * qx + qz * qz;
+          if (here && q2 < 0.72 && q2 < d2) { n.ti = (n.ti + 1) % n.nPts; n.wait = 0.6; moving = false; }   // never into the visitor
+          else { n.x = nx; n.z = nz; n.ph += sp * dt * 7; }
         }
       } else n.wait = 3;
       // Knocked over and back up: the fixed ones drift back to the spot they guard.
-      if (n.fixed) { if (n.sillyT < 0) { const k = Math.min(1, dt * 3); n.x += (n.pts[0] - n.x) * k; n.z += (n.pts[1] - n.z) * k; } }
-      else if (!(n.busy && n.pestT <= 0)) keepOut(n);       // the director's routes are their own
+      if (n.fixed) {
+        if (n.sillyT < 0 && !n.goOn) {
+          const qx = pcx - n.pts[0], qz = pcz - n.pts[1];
+          if (!here || qx * qx + qz * qz > 1.44) { const k = Math.min(1, dt * 3); n.x += (n.pts[0] - n.x) * k; n.z += (n.pts[1] - n.z) * k; }
+        }
+      } else if (!(n.busy && n.pestT <= 0)) keepOut(n);       // the director's routes are their own
       n.yaw += wrapA(tyaw - n.yaw) * Math.min(1, dt * 5);
+      // Collider: a box that follows them. Parked when far or behind walls; off on the floor, while
+      // stepping aside or running a director's route, and never switched on over the visitor.
+      if (n.ghostT > 0) n.ghostT -= dt;
+      const C = n.col;
+      if (!here || d2 > 625) { if (C.maxY > -50) { C.minY = -51; C.maxY = -50; } n.pushT = 0; }
+      else {
+        if (d2 < 0.64 && !floor) { n.pushT += dt; if (n.pushT > 0.5) stepAside(n, dx, dz, d2); }
+        else if (n.pushT > 0) n.pushT = Math.max(0, n.pushT - dt * 2);
+        if (floor || n.ghostT > 0 || (n.busy && n.pestT <= 0 && n.goOn) || (C.maxY < 0 && d2 < 0.81)) { if (C.maxY > -50) { C.minY = -51; C.maxY = -50; } }
+        else {
+          const hw = S.seated ? 0.32 : 0.3 * Math.min(1.25, n.fat);
+          C.minX = n.x - hw; C.maxX = n.x + hw; C.minZ = n.z - hw; C.maxZ = n.z + hw; C.minY = 0; C.maxY = 1.8;
+        }
+      }
       if (n.hatState === 1) {
         n.hvy -= 9.8 * dt; const H = n.hat;
         H.position.x += n.hvx * dt; H.position.y += n.hvy * dt; H.position.z += n.hvz * dt;
@@ -1449,5 +1483,5 @@ export function build(ctx) {
     n.sillyCd = 6 + Math.random() * 6;
   }
 
-  return { group, regions: [], colliders: [], pickables, update, onPick, slap };
+  return { group, regions: [], colliders, pickables, update, onPick, slap };
 }

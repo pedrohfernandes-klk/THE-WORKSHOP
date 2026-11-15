@@ -28,11 +28,13 @@ const BOING = [1, 1, 0, 1, 0];   // which outdoor jumps go boing: 3 in 5
 const LONG_AIR = 0.95;           // s of effective airtime for a slide whistle (a flat jump is 0.65)
 const GRAVITY = 13.5;            // controls.js: turns a floor drop into extra fall time
 
-// Linear levels before the bus, set by offline measurement at 48 kHz: ruin
-// heart ≈ −30 dBFS RMS (peak −19), stage choir ≈ −33 RMS (peak −18), orchestra
-// ≈ −42 RMS, sprint wind ≈ −35 RMS (peak −20); one-shots peak −20…−25 dBFS.
+// Linear levels before the bus, measured offline in Chromium's Web Audio at
+// 48 kHz: ruin heart ≈ −30 dBFS RMS (peak −20), stage choir ≈ −33 RMS (peak
+// −18), orchestra ≈ −43 RMS, sprint wind ≈ −35 RMS (peak −20); one-shots peak
+// −20…−25 dBFS. Layers that coincide (sprinting and jumping in the ruin) sum
+// to peaks of about −16 dBFS.
 const LV = {
-  drone: 0.037, drip: 0.09, whisper: 0.4, creak: 0.62, choir: 0.113, whoosh: 0.28,
+  drone: 0.037, drip: 0.09, whisper: 0.4, creak: 0.62, choir: 0.134, whoosh: 0.28,
   boing: 0.1, slide: 0.08, pfff: 0.3, bird: 0.06,
 };
 
@@ -100,24 +102,26 @@ function glide(param, v, now, tc = 0.12) {
 // ---------- engine: output, ghost echo, shared noise ----------
 function buildEngine(ctx, bus, rnd) {
   const nodes = [], srcs = [], k = kit(ctx, nodes, srcs);
-  const out = k.gain(1);
-  out.connect(bus);
-  // Ghost echo: cross-fed ping-pong delays, darker on every repeat, the delay
-  // times wavering a few ms so each repeat smears slightly out of tune.
-  const echo = k.gain(1), hp = k.filter('highpass', 220, -3);
-  const dA = k.delay(0.33, 1.5), dB = k.delay(0.49, 1.5);
-  const lpA = k.filter('lowpass', 2500, -3), lpB = k.filter('lowpass', 1900, -3);
-  const fbA = k.gain(0.5), fbB = k.gain(0.5), pA = k.pan(-0.7), pB = k.pan(0.7), ret = k.gain(0.6);
-  echo.connect(hp); hp.connect(dA);
-  dA.connect(lpA); lpA.connect(fbA); fbA.connect(dB);
-  dB.connect(lpB); lpB.connect(fbB); fbB.connect(dA);
-  lpA.connect(pA); lpB.connect(pB); pA.connect(ret); pB.connect(ret); ret.connect(out);
-  const wob = k.osc('sine', 0.11), wa = k.gain(0.0025), wb = k.gain(-0.002);
-  wob.connect(wa); wob.connect(wb); wa.connect(dA.delayTime); wb.connect(dB.delayTime);
-  wob.start(ctx.currentTime);
-  const sr = ctx.sampleRate, n = Math.floor(sr * 2), white = ctx.createBuffer(1, n, sr), d = white.getChannelData(0);
-  for (let i = 0; i < n; i++) d[i] = rnd() * 2 - 1;
-  return { ctx, bus, out, echo, white, drip: null, curve: null, nodes, srcs };
+  try {
+    const sr = ctx.sampleRate, n = Math.floor(sr * 2), white = ctx.createBuffer(1, n, sr), d = white.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = rnd() * 2 - 1;
+    const out = k.gain(1);
+    // Ghost echo: cross-fed ping-pong delays, darker on every repeat, the delay
+    // times wavering a few ms so each repeat smears slightly out of tune.
+    const echo = k.gain(1), hp = k.filter('highpass', 220, -3);
+    const dA = k.delay(0.33, 1.5), dB = k.delay(0.49, 1.5);
+    const lpA = k.filter('lowpass', 2500, -3), lpB = k.filter('lowpass', 1900, -3);
+    const fbA = k.gain(0.5), fbB = k.gain(0.5), pA = k.pan(-0.7), pB = k.pan(0.7), ret = k.gain(0.6);
+    echo.connect(hp); hp.connect(dA);
+    dA.connect(lpA); lpA.connect(fbA); fbA.connect(dB);
+    dB.connect(lpB); lpB.connect(fbB); fbB.connect(dA);
+    lpA.connect(pA); lpB.connect(pB); pA.connect(ret); pB.connect(ret); ret.connect(out);
+    const wob = k.osc('sine', 0.11), wa = k.gain(0.0025), wb = k.gain(-0.002);
+    wob.connect(wa); wob.connect(wb); wa.connect(dA.delayTime); wb.connect(dB.delayTime);
+    wob.start(ctx.currentTime);
+    out.connect(bus);
+    return { ctx, bus, out, echo, white, drip: null, curve: null, nodes, srcs };
+  } catch (e) { release({ nodes, srcs }); throw e; }   // half-built: free what was made
 }
 
 // A leaking roof: two drips at their own irregular rates, 7.3 s, looped.
@@ -431,7 +435,7 @@ export function createSfx(audio) {
   const BEDS = [beds.ruin, beds.choir, beds.whoosh];
   const st = {
     t: 0, pclock: 0, air: false, airT: 0, airY: 0, jumps: 0, seated: false, sits: 0,
-    pfff: -1, pfffPeak: 0, fast: 0, whooshOn: false, stage: 0, bird: rr(10, 20), birds: 0,
+    pfff: -1, pfffPeak: 0, lx: 0, lz: 0, fast: 0, whooshOn: false, stage: 0, bird: rr(10, 20), birds: 0,
     whisper: rr(3, 6), creak: rr(5, 9),
   };
   const played = { boing: 0, slide: 0, pfff: 0, bird: 0, whisper: 0, creak: 0, dropped: 0 };
@@ -570,15 +574,19 @@ export function createSfx(audio) {
         if (live && fell >= LONG_AIR) oneShot('slide', slideDown, 0, 1, 0.15);
       }
 
-      // sitting: 1 in 3 sits (the first of every three), once the glide onto the seat lands
+      // sitting: 1 in 3 sits (the first of every three), as the glide onto the seat
+      // comes to rest. The glide (0.25–2.4 s, eased) is followed in x/z itself:
+      // main's speed is smoothed and still carries any run-up to the seat.
       if (seated && !st.seated) { st.sits++; if ((st.sits - 1) % 3 === 0) { st.pfff = 0; st.pfffPeak = 0; } }
       if (!seated) st.pfff = -1;
       st.seated = seated;
-      if (st.pfff >= 0) {
-        st.pfff += dt; st.pfffPeak = Math.max(st.pfffPeak, speed);
-        const arrived = st.pfff > 0.2 && st.pfffPeak > 0.4 && speed < 0.3 * st.pfffPeak;
-        if (arrived || st.pfff >= 0.85) { st.pfff = -1; if (live) oneShot('pfff', pfff, rr(-0.15, 0.15), 1, 0.05); }
+      if (st.pfff >= 0 && dt > 0) {
+        const v = Math.hypot(x - st.lx, z - st.lz) / dt;
+        st.pfff += dt; st.pfffPeak = Math.max(st.pfffPeak, v);
+        const rest = v < 0.05 && st.pfff > 0.3 && (st.pfffPeak > 0.3 || st.pfff > 0.85);
+        if (rest || st.pfff >= 2.6) { st.pfff = -1; if (live) oneShot('pfff', pfff, rr(-0.15, 0.15), 1, 0.05); }
       }
+      st.lx = x; st.lz = z;
 
       // sprinting outdoors: 3 s above 4 m/s, then wind until you ease off
       st.fast = !indoor && !seated && speed > 4 ? st.fast + dt : 0;

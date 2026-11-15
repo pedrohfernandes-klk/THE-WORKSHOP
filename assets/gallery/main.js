@@ -314,7 +314,7 @@ async function enter() {
   // Starting at null lets only a real prompt ("E · Sit") take the line.
   state.prompt = null;
   ui.hint(touch
-    ? 'Drag to look · Tap the floor to walk · Tap a work to approach'
+    ? 'Drag to look · Tap or hold to walk'
     : 'Click to look around · WASD to walk · Shift to run');
 }
 
@@ -327,7 +327,9 @@ controls.onFirstInput = () => {
 
 const crosshair = document.getElementById('crosshair');
 import('./player.js').then((m) => {
-  player = m.createPlayer(camera, { reducedMotion });
+  player = m.createPlayer(camera, { reducedMotion, audio });
+  // Every gesture, from any caller, is published for the world (NPCs react).
+  player.onGestureStart = (name) => { room.scene.userData.lastGesture = { name, time: performance.now() / 1000 }; };
   room.scene.add(camera);
   if (player.group && !player.group.parent) camera.add(player.group);
 }).catch(() => { /* gestures are optional */ });
@@ -377,13 +379,14 @@ addEventListener('mouseup', (e) => { if (e.button === 2) releaseCharge(); });
 
 // Weather and time: sunny, storm, rainbow, a real starry night.
 let weather = null;
-const WEATHER_LABEL = { sunny: 'Radiant sun', storm: 'Storm', rainbow: 'Rainbow', night: 'Starry night' };
+// Each change is narrated as something happening in the world, with a hint at where to look.
+const WEATHER_LABEL = { sunny: 'A new day', storm: 'A storm rolls in', rainbow: 'Rainbow · sun at your back', night: 'Night falls · look up' };
 function cycleWeather() {
   if (!weather) return;
   const i = weather.modes.indexOf(weather.mode);
   const next = weather.modes[(i + 1) % weather.modes.length];
   weather.set(next);
-  ui.toast(WEATHER_LABEL[next] || next, 2200);
+  ui.toast(WEATHER_LABEL[next] || next, 3200);
   const b = document.getElementById('weather-btn');
   if (b) b.dataset.mode = next;
 }
@@ -416,9 +419,7 @@ controls.onGesture = (code) => {
   const list = ['wave', 'thumbs', 'clap', 'point', 'shrug', 'dance', 'peace'];
   const name = code === 'KeyG' ? list[Math.floor(Math.random() * list.length)] : GESTURE_KEYS[code];
   if (!name) return;
-  player.gesture(name);
-  // Published for the world: NPCs nearby react to what the visitor just did.
-  room.scene.userData.lastGesture = { name, time: performance.now() / 1000 };
+  player.gesture(name);   // player.onGestureStart publishes it to the world
 };
 
 // With the mouse captured, the crosshair says what E / click will do.
@@ -990,7 +991,7 @@ function step() {
   const floor = controls.floor;
   if (world) {
     world.lift?.setVisitor(pos.x, floor, pos.z);
-    world.update(dt, { camera, time: now, level: floor > 5 ? 1 : 0 });
+    world.update(dt, { camera, time: now, level: floor > 5 ? 1 : 0, weather: weather ? weather.mode : 'sunny' });
   }
   props.update?.(dt, camera);
   if (state.entered) updateCentrePrompt(dt);
@@ -1016,7 +1017,7 @@ function step() {
   // Eerie and wacky sound layer (optional module).
   sfx?.update(dt, { x: pos.x, y: floor, z: pos.z, area: state.place || null, speed: controls.speed, airborne, justJumped, justLanded, seated: controls.seated, indoor: !!state.indoor });
   if (player) {
-    player.update(dt, { speed: controls.speed, jumping: controls.airborne, turnRate: controls.turnRate });
+    player.update(dt, { speed: controls.speed, jumping: controls.airborne, turnRate: controls.turnRate, stepPhase: controls.stepPhase });
   }
   if (music) music.setIntensity(Math.min(1, 0.25 + controls.speed / 5 + (state.inHall ? 0 : 0.25)));
   music?.update?.(dt);

@@ -399,7 +399,7 @@ export function build(ctx) {
 
   // ---------- sitting (sit contract) ----------
   // Twelve person-places round the basin coping, one every 30 deg from due east
-  // (1.68 m apart), each on the middle of the flat top (r 2.98…3.42 in basinPts →
+  // (1.66 m apart), each on the middle of the flat top (r 2.98…3.42 in basinPts →
   // r 3.2, y 0.50), facing straight out from the water: down the four garden paths
   // and over the lawns between them. Seats are world coordinates (the group sits at
   // CX, 0, CZ). One invisible ring-shaped pick proxy (a closed rectangular lathe)

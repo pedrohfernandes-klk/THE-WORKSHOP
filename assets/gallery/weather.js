@@ -10,9 +10,6 @@
 //   { type: 'weather' } event on the scene when the mode changes.
 // Materials may opt in to the night: material.userData.nightGlow = k (emissive x k
 //   at night, e.g. lit windows / street lamps); userData.wet = false opts out of rain.
-import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
-
-const TEX = new URL('../textures/', import.meta.url);
 const SKY_JSON = new URL('../data/sky.json', import.meta.url);
 const LAT = 38.72, LON = -9.14;
 const D2R = Math.PI / 180;
@@ -164,11 +161,10 @@ export function createWeather(ctx, { environment } = {}) {
       gl_FragColor = vec4(c, uA);` + TAIL + `}`, overU, -4);
   function loadOvercast() {
     if (overLoading) return; overLoading = true;
-    new RGBELoader().loadAsync(new URL('sky-overcast.hdr', TEX).href).then((hdr) => {
-      hdr.mapping = THREE.EquirectangularReflectionMapping;
-      const pm = new THREE.PMREMGenerator(renderer);
-      overEnv = pm.fromEquirectangular(hdr).texture; pm.dispose();
-      overTex = hdr; overU.uTex.value = hdr; track(hdr); track(overEnv);
+    // materials.js owns and caches the storm sky (1k first, sharpened in place): no track()
+    if (!ctx.M || typeof ctx.M.overcast !== 'function') return;
+    ctx.M.overcast().then(({ background, environment: e }) => {
+      overEnv = e; overTex = background; overU.uTex.value = background;
     }).catch(() => { overLoading = false; });
   }
 
@@ -532,18 +528,28 @@ export function createWeather(ctx, { environment } = {}) {
     uCam: { value: new THREE.Vector3() }, uShift: { value: new THREE.Vector3() }, uBox: { value: BOX },
     uVel: { value: new THREE.Vector3(2.5, -9, 1.2) }, uAmt: { value: 0 }, uLen: { value: 0.05 },
     uCol: { value: new THREE.Vector3(0.3, 0.34, 0.4) },
+    // no rain inside the hall, even seen through its doors or if indoor detection lags
+    uHallMin: { value: new THREE.Vector3(1e9, 1e9, 1e9) }, uHallMax: { value: new THREE.Vector3(-1e9, -1e9, -1e9) },
   };
+  {
+    const h = scene.getObjectByName('hall');
+    if (h) {
+      const hb = new THREE.Box3().setFromObject(h);
+      if (!hb.isEmpty()) { rainU.uHallMin.value.set(hb.min.x + 0.3, hb.min.y - 1, hb.min.z + 0.3); rainU.uHallMax.value.set(hb.max.x - 0.3, hb.max.y, hb.max.z - 0.3); }
+    }
+  }
   const rainMat = track(new THREE.ShaderMaterial({
     uniforms: rainU, transparent: true, depthWrite: false, fog: false,
     vertexShader: `
       attribute vec4 aSeed; attribute float aEnd;
-      uniform vec3 uCam, uShift, uBox, uVel; uniform float uAmt, uLen; varying float vA;
+      uniform vec3 uCam, uShift, uBox, uVel, uHallMin, uHallMax; uniform float uAmt, uLen; varying float vA;
       void main(){
         vec3 rel = (fract(aSeed.xyz + uShift) - 0.5) * uBox;
         vec3 w = uCam + rel - uVel * uLen * (0.6 + 0.8*aSeed.w) * aEnd;
         float fade = 1.0 - smoothstep(0.55, 1.0, length(rel.xz)/(uBox.x*0.5));
         fade *= smoothstep(0.0, 1.5, length(rel));
         vA = mix(0.6, 0.04, aEnd) * fade * step(aSeed.w, uAmt);
+        if (all(greaterThan(w, uHallMin)) && all(lessThan(w, uHallMax))) vA = 0.0;
         gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0);
       }`,
     fragmentShader: `uniform vec3 uCol; varying float vA; void main(){ gl_FragColor = vec4(uCol, vA);` + TAIL + `}`,
@@ -691,12 +697,12 @@ export function createWeather(ctx, { environment } = {}) {
       const ck = SUNC[mode] || SUNC.sunny;
       sunCol.lerp(ck, k); sun.color.copy(sunCol);
     }
-    scene.environmentIntensity = baseEnv * P.env * env + f * 0.6;
+    scene.environmentIntensity = baseEnv * P.env * env + f * 0.6 * (1 - indoor);
     scene.backgroundIntensity = baseBg * P.bg * lerp(P.expo, 1, indoor);
     const stormish = P.over > 0.5 && overEnv;
     scene.environment = stormish ? overEnv : sunnyEnvTex;
     if (fog) { fog.color.copy(fogColor).multiplyScalar(lerp(P.expo, 1, P.night)); fog.density = baseFogDens * P.fogK; }
-    flashLight.intensity = f * 5.0;
+    flashLight.intensity = f * 5.0 * (1 - 0.85 * indoor); // indoors only what the windows let in
     // the landscape's own distance haze follows the fog (linear radiance, paler by day)
     // (re-found after a mode change: an environment swap can recompile it)
     if (time > hazeAt && hazeTries < 24) { hazeAt = time + (hazeU.length ? 6 : 1.5); findHaze(); }
@@ -742,7 +748,7 @@ export function createWeather(ctx, { environment } = {}) {
     if (mh) moonLight.position.copy(moonDir).multiplyScalar(100); else moonLight.position.set(30, 80, 50);
 
     // rain
-    indoor = lerp(indoor, indoorTgt, k);
+    indoor = lerp(indoor, indoorTgt, 1 - Math.exp(-dt * 6));
     const amt = P.rain * (1 - indoor) * (reducedMotion ? 0.6 : 1);
     rain.visible = amt > 0.01;
     if (rain.visible) {

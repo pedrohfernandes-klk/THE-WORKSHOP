@@ -15,7 +15,7 @@
 
 const PX = 0.045;                 // metres per sprite pixel
 const FAR2 = 45 * 45;             // beyond this the ghost is neither drawn nor heard
-const WANDER = 0.45, CREEP = 0.8; // m/s
+const WANDER = 0.45, CREEP = 1.0; // m/s
 const HUM = 0.04;                 // peak hum level into the bus (quiet)
 const BUBBLE = 1.9;               // seconds the "Buu." bubble stays up
 // Where the ghost may be (inside the ruins' footprint) and where the visitor counts as
@@ -56,6 +56,12 @@ varying vec2 vUv;
 float b2(vec2 p) { return mod(2.0 * p.x + 3.0 * p.y, 4.0); }
 float bayer(vec2 p) { return (4.0 * b2(mod(p, 2.0)) + b2(mod(floor(p * 0.5), 2.0)) + 0.5) / 16.0; }
 float box(vec2 p, vec2 a, vec2 b) { return step(a.x, p.x) * step(p.x, b.x) * step(a.y, p.y) * step(p.y, b.y); }
+vec3 toOut(vec3 c) {   // encode before blending, like stock materials (a no-op on the app's linear target)
+#ifdef TONE_MAPPING
+  c = toneMapping(c);
+#endif
+  return linearToOutputTexel(vec4(c, 1.0)).rgb;
+}
 void main() {
   vec2 g = vec2(floor(vUv.x * 40.0), 39.0 - floor(vUv.y * 40.0));      // pixel, y down
   if (uGlitch > 0.5) {                                                  // a rare scanline tear
@@ -73,7 +79,7 @@ void main() {
   // the open "Buu." mouth
   float mo = uMouth * box(s, vec2(14.0, 18.0), vec2(17.0, 21.0));
   if ((s.x == 14.0 || s.x == 17.0) && (s.y == 18.0 || s.y == 21.0)) mo = 0.0;
-  col = mix(col, vec3(0.05, 0.02, 0.09), mo); a = max(a, mo);
+  col = mix(col, vec3(0.012, 0.004, 0.03), mo); a = max(a, mo);
   // under a direct look the pixels drop out in Bayer order
   a *= step(bayer(s), uDis);
   // dithered pixel halo
@@ -83,9 +89,8 @@ void main() {
   float dh = step(bayer(g + 2.0), halo * halo);
   float glow = uGlow * uDis * (0.3 * halo * halo + 0.7 * dh * halo) * (1.0 - 0.75 * a);
   float A = a * uAlpha;
-  gl_FragColor = vec4(col * uBright * A + uGlowCol * glow * uAlpha, A);
-  #include <tonemapping_fragment>
-  #include <colorspace_fragment>
+  vec3 halo3 = glow > 0.0 ? toOut(uGlowCol * glow * uAlpha) : vec3(0.0);
+  gl_FragColor = vec4((A > 0.0 ? toOut(col * uBright) * A : vec3(0.0)) + halo3, A);
 }`;
 
 // Two 32x32 frames side by side; the skirt's feet alternate (the wobble).
@@ -378,7 +383,7 @@ export function build(ctx) {
       sprite.scale.setScalar(sc);
       U.uSquash.value.set(sx, sy);
       U.uAlpha.value = alpha; U.uDis.value = dis; U.uBright.value = br; U.uMouth.value = mouth;
-      U.uGlow.value = (0.06 + 0.5 * wk) * (1 - 0.5 * seen);
+      U.uGlow.value = (0.03 + 0.55 * wk) * (1 - 0.5 * seen);
       if (!still) {                                    // two-frame wobble and a rare tear
         frameT += dt; if (frameT > 0.32) { frameT = 0; fr = 1 - fr; }
         glitchT -= dt; if (glitchT <= 0) { glitch = 0.12 + rnd() * 0.1; glitchT = 6 + rnd() * 14; }

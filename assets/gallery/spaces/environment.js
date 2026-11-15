@@ -15,44 +15,49 @@ export async function build(ctx) {
   // carries that energy. The copy is also offered as `backgroundNoSun`, so weather
   // can draw its own sun at any elevation (golden hour, radiant noon, rainbow).
   // scene.background keeps the photographed disc for anything without weather.
-  let environment = sky.environment, backgroundNoSun = null;
-  try {
-    const bg = sky.background, img = bg && bg.image;
-    if (img && img.data instanceof Uint16Array && img.width > 8) {
-      const W = img.width, H = img.height, d = img.data.slice();
-      const h2f = THREE.DataUtils.fromHalfFloat, f2h = THREE.DataUtils.toHalfFloat;
-      // brightest texel = the sun (positive half floats order like uint16)
-      let best = 0, bi = 0;
-      for (let p = 0, n = W * H; p < n; p++) { const x = d[p * 4 + 1]; if (x > best && x <= 0x7c00) { best = x; bi = p; } }
-      const i0 = bi % W, j0 = (bi / W) | 0;
-      const cl = Math.max(0.15, Math.cos(Math.PI * (0.5 - (j0 + 0.5) / H)));
-      const ppd = W / 360, R0 = 2.4, R1 = 5.5, RR = 6.5;
-      const di = Math.ceil(RR * ppd / cl), dj = Math.ceil(RR * ppd);
-      const j0a = Math.max(0, j0 - dj), j0b = Math.min(H - 1, j0 + dj);
-      const at = (ii, j) => ((((i0 + ii) % W) + W) % W + j * W) * 4;
-      let sr = 0, sg = 0, sb = 0, sn = 0;
+  // The sun-less copy of an equirect half-float image: { data, width, height } or null.
+  function inpaintSun(img) {
+    if (!img || !(img.data instanceof Uint16Array) || !(img.width > 8)) return null;
+    const W = img.width, H = img.height, d = img.data.slice();
+    const h2f = THREE.DataUtils.fromHalfFloat, f2h = THREE.DataUtils.toHalfFloat;
+    // brightest texel = the sun (positive half floats order like uint16)
+    let best = 0, bi = 0;
+    for (let p = 0, n = W * H; p < n; p++) { const x = d[p * 4 + 1]; if (x > best && x <= 0x7c00) { best = x; bi = p; } }
+    const i0 = bi % W, j0 = (bi / W) | 0;
+    const cl = Math.max(0.15, Math.cos(Math.PI * (0.5 - (j0 + 0.5) / H)));
+    const ppd = W / 360, R0 = 2.4, R1 = 5.5, RR = 6.5;
+    const di = Math.ceil(RR * ppd / cl), dj = Math.ceil(RR * ppd);
+    const j0a = Math.max(0, j0 - dj), j0b = Math.min(H - 1, j0 + dj);
+    const at = (ii, j) => ((((i0 + ii) % W) + W) % W + j * W) * 4;
+    let sr = 0, sg = 0, sb = 0, sn = 0;
+    for (let j = j0a; j <= j0b; j++) for (let ii = -di; ii <= di; ii++) {
+      const r = Math.hypot(ii * cl, j - j0) / ppd; if (r < R1 || r > RR) continue;
+      const p = at(ii, j);
+      const r0 = h2f(d[p]), g0 = h2f(d[p + 1]), b0 = h2f(d[p + 2]);
+      if (!(r0 >= 0 && g0 >= 0 && b0 >= 0)) continue; // skips NaN
+      sr += Math.min(r0, 8); sg += Math.min(g0, 8); sb += Math.min(b0, 8); sn++;
+    }
+    if (sn) {
+      const ring = [sr / sn, sg / sn, sb / sn];
       for (let j = j0a; j <= j0b; j++) for (let ii = -di; ii <= di; ii++) {
-        const r = Math.hypot(ii * cl, j - j0) / ppd; if (r < R1 || r > RR) continue;
+        const r = Math.hypot(ii * cl, j - j0) / ppd; if (r >= R1) continue;
+        const t = Math.max(0, Math.min(1, (r - R0) / (R1 - R0))), s2 = t * t * (3 - 2 * t);
         const p = at(ii, j);
-        const r0 = h2f(d[p]), g0 = h2f(d[p + 1]), b0 = h2f(d[p + 2]);
-        if (!(r0 >= 0 && g0 >= 0 && b0 >= 0)) continue; // skips NaN
-        sr += Math.min(r0, 8); sg += Math.min(g0, 8); sb += Math.min(b0, 8); sn++;
-      }
-      if (sn) {
-        const ring = [sr / sn, sg / sn, sb / sn];
-        for (let j = j0a; j <= j0b; j++) for (let ii = -di; ii <= di; ii++) {
-          const r = Math.hypot(ii * cl, j - j0) / ppd; if (r >= R1) continue;
-          const t = Math.max(0, Math.min(1, (r - R0) / (R1 - R0))), s2 = t * t * (3 - 2 * t);
-          const p = at(ii, j);
-          for (let c = 0; c < 3; c++) {
-            const o0 = h2f(d[p + c]), o = Number.isFinite(o0) ? o0 : 65504, a = ring[c];
-            d[p + c] = f2h(Math.max(0, Math.min(a + (o - a) * s2, a * (1 + 3 * s2))));
-          }
+        for (let c = 0; c < 3; c++) {
+          const o0 = h2f(d[p + c]), o = Number.isFinite(o0) ? o0 : 65504, a = ring[c];
+          d[p + c] = f2h(Math.max(0, Math.min(a + (o - a) * s2, a * (1 + 3 * s2))));
         }
       }
-      const cap = f2h(32); // safety: no stray texel may light the world unshadowed
-      for (let i = 0; i < d.length; i++) if (d[i] > cap && d[i] < 0x8000) d[i] = cap; // incl. Inf/NaN
-      const src = new THREE.DataTexture(d, W, H, bg.format, bg.type);
+    }
+    const cap = f2h(32); // safety: no stray texel may light the world unshadowed
+    for (let i = 0; i < d.length; i++) if (d[i] > cap && d[i] < 0x8000) d[i] = cap; // incl. Inf/NaN
+    return { data: d, width: W, height: H };
+  }
+  let environment = sky.environment, backgroundNoSun = null;
+  try {
+    const bg = sky.background, s0 = inpaintSun(bg && bg.image);
+    if (s0) {
+      const src = new THREE.DataTexture(s0.data, s0.width, s0.height, bg.format, bg.type);
       src.mapping = THREE.EquirectangularReflectionMapping;
       src.colorSpace = bg.colorSpace;
       src.flipY = bg.flipY;
@@ -60,10 +65,20 @@ export async function build(ctx) {
       src.generateMipmaps = false;
       src.needsUpdate = true;
       const pmrem = new THREE.PMREMGenerator(renderer);
-      environment = pmrem.fromEquirectangular(src).texture;
+      environment = pmrem.fromEquirectangular(src).texture; // light: the 1k copy is plenty
       pmrem.dispose();
       environment.userData.discCapped = true;
       backgroundNoSun = src;
+      // the visible sky: sharpen the sun-less copy to the 2k photograph once it
+      // arrives (lazy, low priority, after the campus textures), in place
+      const sharp = sky.sharp;
+      if (sharp && sharp.then) {
+        sharp.then((b2) => {
+          if (!b2 || !b2.image || b2.image.width <= s0.width) return;
+          const s = inpaintSun(b2.image);
+          if (s) { src.dispose(); src.image = s; src.needsUpdate = true; }
+        }).catch(() => {});
+      }
     }
   } catch (e) { environment = sky.environment; backgroundNoSun = null; }
   const capped = environment !== sky.environment;

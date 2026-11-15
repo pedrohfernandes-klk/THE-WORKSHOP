@@ -545,8 +545,9 @@ export function build(ctx) {
     CY(steel, 0.025, 0.46, 0, 0, 0, L(1.05, 0.23, -2.3));
     // sit: the teacher looks at the class (+u, away from the backrest at 0.84). The shared 'seat' / 'back'
     // instance keys draw this chair with the students' parts (seat 0.42 x 0.04, back 0.025 x 0.22 x 0.4):
-    // seat top 0.48 + 0.02, back u 0.8275..0.8525, y 0.63..0.85; the proxy fits those with 2-3 cm to spare.
-    A.sit(sitL(-0.235, 0.235, 0.46, 0, 0.53, -0.245, -0.175, 0.88), 1.05, -2.3, 0.48 + 0.02, 1, 'school-lente-chair-teacher');
+    // seat top 0.48 + 0.02, back u 0.8275..0.8525, y 0.63..0.85; the proxy fits those (seat block 2.5-3 cm to
+    // spare, backrest block 1 cm, as in Português where the chair stands before the whiteboard).
+    A.sit(sitL(-0.235, 0.235, 0.44, 0, 0.53, -0.2325, -0.1875, 0.86), 1.05, -2.3, 0.48 + 0.02, 1, 'school-lente-chair-teacher');
     // wall photographs on the door wall and partition
     hang(L(2.2, 1.8, -5.545, 0), 1.0, 0.73, photoTexs[0]); hang(L(4.0, 1.8, -5.545, 0), 1.0, 0.73, photoTexs[2]);
     hang(L(9.78, 1.7, -2.2, -PI / 2), 0.8, 1.1, photoTexsP[0]); hang(L(9.78, 1.7, 0.0, -PI / 2), 0.8, 1.1, photoTexsP[1]); hang(L(9.78, 1.7, 2.2, -PI / 2), 0.8, 1.1, photoTexsP[2]);
@@ -572,9 +573,9 @@ export function build(ctx) {
     aabb(1.15, 2.05, -1.05, 0.65, 0.95, 0.0);
     I('seat', new RoundedBoxGeometry(0.45, 0.05, 0.45, 2, 0.02), plasticGrey, L(0.85, 0.65, -0.2)); I('back', new RoundedBoxGeometry(0.04, 0.4, 0.42, 2, 0.015), plasticGrey, L(0.63, 0.92, -0.2));
     // sit: on the dais (top 0.15), looking at the class (+u); drawn with the students' parts as in Lente: seat
-    // top 0.65 + 0.02, back u 0.6175..0.6425, y 0.81..1.03. L-shaped so the whiteboard's low corner, seen over
-    // the seat, stays clickable.
-    B.sit(sitL(-0.235, 0.235, 0.46, 0.15, 0.70, -0.255, -0.185, 1.06), 0.85, -0.2, 0.65 + 0.02, 1, 'school-portugues-chair-teacher');
+    // top 0.65 + 0.02, back u 0.6175..0.6425, y 0.81..1.03. The chair stands before the whiteboard's low end:
+    // L-shaped, backrest block only 1 cm proud, so the board seen over and beside the chair stays clickable.
+    B.sit(sitL(-0.235, 0.235, 0.44, 0.15, 0.70, -0.2425, -0.1975, 1.04), 0.85, -0.2, 0.65 + 0.02, 1, 'school-portugues-chair-teacher');
     BX(new THREE.MeshStandardMaterial({ color: 0xf0f0f0 }), 0.2, 0.01, 0.3, 0, 0, 0, L(1.55, 0.93, 0.2)); // papers
     // wall map of Portugal (door wall, world z = 60.5)
     BX(oakM, 1.5, 2.1, 0.03, 0, 0, 0, L(4.2, 1.7, 5.54));

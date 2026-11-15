@@ -120,14 +120,22 @@ export function build(ctx) {
     );
   }
 
-  let time = 0;
-  function update(dt) {
+  // The swifts read the sky: they climb away and vanish before a storm or at nightfall and drift
+  // back down when it clears (the rainbow brings them out). `away` eases over ~30 s.
+  let time = 0, away = 0;
+  function update(dt, frame) {
     time += Math.min(dt || 0, 0.1);
     uTime.value = time;
+    const wx = frame && frame.weather;
+    away += ((wx === 'storm' || wx === 'night' ? 1 : 0) - away) * Math.min(1, Math.min(dt || 0, 0.1) * 0.12);
+    mesh.visible = away < 0.97;
+    if (!mesh.visible) return;
+    const up = away * away * 150;
     for (let i = 0; i < N; i++) {
       const b = birds[i];
       posAt(b, time, P);
       posAt(b, time + 0.05, Q);
+      P.y += up; Q.y += up;
       // aim a point ahead along the path: +z of the bird faces the direction of travel
       T.subVectors(Q, P).multiplyScalar(20).add(P);
       dummy.position.copy(P);

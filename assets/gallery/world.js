@@ -45,29 +45,62 @@ export function areaAt(x, y, z) {
   return null;
 }
 
+// The campus waits for the hall: its modules are fetched only after the page's
+// own load (capped), a few at a time, with the main thread handed back between
+// module builds so the visitor can walk in the hall while the campus builds.
+const LOAD_CAP_MS = 10000;
+const IN_FLIGHT = 3;
+
+function afterPageLoad(capMs = LOAD_CAP_MS) {
+  if (typeof document === 'undefined' || typeof addEventListener !== 'function' || document.readyState === 'complete') return Promise.resolve();
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, capMs);
+    addEventListener('load', () => { clearTimeout(timer); resolve(); }, { once: true });
+  });
+}
+
+function yieldToMain() {
+  return new Promise((resolve) => {
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(() => resolve(), { timeout: 120 });
+    else if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => resolve());
+    else setTimeout(resolve, 0);
+  });
+}
+
 /**
  * createWorld(ctx, { hallColliders, onProgress }) → world
  * ctx: { THREE, renderer, scene, M, quality, reducedMotion, audio, ui }
  */
 export async function createWorld(ctx, { hallColliders = [], onProgress } = {}) {
-  const modules = new Map();
-  let done = 0;
-  await Promise.all(SPACES.map(async (name) => {
-    try {
-      const mod = await import(`./spaces/${name}.js`);
-      const out = await mod.build(ctx);
-      if (out && out.group) {
-        out.group.name = out.group.name || name;
-        ctx.scene.add(out.group);
-        if (FOLIAGE.has(name)) out.group.traverse((o) => o.layers.set(1));
+  const built = new Array(SPACES.length);
+  let done = 0, next = 0;
+  await afterPageLoad();
+  // A few workers take the modules in SPACES order (what appears first while loading).
+  async function worker() {
+    while (next < SPACES.length) {
+      const i = next++;
+      const name = SPACES[i];
+      try {
+        const mod = await import(`./spaces/${name}.js`);
+        await yieldToMain();
+        const out = await mod.build(ctx);
+        if (out && out.group) {
+          out.group.name = out.group.name || name;
+          ctx.scene.add(out.group);
+          if (FOLIAGE.has(name)) out.group.traverse((o) => o.layers.set(1));
+        }
+        built[i] = out || {};
+      } catch (err) {
+        console.warn(`[world] ${name} skipped:`, err);
       }
-      modules.set(name, out || {});
-    } catch (err) {
-      console.warn(`[world] ${name} skipped:`, err);
+      done++;
+      onProgress?.(done / SPACES.length);
+      await yieldToMain();
     }
-    done++;
-    onProgress?.(done / SPACES.length);
-  }));
+  }
+  await Promise.all(Array.from({ length: Math.min(IN_FLIGHT, SPACES.length) }, worker));
+  const modules = new Map();
+  for (let i = 0; i < SPACES.length; i++) if (built[i]) modules.set(SPACES[i], built[i]);
 
   const staticRegions = [...HALL_REGIONS];
   const staticColliders = hallColliders.map((c) => ({ minY: 0, maxY: 2.6, ...c }));

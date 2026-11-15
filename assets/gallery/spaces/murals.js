@@ -613,7 +613,7 @@ export function build(ctx) {
   }
 
   // ---------------------------------------------------------------- walls
-  function mural({ id, w, h, seed, paint, maskOpt, folded, geo, pos, ry, caption }) {
+  function mural({ id, w, h, seed, paint, maskOpt, folded, geo, pos, ry, caption, tint = 0xffffff }) {
     const r = rng(seed);
     const { c, g } = canvas(w, h);
     paint(g, w, h, r);
@@ -627,7 +627,7 @@ export function build(ctx) {
       map, alphaMap: alpha, transparent: true, depthWrite: false, roughness: 0.95, metalness: 0,
       polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
     });
-    mat.name = 'mural-' + id;
+    mat.name = 'mural-' + id; mat.color.set(tint);   // plaster a shade under the pale concrete it sits on
     const mesh = new THREE.Mesh(geo, mat);
     mesh.name = 'mural-' + id;
     mesh.position.set(pos[0], pos[1], pos[2]); mesh.rotation.y = ry;
@@ -648,10 +648,10 @@ export function build(ctx) {
   }
   const HALF = Math.PI / 2;
   mural({ id: 'voo', w: 1024, h: 512, seed: 1452, paint: paintVoo, maskOpt: { margin: 24, blur: 14, flakes: 46, deep: 1.3, islands: 16 },
-    geo: new THREE.PlaneGeometry(9.6, 4.8), pos: [-6.92, 3.3, 6.5], ry: -HALF,
+    geo: new THREE.PlaneGeometry(9.6, 4.8), pos: [-6.92, 3.3, 6.5], ry: -HALF, tint: 0xddd2bf,
     caption: 'Estudo de máquina voadora — o ar também tem peso.' });
   mural({ id: 'homem', w: 1024, h: 512, seed: 1519, paint: paintHomem, maskOpt: { margin: 24, blur: 14, flakes: 46, deep: 1.3, islands: 16 },
-    geo: new THREE.PlaneGeometry(9.6, 4.8), pos: [6.92, 3.3, 6.5], ry: HALF,
+    geo: new THREE.PlaneGeometry(9.6, 4.8), pos: [6.92, 3.3, 6.5], ry: HALF, tint: 0xddd2bf,
     caption: 'O corpo medido no círculo e no quadrado — e a luz que pousa nas esferas.' });
   mural({ id: 'paisagem', w: 720, h: 512, seed: 1503, paint: paintPaisagem,
     maskOpt: { margin: 18, blur: 7, flakes: 110, inner: 34, islands: 12, cut: cutCrest(720, 512) },

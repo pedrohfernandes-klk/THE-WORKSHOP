@@ -13,9 +13,10 @@
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const PX = 23.86, PY = 1.83, PZ = 26.65, YAW = -Math.PI / 2;   // facing -x, into the plaza
+const SC = 1.2;                                                  // a chunky tom: modelled at life size, shown 1.2x
 const CY = Math.cos(YAW), SY = Math.sin(YAW);
-const HX = PX + 0.09 * SY, HY = PY + 0.36, HZ = PZ + 0.09 * CY; // eye line, world
-const BCX = PX, BCY = PY + 0.2, BCZ = PZ;                        // body centre, world (ball hits)
+const HX = PX + 0.09 * SC * SY, HY = PY + 0.36 * SC, HZ = PZ + 0.09 * SC * CY; // eye line, world
+const BCX = PX, BCY = PY + 0.2 * SC, BCZ = PZ, HIT2 = (0.24 * SC) ** 2;        // body centre, world (ball hits)
 const BINS = [[13, 26.6], [13, 36.6], [-13, 26.6], [-13, 36.6]]; // furniture.js
 const FAR = 35;
 const SIT = 0, PURR = 1, AWAY = 2, LICK = 3, BACK = 4;
@@ -49,6 +50,7 @@ export function build(ctx) {
   group.name = 'cat';
   group.position.set(PX, PY, PZ);
   group.rotation.y = YAW;
+  group.scale.setScalar(SC);
 
   // ---------- skeleton: rest pose has identity rotations; cat-local metres, +z forward ----------
   const bones = [];
@@ -343,7 +345,7 @@ export function build(ctx) {
 
   function say(text, pri = 1) {
     if (!text) return false;
-    if (bubT > 0 && (pri < bubPri || (pri === bubPri && bubAge < 1.3))) return false;
+    if (bubT > 0 && (pri < bubPri || (pri === bubPri && pri < 4 && bubAge < 1.3))) return false;
     if (bubT <= 0 && pri < 2 && quiet > 0) return false;
     drawBubble(text);
     bubT = Math.min(4.6, 1.9 + text.length * 0.065); bubAge = 0; bubPri = pri;
@@ -558,7 +560,7 @@ export function build(ctx) {
       const b = BALLS[i], s = b.state, p = b.pos;
       if (s === BALL_FLY && hitCd <= 0) {
         const bx = p.x - BCX, by = p.y - BCY, bz = p.z - BCZ, q = bx * bx + by * by + bz * bz;
-        if (q < 0.05) {
+        if (q < HIT2) {
           hitCd = 1.2;
           const v = b.vel;
           if (v && typeof v.x === 'number') {
@@ -656,7 +658,7 @@ export function build(ctx) {
       const el = ctx.renderer && ctx.renderer.domElement, H = (el && el.height) || 1080, W = (el && el.width) || 1920;
       const m = Math.max(1, Math.min(Math.round(H / 480), Math.floor(W / 380)));
       const pop = RM || bubAge >= 0.18 ? 1 : 0.6 + 0.4 * easeBack(bubAge / 0.18);
-      const unit = 2 * Math.tan((cam.fov || 52) * Math.PI / 360) / ((cam.zoom || 1) * H) * m * pop;
+      const unit = 2 * Math.tan((cam.fov || 52) * Math.PI / 360) / ((cam.zoom || 1) * H) * m * pop / SC;
       bubble.scale.set(BW * unit, BH * unit, 1);
       if (bubT <= 0) { bubble.visible = false; quiet = 1.2; }
     } else if (quiet > 0) quiet -= dt;

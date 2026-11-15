@@ -90,9 +90,10 @@ export function build(ctx) {
     }
   }
 
-  // ---- Lamp posts: x = ±13.5 at z 20, 38, 46 and x = ±4.5 at z 46 -----------
+  // ---- Lamp posts: x = ±13.5 at z 20, 28.5, 36.8 (an even ~8.4 m rhythm along the bench walk,
+  // clear of the pavilions at x ±11…23, z 38–50) and x = ±4.5 at z 46 --------
   const lamps = [];
-  for (const z of [20, 38, 46]) for (const x of [-13.5, 13.5]) lamps.push({ x, z });
+  for (const z of [20, 28.5, 36.8]) for (const x of [-13.5, 13.5]) lamps.push({ x, z });
   for (const x of [-4.5, 4.5]) lamps.push({ x, z: 46 });
   for (const l of lamps) {
     add('lampPole', poleGeo, blackSteel, T(l.x, 2.2, l.z));

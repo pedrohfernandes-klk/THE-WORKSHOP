@@ -137,6 +137,7 @@ function pickNum(...xs) {
 export function createMusic(opts = {}) {
   const entry = Number.isFinite(opts.entry) ? opts.entry : ENTRY;
   const trimLevel = Number.isFinite(opts.trim) ? opts.trim : TRIM;
+  const solo = typeof opts.solo === 'string' ? opts.solo : '';   // dev harness: hear one layer
   let ctx = null, N = null, started = false, starting = null, muted = false, hidden = false, offline = false, shared = false;
   let timer = null, nextTime = 0, step = Math.max(0, (opts.bar | 0) * 16), lastTick = 0, mixClock = 0, made = 0, entryAt = 0;
   let noiseBuf = null, alive = [], rng = mulberry32(7);
@@ -150,13 +151,15 @@ export function createMusic(opts = {}) {
 
   // ----------------------------------------------------------- helpers --
   const G = (v = 0) => { const n = ctx.createGain(); n.gain.value = v; return n; };
-  const F = (type, f, q = 0.7) => { const n = ctx.createBiquadFilter(); n.type = type; n.frequency.value = f; n.Q.value = q; return n; };
+  const kr = (...ps) => { for (const p of ps) try { p.automationRate = 'k-rate'; } catch (e) { /* older engines: a-rate */ } };
+  // k-rate: filter coefficients once per 128-frame block, not per sample (the big CPU cost of swept filters)
+  const F = (type, f, q = 0.7) => { const n = ctx.createBiquadFilter(); n.type = type; n.frequency.value = f; n.Q.value = q; kr(n.frequency, n.Q, n.gain); return n; };
   const O = (type, f = 110) => { const o = ctx.createOscillator(); if (typeof type === 'string') o.type = type; else o.setPeriodicWave(type); o.frequency.value = f; return o; };
-  const pan = (v) => { if (ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = v; return p; } return G(1); };
+  const pan = (v) => { if (ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = v; kr(p.pan); return p; } return G(1); };
   const shaper = (drive) => {
     const s = ctx.createWaveShaper(), n = 1024, c = new Float32Array(n);
     for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; c[i] = Math.tanh(drive * x) / drive; }
-    s.curve = c; s.oversample = '2x'; return s;
+    s.curve = c; s.oversample = 'none'; return s;
   };
   function param(p, v, tc, now) {
     const old = lastSet.get(p);
@@ -179,7 +182,7 @@ export function createMusic(opts = {}) {
     noiseBuf = nb;
 
     // master: sum -> rumble HPF -> voice-band pocket -> air -> glue -> level -> soft clip -> duck -> mute -> trim -> out
-    const sum = G(1), hp = F('highpass', 30, 0.7), dip = F('peaking', 2300, 0.9), air = F('highshelf', 9500, 0.7);
+    const sum = G(0.4), hp = F('highpass', 30, 0.7), dip = F('peaking', 2300, 0.9), air = F('highshelf', 9500, 0.7);
     dip.gain.value = -2.5; air.gain.value = 1.5;
     const glue = c.createDynamicsCompressor();
     glue.threshold.value = -14; glue.knee.value = 10; glue.ratio.value = 2.5; glue.attack.value = 0.012; glue.release.value = 0.2;
@@ -197,7 +200,7 @@ export function createMusic(opts = {}) {
 
     // returns: one convolution hall (generated), one ping-pong dotted-8th delay, one chorus for width
     const revIn = G(1), revHP = F('highpass', 220, 0.7), conv = c.createConvolver(), revLP = F('lowpass', 7000, 0.5), revOut = G(0.5);
-    conv.buffer = makeIR(1.9);
+    conv.buffer = makeIR(1.7);
     revIn.connect(revHP); revHP.connect(conv); conv.connect(revLP); revLP.connect(revOut); revOut.connect(duckA);
     const delIn = G(1), dHP = F('highpass', 350, 0.6), dLP = F('lowpass', 3200, 0.6), dL = c.createDelay(2), dR = c.createDelay(2);
     dL.delayTime.value = STEP * 3; dR.delayTime.value = STEP * 3;
@@ -205,7 +208,7 @@ export function createMusic(opts = {}) {
     delIn.connect(dHP); dHP.connect(dLP); dLP.connect(dL); dL.connect(pL); dL.connect(fbL); fbL.connect(dR); dR.connect(pR); dR.connect(fbR); fbR.connect(dL);
     pL.connect(delOut); pR.connect(delOut); delOut.connect(duckA);
     const wideIn = G(1), cdL = c.createDelay(0.05), cdR = c.createDelay(0.05);
-    cdL.delayTime.value = 0.011; cdR.delayTime.value = 0.017;
+    cdL.delayTime.value = 0.011; cdR.delayTime.value = 0.017; kr(cdL.delayTime, cdR.delayTime);
     const cl = O('sine', 0.23), clL = G(0.0025), clR = G(-0.0025), wL = pan(-0.9), wR = pan(0.9), wOut = G(0.5);
     cl.connect(clL); cl.connect(clR); clL.connect(cdL.delayTime); clR.connect(cdR.delayTime); cl.start();
     wideIn.connect(cdL); wideIn.connect(cdR); cdL.connect(wL); cdR.connect(wR); wL.connect(wOut); wR.connect(wOut); wOut.connect(duckA);
@@ -226,7 +229,7 @@ export function createMusic(opts = {}) {
     // bass: one mono voice (two saws + sine), warmed, mud cut, rumble cut, pumped by the kick
     const bo1 = O('sawtooth'), bo2 = O('sawtooth'), bsub = O('sine');
     bo2.detune.value = 8;
-    const bSaw = G(0.4), bSub = G(0.6), bLP = F('lowpass', 300, 2.2), bAmp = G(0);
+    const bSaw = G(0.4), bSub = G(0.45), bLP = F('lowpass', 300, 2.2), bAmp = G(0);
     bo1.connect(bSaw); bo2.connect(bSaw); bSaw.connect(bLP); bLP.connect(bAmp); bsub.connect(bSub); bSub.connect(bAmp);
     for (const o of [bo1, bo2, bsub]) o.start();
     const bSat = shaper(1.8), bMud = F('peaking', 210, 1.1), bHP = F('highpass', 34, 0.8);
@@ -250,11 +253,11 @@ export function createMusic(opts = {}) {
     send(L.pad, wideIn, 0.6); send(L.pad, revIn, 0.5);
 
     // lead: saw + square through three formant band-passes (a talking, vocoder-like vowel) and a phaser
-    const lo1 = O('sawtooth'), lo2 = O('square'), lSrc = G(0.2), lvib = O('sine', 5.3), lvD = G(9);
+    const lo1 = O('sawtooth'), lo2 = O('square'), lSrc = G(0.32), lvib = O('sine', 5.3), lvD = G(9);
     lo2.detune.value = -5; lvib.connect(lvD); lvD.connect(lo1.detune); lvD.connect(lo2.detune);
     lo1.connect(lSrc); lo2.connect(lSrc);
     const lForm = G(1), bp = [F('bandpass', 800, 7), F('bandpass', 1150, 9), F('bandpass', 2900, 10)];
-    [2.6, 1.6, 0.45].forEach((v, i) => { lSrc.connect(bp[i]); send(bp[i], lForm, v); });
+    [4, 2.6, 0.7].forEach((v, i) => { lSrc.connect(bp[i]); send(bp[i], lForm, v); });
     const lBody = F('lowpass', 1300, 0.7); lSrc.connect(lBody); send(lBody, lForm, 0.35);
     const lAmp = G(0); lForm.connect(lAmp);
     for (const o of [lo1, lo2, lvib]) o.start();
@@ -339,7 +342,7 @@ export function createMusic(opts = {}) {
     if (!room(t + 0.45)) return;
     const o = O('sine'), e = G(0);
     o.frequency.setValueAtTime(170, t); o.frequency.exponentialRampToValueAtTime(58, t + 0.06); o.frequency.exponentialRampToValueAtTime(46, t + 0.35);
-    e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(v, t + 0.0015); e.gain.setTargetAtTime(0, t + 0.07, 0.075);
+    e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(0.85 * v, t + 0.0015); e.gain.setTargetAtTime(0, t + 0.07, 0.075);
     o.connect(e); e.connect(N.L.kick); o.start(t); o.stop(t + 0.45);
     nz(t, 0.012, 'highpass', 3500, 0.7, 0.3 * v, N.L.kick, 0.0005);           // beater click: the transient
     // the pump: only as deep as the kick is loud, so a silent kick never pumps a sustained pad
@@ -348,9 +351,9 @@ export function createMusic(opts = {}) {
     B.setTargetAtTime(1 - 0.72 * k * v, t, 0.003); B.setTargetAtTime(1, t + 0.03, 0.06);
   }
   function clap(t, v) {
-    for (let k = 0; k < 3; k++) nz(t + k * 0.009, 0.014, 'bandpass', 1150, 1.1, 0.55 * v, N.L.clap);
-    nz(t + 0.027, 0.17, 'bandpass', 1050, 0.9, 0.5 * v, N.L.clap);
-    nz(t, 0.09, 'highpass', 5200, 0.6, 0.16 * v, N.L.clap);
+    for (let k = 0; k < 3; k++) nz(t + k * 0.009, 0.014, 'bandpass', 1150, 1.1, 0.8 * v, N.L.clap);
+    nz(t + 0.027, 0.17, 'bandpass', 1050, 0.9, 0.7 * v, N.L.clap);
+    nz(t, 0.09, 'highpass', 5200, 0.6, 0.3 * v, N.L.clap);
     if (!room(t + 0.1)) return;
     const o = O('triangle'), e = G(0);
     o.frequency.setValueAtTime(195, t); o.frequency.exponentialRampToValueAtTime(150, t + 0.07);
@@ -358,9 +361,9 @@ export function createMusic(opts = {}) {
     o.connect(e); e.connect(N.L.clap); o.start(t); o.stop(t + 0.16);
   }
   function snare(t, v) { nz(t, 0.08, 'bandpass', 1000, 0.8, 0.45 * v, N.L.clap); nz(t, 0.06, 'highpass', 5000, 0.6, 0.2 * v, N.L.clap); }
-  const chat = (t, v) => nz(t, 0.035 + 0.012 * v, 'highpass', 8200, 0.9, 0.2 * v, N.L.hat, 0.0008);
-  const ohat = (t, v) => nz(t, 0.2, 'highpass', 7000, 0.8, 0.15 * v, N.L.ohat, 0.003);
-  const shake = (t, v) => nz(t, 0.05, 'bandpass', 7000, 1.4, 0.22 * v, N.L.shaker, 0.007);
+  const chat = (t, v) => nz(t, 0.035 + 0.012 * v, 'highpass', 8200, 0.9, 0.34 * v, N.L.hat, 0.0008);
+  const ohat = (t, v) => nz(t, 0.2, 'highpass', 7000, 0.8, 0.26 * v, N.L.ohat, 0.003);
+  const shake = (t, v) => nz(t, 0.05, 'bandpass', 7000, 1.4, 0.32 * v, N.L.shaker, 0.007);
   function tom(t, v, p) {
     if (!room(t + 0.4)) return;
     const f = 105 * [1, 0.84, 0.7][p], o = O('sine'), e = G(0);
@@ -372,7 +375,7 @@ export function createMusic(opts = {}) {
   function bassNote(t, midi, len, v) {
     const b = N.bass, f = mtof(midi), br = S.bright ?? 0.3, end = t + len * STEP * 0.92;
     for (const o of b.o) o.frequency.setValueAtTime(f, t);
-    b.sub.gain.setValueAtTime(midi < 40 ? 0.6 : 0.3, t);
+    b.sub.gain.setValueAtTime(midi < 40 ? 0.45 : 0.22, t);
     const A = b.amp.gain; A.cancelScheduledValues(t - 0.004); A.setTargetAtTime(0, t - 0.004, 0.0015);
     A.setTargetAtTime(v, t, 0.003); A.setTargetAtTime(v * 0.72, t + 0.03, 0.15); A.setTargetAtTime(0, end, 0.02);
     const Q = b.lp.frequency; Q.cancelScheduledValues(t);
@@ -407,8 +410,8 @@ export function createMusic(opts = {}) {
     const c = O('sine', f), m = O('sine', f), mg = G(0), e = G(0);
     mg.gain.setValueAtTime(f * (1.4 + 1.8 * v), t); mg.gain.setTargetAtTime(f * 0.22, t, 0.32);
     m.connect(mg); mg.connect(c.frequency);
-    e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(v * 0.17, t + 0.004);
-    e.gain.setTargetAtTime(v * 0.06, t + 0.01, 0.45); e.gain.setTargetAtTime(0, t + dur - 0.5, 0.18);
+    e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(v * 0.28, t + 0.004);
+    e.gain.setTargetAtTime(v * 0.1, t + 0.01, 0.45); e.gain.setTargetAtTime(0, t + dur - 0.5, 0.18);
     c.connect(e); e.connect(N.L.keys); c.start(t); m.start(t); c.stop(t + dur + 0.3); m.stop(t + dur + 0.3);
   }
   function bell(t, midi, v, ratio, dur) {
@@ -465,7 +468,7 @@ export function createMusic(opts = {}) {
   function setChord(t, C) {
     const so = N.stab.o, po = N.pad.o;
     for (let i = 0; i < 4; i++) {
-      const fs = mtof(C.v[i]), fp = mtof(i < 3 ? C.v[i] - 12 : C.v[i]);
+      const fs = mtof(C.v[i]), fp = mtof(i === 0 ? C.v[i] - 12 : C.v[i]);
       so[i * 2].frequency.setValueAtTime(fs, t); so[i * 2 + 1].frequency.setValueAtTime(fs, t);
       po[i * 2].frequency.setTargetAtTime(fp, t, 0.012); po[i * 2 + 1].frequency.setTargetAtTime(fp, t, 0.012);
     }
@@ -565,16 +568,16 @@ export function createMusic(opts = {}) {
     S.bright = clamp(0.25 + 0.75 * groove * (0.5 + 0.5 * e)) * (1 - 0.35 * n);
     swing = 0.14 + 0.08 * calm - 0.1 * st;
     const k = snapping ? 1 : 1 - Math.exp(-dt / 0.7);
-    const set = (key, v) => { v = clamp(v, 0, 1.5); lvl[key] += (v - lvl[key]) * k; param(N.L[key].gain, v, 0.7, now); };
+    const set = (key, v) => { v = solo && key !== solo ? 0 : clamp(v, 0, 1.5); lvl[key] += (v - lvl[key]) * k; param(N.L[key].gain, v, 0.7, now); };
     set('kick', groove * sm(0.12, 0.45, e) * (1 - 0.25 * n));
     set('clap', groove * sm(0.3, 0.6, e) * (1 - 0.3 * n));
     set('ohat', groove * sm(0.2, 0.5, e) * (1 - 0.45 * n));
     set('hat', groove * sm(0.55, 0.9, e) * (1 - 0.3 * n) + 0.35 * st * o);
     set('shaker', (0.55 * calm + 0.25 * n) * (1 - 0.7 * r) * (1 - 0.6 * groove * e));
     set('perc', st * (0.35 + 0.65 * o) * (1 - r) + groove * sm(0.8, 1, e) * 0.45);
-    set('bass', (0.5 + 0.5 * groove * sm(0.05, 0.45, e)) * (1 - 0.35 * r));
+    set('bass', (0.28 + 0.72 * groove * sm(0.05, 0.45, e)) * (1 - 0.35 * r));
     set('stab', (groove * sm(0.12, 0.5, e) + 0.6 * st * o) * (1 - 0.8 * r));
-    set('pad', clamp(0.3 + 0.55 * calm + 0.35 * n + 0.5 * r - 0.3 * groove * e, 0.18, 1));
+    set('pad', clamp(0.3 + 0.35 * calm + 0.35 * n + 0.5 * r - 0.3 * groove * e, 0.18, 1));
     set('keys', (0.85 * calm + 0.45 * n * groove) * (1 - 0.85 * r) * (1 - 0.6 * groove * e));
     set('lead', groove * sm(0.3, 0.6, e) * (1 - 0.3 * st));
     set('chip', groove * sm(0.72, 0.95, e) + 0.7 * a);
@@ -582,7 +585,7 @@ export function createMusic(opts = {}) {
     set('ruin', r);
     set('fx', groove * sm(0.4, 0.8, e));
     // tone: night muffles the drums, the ruins darken the room, the hall opens it; night echoes linger
-    param(N.drumLP.frequency, 18000 * Math.pow(0.3, n), 0.8, now);
+    param(N.drumLP.frequency, 18000 * Math.pow(0.45, n), 0.8, now);
     param(N.revOut.gain, 0.42 + 0.3 * calm + 0.3 * n + 0.45 * r, 0.8, now);
     param(N.revLP.frequency, 7500 * (1 - 0.55 * r) * (1 - 0.3 * n), 0.8, now);
     param(N.fbL.gain, 0.48 + 0.12 * n, 0.8, now); param(N.fbR.gain, 0.48 + 0.12 * n, 0.8, now);

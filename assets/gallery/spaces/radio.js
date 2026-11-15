@@ -765,7 +765,7 @@ export function build(ctx) {
           placePanner(e);
           if (djAt && now >= djAt) {
             djAt = 0;
-            if (here && dist2 < 110) startTalk(pendingLine || nextLine());
+            if (here && dist2 < 110 && !muted && !killAt) startTalk(pendingLine || nextLine());
             pendingLine = null;
           }
           if (talking && talkEnd && T >= talkEnd) endTalk(false);

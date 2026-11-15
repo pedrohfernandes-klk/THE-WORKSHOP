@@ -11,3 +11,7 @@ Thumbs.db
 
 # Throwaway preview harnesses used while building the gallery
 _dev/
+
+# Python bytecode
+__pycache__/
+*.pyc

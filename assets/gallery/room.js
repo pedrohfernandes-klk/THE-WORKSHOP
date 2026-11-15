@@ -680,10 +680,13 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
         .replace('#include <common>', '#include <common>\nuniform vec3 uAmbSky; uniform vec3 uAmbGround;')
         .replace(
           '#include <aomap_fragment>',
-          '#include <aomap_fragment>\n{ vec3 nW_ = inverseTransformDirection(normal, viewMatrix); reflectedLight.indirectDiffuse += material.diffuseColor * mix(uAmbGround, uAmbSky, nW_.y * 0.5 + 0.5); }',
+          // The hall is roofed: its daylight is the skylight term (uSky), never the
+          // campus sun/moon. Dropping direct light here keeps the static shadow
+          // map's coarse texels off the walls while the sun fades on entry.
+          '#include <aomap_fragment>\nreflectedLight.directDiffuse = vec3(0.0); reflectedLight.directSpecular = vec3(0.0);\n{ vec3 nW_ = inverseTransformDirection(normal, viewMatrix); reflectedLight.indirectDiffuse += material.diffuseColor * mix(uAmbGround, uAmbSky, nW_.y * 0.5 + 0.5); }',
         );
     };
-    m.customProgramCacheKey = () => `${prevKey}|amb`;
+    m.customProgramCacheKey = () => `${prevKey}|amb|nosun`;
     return m;
   }
   function unprep(m) {
@@ -1672,7 +1675,8 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
     {
       const w = scene.userData.weather;
       const n = w ? w.nightK || 0 : 0, st = w ? w.stormK || 0 : 0;
-      const dl = Math.max(0.14, 1 - 0.78 * n - 0.4 * st * (1 - n));
+      // lightning flickers through the skylight
+      const dl = Math.max(0.14, 1 - 0.78 * n - 0.4 * st * (1 - n)) * (1 + 1.2 * (w ? w.flash || 0 : 0) * (1 - n));
       if (Math.abs(dl - daylight) > 0.02 || (dl !== daylight && (dl === 1 || dl === 0.14))) {
         daylight = dl; shaftK = (1 - n) * (1 - st); powerDirty = true;
       }

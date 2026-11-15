@@ -128,8 +128,11 @@ export function build(ctx) {
   booth.add(body);
   for (const g of bodyG) g.dispose();
 
-  // ---------- trim: brushed stainless (shared with the plaza's bollards and bike rack) ----------
-  const steel = M.get('steel', { color: 0xe6e9ec, roughness: 0.22, tile: 0.35 });
+  // ---------- trim: chrome — the photographed plate's roughness/normal, without its dark albedo ----------
+  const steel = M.get('steel', { color: 0xe6e9ec, roughness: 0.22, tile: 0.35 }).clone();
+  steel.map = null; steel.metalnessMap = null;
+  steel.metalness = 1; steel.roughness = 0.3; steel.color.set(0xd2d5d9);
+  steel.name = 'photobooth-chrome';
   const trimG = [];
   const tb = (x0, x1, y0, y1, z0, z1) => trimG.push(boxG(x0, x1, y0, y1, z0, z1));
   const tc = (r, h, x, y, z, axis = 'y', seg = 16) => {
@@ -247,7 +250,7 @@ export function build(ctx) {
 
   // ---------- the paper strip that slides out of the delivery slot (hidden until the first photo) ----------
   const thumbCv = document.createElement('canvas');
-  thumbCv.width = 64; thumbCv.height = 196;
+  thumbCv.width = 42; thumbCv.height = 128;
   const stripTex = new THREE.CanvasTexture(thumbCv);
   stripTex.colorSpace = THREE.SRGBColorSpace;
   const stripMat = new THREE.MeshStandardMaterial({ map: stripTex, roughness: 0.55, metalness: 0, emissive: 0xffffff, emissiveIntensity: 0 });
@@ -510,7 +513,7 @@ export function build(ctx) {
       while (beeps < 3 && t >= beeps * BEEP_GAP) { setPart(beeps, LAMP_ON); beep(beeps === 2); beeps++; }
       if (t >= 3 * BEEP_GAP) {
         shutter();
-        if (!reduced) { flashScreen(); lampsFlash(); gfxMat.color.setScalar(GLOW * 2.2); }
+        if (!reduced) { flashScreen(); lampsFlash(); }
         flashT = 0;
         state = SHOOT;                      // capture next frame, behind the veil
       }
