@@ -64,6 +64,8 @@ export function createControls(camera, dom, opts = {}) {
   const active = [];
   let auto = null;   // auto-walk toward a clicked point: { x, z, resolve, stuck, last }
   let locked = false;          // pointer captured (FPS mode)
+  let seat = null;             // { x, y, z, facing, eye, from: { x, z, floor } } while seated
+  const SEATED_EYE = 0.78;     // eye above the seat top for a seated adult
   let jumpY = 0, jumpV = 0;    // height above the floor while airborne
 
   const keys = new Set();
@@ -86,6 +88,7 @@ export function createControls(camera, dom, opts = {}) {
     get floor() { return floor; },
     get locked() { return locked; },
     get airborne() { return jumpY > 0 || jumpV > 0; },
+    get seated() { return !!seat; },
     onUse: null, onGesture: null, onLockChange: null,
     exitLock() { if (locked && document.exitPointerLock) document.exitPointerLock(); },
     get position() { return { x: px, y: py, z: pz }; },
@@ -98,6 +101,29 @@ export function createControls(camera, dom, opts = {}) {
     if (g !== null) floor = g;
     else if (nearestWalkable(w.regions, px, pz, floor, wtmp, 100)) { px = wtmp.x; pz = wtmp.z; floor = wtmp.floor; }
   };
+  /**
+   * Sit on a seat { x, y (seat top), z, facing: [fx, fz] }: glide down onto it,
+   * keep looking around freely; WASD, the wheel or Space stand back up exactly
+   * where the visitor stood before (always walkable).
+   */
+  controls.sit = function sitOn(s) {
+    if (!s) return Promise.resolve(false);
+    const from = seat ? seat.from : { x: px, z: pz, floor };
+    endFlight(false); endAuto(false);
+    jumpY = jumpV = vx = vz = 0; dolly = 0;
+    const fx = s.facing ? s.facing[0] : 0, fz = s.facing ? s.facing[1] : -1;
+    seat = { x: s.x, y: s.y, z: s.z, eye: s.y + SEATED_EYE, from };
+    const yawTo = Math.atan2(-fx, -fz);
+    return startFlight(s.x, seat.eye, s.z, yawTo, -0.08, reduced ? 0.25 : 0.9);
+  };
+  controls.standUp = function standUp() {
+    if (!seat) return;
+    const { from } = seat;
+    seat = null;
+    floor = from.floor;
+    startFlight(from.x, from.floor + eyeHeight, from.z, yaw, pitch * 0.5, reduced ? 0.2 : 0.55);
+  };
+
   /** Place the visitor on a floor point instantly (eye height added). */
   controls.teleport = function teleport(p) {
     interrupt();
@@ -124,6 +150,7 @@ export function createControls(camera, dom, opts = {}) {
     if (!controls.enabled || e.ctrlKey || e.metaKey || e.altKey || typingTarget(e.target)) return;
     if (e.code === 'Space') {
       e.preventDefault();
+      if (seat) { controls.standUp(); firstInput(); return; }
       if (!e.repeat && jumpY === 0 && jumpV === 0) { jumpV = reduced ? JUMP_V * 0.8 : JUMP_V; interrupt(); firstInput(); }
       return;
     }
@@ -321,6 +348,27 @@ export function createControls(camera, dom, opts = {}) {
     const oyaw = yaw, opitch = pitch, ox = px, oz = pz;
     const live = controls.enabled;
 
+    // Seated: look around freely; any walking intent stands the visitor up.
+    if (seat && !fl) {
+      const wantsUp = live && (keys.has('KeyW') || keys.has('KeyS') || keys.has('KeyA') || keys.has('KeyD') ||
+        keys.has('ArrowUp') || keys.has('ArrowDown') || dolly !== 0);
+      if (wantsUp) { dolly = 0; controls.standUp(); }
+      else {
+        if (live) {
+          if (keys.has('ArrowLeft')) tYaw += KEY_TURN * dt;
+          if (keys.has('ArrowRight')) tYaw -= KEY_TURN * dt;
+        }
+        const a = 1 - Math.exp(-dt * LOOK_K);
+        yaw += (tYaw - yaw) * a; pitch += (tPitch - pitch) * a;
+        px = seat.x; pz = seat.z; py = seat.eye;
+        speed += (0 - speed) * (1 - Math.exp(-dt * 8)); if (speed < 1e-3) speed = 0;
+        const instTurn = Math.hypot(wrapPi(yaw - oyaw), pitch - opitch) / dt;
+        turnRate += (instTurn - turnRate) * (1 - Math.exp(-dt * 8)); if (turnRate < 1e-3) turnRate = 0;
+        applyCamera(0, 0);
+        return;
+      }
+    }
+
     if (fl) {
       fl.t += dt;
       const u = Math.min(fl.t / fl.dur, 1), e = ease(u);
@@ -435,6 +483,7 @@ export function createControls(camera, dom, opts = {}) {
 
   controls.dispose = function dispose() {
     endAuto(false);
+    seat = null;
     document.removeEventListener('pointerlockchange', onLockChange);
     document.removeEventListener('mousemove', onLockedMove);
     controls.exitLock();

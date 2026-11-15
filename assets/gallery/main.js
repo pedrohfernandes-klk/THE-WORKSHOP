@@ -411,8 +411,9 @@ controls.onTap = (x, y) => {
   if (slot !== -1 && state.inHall) { focusSlot(slot); return; }
   if (isProp(hit.object, 'catalogue')) { openExhibition(); return; }
   const found = world && world.actionFor(hit.object);
-  if (found) { leaveFocus(false); act(found); return; }
+  if (found) { leaveFocus(false); act(found, hit); return; }
   // Anything you can stand on: walk there (with the mouse captured you walk with WASD).
+  if (controls.seated) { controls.standUp(); return; }
   if (!controls.locked && hit.face && worldNormal(hit).y > 0.6) {
     leaveFocus(false);
     controls.walkTo(hit.point);
@@ -463,6 +464,7 @@ function labelFor(o) {
   const found = world && world.actionFor(o);
   if (!found) return null;
   const { action, module } = found;
+  if (action.type === 'sit') return 'Sit';
   if (action.type === 'app') return action.title || 'Open';
   if (module === 'lift') return /go-1/.test(action.id) ? 'Up · Cinema & terrace' : /go-0/.test(action.id) ? 'Down · The Hall' : 'Call the lift';
   if (module === 'cinema' || module === 'amphitheatre') return 'Choose what plays on this screen';
@@ -471,8 +473,26 @@ function labelFor(o) {
 }
 
 // The big screens show the client's own work first; YouTube is a quiet second option.
-function act(found) {
+// Every bench, chair, sofa, tier and stone edge can be sat on: the module lists
+// its seats; the visitor takes the one nearest to where they clicked.
+function nearestSeat(seats, point) {
+  let best = null, bd = Infinity;
+  for (const s of seats || []) {
+    const d = (s.x - point.x) ** 2 + (s.z - point.z) ** 2 + ((s.y - point.y) * 0.5) ** 2;
+    if (d < bd) { bd = d; best = s; }
+  }
+  return best;
+}
+function sitOn(seat) {
+  if (!seat) return;
+  controls.sit(seat);
+  ui.hint(coarsePointer ? 'Seated · tap the floor to stand' : 'Seated · WASD or Space to stand up');
+  setTimeout(() => { if (controls.seated) ui.hint(null); }, 4000);
+}
+
+function act(found, hit) {
   const { action, module, object } = found;
+  if (action.type === 'sit') { sitOn(nearestSeat(action.seats, hit ? hit.point : object.getWorldPosition(new THREE.Vector3()))); return; }
   if (module === 'npcs') {
     const npcs = world.modules.get('npcs');
     // The main action: a slapstick slap with a click; E (or a tap on touch) to talk.
