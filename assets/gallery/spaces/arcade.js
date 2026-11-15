@@ -265,7 +265,7 @@ export function build(ctx) {
   // leaf swung open 90 deg outward, hinged at dz0
   const leaf = new THREE.Group(); leaf.position.set(X0 - 0.05, 0, dz0 - 0.08);
   for (const [w, h, x, y] of [[DOOR_W - 0.05, 0.08, 0, 0.04], [DOOR_W - 0.05, 0.1, 0, DOOR_H - 0.2], [0.08, DOOR_H - 0.2, -(DOOR_W - 0.05) / 2, DOOR_H / 2 - 0.05], [0.08, DOOR_H - 0.2, (DOOR_W - 0.05) / 2, DOOR_H / 2 - 0.05]]) { const m = new THREE.Mesh(tex(box(w, h, 0.05, 0, 0, 0)), steelDark); m.position.set(x, y, 0); m.castShadow = true; leaf.add(m); }
-  const lg = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W - 0.2, DOOR_H - 0.35, 0.012), glassMat); lg.position.set(0, DOOR_H / 2 - 0.05, 0); leaf.add(lg);
+  const lg = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W - 0.2, DOOR_H - 0.35, 0.012), glassMat); lg.position.set(0, DOOR_H / 2 - 0.05, 0); leaf.add(lg); leaf.name = 'arcade-door'; leaf.userData.kind = 'door';
   const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.7, 8), steelIn); handle.position.set(DOOR_W / 2 - 0.12, 1.05, 0.05); leaf.add(handle);
   const leafPivot = new THREE.Group(); leafPivot.position.set(X0 - 0.05, 0, dz0 - 0.08); leafPivot.rotation.y = Math.PI / 2; // leaf runs along -x
   leaf.position.set(DOOR_W / 2 - 0.0, 0, 0); leafPivot.add(leaf); group.add(leafPivot);

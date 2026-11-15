@@ -6,13 +6,14 @@ import { createBatcher } from './batch.js';
 
 // Order matters only for what appears first while loading.
 export const SPACES = [
-  'environment', 'landscape', 'facade', 'plaza', 'pool', 'parterre', 'furniture', 'signage',
+  'environment', 'landscape', 'facade', 'plaza', 'pool', 'parterre', 'furniture', 'wayfinding',
   'trees', 'garden', 'grass', 'flowers', 'fountain', 'pergola', 'sculptures', 'amphitheatre',
   'studio', 'arcade', 'terrace', 'cinema', 'lift', 'school', 'birds',
   'metro', 'skyliner', 'aviation', 'npcs', 'ruins',
   // The indie touches: real objects with a pixel soul, each found rather than announced.
   'murals', 'floppies', 'vending', 'cat', 'radio', 'ghost', 'floorsnake', 'photobooth', 'gnome', 'oddities', 'duck',
   'mercado', 'marginal',
+  'lightpools',
 ];
 
 // Dense vegetation is drawn by the main camera but skipped by reflections and
@@ -173,6 +174,13 @@ export async function createWorld(ctx, { hallColliders = [], onProgress } = {}) 
   setTimeout(refreshShadows, 2500);
 
   const groups = Object.fromEntries([...modules].map(([n, o]) => [n, o.group]).filter(([, g]) => g));
+
+  // Optional integration hook: tag reactions/proxies before the batcher samples.
+  // Entry does not await the world; the map fetch has its own bounded timeout.
+  if (typeof ctx.prepareInteractions === 'function') {
+    try { await ctx.prepareInteractions({ modules, groups }); }
+    catch (err) { console.warn('[interactions] preparation skipped', err); }
+  }
 
   // Static batching (batch.js): once the campus has run a few seconds, merge
   // the meshes that provably never move into a few large ones per module and

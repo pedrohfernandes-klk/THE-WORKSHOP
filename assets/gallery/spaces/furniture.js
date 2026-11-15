@@ -130,8 +130,10 @@ export function build(ctx) {
   }
 
   // ---- Instantiate one InstancedMesh per part kind --------------------------
-  for (const e of parts.values()) {
+  for (const [key, e] of parts) {
     const im = new THREE.InstancedMesh(e.geometry, e.material, e.mats.length);
+    im.name = 'furniture-' + key;
+    im.userData.kind = key.startsWith('lamp') ? 'lamp' : key.startsWith('bin') ? 'bin' : key.startsWith('hoop') ? 'bike' : key.startsWith('bollard') ? 'bollard' : 'bench';
     for (let i = 0; i < e.mats.length; i++) im.setMatrixAt(i, e.mats[i]);
     im.instanceMatrix.needsUpdate = true;
     im.castShadow = true;
