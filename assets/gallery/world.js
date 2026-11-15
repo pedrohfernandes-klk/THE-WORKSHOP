@@ -8,7 +8,7 @@ export const SPACES = [
   'environment', 'landscape', 'facade', 'plaza', 'pool', 'parterre', 'furniture', 'signage',
   'trees', 'garden', 'grass', 'flowers', 'fountain', 'pergola', 'sculptures', 'amphitheatre',
   'studio', 'arcade', 'terrace', 'cinema', 'lift', 'school', 'birds',
-  'metro', 'skyliner', 'aviation',
+  'metro', 'skyliner', 'aviation', 'npcs', 'ruins',
 ];
 
 // Dense vegetation is drawn by the main camera but skipped by reflections and

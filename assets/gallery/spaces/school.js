@@ -78,11 +78,12 @@ export function build(ctx) {
 
   // ---------- materials ----------
   const render = M.get('plaster', { color: 0xe8e1d2 });
-  render.color.setRGB(2.0, 1.72, 1.25);
+  render.color.setRGB(1.9, 1.78, 1.45);
   const renderIn = M.get('plaster', { color: 0xf1ece1 });
-  renderIn.color.setRGB(2.0, 1.85, 1.55);
+  renderIn.color.setRGB(2.4, 2.2, 1.85);
   const renderBlue = M.get('plaster', { color: 0x7d97ad });
   const ceilMat = M.get('plaster', { color: 0xf6f4ee });
+  ceilMat.color.setRGB(2.6, 2.5, 2.3);
   const ironMat = M.get('steel', { color: 0x1a1c1f, roughness: 0.45 });
   const whiteSteel = M.get('steel', { color: 0xeeeeea, roughness: 0.5 });
   const steel = M.get('steel', { color: 0x9aa0a6, roughness: 0.35 });
@@ -489,7 +490,7 @@ export function build(ctx) {
   // --- Sala Lente (A, west) ---
   {
     const { L, aabb } = A;
-    BX(dark, 2.5, 1.45, 0.06, 0, 0, 0, L(0.03, 1.65, 0.3));
+    BX(dark, 0.06, 1.45, 2.5, 0, 0, 0, L(0.03, 1.65, 0.3));
     const sc = addPlane(emissiveScreen(lenteTex), 2.4, 1.35, L(0.07, 1.65, 0.3, PI / 2));
     sc.userData.action = { type: 'app', url: 'https://pedrohfernandes-klk.github.io/lente/', title: 'Lente · EPI 2026/2027' }; pickables.push(sc);
     // teacher desk + chair + laptop
@@ -515,10 +516,10 @@ export function build(ctx) {
     const { L, aabb } = B;
     BX(oakM, 2.6, 0.15, 8.8, 0, 0, 0, L(1.3, 0.075, 0.2)); // dais top at 0.15
     BX(oakM, 0.08, 0.15, 8.8, 0, 0, 0, L(2.62, 0.075, 0.2));
-    const wb = addPlane(new THREE.MeshStandardMaterial({ map: wbTex, roughness: 0.25, metalness: 0 }), 3.6, 1.2, L(0.045, 1.55, 1.7, PI / 2));
-    BX(whiteSteel, 3.7, 1.3, 0.04, 0, 0, 0, L(0.03, 1.55, 1.7)); BX(whiteSteel, 3.7, 0.06, 0.1, 0, 0, 0, L(0.07, 0.9, 1.7));
+    const wb = addPlane(new THREE.MeshStandardMaterial({ map: wbTex, roughness: 0.25, metalness: 0 }), 3.6, 1.2, L(0.07, 1.55, 1.7, PI / 2));
+    BX(whiteSteel, 0.04, 1.3, 3.7, 0, 0, 0, L(0.03, 1.55, 1.7)); BX(whiteSteel, 0.1, 0.06, 3.7, 0, 0, 0, L(0.07, 0.9, 1.7));
     wb.userData.action = { type: 'app', url: 'https://pedrohfernandes-klk.github.io/pt/', title: 'Português · EPI' }; pickables.push(wb);
-    BX(whiteSteel, 2.3, 1.45, 0.05, 0, 0, 0, L(0.04, 2.0, -2.6)); // projector screen case + fabric
+    BX(whiteSteel, 0.05, 1.45, 2.3, 0, 0, 0, L(0.04, 2.0, -2.6)); // projector screen case + fabric
     const ps = addPlane(new THREE.MeshStandardMaterial({ map: screenTex, roughness: 0.8, emissive: 0x333333, emissiveMap: screenTex, emissiveIntensity: 0.5 }), 2.2, 1.35, L(0.075, 2.0, -2.6, PI / 2));
     ps.userData.action = { type: 'app', url: 'https://pedrohfernandes-klk.github.io/pt/', title: 'Português · EPI' }; pickables.push(ps);
     // teacher desk on dais + chair
@@ -539,9 +540,37 @@ export function build(ctx) {
     addPlane(texMat(plateTex('Sala de Português')), 0.4, 0.15, L(8.4, 1.55, 5.54, PI));
   }
 
+  // ---------- QUEDA PCs ----------
+  const quedaTex = canvasTex(640, 360, (g, w, h) => {
+    g.fillStyle = '#0b1020'; g.fillRect(0, 0, w, h);
+    const cols = ['#e63946', '#f4a261', '#e9c46a', '#2a9d8f', '#4aa3df', '#8d5cf6', '#ff6fb5'];
+    const c = 30; let sd = 5; const r = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
+    for (let i = 0; i < 20; i++) for (let j = 0; j < 12; j++) { const hgt = 3 + Math.floor(r() * 5); if (j < 12 - hgt) continue; g.fillStyle = cols[Math.floor(r() * 7)]; g.fillRect(i * c + 40 - 40 + 20, j * c - 8, c - 3, c - 3); }
+    g.fillStyle = 'rgba(11,16,32,0.55)'; g.fillRect(0, 70, w, 120);
+    g.fillStyle = '#fff'; g.font = `700 104px ${SANS}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('QUEDA', w / 2, 130);
+  }, { text: true });
+  const quedaMat = emissiveScreen(quedaTex);
+  const quedaAction = () => ({ type: 'app', url: 'assets/apps/blocks.html', title: 'QUEDA \u00b7 jogo de blocos' });
+  const pcMat = M.get('steel', { color: 0x2a2c30, roughness: 0.5 });
+  function addPC(m) { // local +z faces the user; origin on the desk surface
+    BX(pcMat, 0.56, 0.34, 0.03, 0, 0.36, 0, m); BX(pcMat, 0.04, 0.2, 0.03, 0, 0.1, -0.03, m); BX(pcMat, 0.22, 0.012, 0.16, 0, 0.006, 0, m);
+    BX(pcMat, 0.44, 0.02, 0.14, 0, 0.01, 0.32, m); BX(pcMat, 0.06, 0.025, 0.1, 0.32, 0.012, 0.32, m);
+    const sc = addPlane(quedaMat, 0.52, 0.3, mul(m, Tm(0, 0.36, 0.0165)));
+    sc.userData.action = quedaAction(); pickables.push(sc);
+  }
+  {
+    const { L, aabb } = A;
+    BX(laminate, 3.8, 0.04, 0.6, 0, 0, 0, L(5.1, 0.72, -5.2)); BX(whiteSteel, 3.8, 0.7, 0.03, 0, 0, 0, L(5.1, 0.36, -5.48));
+    BX(whiteSteel, 0.03, 0.7, 0.55, 0, 0, 0, L(3.22, 0.36, -5.2)); BX(whiteSteel, 0.03, 0.7, 0.55, 0, 0, 0, L(6.98, 0.36, -5.2));
+    aabb(3.2, 7.0, -5.5, -4.9, 0.78);
+    for (const u of [3.9, 5.1, 6.3]) addPC(L(u, 0.74, -5.3, 0));
+  }
+  { const { L } = B; addPC(L(1.45, 0.925, 0.45, -PI / 2)); }
+
   // ---------- room lights (2 real-time) ----------
   for (const x of [-10, 10]) { const pl = new THREE.PointLight(0xfff0dc, 22, 14, 1.6); pl.position.set(x, 3.0, ZC); pl.castShadow = false; group.add(pl); }
 
+  { const hl = new THREE.HemisphereLight(0xfff4e4, 0x8a8478, 0.5); hl.position.set(0, 3, 60); group.add(hl); }
   flush(); flushInst();
   group.traverse(o => { if (o.isMesh) o.receiveShadow = true; });
 

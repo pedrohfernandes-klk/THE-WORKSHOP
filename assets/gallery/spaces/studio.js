@@ -47,7 +47,7 @@ export function build(ctx) {
   const m4 = new THREE.Matrix4(), qI = new THREE.Quaternion(), pV = new THREE.Vector3(), sV = new THREE.Vector3(), eU = new THREE.Euler(), cC = new THREE.Color();
 
   // ---------------------------------------------------------------- materials
-  const dark = mat('darkWood', { tile: 1.2 });
+  const dark = mat('darkWood', { tile: 1.6, color: 0x4a3c36, roughness: 0.8 });
   const concrete = mat('concreteWall', { tile: 1.5 });
   const plasterWall = mat('plaster', { color: 0xd9d2c6, envMapIntensity: IE });
   const plasterCeil = mat('plaster', { color: 0xeee9e0, envMapIntensity: IE, emissive: 0x5a554c });
@@ -172,7 +172,7 @@ export function build(ctx) {
     tex.wrapS = THREE.RepeatWrapping; tex.repeat.x = -1; tex.offset.x = 1; // +x face runs along -z
     const faceM = new THREE.MeshStandardMaterial({ map: tex, metalness: 0.8, roughness: 0.32 });
     const plate = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.09, 0.36), [faceM, brass, brass, brass, brass, brass]);
-    plate.position.set(X1 - 0.07, 1.45, 42.6);
+    plate.position.set(X1 - 0.002, 1.45, 42.6);
     plate.castShadow = true;
     group.add(plate);
   }

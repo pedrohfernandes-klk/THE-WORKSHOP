@@ -76,10 +76,10 @@ export function build(ctx) {
   // Lavender mound foliage: grey-green fine leaf strokes, alpha-cut.
   const moundTex = canvasTexture(256, 256, (g, W, H) => {
     g.lineCap = 'round';
-    for (let i = 0; i < 3200; i++) {
-      const x = rnd() * W, y = rnd() * H, a = rnd() * Math.PI * 2, L = 10 + rnd() * 22;
-      g.strokeStyle = `rgb(${(122 + rnd() * 40) | 0},${(140 + rnd() * 34) | 0},${(116 + rnd() * 30) | 0})`;
-      g.lineWidth = 2.6 + rnd() * 2.2;
+    for (let i = 0; i < 1600; i++) {
+      const x = rnd() * W, y = rnd() * H, a = rnd() * Math.PI * 2, L = 26 + rnd() * 34;
+      g.strokeStyle = `rgb(${(104 + rnd() * 40) | 0},${(132 + rnd() * 34) | 0},${(82 + rnd() * 30) | 0})`;
+      g.lineWidth = 1.3 + rnd() * 1.6;
       g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * L, y + Math.sin(a) * L); g.stroke();
     }
   });

@@ -16,6 +16,7 @@ import { createUI, showFallback } from './ui.js';
 import { createAudio } from './audio.js';
 import { createMaterials } from './materials.js';
 import { createWorld, areaAt } from './world.js';
+import { groundAt } from './collision.js';
 import { createProps } from './props.js';
 
 const params = new URLSearchParams(location.search);
@@ -119,6 +120,8 @@ const ui = createUI({
 // ----------------------------------------------------------------- sound --
 
 const audio = createAudio();
+let music = null;     // optional procedural soundtrack (music.js)
+let player = null;    // optional first-person hands and gestures (player.js)
 const SOUND_KEY = 'workshop.sound';
 function readSoundPreference() {
   try { return localStorage.getItem(SOUND_KEY) !== 'off'; } catch { return true; }
@@ -185,7 +188,10 @@ const worldReady = createWorld(ctx, {
   world = w;
   controls.setWorld({ regions: w.regions, colliders: w.colliders });
   if (w.lift) {
-    w.lift.onEvent = (name) => { if (name === 'chime') audio.reveal(); };
+    w.lift.onEvent = (name) => {
+      if (name === 'chime') (audio.chime || audio.reveal)();
+      else if (name === 'doors-open' || name === 'doors-close') audio.doors?.();
+    };
   }
   return w;
 }).catch((err) => { console.error('[world] failed', err); return null; });
@@ -252,7 +258,7 @@ async function enter() {
   const touch = matchMedia('(pointer: coarse)').matches;
   ui.hint(touch
     ? 'Drag to look · Tap the floor to walk · Tap a work to approach'
-    : 'Click to play · WASD to move · Shift to run · Space to jump · E to use · 1–7 gestures · Esc to release');
+    : 'Click to play · WASD · Shift run · Space jump · E use · F throw · 1–7 gestures');
   music?.start().catch(() => {});
 }
 
@@ -263,8 +269,6 @@ controls.onFirstInput = () => {
 // ----------------------------------------------------------- game layer --
 
 const crosshair = document.getElementById('crosshair');
-let player = null;
-let music = null;
 import('./player.js').then((m) => {
   player = m.createPlayer(camera, { reducedMotion });
   room.scene.add(camera);
@@ -276,12 +280,73 @@ import('./music.js').then((m) => {
   if (state.entered) music.start().catch(() => {});
 }).catch(() => { /* music is optional */ });
 
+// Paper-ball basketball: pick up crumpled paper (E / click), hold F or the
+// right mouse button to charge, release to throw at a litter bin.
+let paper = null;
+let charge = 0, charging = false;
+state.score = 0;
+const BINS = [[-13, 26.6], [13, 26.6], [-13, 36.6], [13, 36.6]].map(([x, z]) => ({ x, y: 0, z, r: 0.19, h: 0.8 }));
+const SPAWNS = [[-12.2, 24], [12.2, 24], [-12.2, 29.5], [12.2, 29.5], [-12.2, 35], [12.2, 35], [-6, 21], [6, 21], [-4, 54.6], [4, 54.6]].map(([x, z]) => ({ x, y: 0, z }));
+import('./paperball.js').then((m) => {
+  room.scene.add(camera);
+  paper = m.createPaperGame({
+    THREE, scene: room.scene, camera, bins: BINS, spawns: SPAWNS, reducedMotion,
+    groundAt: (x, z) => (world ? groundAt(world.regions, x, z, controls.floor, 1.5) : 0),
+    onScore: ({ points, swish }) => {
+      state.score += points;
+      ui.toast(`${swish ? 'Swish! ' : 'Basket! '}+${points} · ${state.score} points`, 2200);
+      audio.score?.();
+    },
+  });
+}).catch(() => { /* optional */ });
+function isPaper(o) {
+  for (let p = o; p; p = p.parent) if (p.userData && p.userData.action && p.userData.action.id === 'paperball') return true;
+  return false;
+}
+function startCharge() { if (paper && paper.holding && !charging) { charging = true; charge = 0; } }
+function releaseCharge() {
+  if (!charging) return;
+  charging = false;
+  if (paper && paper.holding) { paper.throw(charge); audio.jump?.(); }
+  charge = 0;
+}
+addEventListener('keydown', (e) => { if (e.code === 'KeyF' && !e.repeat && state.entered && !state.overlay) startCharge(); });
+addEventListener('keyup', (e) => { if (e.code === 'KeyF') releaseCharge(); });
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+addEventListener('mousedown', (e) => { if (e.button === 2 && state.entered && !state.overlay) startCharge(); });
+addEventListener('mouseup', (e) => { if (e.button === 2) releaseCharge(); });
+
+// Weather and time: sunny, storm, rainbow, a real starry night.
+let weather = null;
+const WEATHER_LABEL = { sunny: 'Radiant sun', storm: 'Storm', rainbow: 'Rainbow', night: 'Starry night' };
+function cycleWeather() {
+  if (!weather) return;
+  const i = weather.modes.indexOf(weather.mode);
+  const next = weather.modes[(i + 1) % weather.modes.length];
+  weather.set(next);
+  ui.toast(WEATHER_LABEL[next] || next, 2200);
+  const b = document.getElementById('weather-btn');
+  if (b) b.dataset.mode = next;
+}
+worldReady.then((w) => {
+  if (!w) return;
+  return import('./weather.js').then((m) => {
+    weather = m.createWeather(ctx, { environment: w.modules.get('environment') });
+  });
+}).catch((err) => console.warn('[weather] unavailable', err));
+addEventListener('keydown', (e) => { if (e.code === 'KeyT' && !e.repeat && state.entered && !state.overlay) cycleWeather(); });
+document.getElementById('weather-btn')?.addEventListener('click', () => cycleWeather());
+
 controls.onLockChange = (locked) => {
   crosshair.classList.toggle('is-on', locked);
   if (!locked && state.entered && !state.overlay && !state.exhibitionOpen) ui.hint('Click to play · Esc releases the mouse');
   else if (locked) ui.hint(null);
 };
-controls.onUse = () => { if (state.entered && !state.overlay) controls.onTap?.(innerWidth / 2, innerHeight / 2); };
+controls.onUse = () => {
+  if (!state.entered || state.overlay) return;
+  state.viaUse = true;   // E talks; a click slaps
+  try { controls.onTap?.(innerWidth / 2, innerHeight / 2); } finally { state.viaUse = false; }
+};
 const GESTURE_KEYS = { Digit1: 'wave', Digit2: 'thumbs', Digit3: 'clap', Digit4: 'point', Digit5: 'shrug', Digit6: 'dance', Digit7: 'peace' };
 controls.onGesture = (code) => {
   if (!player) return;
@@ -313,6 +378,7 @@ controls.onTap = (x, y) => {
   if (state.overlay) return;
   const hit = pickAt(x, y);
   if (!hit) return;
+  if (paper && isPaper(hit.object)) { if (paper.tryPickUp(hit.object)) ui.toast('Hold F (or right mouse) and release to throw', 2600); return; }
   const slot = findSlot(hit.object);
   if (slot !== -1 && state.inHall) { focusSlot(slot); return; }
   if (isProp(hit.object, 'catalogue')) { openExhibition(); return; }
@@ -362,6 +428,7 @@ function isProp(o, name) {
 }
 
 function labelFor(o) {
+  if (isPaper(o)) return 'Pick up the paper ball';
   const slot = findSlot(o);
   if (slot !== -1 && state.inHall) return 'Approach the work';
   if (isProp(o, 'catalogue')) return 'Your exhibition catalogue';
@@ -371,12 +438,25 @@ function labelFor(o) {
   if (action.type === 'app') return action.title || 'Open';
   if (module === 'lift') return /go-1/.test(action.id) ? 'Up · Cinema & terrace' : /go-0/.test(action.id) ? 'Down · The Hall' : 'Call the lift';
   if (module === 'cinema' || module === 'amphitheatre') return 'Choose what plays on this screen';
+  if (module === 'npcs') return coarsePointer ? 'Talk' : 'Click: slap · E: talk';
   return 'Use';
 }
 
 // The big screens show the client's own work first; YouTube is a quiet second option.
 function act(found) {
   const { action, module, object } = found;
+  if (module === 'npcs') {
+    const npcs = world.modules.get('npcs');
+    // The main action: a slapstick slap with a click; E (or a tap on touch) to talk.
+    if (!state.viaUse && !coarsePointer && npcs && typeof npcs.slap === 'function') {
+      npcs.slap(object);
+      player?.gesture?.('slap') || player?.gesture?.('wave');
+      state.slaps = (state.slaps || 0) + 1;
+      return;
+    }
+    world.pick(object);
+    return;
+  }
   if (module === 'cinema' || module === 'amphitheatre') {
     const secondary = [YOUTUBE];
     if (module === 'cinema') secondary.unshift({ label: 'Film sound on/off', run: () => world.pick(object) });
@@ -659,11 +739,49 @@ function updatePlace(pos, floor) {
   if (room.hall) room.hall.visible = floor < 5 || inLift || !state.entered;
   const cinema = world && world.groups.cinema;
   if (cinema) cinema.visible = !(state.inHall && floor < 3) || inLift;
+  updateSoundscape(area, pos, floor, inLift);
   if (state.entered && name && name !== state.place) {
     state.place = name;
     if (state.frames > 30) ui.toast(name, 2400);
   }
   if (!state.inHall && state.labelSlot !== -1 && state.focused === -1) { state.labelSlot = -1; ui.setLabel(null); }
+}
+
+// The sound of where you are: what's underfoot, the room's acoustics, and the
+// things around you (fountain, tram, rain).
+const FOUNTAIN = new THREE.Vector3(46, 0.8, 29);
+function surfaceAt(area, pos, inLift) {
+  if (inLift) return 'metal';
+  const n = area ? area.name : '';
+  if (n === 'The Hall') return 'concrete';
+  if (n === 'The Cinema' || n === 'Roof terrace' || n === 'Studio' || n === 'Sala de Português') return 'wood';
+  if (n === 'Arcade' || n === 'Sala Lente' || n.startsWith('EPI') || n === 'The Plaza' || n === 'The Amphitheatre') return 'stone';
+  if (n === 'The Garden') {
+    const onPath = Math.abs(pos.z - 29) < 1.6 || Math.abs(pos.x - 46) < 1.6 || Math.hypot(pos.x - 46, pos.z - 29) < 5.6;
+    return onPath ? 'gravel' : 'grass';
+  }
+  return pos.x < -30 && pos.z < -15 ? 'gravel' : 'grass';
+}
+function acousticsAt(area, inLift) {
+  if (inLift) return 'lift';
+  const n = area ? area.name : '';
+  if (n === 'The Hall') return 'hall';
+  if (n === 'The Cinema') return 'cinema';
+  if (n === 'Studio' || n === 'Arcade' || n === 'Sala Lente' || n === 'Sala de Português') return 'small';
+  return 'outdoor';
+}
+function updateSoundscape(area, pos, floor, inLift) {
+  audio.setSurface?.(surfaceAt(area, pos, inLift));
+  audio.setEnvironment?.(acousticsAt(area, inLift));
+  state.indoor = acousticsAt(area, inLift) !== 'outdoor';
+  weather?.setIndoor?.(state.indoor);
+  const tram = world && world.modules.get('metro')?.position;
+  const mode = weather ? weather.mode : 'sunny';
+  audio.setSources?.({
+    fountain: Math.hypot(pos.x - FOUNTAIN.x, pos.z - FOUNTAIN.z, (floor + 1.6) - FOUNTAIN.y),
+    tram: tram ? Math.hypot(pos.x - tram.x, pos.z - tram.z) : 1e6,
+    rain: mode === 'storm' ? (state.inHall || (area && area.name !== 'Roof terrace' && floor < 5 && /Hall|Cinema|Studio|Arcade|Sala/.test(area.name)) ? 0.35 : 1) : mode === 'rainbow' ? 0.15 : 0,
+  });
 }
 
 let coverClock = 0;
@@ -752,11 +870,28 @@ function frame() {
   }
   props.update?.(dt, camera);
   if (state.entered) updateCentrePrompt(dt);
+  const airborne = controls.airborne;
+  if (airborne && !state.wasAirborne) audio.jump?.();
+  if (!airborne && state.wasAirborne) audio.land?.(0.6);
+  state.wasAirborne = airborne;
   if (player) {
     player.update(dt, { speed: controls.speed, jumping: controls.airborne, turnRate: controls.turnRate });
   }
   if (music) music.setIntensity(Math.min(1, 0.25 + controls.speed / 5 + (state.inHall ? 0 : 0.25)));
   music?.update?.(dt);
+  if (paper) {
+    if (charging) { charge = Math.min(1, charge + dt * 0.9); paper.setPower?.(charge); }
+    paper.update(dt);
+  }
+  weather?.update(dt, { camera, time: now, level: floor > 5 ? 1 : 0 });
+  // Indoors the sun cannot reach: fade its direct light out (no shader
+  // recompile, no shadow-map artefacts on interior walls), back in outside.
+  const sun = world && world.modules.get('environment')?.sun;
+  if (sun) {
+    if (state.sunBase === undefined) state.sunBase = sun.intensity;
+    state.sunK = (state.sunK ?? 1) + ((state.indoor ? 0 : 1) - (state.sunK ?? 1)) * Math.min(1, dt * 4);
+    sun.intensity = (weather ? sun.intensity : state.sunBase) * state.sunK;
+  }
   placeClock += dt;
   if (placeClock > 0.25) { placeClock = 0; updatePlace(pos, floor); }
   // Walking away from a work you approached ends the focus.

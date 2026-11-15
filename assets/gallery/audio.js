@@ -100,14 +100,19 @@ export function buildEngine(ctx, destination) {
   master.connect(limiter); limiter.connect(destination || ctx.destination);
 
   const dry = ctx.createGain(); dry.gain.value = 1; dry.connect(master);
-  const conv = ctx.createConvolver();
-  conv.buffer = makeImpulse(ctx);
   const wetIn = ctx.createGain(); wetIn.gain.value = 1;
-  const wetOut = ctx.createGain(); wetOut.gain.value = 0.9;
-  wetIn.connect(conv); conv.connect(wetOut); wetOut.connect(master);
+  const wetOut = ctx.createGain(); wetOut.gain.value = 0.9; wetOut.connect(master);
+  const envs = {};
+  [['hall', 2.5, 3.0, 1], ['outdoor', 0.5, 0.8, 0.45], ['small', 0.55, 0.9, 0.8], ['cinema', 0.25, 0.5, 0.6], ['lift', 0.35, 0.6, 0.9]].forEach(([n, rt, len, lv]) => {
+    const conv = ctx.createConvolver(); conv.buffer = makeImpulse(ctx, rt, len);
+    const send = ctx.createGain(); send.gain.value = n === 'hall' ? 1 : 0;
+    const out = ctx.createGain(); out.gain.value = lv;
+    wetIn.connect(send); send.connect(conv); conv.connect(out); out.connect(wetOut);
+    envs[n] = send;
+  });
 
   const noise = { white: makeNoise(ctx, 'white', 2), pink: makeNoise(ctx, 'pink', 6), brown: makeNoise(ctx, 'brown', 8) };
-  return { ctx, master, dry, wetIn, noise, tone: null, lastReveal: -10, hum: null };
+  return { ctx, master, dry, wetIn, noise, envs, env: 'hall', tone: null, bed: null, lastReveal: -10, hum: null };
 }
 
 function noiseSrc(E, kind, loop = true) {
@@ -164,41 +169,62 @@ export function buildRoomTone(E, level = 1, fade = 3) {
 }
 
 // ---------- footsteps ----------
-// One leather-soled step on polished concrete: heel strike, then softer toe.
-export function scheduleStep(E, t, { level = 1, pan = 0, soft = 1, pitch = 1 } = {}) {
+const SURF = {
+  concrete: { heel: 2800, hd: 0.03, ha: 0.30, toe: 2100, ta: 0.13, click: [1500, 2100], ca: 0.28, thud: 0.07, tf: 110 },
+  stone:    { heel: 2000, hd: 0.04, ha: 0.27, toe: 1500, ta: 0.13, click: [900, 1400], ca: 0.22, thud: 0.08, tf: 100 },
+  wood:     { heel: 1500, hd: 0.05, ha: 0.20, toe: 1200, ta: 0.10, click: [170, 250], ca: 1.0, cd: 0.08, thud: 0.11, tf: 150 },
+  metal:    { heel: 3200, hd: 0.05, ha: 0.25, toe: 2600, ta: 0.12, click: [650, 900], ca: 0.5, cd: 0.16, thud: 0.05, tf: 130 },
+  gravel:   { grain: true, thud: 0.04, tf: 90 },
+  grass:    { soft: true, thud: 0.09, tf: 80 },
+};
+
+// One step on the given surface (leather sole on polished concrete by default).
+export function scheduleStep(E, t, { level = 1, pan = 0, soft = 1, pitch = 1, surface = 'concrete', thudMul = 1, rustle = 0.035 } = {}) {
   const ctx = E.ctx;
+  const S = SURF[surface] || SURF.concrete;
   const p = pitch * rand(0.93, 1.08);
   const lv = level * rand(0.8, 1.1) * soft;
   const panner = makePan(ctx, pan);
   const dry = ctx.createGain(); dry.gain.value = 1;
-  const send = ctx.createGain(); send.gain.value = 0.55;
+  const send = ctx.createGain(); send.gain.value = surface === 'concrete' || surface === 'stone' ? 0.55 : 0.35;
   panner.connect(dry); dry.connect(E.dry);
   panner.connect(send); send.connect(E.wetIn);
 
-  const strike = (tt, amp, bpf, decay, click) => {
-    // noise burst through bandpass
+  const burst = (tt, amp, fc, q, att, decay, hpf = 900) => {
     const n = noiseSrc(E, 'white', false);
-    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = bpf * p; f.Q.value = 1.3;
-    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 900;
-    const g = ctx.createGain(); env(g.gain, tt, amp, 0.0015, decay);
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = fc * p; f.Q.value = q;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = hpf;
+    const g = ctx.createGain(); env(g.gain, tt, amp, att, decay);
     n.connect(f); f.connect(hp); hp.connect(g); g.connect(panner);
-    n.start(tt, rand(0, 1.5)); n.stop(tt + decay + 0.05);
-    if (click) { // hard sole "tick": short ringing resonance
-      const o = ctx.createOscillator(); o.type = 'sine';
-      o.frequency.value = rand(1500, 2100) * p;
-      const og = ctx.createGain(); env(og.gain, tt, amp * 0.28, 0.0008, 0.022);
-      o.connect(og); og.connect(panner); o.start(tt); o.stop(tt + 0.05);
-    }
+    n.start(tt, rand(0, 1.5)); n.stop(tt + att + decay + 0.05);
   };
-  const tHeel = t, tToe = t + rand(0.07, 0.1);
-  strike(tHeel, 0.30 * lv, 2800, 0.03, true);
-  strike(tToe, 0.13 * lv, 2100, 0.024, false);
-
-  // tiny low thud of the body weight landing
+  const tone = (tt, f0, amp, decay) => {
+    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f0;
+    const og = ctx.createGain(); env(og.gain, tt, amp, 0.0008, decay);
+    o.connect(og); og.connect(panner); o.start(tt); o.stop(tt + decay + 0.05);
+  };
+  const tToe = t + rand(0.07, 0.1);
+  if (S.grain) { // gravel: a crunchy cluster of grains
+    const n = 6 + Math.floor(Math.random() * 4);
+    for (let k = 0; k < n; k++) burst(t + k * rand(0.006, 0.015), rand(0.05, 0.11) * lv, rand(2500, 6500), 0.8, 0.001, rand(0.012, 0.03), 1200);
+    burst(t, 0.10 * lv, 900, 0.7, 0.002, 0.09, 300);
+    for (let k = 0; k < 4; k++) burst(tToe + k * rand(0.008, 0.016), rand(0.03, 0.07) * lv, rand(2500, 5500), 0.8, 0.001, 0.02, 1200);
+  } else if (S.soft) { // grass: soft swish
+    burst(t, 0.12 * lv, 1500, 0.5, 0.025, 0.14, 500);
+    burst(tToe, 0.06 * lv, 1900, 0.5, 0.02, 0.1, 500);
+  } else {
+    burst(t, S.ha * lv, S.heel, 1.3, 0.0015, S.hd);
+    burst(tToe, S.ta * lv, S.toe, 1.3, 0.0015, S.hd * 0.8);
+    tone(t, rand(S.click[0], S.click[1]) * p, S.ha * S.ca * lv, S.cd || 0.022);
+    if (surface === 'metal') tone(t, rand(1800, 2700), 0.05 * lv, 0.2);
+  }
+  // body thud
   const th = ctx.createOscillator(); th.type = 'sine';
-  th.frequency.setValueAtTime(110 * p, t); th.frequency.exponentialRampToValueAtTime(52, t + 0.09);
-  const thg = ctx.createGain(); env(thg.gain, t, 0.07 * lv, 0.004, 0.09);
-  th.connect(thg); thg.connect(panner); th.start(t); th.stop(t + 0.14);
+  th.frequency.setValueAtTime(S.tf * p, t); th.frequency.exponentialRampToValueAtTime(Math.max(40, S.tf * 0.47), t + 0.09);
+  const thg = ctx.createGain(); env(thg.gain, t, S.thud * lv * thudMul, 0.004, 0.09 + 0.05 * thudMul);
+  th.connect(thg); thg.connect(panner); th.start(t); th.stop(t + 0.25);
+  // cloth / gear rustle
+  if (rustle > 0) burst(t - 0.01, rustle * lv, rand(1800, 3500), 0.5, 0.03, 0.12, 1000);
 }
 
 // ---------- lights on ----------
@@ -283,6 +309,180 @@ export function scheduleReveal(E, t) {
   o.connect(og); og.connect(out); o.start(t); o.stop(t + 1.6);
 }
 
+// ---------- movement extras ----------
+export function scheduleJump(E, t, surface) {
+  const ctx = E.ctx;
+  const panner = makePan(ctx, 0); panner.connect(E.dry);
+  const nz = (fc, q, amp, att, dec, hpf, dt = 0) => {
+    const n = noiseSrc(E, 'pink', false);
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = fc; f.Q.value = q;
+    const h = ctx.createBiquadFilter(); h.type = 'highpass'; h.frequency.value = hpf;
+    const g = ctx.createGain(); env(g.gain, t + dt, amp, att, dec);
+    n.connect(f); f.connect(h); h.connect(g); g.connect(panner); n.start(t + dt, rand(0, 4)); n.stop(t + dt + att + dec + 0.05);
+  };
+  nz(surface === 'gravel' ? 3500 : 2200, 0.8, 0.09, 0.004, 0.06, 900);          // push-off scuff
+  nz(1100, 0.7, 0.035, 0.05, 0.22, 400, 0.02);                                   // breath
+}
+export function scheduleLand(E, t, strength, surface) {
+  const s = clamp(strength, 0, 1);
+  const o = { level: 0.8 + 0.7 * s, surface, thudMul: 1 + 2 * s, rustle: 0.05, soft: 1 };
+  scheduleStep(E, t, Object.assign({ pan: -0.08 }, o));
+  scheduleStep(E, t + 0.018, Object.assign({ pan: 0.08 }, o, { level: o.level * 0.8 }));
+}
+
+// ---------- ui / events ----------
+function oneShotOut(E, sendAmt, pan = 0) {
+  const ctx = E.ctx, p = makePan(ctx, pan), s = ctx.createGain(); s.gain.value = sendAmt;
+  p.connect(E.dry); p.connect(s); s.connect(E.wetIn); return p;
+}
+function bell(E, out, t, f, amp, dec) {
+  const ctx = E.ctx;
+  [[1, 1], [2.76, 0.3], [5.4, 0.1]].forEach(([m, a]) => {
+    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f * m;
+    const g = ctx.createGain(); env(g.gain, t, amp * a, 0.004, dec / m);
+    o.connect(g); g.connect(out); o.start(t); o.stop(t + dec + 0.1);
+  });
+}
+export function scheduleChime(E, t) {
+  const out = oneShotOut(E, 0.9);
+  bell(E, out, t, 880, 0.05, 1.6); bell(E, out, t + 0.5, 659, 0.05, 2.0);
+}
+export function scheduleScore(E, t) {
+  const out = oneShotOut(E, 0.4, 0.1);
+  bell(E, out, t, 1318, 0.04, 0.5); bell(E, out, t + 0.09, 1760, 0.04, 0.7);
+  const n = noiseSrc(E, 'white', false);
+  const h = ctx_hp(E, 3500), g = E.ctx.createGain(); env(g.gain, t, 0.025, 0.05, 0.12);
+  n.connect(h); h.connect(g); g.connect(out); n.start(t, rand(0, 1)); n.stop(t + 0.3);
+}
+function ctx_hp(E, f) { const h = E.ctx.createBiquadFilter(); h.type = 'highpass'; h.frequency.value = f; return h; }
+export function scheduleDoors(E, t) {
+  const ctx = E.ctx, out = oneShotOut(E, 0.5);
+  const n = noiseSrc(E, 'pink', false);
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.8;
+  bp.frequency.setValueAtTime(700, t); bp.frequency.exponentialRampToValueAtTime(2400, t + 0.55);
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.00001, t); g.gain.linearRampToValueAtTime(0.05, t + 0.2);
+  g.gain.linearRampToValueAtTime(0.03, t + 0.5); g.gain.exponentialRampToValueAtTime(0.00001, t + 0.8);
+  n.connect(bp); bp.connect(g); g.connect(out); n.start(t, rand(0, 4)); n.stop(t + 0.9);
+  const n2 = noiseSrc(E, 'white', false), h = ctx_hp(E, 5000), g2 = ctx.createGain(); env(g2.gain, t + 0.5, 0.03, 0.01, 0.18);
+  n2.connect(h); h.connect(g2); g2.connect(out); n2.start(t + 0.5, 0); n2.stop(t + 0.8);
+  const o = ctx.createOscillator(); o.frequency.value = 80; const og = ctx.createGain(); env(og.gain, t + 0.62, 0.05, 0.005, 0.12);
+  o.connect(og); og.connect(out); o.start(t + 0.62); o.stop(t + 0.85);
+}
+export function scheduleClick(E, t) {
+  const ctx = E.ctx, out = oneShotOut(E, 0.1);
+  const n = noiseSrc(E, 'white', false), b = ctx.createBiquadFilter(); b.type = 'bandpass'; b.frequency.value = 3200; b.Q.value = 1.5;
+  const g = ctx.createGain(); env(g.gain, t, 0.05, 0.0008, 0.012);
+  n.connect(b); b.connect(g); g.connect(out); n.start(t, rand(0, 1)); n.stop(t + 0.05);
+  const o = ctx.createOscillator(); o.frequency.value = 1900; const og = ctx.createGain(); env(og.gain, t, 0.018, 0.0008, 0.015);
+  o.connect(og); og.connect(out); o.start(t); o.stop(t + 0.05);
+}
+export function scheduleThunder(E, t) {
+  const ctx = E.ctx, out = oneShotOut(E, 1.3, rand(-0.4, 0.4));
+  const n = noiseSrc(E, 'brown', false);
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 0.6;
+  lp.frequency.setValueAtTime(500, t); lp.frequency.exponentialRampToValueAtTime(90, t + 5);
+  const g = ctx.createGain(); const dur = 5 + rand(0, 1.5);
+  g.gain.setValueAtTime(0.00001, t); g.gain.linearRampToValueAtTime(0.16, t + 0.5);
+  for (let k = 1; k < 5; k++) g.gain.linearRampToValueAtTime(rand(0.05, 0.14) * (1 - k / 6), t + 0.5 + k * rand(0.5, 0.9));
+  g.gain.exponentialRampToValueAtTime(0.00001, t + dur);
+  n.connect(lp); lp.connect(g); g.connect(out); n.start(t, rand(0, 4)); n.stop(t + dur + 0.1);
+}
+export function scheduleBird(E, t) {
+  const ctx = E.ctx, out = oneShotOut(E, 0.25, rand(-0.8, 0.8));
+  const f0 = rand(2800, 5200), n = 2 + Math.floor(Math.random() * 4);
+  for (let k = 0; k < n; k++) {
+    const tt = t + k * rand(0.07, 0.13);
+    const o = ctx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(f0 * rand(0.95, 1.1), tt); o.frequency.exponentialRampToValueAtTime(f0 * rand(0.75, 1.3), tt + 0.06);
+    const g = ctx.createGain(); env(g.gain, tt, 0.008, 0.008, 0.05);
+    o.connect(g); g.connect(out); o.start(tt); o.stop(tt + 0.1);
+  }
+}
+export function scheduleClack(E, t, gain) {
+  const ctx = E.ctx, out = E.srcOut.tram;
+  const n = noiseSrc(E, 'white', false), b = ctx.createBiquadFilter(); b.type = 'bandpass'; b.frequency.value = rand(900, 1400); b.Q.value = 1.2;
+  const g = ctx.createGain(); env(g.gain, t, 0.5 * gain, 0.001, 0.05);
+  n.connect(b); b.connect(g); g.connect(out); n.start(t, rand(0, 1)); n.stop(t + 0.08);
+  const o = ctx.createOscillator(); o.frequency.value = 70; const og = ctx.createGain(); env(og.gain, t, 0.3 * gain, 0.003, 0.08);
+  o.connect(og); og.connect(out); o.start(t); o.stop(t + 0.12);
+}
+
+// ---------- ambient beds & positional sources ----------
+export function buildOutdoorBed(E) {
+  const ctx = E.ctx, t0 = ctx.currentTime;
+  const out = ctx.createGain(); out.gain.value = 0; out.connect(E.dry);
+  const send = ctx.createGain(); send.gain.value = 0.3; out.connect(send); send.connect(E.wetIn);
+  const wind = noiseSrc(E, 'pink'); wind.start(t0, rand(0, 4));
+  const wf = ctx.createBiquadFilter(); wf.type = 'lowpass'; wf.frequency.value = 650; wf.Q.value = 0.7;
+  const wg = ctx.createGain(); wg.gain.value = 0.014;
+  const l = ctx.createOscillator(); l.frequency.value = 0.09; const ld = ctx.createGain(); ld.gain.value = 0.009;
+  l.connect(ld); ld.connect(wg.gain); l.start(t0);
+  const l2 = ctx.createOscillator(); l2.frequency.value = 0.05; const l2d = ctx.createGain(); l2d.gain.value = 220;
+  l2.connect(l2d); l2d.connect(wf.frequency); l2.start(t0);
+  wind.connect(wf); wf.connect(wg); wg.connect(out);
+  const city = noiseSrc(E, 'brown'); city.start(t0, rand(0, 4));
+  const cf = ctx.createBiquadFilter(); cf.type = 'lowpass'; cf.frequency.value = 240;
+  const cg = ctx.createGain(); cg.gain.value = 0.006; city.connect(cf); cf.connect(cg); cg.connect(out);
+  E.bed = out; return out;
+}
+
+function loopNoise(E, kind, filters, gainNode) {
+  const s = noiseSrc(E, kind); s.start(E.ctx.currentTime, rand(0, 4));
+  let node = s;
+  filters.forEach(([type, f, q]) => { const b = E.ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; if (q) b.Q.value = q; node.connect(b); node = b; });
+  node.connect(gainNode); return filters;
+}
+
+export function buildSources(E) {
+  const ctx = E.ctx, t0 = ctx.currentTime;
+  const mk = (sendAmt) => { const g = ctx.createGain(); g.gain.value = 0; const s = ctx.createGain(); s.gain.value = sendAmt; g.connect(E.dry); g.connect(s); s.connect(E.wetIn); return g; };
+  const S = E.srcOut = { fountain: mk(0.15), tram: mk(0.25), rain: mk(0.3) };
+  const lp = {};
+  // fountain: splashing water = noise wash + random burbles
+  const fl = ctx.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = 6000; fl.connect(S.fountain); lp.fountain = fl;
+  loopNoise(E, 'white', [['bandpass', 2200, 0.5]], fl);
+  loopNoise(E, 'pink', [['bandpass', 900, 0.7]], fl);
+  [[1.3, 700], [2.1, 1100], [3.4, 1700]].forEach(([r, fc]) => {
+    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = fc;
+    const m = ctx.createOscillator(); m.frequency.value = r * 2.3; const md = ctx.createGain(); md.gain.value = fc * 0.35; m.connect(md); md.connect(o.frequency);
+    const g = ctx.createGain(); g.gain.value = 0.02; const am = ctx.createOscillator(); am.frequency.value = r; const amd = ctx.createGain(); amd.gain.value = 0.02; am.connect(amd); amd.connect(g.gain);
+    o.connect(g); g.connect(fl); o.start(t0); m.start(t0); am.start(t0);
+  });
+  // tram: electric whine
+  const tl = ctx.createBiquadFilter(); tl.type = 'lowpass'; tl.frequency.value = 3000; tl.connect(S.tram); lp.tram = tl;
+  [[420, 0.012, 'sawtooth'], [840, 0.008, 'sine'], [1260, 0.004, 'sine']].forEach(([f, a, ty]) => {
+    const o = ctx.createOscillator(); o.type = ty; o.frequency.value = f;
+    const w = ctx.createOscillator(); w.frequency.value = 0.3; const wd = ctx.createGain(); wd.gain.value = f * 0.02; w.connect(wd); wd.connect(o.frequency);
+    const g = ctx.createGain(); g.gain.value = a; o.connect(g); g.connect(tl); o.start(t0); w.start(t0);
+  });
+  loopNoise(E, 'brown', [['lowpass', 300]], tl);
+  // rain bed + roof patter
+  const rl = ctx.createGain(); rl.gain.value = 1; rl.connect(S.rain);
+  loopNoise(E, 'white', [['highpass', 1500], ['lowpass', 9000]], (() => { const g = ctx.createGain(); g.gain.value = 0.5; g.connect(rl); return g; })());
+  const pat = ctx.createGain(); pat.gain.value = 0.0; pat.connect(rl);
+  const pm = ctx.createOscillator(); pm.frequency.value = 17; const pmd = ctx.createGain(); pmd.gain.value = 0.25; pm.connect(pmd); pmd.connect(pat.gain);
+  const pm2 = ctx.createOscillator(); pm2.frequency.value = 29; const pmd2 = ctx.createGain(); pmd2.gain.value = 0.2; pm2.connect(pmd2); pmd2.connect(pat.gain);
+  pm.start(t0); pm2.start(t0);
+  const pn = loopNoise(E, 'white', [['bandpass', 3800, 1.2]], pat);
+  E.srcLp = lp; E.srcClack = 0; return S;
+}
+
+export function applyEnvironment(E, name, dur = 1.5) {
+  const ctx = E.ctx;
+  const cfg = {
+    hall:    { dry: 1, tone: 1, bed: 0 },
+    outdoor: { dry: 1, tone: 0.15, bed: 1 },
+    small:   { dry: 1, tone: 0.6, bed: 0 },
+    cinema:  { dry: 0.95, tone: 0.4, bed: 0 },
+    lift:    { dry: 1, tone: 0.35, bed: 0 },
+  };
+  const c = cfg[name]; if (!c) return;
+  E.env = name;
+  Object.keys(E.envs).forEach((k) => ramp(E.envs[k].gain, k === name ? 1 : 0, ctx, dur));
+  if (E.tone) ramp(E.tone.gain, c.tone, ctx, dur);
+  if (E.bed) ramp(E.bed.gain, c.bed, ctx, dur);
+}
+
 // ---------- public ----------
 export function createAudio() {
   const A = {
@@ -290,7 +490,8 @@ export function createAudio() {
     muted: false, hidden: false,
     speed: 0, moving: false, wasMoving: false,
     nextStep: 0, lastStep: -10, side: 1, stepCount: 0,
-    lightsHum: false,
+    lightsHum: false, surface: 'concrete', env: 'hall', src: { fountain: 1e9, tram: 1e9, rain: 0 },
+    nextBird: 4, clackT: 0,
   };
   const MASTER = 0.9;
 
@@ -303,6 +504,18 @@ export function createAudio() {
       if (A.hidden) c.suspend && c.suspend().catch(() => {});
       else c.resume && c.resume().catch(() => {});
     } catch (e) { /* ignore */ }
+  }
+
+  function applySources() {
+    const E = A.E; if (!E || !E.srcOut) return;
+    const c = A.ctx, S = A.src;
+    const att = (d, range) => { const x = clamp(1 - (Number.isFinite(d) ? d : 1e9) / range, 0, 1); return x * x; };
+    const dFn = (d) => clamp(7000 - (Number.isFinite(d) ? d : 99) * 140, 1200, 7000);
+    ramp(E.srcOut.fountain.gain, 0.012 * att(S.fountain, 32), c, 0.4);
+    ramp(E.srcLp.fountain.frequency, dFn(S.fountain), c, 0.4);
+    ramp(E.srcOut.tram.gain, 0.12 * att(S.tram, 70), c, 0.4);
+    ramp(E.srcLp.tram.frequency, dFn(S.tram) * 0.6, c, 0.4);
+    ramp(E.srcOut.rain.gain, 0.014 * clamp(S.rain || 0, 0, 1), c, 0.8);
   }
 
   const api = {
@@ -327,7 +540,9 @@ export function createAudio() {
           buildRoomTone(E, 1, 3);
           ramp(E.master.gain, A.muted ? 0 : MASTER, ctx, 1.2);
           A.nextStep = ctx.currentTime;
+          buildOutdoorBed(E); buildSources(E);
           A.started = true;
+          applyEnvironment(E, A.env, 0.05); applySources();
         } catch (e) { A.ctx = null; A.E = null; A.started = false; }
         finally { A.starting = null; }
       })();
@@ -367,16 +582,42 @@ export function createAudio() {
       } catch (e) {}
     },
 
+    setSurface(name) { if (SURF[name]) A.surface = name; },
+    setEnvironment(name) {
+      A.env = name;
+      if (A.started && A.E) try { applyEnvironment(A.E, name, 1.5); } catch (e) {}
+    },
+    setSources(o) {
+      try {
+        if (!o) return;
+        ['fountain', 'tram', 'rain'].forEach((k) => { if (typeof o[k] === 'number') A.src[k] = o[k]; });
+        if (usable()) applySources();
+      } catch (e) {}
+    },
+    jump() { if (!usable()) return; try { scheduleJump(A.E, A.ctx.currentTime + 0.01, A.surface); } catch (e) {} },
+    land(strength = 0.5) { if (!usable()) return; try { scheduleLand(A.E, A.ctx.currentTime + 0.01, Number.isFinite(strength) ? strength : 0.5, A.surface); } catch (e) {} },
+    thunder(delaySec = 0) { if (!usable()) return; try { scheduleThunder(A.E, A.ctx.currentTime + Math.max(0, +delaySec || 0)); } catch (e) {} },
+    chime() { if (!usable()) return; try { scheduleChime(A.E, A.ctx.currentTime + 0.02); } catch (e) {} },
+    doors() { if (!usable()) return; try { scheduleDoors(A.E, A.ctx.currentTime + 0.02); } catch (e) {} },
+    score() { if (!usable()) return; try { scheduleScore(A.E, A.ctx.currentTime + 0.02); } catch (e) {} },
+    click() { if (!usable()) return; try { scheduleClick(A.E, A.ctx.currentTime + 0.01); } catch (e) {} },
+
     update(dt) {
       try {
         if (!A.started || !A.ctx || A.hidden || A.ctx.state !== 'running') { A.wasMoving = A.moving; return; }
         const now = A.ctx.currentTime;
+        if (!A.muted) {
+          if (A.env === 'outdoor') { A.nextBird -= dt || 0; if (A.nextBird <= 0) { A.nextBird = rand(3, 10); scheduleBird(A.E, now + 0.02); } }
+          const tg = 1 - clamp((A.src.tram || 1e9) / 70, 0, 1);
+          if (tg > 0.02 && A.E.srcOut) { A.clackT = Math.max(A.clackT, now);
+            while (A.clackT < now + 0.1) { scheduleClack(A.E, A.clackT, tg * tg); scheduleClack(A.E, A.clackT + 0.045, tg * tg * 0.8); A.clackT += 0.26; } }
+        }
         const rate = clamp(1.9 + (A.speed - 1.6) * 0.62, 1.0, 3.3); // steps per second
         const period = 1 / rate;
         const hurry = clamp((A.speed - 1.6) / 1.5, 0, 1);
         const mk = (t, soft) => {
           A.side = -A.side;
-          scheduleStep(A.E, t, { level: 0.85 + 0.25 * hurry, pan: A.side * rand(0.08, 0.2), soft, pitch: 1 + 0.03 * hurry });
+          scheduleStep(A.E, t, { level: 0.85 + 0.25 * hurry, pan: A.side * rand(0.08, 0.2), soft, pitch: 1 + 0.03 * hurry, surface: A.surface });
           A.lastStep = t; A.stepCount++;
         };
         if (A.moving) {
@@ -399,4 +640,4 @@ export function createAudio() {
 }
 
 // Offline-render hook (dev harness only; not part of the Audio object)
-createAudio.__graph = { buildEngine, buildRoomTone, scheduleStep, scheduleRelay, buildBallast, scheduleReveal, makeImpulse };
+createAudio.__graph = { scheduleJump, scheduleLand, scheduleChime, scheduleScore, scheduleDoors, scheduleClick, scheduleThunder, scheduleBird, buildOutdoorBed, buildSources, applyEnvironment, buildEngine, buildRoomTone, scheduleStep, scheduleRelay, buildBallast, scheduleReveal, makeImpulse };
