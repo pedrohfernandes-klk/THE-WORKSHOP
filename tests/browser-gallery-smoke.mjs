@@ -67,8 +67,8 @@ try {
   results.pixels = await page.evaluate(() => window.__gallery.samplePixels());
   if (!(results.pixels.mean > 40)) fail(`Room renders too dark or blank: ${JSON.stringify(results.pixels)}`);
   if (!(results.pixels.sd > 6)) fail(`Room renders flat (no detail): ${JSON.stringify(results.pixels)}`);
-  results.hangSize = await page.evaluate(() => new Set(window.__gallery.curator.hang).size);
-  if (results.hangSize !== 15) fail(`Hang should hold 15 distinct works, got ${results.hangSize}`);
+  results.hangSize = await page.evaluate(() => ({ distinct: new Set(window.__gallery.curator.hang).size, slots: window.__gallery.SLOTS.length }));
+  if (results.hangSize.distinct !== results.hangSize.slots) fail(`Hang should hold one distinct work per slot: ${JSON.stringify(results.hangSize)}`);
 
   // ===== 2. A real gaze is measured =====
   const lookSlot = 3;
@@ -104,13 +104,14 @@ try {
       keptStillHung: g.curator.hang[slot] === kept,
       swappedVisibleNow: swap ? g.state.lastVisible[swap.slot] > swap.at - 0.6 && swap.slot === g.state.gazeSlot : null,
       distinct: new Set(g.curator.hang).size,
+      slots: g.SLOTS.length,
     };
   }, lookSlot);
   results.rehang = rehang;
   if (!rehang.swap) fail('No re-hang happened after sustained attention');
   if (rehang.swap.slot === lookSlot) fail('The room re-hung the work being looked at');
   if (!rehang.keptStillHung) fail('A work the visitor lingered on was taken down');
-  if (rehang.distinct !== 15) fail('Re-hang produced a duplicate work');
+  if (rehang.distinct !== rehang.slots) fail('Re-hang produced a duplicate work');
 
   // ===== 4. Your exhibition: a titled catalogue and a working link =====
   await page.getByRole('button', { name: /your exhibition/i }).first().click();

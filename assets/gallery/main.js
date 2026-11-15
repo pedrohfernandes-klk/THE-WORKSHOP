@@ -187,6 +187,17 @@ const worldReady = createWorld(ctx, {
 }).then((w) => {
   world = w;
   controls.setWorld({ regions: w.regions, colliders: w.colliders });
+  // A mirror only needs re-rendering from the side where it can be seen: the
+  // hall floor from inside the hall, the pool from outdoors. Elsewhere it keeps
+  // its last image (it is barely visible through a doorway), which roughly
+  // halves the cost of every outdoor frame.
+  const gate = (mesh, visible) => {
+    if (!mesh || typeof mesh.onBeforeRender !== 'function') return;
+    const render = mesh.onBeforeRender;
+    mesh.onBeforeRender = function (...args) { if (visible()) render.apply(this, args); };
+  };
+  if (room.floor && room.floor.getRenderTarget) gate(room.floor, () => !state.entered || state.inHall);
+  w.groups.pool?.traverse((o) => { if (o.getRenderTarget) gate(o, () => !state.indoor); });
   if (w.lift) {
     w.lift.onEvent = (name) => {
       if (name === 'chime') (audio.chime || audio.reveal)();

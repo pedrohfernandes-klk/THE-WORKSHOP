@@ -386,6 +386,13 @@ export function build(ctx) {
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
   })();
 
+  const PESTERERS = { mano: 1, gordo: 1, walrus: 1, rooster: 1, bull: 1 };
+  const E = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
+  const FALL_A = [0.12, 0.35, 0.4, 0.5, 0.25], FALL_B = [0.5, 0.62, 0.6, 0.8, 0.7], FALL_C = [0.85, 0.88, 0.85, 1.0, 0.95], FALL_D = [4.2, 4.6, 4.4, 7.0, 4.6];
+  const PEST_EN = ['Excuse me.', 'Excuse me. Just one question.', 'Just one question. One. Two.', 'HELLO?! I AM TALKING TO YOU!'];
+  const PEST_PT = ['Ó amigo…', 'Ó amigo… ó amigo…', 'Ó amigo… ó amigo… ÓÓ AMIGO!', 'ÓÓÓ AMIGO! ESTÁS SURDO?!'];
+  const PEST_MB = ['Tenho MB Way.', 'Tenho MB Way, mano.', 'TENHO MB WAY, MANO!', 'MB WAY! MB WAY! MB WAY!'];
+
   // ---------- build the characters ----------
   const npcs = [];
   const pickables = [];
@@ -485,7 +492,8 @@ export function build(ctx) {
       x: pts[0], z: pts[1], yaw: S.yaw !== undefined ? S.yaw : idx * 1.1, yawOff: 0, wait: 1 + idx * 0.7, ph: idx * 2, walk: 0,
       sillyCd: 4 + idx * 2.3, sillyT: -1, sillyDur: 1, sillyType: 0,
       talkT: 0, bubble: 0, near: false, mutterCd: 6, line: -1, seed: idx * 1.7,
-      fixed: !!S.fixed, baseY: S.seated ? -0.3 : 0, baseYaw: S.yaw || 0, stars, hat, hatReal, hatState: 0, hatT: 0, hvx: 0, hvy: 0, hvz: 0, hs: 0, slapSpin: false, slapTurns: 1, fat: S.fat || 1,
+      fixed: !!S.fixed, baseY: S.seated ? -0.3 : 0, baseYaw: S.yaw || 0, pester: !!PESTERERS[S.name], pestT: 0, pestCd: 8 + idx * 2, pestLvl: 0, pestSay: 0, fallType: -1, fallDir: 1, thud: true,
+      stars, hat, hatReal, hatState: 0, hatT: 0, hvx: 0, hvy: 0, hvz: 0, hs: 0, slapSpin: false, slapTurns: 1, fat: S.fat || 1,
       goOn: false, gx: 0, gz: 0, gsp: 1, goT: -1, faceN: null, busy: false, gest: 0, kb: 0, reactCd: 0, armUp: 1.7, meant: true, monoCd: 25 + idx * 3, curText: '',
     };
     hit.userData.npc = n; root.userData.npc = n;
@@ -686,16 +694,43 @@ export function build(ctx) {
       n.near = near;
       if (n.kb > 0 && d2 > 0.04) { const d = Math.sqrt(d2); n.x -= (dx / d) * 4 * n.kb * dt; n.z -= (dz / d) * 4 * n.kb * dt; n.kb -= dt * 2; }
 
+      // pestering: approach, hover at ~1.5 m, step into the visitor's path
+      if (n.pestT > 0) {
+        n.pestT -= dt;
+        if (n.pestT <= 0 || !cam || d2 > 400 || n.sillyT >= 0) { n.pestT = 0; n.goOn = false; n.busy = false; n.pestCd = 25 + Math.random() * 15; }
+        else {
+          const d = Math.sqrt(d2) || 1, cs = Math.sqrt(cvx * cvx + cvz * cvz);
+          let px, pz;
+          if (cs > 0.8) { px = cam.x + (cvx / cs) * 1.5; pz = cam.z + (cvz / cs) * 1.5; }
+          else { px = cam.x - (dx / d) * 1.5; pz = cam.z - (dz / d) * 1.5; }
+          go(n, px, pz, Math.min(2.8, 0.8 + d * 0.8), -1);
+          n.pestSay -= dt;
+          if (n.pestSay <= 0) {
+            const pool = n.S.name === 'mano' ? PEST_MB : n.S.pt ? PEST_PT : PEST_EN;
+            say(n, pool[Math.min(n.pestLvl, pool.length - 1)], false); n.pestLvl++; n.pestSay = 3.2;
+          }
+        }
+      } else if (n.pester && !reduced) {
+        n.pestCd -= dt;
+        if (cam && n.pestCd <= 0 && d2 < 64 && !n.busy && !n.fixed && n.sillyT < 0 && n.reactCd <= 0) {
+          n.pestT = 20; n.pestLvl = 0; n.pestSay = 0; n.busy = true;
+        }
+      }
+
       // movement
       let moving = false, tyaw = n.yaw;
       if (n.goT > 0) { n.goT -= dt; if (n.goT <= 0) { n.goOn = false; n.goT = -1; } }
-      if (n.goOn) {
+      if (n.sillyT >= 0 && n.sillyType === 4 && n.fallType >= 0) {
+        /* on the floor */
+      } else if (n.goOn) {
         const ex = n.gx - n.x, ez = n.gz - n.z, ed = Math.sqrt(ex * ex + ez * ez);
         if (ed > 0.1) {
           tyaw = Math.atan2(ex, ez); moving = true;
-          const sp = n.gsp * (Math.abs(wrapA(tyaw - n.yaw)) < 1.2 ? 1 : 0.3);
+          if (n.pestT > 0 && d2 < 9) tyaw = Math.atan2(dx, dz);
+          const sp = n.gsp * (n.pestT > 0 || Math.abs(wrapA(tyaw - n.yaw)) < 1.2 ? 1 : 0.3);
           n.x += (ex / ed) * sp * dt; n.z += (ez / ed) * sp * dt; n.ph += sp * dt * 6;
-        } else if (n.faceN) tyaw = Math.atan2(n.faceN.x - n.x, n.faceN.z - n.z);
+        } else if (n.pestT > 0) tyaw = Math.atan2(dx, dz);
+        else if (n.faceN) tyaw = Math.atan2(n.faceN.x - n.x, n.faceN.z - n.z);
       } else if (n.faceN) {
         tyaw = Math.atan2(n.faceN.x - n.x, n.faceN.z - n.z);
       } else if (n.fixed) {
@@ -746,6 +781,7 @@ export function build(ctx) {
         startSilly(n, ty, ty === 0 ? 0.9 : ty === 1 ? 0.6 : ty === 2 ? 1.0 : 3.0);
       }
       let hop = 0, shake = 0, spin = 0, squash = 0, tilt = 0;
+      let roll = 0, dip = 0, legsUp = 0, kneel = 0, sit = 0, crumple = 0, armF = 0, armsFwd = 0, flail = 0;
       if (n.sillyT >= 0) {
         n.sillyT += dt;
         const u = n.sillyT / n.sillyDur;
@@ -754,10 +790,37 @@ export function build(ctx) {
         else if (n.sillyType === 1) { hop = Math.sin(u * Math.PI) * 0.45; squash = Math.sin(u * Math.PI * 2) * 0.04; }
         else if (n.sillyType === 2) shake = Math.sin(u * 34) * 0.6 * (1 - u);
         else if (n.sillyType === 4) {
-          if (n.slapSpin) { const q = Math.min(1, u / 0.55); spin = q * q * (3 - 2 * q) * TAU * n.slapTurns; hop = Math.sin(q * Math.PI) * 0.2; }
-          else tilt = -0.4 * Math.sin(u * Math.PI * 3) * (1 - u);
-          shake = Math.sin(u * 40) * 0.5 * (1 - u);
-          if (u > 0.5 && !n.meant) { n.meant = true; const pool = n.S.ind || (n.S.pt ? IND_PT : IND_EN); say(n, pool[(Math.random() * pool.length) | 0], false); }
+          const ft = n.fallType;
+          if (ft < 0) {
+            if (n.slapSpin) { const q = Math.min(1, u / 0.55); spin = q * q * (3 - 2 * q) * TAU * n.slapTurns; hop = Math.sin(q * Math.PI) * 0.2; }
+            else tilt = -0.4 * Math.sin(u * Math.PI * 3) * (1 - u);
+            shake = Math.sin(u * 40) * 0.5 * (1 - u);
+          } else {
+            const a = FALL_A[ft], b = FALL_B[ft], c = FALL_C[ft];
+            const d = u < a ? E(u / a) : u < b ? 1 : u < c ? 1 - E((u - b) / (c - b)) : 0;
+            if (u >= b && u < c) flail = Math.sin(Math.PI * (u - b) / (c - b));
+            if (u >= a && !n.thud) { n.thud = true; thud(); }
+            if (ft === 0) { tilt = -1.6 * d; if (u > a && u < b) { legsUp = 1; tilt += Math.sin(u * 90) * 0.01; } }
+            else if (ft === 1) {
+              if (u < a) { const q = u / a; roll = -TAU * E(q) * n.fallDir; hop = Math.sin(E(q) * Math.PI) * 0.9; const v = 1.4 * 6 * q * (1 - q) / (a * n.sillyDur) * dt * n.fallDir; n.x += Math.cos(n.yaw) * v; n.z -= Math.sin(n.yaw) * v; }
+              else { sit = d; dip = -0.62 * d; }
+            } else if (ft === 2) {
+              if (u < a) spin = E(u / a) * TAU * 2;
+              else { crumple = u < b ? E((u - a) / 0.12) : d; }
+              dip = -0.5 * crumple; tilt = 0.6 * crumple; squash = 0.12 * crumple;
+            } else if (ft === 3) {
+              let ar = 0;
+              if (u < 0.3) { const l = E(u / 0.3); tilt = -0.35 * l; armF = l; }
+              else if (u < 0.5) { const k = E((u - 0.3) / 0.2); tilt = -0.35 * (1 - k) + 0.1 * k; dip = -0.4 * k; kneel = k; armF = 1 - k; }
+              else if (u < 0.8) { const f = E((u - 0.5) / 0.18); tilt = 0.1 + 1.5 * f; dip = -0.4 * (1 - f); kneel = 1 - f; }
+              else { ar = E((u - 0.8) / 0.2); tilt = 1.6 * (1 - ar); }
+            } else {
+              tilt = 1.5 * d; armsFwd = d;
+              if (u < b) { const v = 3.2 * (1 - E(u / b)) * dt; n.x += Math.sin(n.yaw) * v; n.z += Math.cos(n.yaw) * v; }
+            }
+          }
+          const gu = ft < 0 ? 0.5 : FALL_B[ft];
+          if (u > gu && !n.meant) { n.meant = true; const pool = n.S.ind || (n.S.pt ? IND_PT : IND_EN); say(n, pool[(Math.random() * pool.length) | 0], false); }
         }
         else {
           // slapstick trip: stumble, face-plant, rise with dignity
@@ -789,9 +852,11 @@ export function build(ctx) {
       n.walk += ((moving ? 1 : 0) - n.walk) * Math.min(1, dt * 8);
       const w = n.walk, ph = n.ph, sw = Math.sin(ph);
       const breathe = Math.sin(time * 1.8 + n.seed) * 0.012;
-      n.root.position.set(n.x, hop + n.baseY, n.z);
+      const at = tilt < 0 ? -tilt : tilt, lift = at > 1 ? 0.2 * Math.min(1, (at - 1) / 0.5) : 0;
+      n.root.position.set(n.x, hop + n.baseY + dip + lift, n.z);
       n.root.rotation.y = n.yaw + spin;
       n.root.rotation.x = tilt;
+      n.root.rotation.z = roll;
       n.body.position.y = Math.abs(sw) * 0.04 * w + breathe;
       n.body.scale.set((1 + squash) * n.fat, 1 - squash, (1 + squash) * n.fat);
       const run = n.gsp > 2.5 && n.goOn ? 1.5 : 1;
@@ -820,6 +885,17 @@ export function build(ctx) {
           else { A[0].rotation.x = -0.9; A[0].rotation.z = 0.35; A[1].rotation.x = -0.9; A[1].rotation.z = -0.35; }
         }
       }
+      if (n.sillyT >= 0 && n.sillyType === 4 && n.fallType >= 0) {
+        const L0 = n.legs[0], L1 = n.legs[1], A0 = n.arms[0], A1 = n.arms[1];
+        const fl = Math.sin(time * 22) * flail;
+        if (legsUp > 0) { L0.rotation.x = L1.rotation.x = -1.5; }
+        else if (sit > 0) { L0.rotation.x = L1.rotation.x = -1.5 * sit; }
+        else if (crumple > 0) { L0.rotation.x = L1.rotation.x = -1.1 * crumple; }
+        else if (kneel > 0) { L0.rotation.x = -1.5 * kneel; L1.rotation.x = 0.5 * kneel; }
+        if (flail > 0) { L0.rotation.x += fl * 0.5; L1.rotation.x -= fl * 0.5; A0.rotation.x = fl * 1.3 - 1.2; A1.rotation.x = -fl * 1.3 - 1.2; A0.rotation.z = -0.5; A1.rotation.z = 0.5; }
+        if (armF > 0) { A1.rotation.x = -2.7 * armF; A1.rotation.z = 0.2; n.head.rotation.x -= 0.3 * armF; }
+        if (armsFwd > 0) { A0.rotation.x = A1.rotation.x = -2.8 * armsFwd; }
+      }
       const look = near ? 0 : Math.sin(time * 0.45 + n.seed * 3) * 0.35 * (1 - w);
       n.head.rotation.y = look + shake;
       n.head.rotation.x = Math.sin(ph * 2) * 0.05 * w + (n.talkT > 0 ? Math.sin(time * 14) * 0.06 : 0) - (n.talkT > 0 && n.armUp > 2 ? 0.35 : 0) - (S.proud ? 0.1 : 0);
@@ -831,17 +907,21 @@ export function build(ctx) {
   const IND_PT = ['Ó pá! Isso é maneira?', 'Eu ia dizer uma coisa e esqueci-me!', 'No meu tempo isto não se fazia.', 'Respeito, pá!'];
   const YELP = { bull: 'MOOO!', goat: 'MAAA!', pigeon: 'COO!', horse: 'NEIGH!', cat: 'MEOW!', pig: 'OINK!', walrus: 'AWRK!', rooster: 'COCK!', raccoon: 'EEK!', tortoise: 'Ai!', forcado: 'Tábueno!!', velho: 'Ai!', mano: 'Ó mano!', gordo: 'Ó pá!' };
   let slapN = 0;
+  function thud() { if (ac) { try { tone(ac.currentTime + 0.01, 'sine', 0.2, [120, 40], 0.5, 300); } catch (e) { /* none */ } } }
   function slap(object) {
     let o = object, n = null;
     while (o && !n) { n = o.userData && o.userData.npc; o = o.parent; }
     if (!n) return;
     n.slapSpin = !reduced && ((slapN++ & 1) === 0);
     n.slapTurns = 1 + ((Math.random() * 2) | 0);
-    startSilly(n, 4, 2.8);
-    n.gest = 1.4; n.sillyCd = 9;
+    n.fallType = (n.S.seated || n.fixed && n.S.seated) ? -1 : reduced ? 3 : (Math.random() * 5) | 0;
+    n.fallDir = Math.random() < 0.5 ? -1 : 1; n.thud = false;
+    startSilly(n, 4, n.fallType < 0 ? 2.8 : FALL_D[n.fallType]);
+    if (n.pestT > 0) { n.pestT = 0; n.goOn = false; n.busy = false; n.pestCd = 40; }
+    n.gest = n.fallType < 0 ? 1.4 : 0; n.sillyCd = 9;
     say(n, YELP[n.S.name] || 'Ai!', false);
     slapSound(); noise(n.S.sound);
-    if (!n.fixed) n.kb = n.slapSpin ? 0.5 : 1.6;
+    if (!n.fixed && n.fallType < 0) n.kb = n.slapSpin ? 0.5 : 1.6;
     if (n.hatState === 0) {
       const H = n.hat; group.add(H); H.visible = true; H.scale.set(1, 1, 1); H.rotation.set(0, 0, 0);
       H.position.set(n.x, n.baseY + 1.85, n.z);
