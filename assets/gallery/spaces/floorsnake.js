@@ -164,15 +164,15 @@ function put(data, c, r, g, b, a) { const o = c << 2; data[o] = r; data[o + 1] =
 export function paintGame(g, data) {
   data.fill(0);
   put(data, PILLAR, C_WALL[0], C_WALL[1], C_WALL[2], 140);
-  if (g.apple >= 0) put(data, g.apple, C_APPLE[0], C_APPLE[1], C_APPLE[2], 215);
+  if (g.apple >= 0) put(data, g.apple, C_APPLE[0], C_APPLE[1], C_APPLE[2], 240);
   const L = g.len, span = Math.max(1, L - 2);
   for (let k = L - 1; k > 0; k--) {               // tail first, so nearer segments win overlaps
     const s = (k - 1) / span, u = 1 - s;           // 0 at the neck, 1 at the tail
     put(data, g.body[(g.head - k + N) % N],
       (C_NECK[0] * u + C_TAIL[0] * s) | 0, (C_NECK[1] * u + C_TAIL[1] * s) | 0, (C_NECK[2] * u + C_TAIL[2] * s) | 0,
-      (215 - 60 * s) | 0);
+      (228 - 60 * s) | 0);
   }
-  if (L > 0) put(data, g.body[g.head], C_HEAD[0], C_HEAD[1], C_HEAD[2], 225);
+  if (L > 0) put(data, g.body[g.head], C_HEAD[0], C_HEAD[1], C_HEAD[2], 238);
 }
 
 // 3 × 5 pixel font (N is 4 wide so it can have its diagonal), plus two faces for reduced motion.
@@ -292,8 +292,8 @@ const FRAG = /* glsl */`
           vec2 pd = abs(vec2((fract(u) - 0.5) * 0.8, q.y - 0.62));
           float pip = 1.0 - smoothstep(0.19 - aa, 0.19 + aa, max(pd.x, pd.y));
           bool lit = k < uState.y - 0.5;
-          col += (lit ? vec3(0.39, 0.87, 0.16) : vec3(0.09, 0.15, 0.24) * 0.6) * pip;
-          cover = max(cover, pip * (lit ? 0.8 : 0.15));
+          col += (lit ? vec3(0.39, 0.87, 0.16) : vec3(0.02, 0.035, 0.06)) * pip;     // empty slots read dark
+          cover = max(cover, pip * (lit ? 0.8 : 0.35));
         }
       }
     }

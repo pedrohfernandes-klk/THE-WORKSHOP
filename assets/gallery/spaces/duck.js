@@ -21,8 +21,8 @@ const HEAD = { x: 0, y: 2.12, z: 0.72, ax: 0.80, ay: 0.78, az: 0.84 };
 const O = { x: 0, y: 1.45, z: 0.62 };                       // radial centre, inside body and head
 const WING = { y: 0.86, z: -0.32, a: 0.80, b: 0.40, c: 0.955, s: 0.296 }; // panel ellipse, tilted 0.30 rad
 const TAIL = { y: 1.30, z: -1.25, dy: 0.55, dz: -0.45, r: 0.65 };         // sculpt "grab" T0 → T0 + d
-const BILL_UP = { x: 0, y: 1.98, z: 1.60, ax: 0.42, ay: 0.13, az: 0.40, pitch: 0.10, upper: true };
-const BILL_LO = { x: 0, y: 1.86, z: 1.55, ax: 0.36, ay: 0.10, az: 0.34, pitch: 0.04, upper: false };
+const BILL_UP = { x: 0, y: 1.98, z: 1.60, ax: 0.42, ay: 0.15, az: 0.40, pitch: 0.10, upper: true };
+const BILL_LO = { x: 0, y: 1.86, z: 1.55, ax: 0.36, ay: 0.11, az: 0.34, pitch: 0.04, upper: false };
 const EYE_R = 0.185, PUPIL_R = 0.094, PUPIL_SHIFT = 0.068;
 const LEAN = 0.03;                                            // the heavy head tips it forward
 
@@ -242,7 +242,8 @@ const FRAG_NORMAL = /* glsl */`
 vec3 duckTilt;
 {
   vec3 o = vDuckObj;
-  float s1 = duckSeam(o.x) * smoothstep(0.04, 0.3, o.y);            // centre seam: chest, crown, back, tail
+  // centre seam: chest, crown, back, tail (the face is one panel)
+  float s1 = duckSeam(o.x) * smoothstep(0.04, 0.3, o.y) * (1.0 - smoothstep(0.95, 1.15, o.z) * smoothstep(1.6, 1.8, o.y));
   float s2 = duckSeam(o.y - 0.55);                                   // girdle round the body
   float s3 = duckSeam(o.z - 0.62) * smoothstep(1.72, 1.95, o.y);     // head: ear to ear over the crown
   vec2 q = vec2(o.z - (${WING.z.toFixed(3)}), o.y - ${WING.y.toFixed(3)});
@@ -291,13 +292,13 @@ void main() {
   float s = 0.0;
   for (int k = 0; k < 3; k++) {
     float ph = fract(uTime * 0.21 + float(k) * 0.3333);
-    float x = (d - 0.05 - ph * 1.3) / (0.07 + 0.10 * ph);
-    s += sin(x * 3.0) * exp(-x * x) * (1.0 - ph) * (1.0 - ph);
+    float x = (d - 0.05 - ph * 1.3) / (0.10 + 0.14 * ph);
+    s += sin(x * 2.2) * exp(-x * x) * (1.0 - ph) * (1.0 - ph);
   }
   s *= uAct;
   float dd = max(d, 0.0);
-  float a = (0.30 * exp(-dd / 0.09) + 0.16 * max(-s, 0.0)) * keep;
-  vec3 c = (uSky * 0.12 * max(s, 0.0) + uWarm * exp(-dd / 0.5)) * keep;
+  float a = (0.24 * exp(-dd / 0.09) + 0.14 * max(-s, 0.0)) * keep;
+  vec3 c = (uSky * 0.05 * max(s, 0.0) + uWarm * exp(-dd / 0.5)) * keep;
   gl_FragColor = vec4(c, a);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -442,7 +443,7 @@ export function build(ctx) {
     const kw = Math.min(1, dt * 0.7);
     night += ((w ? level(w.night, w.mode === 'night') : 0) - night) * kw;
     storm += ((w ? level(w.storm, w.mode === 'storm') : 0) - storm) * kw;
-    glow += (0.42 * night - glow) * kw;
+    glow += (0.32 * night - glow) * kw;
     U.uDuckGlow.value = glow;
 
     const cam = frame && frame.camera;

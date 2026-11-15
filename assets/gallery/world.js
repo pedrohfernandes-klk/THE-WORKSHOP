@@ -10,6 +10,8 @@ export const SPACES = [
   'trees', 'garden', 'grass', 'flowers', 'fountain', 'pergola', 'sculptures', 'amphitheatre',
   'studio', 'arcade', 'terrace', 'cinema', 'lift', 'school', 'birds',
   'metro', 'skyliner', 'aviation', 'npcs', 'ruins',
+  // The indie touches: real objects with a pixel soul, each found rather than announced.
+  'murals', 'floppies', 'vending', 'cat', 'radio', 'ghost', 'floorsnake', 'photobooth', 'gnome', 'oddities',
 ];
 
 // Dense vegetation is drawn by the main camera but skipped by reflections and
