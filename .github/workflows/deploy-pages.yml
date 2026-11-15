@@ -52,7 +52,7 @@ jobs:
       - name: Prepare curated site
         run: |
           mkdir _site
-          cp index.html yt.html .nojekyll _site/
+          cp index.html classic.html yt.html .nojekyll _site/
           cp -R assets _site/assets
       - name: Upload static site
         uses: actions/upload-pages-artifact@v3

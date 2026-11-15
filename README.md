@@ -1,6 +1,60 @@
 # The Workshop
 
-A walkable 3D museum, served as a static site from GitHub Pages.
+One room by HrM that hangs itself around your attention.
+
+The Workshop is a single daylit gallery hall, rendered in real time in the
+browser. It measures how long you look at each work. While you are looking
+elsewhere, the walls you cannot see are quietly re-hung with works that resemble
+what held your gaze — in colour, light, material and series. Works you lingered
+on are never taken down. When you turn around, the room has changed to reflect
+you.
+
+At any moment, **Your exhibition** fixes the room as it now hangs: a generated
+title, a catalogue of how long you looked at each work, the palette of your
+attention, a downloadable poster, and a link. Opening the link walks anyone into
+exactly that hang. There is no backend: the exhibition lives entirely in the
+link.
+
+The previous museum — the fifteen-district campus around the Tower — is kept,
+unchanged, at `classic.html`.
+
+## How it works
+
+| Piece | File | Role |
+|---|---|---|
+| Catalogue | `scripts/catalogue-source.json` → `assets/gallery/catalogue.js` | The works, with a measured visual signature for each (palette, lightness, chroma, hue distribution, texture). |
+| Curator | `assets/gallery/curator.js` | Pure logic: attention, similarity, when and what to re-hang, exhibition titles, share links. |
+| Room | `assets/gallery/room.js`, `post.js`, `textures.js` | The hall, its light, the reflective floor, frames, plaques, the "develop" reveal, post-processing. |
+| Visitor | `assets/gallery/controls.js`, `collision.js` | Walking, looking, approaching a work. |
+| Interface | `index.html`, `assets/gallery/ui.js` | Entry, wall labels, the exhibition catalogue and poster. |
+| Integration | `assets/gallery/main.js` | Gaze and visibility, the re-hang cycle, links, quality. |
+
+`docs/gallery/BRIEF.md` is the design brief and the contract between modules.
+
+### Adding or changing a work
+
+Edit `scripts/catalogue-source.json`, then run:
+
+```bash
+python3 scripts/build-catalogue.py
+```
+
+It measures every image and regenerates `assets/gallery/catalogue.js`, and warns
+about near-duplicate images. A work's `id` is permanent: shared exhibition links
+are made of ids, so never rename or reuse one.
+
+## Develop
+
+```bash
+npm install          # once
+npm test             # unit suites (fast)
+npm run test:all     # unit + browser smoke tests, as CI runs them
+npm run serve        # static server on http://localhost:8080
+```
+
+`npm run prepare:vendor` refreshes `assets/vendor/three/` and `assets/fonts/`
+from the locked dependencies. Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` to run the
+browser tests against a Chromium other than Playwright's own.
 
 ## Deploy
 
@@ -9,59 +63,23 @@ Deployment is automatic. Pushing to `main` runs
 
 1. **Tests** — `npm ci`, installs Chromium, runs `npm run test:all`. A failing
    suite blocks the deploy.
-2. **Packages** — regenerates `assets/vendor/` from the locked dependencies and
-   assembles a curated `_site/` containing only `index.html`, `yt.html`,
-   `.nojekyll` and `assets/`. Everything else in the repo — `docs/`, `tests/`,
-   `scripts/`, `package.json` — is deliberately **not** published.
+2. **Packages** — regenerates `assets/vendor/` and `assets/fonts/` from the
+   locked dependencies and assembles a curated `_site/` containing only
+   `index.html`, `classic.html`, `yt.html`, `.nojekyll` and `assets/`.
+   Everything else in the repo — `docs/`, `tests/`, `scripts/`,
+   `package.json` — is deliberately **not** published.
 3. **Deploys** — uploads that artifact to Pages.
 
-This requires **Settings → Pages → Source = "GitHub Actions"**. Do not switch it
-to "Deploy from a branch": that disables the workflow's deployment target, and
-the branch contents are not what the site should serve.
+This requires **Settings → Pages → Source = "GitHub Actions"**. Pull requests
+run the test and package jobs but do not deploy.
 
-Pull requests run the test and package jobs but do not deploy.
-
-There is no CDN dependency. Three.js is vendored into `assets/vendor/three/`
-from the version pinned in `package.json`, and the page's Content-Security-Policy
-sets `script-src 'self'`, so a CDN load would be blocked outright. Internet
-access is only needed for the external YouTube and web projection sources shown
-inside the museum. The site itself needs no server-side code.
-
-## Develop
-
-```bash
-npm install          # once
-npm test             # unit suite (fast)
-npm run test:all     # unit + browser smoke tests, as CI runs them
-npm run serve        # static server on http://localhost:8834
-```
-
-`npm run prepare:vendor` refreshes `assets/vendor/three/` after a dependency
-bump. `python scripts/make-og-card.py` regenerates the sharing card.
+There is no CDN dependency. Three.js and the two typefaces (Instrument Serif and
+Instrument Sans, SIL Open Font License — see `assets/fonts/`) are vendored from
+the versions pinned in `package.json`, and each page's Content-Security-Policy
+forbids loading scripts or fonts from anywhere else.
 
 ## History
 
 The repository carries the museum's full history, including early revisions
-when `index.html` embedded its media as base64. A full clone is around 120 MB
-for a ~1 MB working tree; `git clone --depth 1` avoids that.
-
-This release adds the Hood warehouse district, a four-mezzanine industrial
-hall, 600 m² basement, apartment tower, five-level private penthouse, animated
-dual lift system and a 160 × 120 m formal garden.
-
-## Immersive web optimisation
-
-Use `docs/IMMERSIVE_WEB_OPTIMIZATION_BLUEPRINT.md` as the working checklist for
-future passes. In short:
-
-- Keep Three.js/WebGL for the spatial museum, but move heavy decorative UI work
-  out of the render loop where possible.
-- Treat navigation as a story path, not only a room list.
-- Use `svh` for panel height constraints on mobile; avoid `dvh` on the 3D
-  canvas because browser chrome changes can trigger layout churn.
-- Prefer external, compressed assets over returning to a large embedded
-  single-file build.
-- Validate transitions and hotspots for pragmatic reliability before adding
-  spectacle.
-
-For local testing use `npm run serve` (see **Develop** above).
+when `index.html` embedded its media as base64. A full clone is around 120 MB;
+`git clone --depth 1` avoids that.

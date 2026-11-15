@@ -59,7 +59,7 @@ test('film starts muted and restore resets playback defaults', async () => {
 });
 
 test('document exposes explicit film sound, volume and speed controls', async () => {
-  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const html = await readFile(new URL('../classic.html', import.meta.url), 'utf8');
   assert.match(html, /id="filmQuickSoundBtn"/);
   assert.match(html, /id="filmVolume"[^>]+type="range"/);
   assert.match(html, /<select class="btn" id="filmQuickRateBtn"/);

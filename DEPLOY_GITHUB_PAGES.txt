@@ -4,8 +4,11 @@ Deployment is automatic: pushing to main runs .github/workflows/deploy-pages.yml
 which tests, packages a curated _site/ and publishes it to GitHub Pages. Do not
 upload files by hand, and leave Settings -> Pages -> Source set to "GitHub Actions".
 
+The site root (index.html) is the gallery. The previous museum is published
+unchanged at classic.html.
+
 See README.md for the full description.
 
-The Studio uses direct YouTube embeds over HTTPS, and falls back to yt.html only
-when the museum runs from file://. yt.html is published to the site root by the
-package step, so no separate upload is needed.
+The classic museum's Studio uses direct YouTube embeds over HTTPS, and falls back
+to yt.html only when it runs from file://. yt.html is published to the site root
+by the package step, so no separate upload is needed.

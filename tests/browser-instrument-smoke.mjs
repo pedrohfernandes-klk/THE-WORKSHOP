@@ -78,7 +78,7 @@ try {
   const museum = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   const museumErrors = [];
   museum.on('pageerror', e => museumErrors.push(e.message));
-  await museum.goto(`${baseUrl}/index.html?selftest`, { waitUntil: 'domcontentloaded' });
+  await museum.goto(`${baseUrl}/classic.html?selftest`, { waitUntil: 'domcontentloaded' });
   await museum.locator('#posterEnter:not([disabled])').waitFor({ state: 'visible', timeout: 60000 });
   await museum.locator('body').filter({ hasText: /SELFTEST/i }).waitFor({ state: 'visible', timeout: 60000 });
   const selftestResults = await museum.evaluate(() => window.__workshopSelfTestResults);
