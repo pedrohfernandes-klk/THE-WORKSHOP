@@ -889,8 +889,8 @@ export function build(ctx) {
   // the click). An invisible box over that end of the bench — enclosing furniture's sit proxy there — catches
   // the clicks first, so nobody is sat down on top of it; clicks past z 34.74 still pick the middle seat.
   {
-    const seatTaken = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.78, 0.7), new THREE.MeshBasicMaterial({ visible: false }));
-    seatTaken.position.set(13.0, 0.39, 34.39);                      // x 12.70–13.30, y 0–0.78, z 34.04–34.74
+    const seatTaken = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.66, 0.7), new THREE.MeshBasicMaterial({ visible: false }));
+    seatTaken.position.set(13.0, 0.33, 34.39);                      // x 12.70–13.30, y 0–0.66 (just over the cat), z 34.04–34.74
     seatTaken.castShadow = false; seatTaken.receiveShadow = false;
     seatTaken.name = 'oddities-cat-seat';
     seatTaken.userData.action = cat.userData.action;
