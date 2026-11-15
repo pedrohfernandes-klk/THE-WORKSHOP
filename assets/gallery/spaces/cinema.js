@@ -253,9 +253,17 @@ export function build(ctx) {
   }
 
   // ------------------------------------------------------------- seats ---
+  // Sit contract: every chair is one person-place { x, y (cushion top), z, facing }
+  // in world metres, looking at the screen (−z). Per row and block (the centre
+  // aisle splits each row) one invisible pick proxy encloses the block's 8 chairs
+  // and lists their places; main.js seats the visitor on the one nearest the click.
+  const seats = [], sitProxies = [];
   {
     const seg = low ? 1 : 3;
-    const cushionG = uv(new RoundedBoxGeometry(0.5, 0.13, 0.5, seg, 0.04));
+    // cushion: 0.13 thick, centre 0.45 above the tier, 2 cm forward of the row line,
+    // tipped back 0.06 rad (front edge up)
+    const CUSH_H = 0.13, CUSH_Y = 0.45, CUSH_DZ = -0.02, CUSH_TIP = 0.06;
+    const cushionG = uv(new RoundedBoxGeometry(0.5, CUSH_H, 0.5, seg, 0.04));
     const backG = uv(new RoundedBoxGeometry(0.5, 0.68, 0.12, seg, 0.05));
     const armG = uv(new RoundedBoxGeometry(0.07, 0.05, 0.5, 1, 0.02));
     const armPostG = new THREE.BoxGeometry(0.035, 0.36, 0.06);
@@ -276,20 +284,39 @@ export function build(ctx) {
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3(1, 1, 1);
     const tilt = new THREE.Quaternion(), flat = new THREE.Quaternion();
     tilt.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.2); // top leans back (+z)
+
+    // Sit place = the tipped cushion's top-centre: 0.515 above the tier, 1.6 cm
+    // forward of the row line, in the middle of each 0.56 m chair.
+    const SIT_Y = CUSH_Y + CUSH_H / 2 * Math.cos(CUSH_TIP), SIT_DZ = CUSH_DZ + CUSH_H / 2 * Math.sin(CUSH_TIP);
+    // Proxy (relative to the row line and tier top): x over the block plus its end
+    // arms (±3.5 cm) and 5 mm; y tier → backrest top (1.198) + 2 cm; z cushion front
+    // corner (−0.274) … backrest foot (+0.464) with ~2.5 cm spare, inside the tier
+    // (±0.525) so it never reaches the next riser or the aisles' walk regions.
+    const PX_W = SEAT_W * PER_BLOCK + 0.08, PX_H = 1.22, PX_Z0 = -0.30, PX_Z1 = 0.49;
+    const proxyG = new THREE.BoxGeometry(PX_W, PX_H, PX_Z1 - PX_Z0).translate(0, PX_H / 2, (PX_Z0 + PX_Z1) / 2);
+    const proxyM = new THREE.MeshBasicMaterial({ visible: false });   // material, never object, invisible
+    const mm = v => Math.round(v * 1000) / 1000 || 0;                 // drop float noise (and −0)
     let si = 0, ai = 0;
     const stepLights = [];
     for (let k = 0; k < ROWS; k++) {
       const z = ROW0_Z + k * PITCH, yT = FLOOR + RISE * (k + 1);
       for (const sx of [-1, 1]) {
+        const own = [];
         for (let n = 0; n < PER_BLOCK; n++) {
           const x = sx * (AISLE + SEAT_W * (n + 0.5));
           // cushion (slight tip back), back rest
-          q.setFromAxisAngle(new THREE.Vector3(1, 0, 0), 0.06);
-          p.set(x, yT + 0.45, z - 0.02); m4.compose(p, q, s); seatsIM.setMatrixAt(si, m4);
+          q.setFromAxisAngle(new THREE.Vector3(1, 0, 0), CUSH_TIP);
+          p.set(x, yT + CUSH_Y, z + CUSH_DZ); m4.compose(p, q, s); seatsIM.setMatrixAt(si, m4);
           p.set(x, yT + 0.45 + 0.07 + 0.34 * Math.cos(0.2), z + 0.27 + 0.34 * Math.sin(0.2)); m4.compose(p, tilt, s); backsIM.setMatrixAt(si, m4);
           if (low) { p.set(x, yT + 0.2, z + 0.1); m4.compose(p, flat, s); legs.setMatrixAt(si, m4); }
+          own.push({ x: mm(x), y: mm(yT + SIT_Y), z: mm(z + SIT_DZ), facing: [0, -1] });
           si++;
         }
+        const proxy = new THREE.Mesh(proxyG, proxyM);
+        proxy.name = `cinema-seats-row${k + 1}-${sx < 0 ? 'west' : 'east'}`;
+        proxy.position.set(sx * (AISLE + SEAT_W * PER_BLOCK / 2), yT, z);
+        proxy.userData.action = { type: 'sit', seats: own };
+        group.add(proxy); sitProxies.push(proxy); seats.push(...own);
         for (let n = 0; n <= PER_BLOCK; n++) {
           const x = sx * (AISLE + SEAT_W * n);
           p.set(x, yT + 0.62, z - 0.0); m4.compose(p, flat, s); armsIM.setMatrixAt(ai, m4);
@@ -484,7 +511,7 @@ export function build(ctx) {
     if (ctx.ui && ctx.ui.toast) ctx.ui.toast(video.muted ? 'Sound off' : 'Sound on');
   }
 
-  return { group, regions, colliders, pickables: [screen], update, onPick };
+  return { group, regions, colliders, pickables: [screen, ...sitProxies], seats, update, onPick };
 }
 
 // soft radial / elliptical glow texture

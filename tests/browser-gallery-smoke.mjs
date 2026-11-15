@@ -28,7 +28,14 @@ function watch(page) {
     if (m.type() === 'error' && !/favicon/i.test(text)) problems.push(`console: ${text}`);
     if (/Content Security Policy/i.test(text)) problems.push(`csp: ${text}`);
   });
-  page.on('requestfailed', r => problems.push(`requestfailed: ${r.url()}`));
+  page.on('requestfailed', r => {
+    // A <video> cancels its own range requests as it buffers, seeks or pauses
+    // (the amphitheatre screen does); Chrome reports that as net::ERR_ABORTED.
+    // That is the media element working, not a failed load.
+    const err = (r.failure() && r.failure().errorText) || '';
+    if (r.resourceType() === 'media' && /ERR_ABORTED/.test(err)) return;
+    problems.push(`requestfailed: ${r.url()} ${err}`.trim());
+  });
   return problems;
 }
 

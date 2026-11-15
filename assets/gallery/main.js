@@ -285,13 +285,20 @@ async function enter() {
   // Step over the threshold as the lights come on.
   controls.flyTo({ position: START.position, target: START.target, duration: reducedMotion ? 0.2 : 3.4 });
   const touch = matchMedia('(pointer: coarse)').matches;
+  // The intro owns the hint line until the visitor acts. The prompt updaters
+  // rewrite the line whenever their prompt changes, and state.prompt started
+  // undefined, so their first null wiped the intro: within 0.15 s on phones
+  // (centre prompt), on the first mouse move on desktop (hover prompt).
+  // Starting at null lets only a real prompt ("E · Sit") take the line.
+  state.prompt = null;
   ui.hint(touch
     ? 'Drag to look · Tap the floor to walk · Tap a work to approach'
-    : 'Click to play · WASD · Shift run · Space jump · E use · F throw · 1–7 gestures');
+    : 'Click to look around · WASD to walk · Shift to run');
 }
 
 controls.onFirstInput = () => {
-  setTimeout(() => ui.hint(null), 2600);
+  // Retire the intro, never a live prompt that has since taken the line.
+  setTimeout(() => { if (state.prompt === null) ui.hint(null); }, 3200);
 };
 
 // ----------------------------------------------------------- game layer --
@@ -380,11 +387,16 @@ controls.onUse = () => {
   state.viaUse = true;   // E talks; a click slaps
   try { controls.onTap?.(innerWidth / 2, innerHeight / 2); } finally { state.viaUse = false; }
 };
-const GESTURE_KEYS = { Digit1: 'wave', Digit2: 'thumbs', Digit3: 'clap', Digit4: 'point', Digit5: 'shrug', Digit6: 'dance', Digit7: 'peace' };
+// 8 and 9 are the two cheeky ones (censored on screen): never picked by G.
+const GESTURE_KEYS = { Digit1: 'wave', Digit2: 'thumbs', Digit3: 'clap', Digit4: 'point', Digit5: 'shrug', Digit6: 'dance', Digit7: 'peace', Digit8: 'manguito', Digit9: 'pirete' };
 controls.onGesture = (code) => {
   if (!player) return;
   const list = ['wave', 'thumbs', 'clap', 'point', 'shrug', 'dance', 'peace'];
-  player.gesture(code === 'KeyG' ? list[Math.floor(Math.random() * list.length)] : GESTURE_KEYS[code]);
+  const name = code === 'KeyG' ? list[Math.floor(Math.random() * list.length)] : GESTURE_KEYS[code];
+  if (!name) return;
+  player.gesture(name);
+  // Published for the world: NPCs nearby react to what the visitor just did.
+  room.scene.userData.lastGesture = { name, time: performance.now() / 1000 };
 };
 
 // With the mouse captured, the crosshair says what E / click will do.
@@ -524,10 +536,15 @@ function act(found, hit) {
   world.pick(object);
 }
 
-// Desktop: the cursor and a quiet prompt say what a click will do.
+// Hover prompts say what a click will do, so they speak only where a click acts at
+// the cursor (pen, or no pointer lock). With a mouse, a click first captures the
+// pointer and the crosshair prompt speaks; while captured, clientX/Y stay frozen
+// where the click was, so picking there raced that prompt (flickering, wrong
+// labels) and raycast the whole campus every 110 ms.
 let hoverAt = 0;
+const clickCaptures = !coarsePointer && typeof canvas.requestPointerLock === 'function';
 canvas.addEventListener('pointermove', (e) => {
-  if (!state.entered || state.overlay || state.exhibitionOpen || e.buttons || e.pointerType === 'touch') return;
+  if (!state.entered || state.overlay || state.exhibitionOpen || e.buttons || e.pointerType === 'touch' || (e.pointerType === 'mouse' && clickCaptures)) return;
   const t = performance.now();
   if (t - hoverAt < 110) return;
   hoverAt = t;

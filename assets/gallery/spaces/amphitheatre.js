@@ -16,6 +16,19 @@ export function build(ctx) {
   const group = new THREE.Group();
   group.name = 'amphitheatre';
   const regions = [], colliders = [], pickables = [];
+  // Sit contract: every person-place { x, y (seat top), z, facing: [fx, fz] } in world coordinates.
+  // Invisible pick proxies (material.visible = false, never object.visible) carry the places they
+  // cover; main.js seats the visitor on the one nearest the click.
+  const seats = [];
+  const sitMat = new THREE.MeshBasicMaterial({ visible: false });
+  function sitProxy(geo, own, name) {
+    const m = new THREE.Mesh(geo, sitMat);
+    m.name = name;
+    m.userData.action = { type: 'sit', seats: own };
+    group.add(m); pickables.push(m);
+    for (const s of own) seats.push(s);
+    return m;
+  }
 
   const rad = (d) => d * Math.PI / 180;
   const buckets = {};                        // material key -> geometry list
@@ -53,6 +66,16 @@ export function build(ctx) {
     return pts;
   }
   const P = (r, t) => [CX + r * Math.cos(t), CZ + r * Math.sin(t)];
+  // Same plan-polygon extrusion as prism(), for pick proxies: no bevel, positions only (raycasts).
+  function proxyPrism(pts, yBot, yTop) {
+    const s = new THREE.Shape();
+    pts.forEach(([x, z], i) => (i ? s.lineTo(x - CX, -(z - CZ)) : s.moveTo(x - CX, -(z - CZ))));
+    const g = new THREE.ExtrudeGeometry(s, { depth: yTop - yBot, bevelEnabled: false, steps: 1, curveSegments: 1 });
+    g.rotateX(-Math.PI / 2);
+    g.translate(CX, yBot, CZ);
+    g.deleteAttribute('normal'); g.deleteAttribute('uv');
+    return g;
+  }
 
   // ---------------------------------------------------------------- seating
   // Aisles: centre (axis-parallel strip, 2.0 m) and two end aisles at +-75 deg (1.4 m).
@@ -76,6 +99,35 @@ export function build(ctx) {
       const nx = -Math.sin(a.a), nz = Math.cos(a.a);
       const [ax, az] = P(ra, a.a), [bx, bz] = P(rb, a.a);
       prism('whiteSandstone', [[ax - nx * a.hw, az - nz * a.hw], [bx - nx * a.hw, bz - nz * a.hw], [bx + nx * a.hw, bz + nz * a.hw], [ax + nx * a.hw, az + nz * a.hw]], FLOOR, top);
+    }
+  }
+
+  // Sitting on the tiers: each tier is a seat-height stone bench (riser 0.422). Person-places 0.6 m
+  // apart fill every tier sector end to end (both sides of every aisle), 0.25 m behind the riser
+  // edge on the tread (y = tread top), each turned to the stage centre. One invisible proxy per tier
+  // sector covers its tread and the riser face below it, 3 cm proud of the plan outline (the stone's
+  // bevel bulges 2 cm, its 3-degree chords up to 0.5 cm more) and 1 cm above the tread, so a click on
+  // either face of a step seats you on that step; the thin margins keep clicks that graze a tier edge
+  // (on their way to the aisle steps or a farther tier) mostly clear of it.
+  {
+    const SEAT_W = 0.6, SEAT_IN = 0.25, PM = 0.03, TOP_M = 0.01, STAGE_X = -54, STAGE_Z = 30;
+    // sector s of lim[] runs from ends[s] to ends[s + 1]; the tier ends at +-90 deg act as 0-wide aisles
+    const ends = [{ a: rad(-90), hw: 0 }, aisles[2], aisles[0], aisles[1], { a: rad(90), hw: 0 }];
+    const pLo = (e) => (r) => e.a + Math.asin((e.hw - PM) / r), pHi = (e) => (r) => e.a - Math.asin((e.hw - PM) / r);
+    for (let i = 0; i < N_TIERS; i++) {
+      const r0 = R_IN + i * TREAD, r1 = r0 + TREAD, top = FLOOR + RISER * (i + 1), rs = r0 + SEAT_IN;
+      lim.forEach(([lo, hi], s) => {
+        const a0 = lo(rs), a1 = hi(rs);
+        const n = Math.max(1, Math.floor(rs * (a1 - a0) / SEAT_W + 0.02));
+        const own = [];
+        for (let k = 0; k < n; k++) {
+          const [x, z] = P(rs, a0 + (a1 - a0) * (k + 0.5) / n);
+          const dx = STAGE_X - x, dz = STAGE_Z - z, d = Math.hypot(dx, dz);
+          own.push({ x, y: top, z, facing: [dx / d, dz / d] });
+        }
+        const g = proxyPrism(sectorPts(r0 - PM, r1, pLo(ends[s]), pHi(ends[s + 1])), top - RISER + 0.005, top + TOP_M);
+        sitProxy(g, own, `amph-tier-seats-${i}-${s}`);
+      });
     }
   }
 
@@ -280,6 +332,17 @@ export function build(ctx) {
         const g = new THREE.BoxGeometry(w, h, d); g.translate(ox, oy, oz); g.rotateY(ry); g.translate(x, RIM, z); M.boxUV(g); tgt.push(flat(g));
       }
       colliders.push({ minX: x - 0.9, maxX: x + 0.9, minZ: z - 0.9, maxZ: z + 0.9, minY: RIM, maxY: RIM + 0.9 });
+      // Sit contract: three person-places along the 1.7 m seat (slat tops RIM + 0.475), centred 5 cm in
+      // front of the bench axis, clear of the backrest (local +z), looking away from it (local -z,
+      // toward the bowl). The proxy encloses the whole bench so it is hit before the wood and steel.
+      const c = Math.cos(ry), s = Math.sin(ry), own = [];   // local (lx, lz) -> world (x + c*lx + s*lz, z - s*lx + c*lz)
+      for (const k of [-1, 0, 1]) {
+        const lx = k * 1.7 / 3, lz = -0.05;
+        own.push({ x: x + c * lx + s * lz, y: RIM + 0.45 + 0.025, z: z - s * lx + c * lz, facing: [-s, -c] });
+      }
+      const pg = new THREE.BoxGeometry(1.74, 0.83, 0.61); pg.translate(0, 0.415, 0.035);
+      const proxy = sitProxy(pg, own, `amph-bench-seats-${deg}`);
+      proxy.rotation.y = ry; proxy.position.set(x, RIM, z);
     }
     for (const [list, mat] of [[bw, wood], [bs, steel]]) { const m = new THREE.Mesh(BGU.mergeGeometries(list, false), mat); m.castShadow = true; m.receiveShadow = true; group.add(m); }
   }
@@ -335,5 +398,5 @@ export function build(ctx) {
   }
   screen.onBeforeRender = () => { /* VideoTexture self-updates via requestVideoFrameCallback */ };
 
-  return { group, regions, colliders, pickables, update, onPick() {} };
+  return { group, regions, colliders, pickables, seats, update, onPick() {} };
 }
