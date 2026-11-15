@@ -182,7 +182,7 @@ export function createMusic(opts = {}) {
     noiseBuf = nb;
 
     // master: sum -> rumble HPF -> voice-band pocket -> air -> glue -> level -> soft clip -> duck -> mute -> trim -> out
-    const sum = G(0.4), hp = F('highpass', 30, 0.7), dip = F('peaking', 2300, 0.9), air = F('highshelf', 9500, 0.7);
+    const sum = G(0.4), hp = F('highpass', 30, -3), dip = F('peaking', 2300, 0.9), air = F('highshelf', 9500, 0.7);
     dip.gain.value = -2.5; air.gain.value = 1.5;
     const glue = c.createDynamicsCompressor();
     glue.threshold.value = -14; glue.knee.value = 10; glue.ratio.value = 2.5; glue.attack.value = 0.012; glue.release.value = 0.2;
@@ -199,7 +199,7 @@ export function createMusic(opts = {}) {
     const duckA = G(1), duckB = G(1); duckA.connect(sum); duckB.connect(sum);
 
     // returns: one hall (a 4-line feedback delay network), one ping-pong dotted-8th delay, one chorus for width
-    const revIn = G(1), revHP = F('highpass', 220, 0.7), revLP = F('lowpass', 7000, 0.5), revOut = G(0.5);
+    const revIn = G(1), revHP = F('highpass', 220, -3), revLP = F('lowpass', 7000, 0.5), revOut = G(0.5);
     revIn.channelCount = 1; revIn.channelCountMode = 'explicit';           // the hall runs mono-in, stereo-out
     revIn.connect(revHP); hallVerb(revHP, revLP); revLP.connect(revOut); revOut.connect(duckA);
     const delIn = G(1), dHP = F('highpass', 350, 0.6), dLP = F('lowpass', 3200, 0.6), dL = c.createDelay(2), dR = c.createDelay(2);
@@ -232,7 +232,7 @@ export function createMusic(opts = {}) {
     const bSaw = G(0.4), bSub = G(0.45), bLP = F('lowpass', 300, 2.2), bAmp = G(0);
     bo1.connect(bSaw); bo2.connect(bSaw); bSaw.connect(bLP); bLP.connect(bAmp); bsub.connect(bSub); bSub.connect(bAmp);
     for (const o of [bo1, bo2, bsub]) o.start();
-    const bSat = shaper(1.8), bMud = F('peaking', 210, 1.1), bHP = F('highpass', 34, 0.8);
+    const bSat = shaper(1.8), bMud = F('peaking', 210, 1.1), bHP = F('highpass', 34, -3);
     bMud.gain.value = -2.5;
     mk('bass', bSat); bAmp.connect(L.bass); bSat.connect(bMud); bMud.connect(bHP); bHP.connect(duckB);
 
@@ -318,13 +318,15 @@ export function createMusic(opts = {}) {
 
   // A hall for a few delay lines' worth of CPU (a long convolver costs ~10x more): pre-delay, two Schroeder
   // diffusers, then four damped lines mixed by a Householder matrix; odd lines feed the right, even the left.
+  // Stability: Web Audio reads lowpass/highpass Q in dB. The damping filter sits inside the loop, so its Q must
+  // be <= -3 dB (no peak): at Q -6 its gain never exceeds 1 and the loop gain stays <= g < 1 (RT60 ~2 s).
   function hallVerb(input, out, rt = 2.1) {
     const pre = ctx.createDelay(0.1); pre.delayTime.value = 0.016; input.connect(pre);
     let x = pre;
     for (const [d, g] of [[0.0061, 0.6], [0.0089, 0.55]]) x = allpass(x, d, g);
-    const D = [0.0317, 0.0373, 0.0419, 0.0471], mixS = G(-0.5), merger = ctx.createChannelMerger(2), wet = G(0.32);
+    const D = [0.0317, 0.0373, 0.0419, 0.0471], mixS = G(-0.5), merger = ctx.createChannelMerger(2), wet = G(0.39);
     D.forEach((d, i) => {
-      const dl = ctx.createDelay(0.1), fb = G(Math.pow(10, (-3 * d) / rt)), damp = F('lowpass', 5200, 0.5), inj = G(i & 1 ? -0.5 : 0.5);
+      const dl = ctx.createDelay(0.1), fb = G(Math.pow(10, (-3 * d) / rt)), damp = F('lowpass', 5200, -6), inj = G(i & 1 ? -0.5 : 0.5);
       dl.delayTime.value = d;
       dl.connect(fb); dl.connect(mixS); mixS.connect(fb); fb.connect(damp); damp.connect(dl);
       x.connect(inj); inj.connect(dl); dl.connect(merger, 0, i & 1);
@@ -417,8 +419,8 @@ export function createMusic(opts = {}) {
     const f = mtof(midi), dur = midi < 55 ? 3.0 : 2.3;
     if (!room(t + dur + 0.2)) return;
     const o = O(N.W.ep, f), e = G(0), tn = O('sine', Math.min(f * 7, 12000)), te = G(0);
-    e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(v * 0.45, t + 0.003);
-    e.gain.setTargetAtTime(v * 0.16, t + 0.005, 0.5); e.gain.setTargetAtTime(0, t + dur - 0.4, 0.15);
+    e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(v * 0.56, t + 0.003);
+    e.gain.setTargetAtTime(v * 0.2, t + 0.005, 0.5); e.gain.setTargetAtTime(0, t + dur - 0.4, 0.15);
     te.gain.setValueAtTime(0, t); te.gain.linearRampToValueAtTime(v * 0.1, t + 0.001); te.gain.setTargetAtTime(0, t + 0.002, 0.035);
     o.connect(e); tn.connect(te); e.connect(N.L.keys); te.connect(N.L.keys);
     o.start(t); tn.start(t); o.stop(t + dur + 0.2); tn.stop(t + 0.3);
@@ -586,7 +588,7 @@ export function createMusic(opts = {}) {
     set('perc', st * (0.35 + 0.65 * o) * (1 - r) + groove * sm(0.8, 1, e) * 0.45);
     set('bass', (0.28 + 0.72 * groove * sm(0.05, 0.45, e)) * (1 - 0.35 * r));
     set('stab', (groove * sm(0.12, 0.5, e) + 0.6 * st * o) * (1 - 0.8 * r));
-    set('pad', clamp(0.24 + 0.14 * calm + 0.35 * n + 0.5 * r - 0.15 * groove * e, 0.2, 1));
+    set('pad', clamp(0.24 + 0.19 * calm + 0.35 * n + 0.5 * r - 0.15 * groove * e, 0.2, 1));
     set('keys', (0.85 * calm + 0.45 * n * groove) * (1 - 0.85 * r) * (1 - 0.6 * groove * e));
     set('lead', groove * sm(0.3, 0.6, e) * (1 - 0.3 * st));
     set('chip', groove * sm(0.72, 0.95, e) + 0.7 * a);
