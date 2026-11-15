@@ -473,6 +473,7 @@ controls.onTap = (x, y) => {
 };
 
 const tmpN = new THREE.Vector3();
+const tmpLook = new THREE.Vector3();
 const normalMatrix = new THREE.Matrix3();
 function worldNormal(hit) {
   normalMatrix.getNormalMatrix(hit.object.matrixWorld);
@@ -1072,6 +1073,12 @@ function step() {
     paper.update(dt);
   }
   weather?.update(dt, { camera, time: now, level: floor > 5 ? 1 : 0 });
+  // Look up on a clear night and the real constellations draw themselves in,
+  // faintly; look back down and the sky is left as it is.
+  if (weather && weather.setConstellations) {
+    camera.getWorldDirection(tmpLook);
+    weather.setConstellations(weather.mode === 'night' && !state.indoor && tmpLook.y > 0.5);
+  }
   // The world's sound follows the sky: crickets and owls at night, gusts and rain in a storm.
   audio.setWeather?.(room.scene.userData.weather || { mode: weather ? weather.mode : 'sunny' });
   // What the visitor has done, for modules that keep score (newspaper, quests).
