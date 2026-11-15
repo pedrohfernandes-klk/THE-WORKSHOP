@@ -524,7 +524,7 @@ export function build(ctx) {
   }
   function prox() { const d = Math.sqrt(dist2); return d < 1.5 ? 1 : d > 9.5 ? 0 : 1 - (d - 1.5) / 8; }
   function startTalk(line) {
-    if (!live || talking || ctx.scene.userData.questQuiet) return;
+    if (!live || talking) return;
     const now = ac.currentTime;
     talking = true; lastDj = T;
     music.gain.setTargetAtTime(0.3, now, 0.08);
@@ -749,7 +749,7 @@ export function build(ctx) {
     const vx = SX - cx, vy = SY - cy, vz = SZ - cz;
     dist2 = vx * vx + vy * vy + vz * vz;
     const A = ctx.audio;
-    const muted = !A || !!A.muted || !!ctx.scene.userData.questQuiet;
+    const muted = !A || !!A.muted;
     if (live) {
       const now = ac.currentTime;
       if (muted || A.context !== ac) { if (talking) endTalk(true); fadeKill(0.15); }

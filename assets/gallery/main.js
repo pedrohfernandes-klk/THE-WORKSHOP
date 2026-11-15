@@ -230,7 +230,6 @@ const worldReady = createWorld(ctx, {
   onProgress: (k) => { state.worldProgress = k; },
 }).then((w) => {
   world = w;
-  w.modules.get('npcs')?.setNavigation?.(w);
   if (TEST) performance.mark('workshop:campus-built');
   controls.setWorld({ regions: w.regions, colliders: w.colliders });
   // A mirror only needs re-rendering from the side where it can be seen: the
@@ -273,40 +272,6 @@ camera.layers.enable(1);
 
 const hang = shared ? shared.hang : initialHang(WORKS, slotKinds, 1);
 const curator = createCurator({ works: WORKS, slots: slotKinds, hang, fixed: !!shared });
-
-// W2: select once, read gaze without allocating; preserve shared-show mode.
-let questWasFixed = false, questArtLocked = false;
-const questSilence = room.scene.userData.questSilence = { requested: false, confirmed: false };
-room.scene.userData.questArt = {
-  select(out) {
-    let best = -1, seconds = 0;
-    for (let i = 0; i < curator.hang.length; i++) {
-      const value = curator.seconds[curator.hang[i]] || 0;
-      if (value > seconds) { seconds = value; best = i; }
-    }
-    if (best < 0) return false;
-    const slot = SLOTS[best];
-    out.id = curator.hang[best];
-    out.x = slot.position.x + slot.normal.x * 2.4;
-    out.z = slot.position.z + slot.normal.z * 2.4;
-    out.y = 0;
-    return true;
-  },
-  lock() {
-    if (questArtLocked) return;
-    questWasFixed = curator.fixed; questArtLocked = true; curator.setFixed(true);
-  },
-  release() {
-    if (!questArtLocked) return;
-    curator.setFixed(questWasFixed); questArtLocked = false;
-  },
-  isLooking(id) {
-    return state.entered && !state.exhibitionOpen && !state.overlay && state.inHall &&
-      state.gazeSlot >= 0 && curator.hang[state.gazeSlot] === id &&
-      state.gazeWeight > 0.45 && controls.speed < 0.25;
-  },
-};
-
 
 room.setPower(0.06);
 
@@ -620,11 +585,6 @@ function clearSeatHint() {
 
 function act(found, hit) {
   const { action, module, object } = found;
-  const questPick = room.scene.userData.lastModulePick ||
-    (room.scene.userData.lastModulePick = { module: '', id: '', time: 0 });
-  questPick.module = module;
-  questPick.id = action.id || object.name || '';
-  questPick.time = performance.now() / 1000;
   if (action.type === 'sit') {
     if (hit && hit.distance > SIT_REACH) { ui.toast('Get closer to sit', 1400); return; }
     sitOn(nearestSeat(action.seats, hit ? hit.point : object.getWorldPosition(new THREE.Vector3())));
@@ -1186,11 +1146,6 @@ function step() {
   }
 
   audio.setMotion({ speed: Math.min(controls.speed, 3.2), moving: state.entered && controls.speed > 0.25, airborne: controls.airborne });
-  questSilence.requested = !!room.scene.userData.questQuiet;
-  audio.setQuiet?.(questSilence.requested);
-  if (questSilence.requested && typeof speechSynthesis !== 'undefined' && (speechSynthesis.speaking || speechSynthesis.pending)) speechSynthesis.cancel();
-  questSilence.confirmed = questSilence.requested && audio.quietConfirmed === true &&
-    (typeof speechSynthesis === 'undefined' || (!speechSynthesis.speaking && !speechSynthesis.pending));
   audio.update(dt);
   room.update(dt, camera);
   interactions.update(dt, interactionFrame);

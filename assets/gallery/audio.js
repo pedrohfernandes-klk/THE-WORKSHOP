@@ -164,14 +164,11 @@ export function buildEngine(ctx, destination) {
   limiter.attack.value = 0.003; limiter.release.value = 0.2;
   const pre = ctx.createGain(); pre.gain.value = 0.5;
   const clip = ctx.createWaveShaper(); clip.curve = softClipCurve(); clip.oversample = 'none';
-  const questGate = ctx.createGain(); questGate.gain.value = 1;
-  master.connect(limiter); limiter.connect(pre); pre.connect(clip); clip.connect(questGate); questGate.connect(destination || ctx.destination);
+  master.connect(limiter); limiter.connect(pre); pre.connect(clip); clip.connect(destination || ctx.destination);
 
-  // Effects retain their bus; the final questGate silences music AND effects.
-  const effects = ctx.createGain(); effects.gain.value = 1; effects.connect(master);
-  const dry = ctx.createGain(); dry.gain.value = 1; dry.connect(effects);
+  const dry = ctx.createGain(); dry.gain.value = 1; dry.connect(master);
   const wetIn = ctx.createGain(); wetIn.gain.value = 1;
-  const wetOut = ctx.createGain(); wetOut.gain.value = 0.9; wetOut.connect(effects);
+  const wetOut = ctx.createGain(); wetOut.gain.value = 0.9; wetOut.connect(master);
   const envs = {};
   [['hall', 2.5, 3.0, 1], ['outdoor', 0.5, 0.8, 0.45], ['small', 0.55, 0.9, 0.8], ['cinema', 0.25, 0.5, 0.6], ['lift', 0.35, 0.6, 0.9]].forEach(([n, rt, len, lv]) => {
     const conv = ctx.createConvolver(); conv.buffer = makeImpulse(ctx, rt, len);
@@ -189,7 +186,7 @@ export function buildEngine(ctx, destination) {
   musicIn.connect(musicEq); musicEq.connect(musicDuck); musicDuck.connect(master);
 
   const noise = { white: makeNoise(ctx, 'white', 2), pink: makeNoise(ctx, 'pink', 6), brown: makeNoise(ctx, 'brown', 8) };
-  return { ctx, master, effects, questGate, limiter, dry, wetIn, noise, envs, env: 'hall', tone: null, bed: null, lastReveal: -10, hum: null, musicIn, musicDuck, voices: [] };
+  return { ctx, master, limiter, dry, wetIn, noise, envs, env: 'hall', tone: null, bed: null, lastReveal: -10, hum: null, musicIn, musicDuck, voices: [] };
 }
 
 function noiseSrc(E, kind, loop = true) {
@@ -878,7 +875,7 @@ const OUTSIDE = { outdoor: 1, hall: 0.12, small: 0.1, cinema: 0, lift: 0.04 };
 export function createAudio() {
   const A = {
     ctx: null, E: null, started: false, starting: null,
-    muted: false, hidden: false, quiet: false, quietAt: 0,
+    muted: false, hidden: false,
     speed: 0, moving: false, wasMoving: false,
     nextStep: 0, lastStep: -10, side: 1, stepCount: 0,
     lightsHum: false, surface: 'concrete', env: 'hall', src: { fountain: 1e9, tram: 1e9, rain: 0, ruins: 1e9 },
@@ -979,11 +976,8 @@ export function createAudio() {
 
   const api = {
     get muted() { return A.muted; },
-    get quietConfirmed() {
-      return A.quiet && (!A.E || (A.ctx.currentTime >= A.quietAt && A.E.questGate.gain.value <= 0.00001));
-    },
     get context() { return A.ctx || null; },
-    get bus() { return (A.E && A.E.effects) || null; },
+    get bus() { return (A.E && A.E.master) || null; },
     // the score joins the mix here: music.start(audio.musicContext) (its `destination` is the score's bus)
     get musicContext() { if (!A.ctx || !A.E) return null; return A.musicCtx || (A.musicCtx = routedContext(A.ctx, A.E.musicIn)); },
     get musicBus() { return (A.E && A.E.musicIn) || null; },
@@ -1003,8 +997,7 @@ export function createAudio() {
           if (!AC) return;
           const ctx = new AC({ latencyHint: 'interactive' });
           const E = buildEngine(ctx);
-          A.ctx = ctx; A.E = E; E.effects.gain.value = A.quiet ? 0 : 1;
-          E.questGate.gain.value = A.quiet ? 0 : 1; A.quietAt = ctx.currentTime;
+          A.ctx = ctx; A.E = E;
           if (typeof document !== 'undefined') {
             A.hidden = !!document.hidden;
             document.addEventListener('visibilitychange', onVis);
@@ -1020,17 +1013,6 @@ export function createAudio() {
         finally { A.starting = null; }
       })();
       return A.starting;
-    },
-
-    setQuiet(value) {
-      const quiet = !!value;
-      if (quiet === A.quiet) return;
-      A.quiet = quiet;
-      if (A.E) {
-        ramp(A.E.effects.gain, quiet ? 0 : 1, A.ctx, 0.25);
-        ramp(A.E.questGate.gain, quiet ? 0 : 1, A.ctx, 0.35);
-        A.quietAt = A.ctx.currentTime + 0.35;
-      }
     },
 
     setMuted(m) {

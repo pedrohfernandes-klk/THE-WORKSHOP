@@ -451,14 +451,7 @@ export function build(ctx) {
     }
     return true;
   }
-  const snakeEvent = { time: 0, x: CX, z: CZ, kind: '' };
-  ctx.scene.userData.snakeEvent = snakeEvent;
-  function publishSnake(kind, cam) {
-    snakeEvent.time++; snakeEvent.kind = kind;
-    snakeEvent.x = cam.position.x; snakeEvent.z = cam.position.z;
-  }
   function startRound(i, j, cam) {
-    publishSnake('start', cam);
     newRound(G, i, j);
     mode = READY; t = 0; acc = 0; readyMin = rounds ? 0.8 : 0.5; moved = false; vc = j * COLS + i;
     roundT = 0; gulped = false; won = false; danger = 0; msgStr = msgIcon = null;
@@ -472,7 +465,6 @@ export function build(ctx) {
     if (bye) sfx('bye', cam, CX, CZ);
   }
   function finish(win, cam) {
-    publishSnake(win ? 'win' : 'lose', cam);
     mode = END; won = win; show();
     const reduced = !!ctx.reducedMotion, face = faceOf(cam), p = cam.position;
     if (win) {
