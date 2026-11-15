@@ -21,7 +21,7 @@ const BPM = 118;
 const BEAT = 60 / BPM, STEP = BEAT / 4, BAR = BEAT * 4;
 const LOOK = 0.2;     // s scheduled ahead of the audio clock (survives a 150 ms frame hitch)
 const CAP = 64;       // short-lived voices alive at once (drums, keys, bells, fx); persistent synths are extra
-const MASTER = 0.92;  // calibrated offline: score master ~ -16 LUFS outdoors at a walk, sample peaks < -1.5 dBFS
+const MASTER = 0.65;  // calibrated offline: score master ~ -16 LUFS outdoors at a walk, sample peaks < -1.5 dBFS
 const TRIM = 0.4;     // -8 dB seat in the game mix, after the score's own dynamics (footsteps and voices on top,
                       // and under the effects limiter's knee when sharing its bus)
 const ENTRY = 3.2;    // s after the click: the lights' relays land in the clear, then the score comes in
@@ -198,10 +198,10 @@ export function createMusic(opts = {}) {
     // kick-keyed sidechain: A = chords, pad and returns (soft pump), B = bass (deep and quick)
     const duckA = G(1), duckB = G(1); duckA.connect(sum); duckB.connect(sum);
 
-    // returns: one convolution hall (generated), one ping-pong dotted-8th delay, one chorus for width
-    const revIn = G(1), revHP = F('highpass', 220, 0.7), conv = c.createConvolver(), revLP = F('lowpass', 7000, 0.5), revOut = G(0.5);
-    conv.buffer = makeIR(1.7);
-    revIn.connect(revHP); revHP.connect(conv); conv.connect(revLP); revLP.connect(revOut); revOut.connect(duckA);
+    // returns: one hall (a 4-line feedback delay network), one ping-pong dotted-8th delay, one chorus for width
+    const revIn = G(1), revHP = F('highpass', 220, 0.7), revLP = F('lowpass', 7000, 0.5), revOut = G(0.5);
+    revIn.channelCount = 1; revIn.channelCountMode = 'explicit';           // the hall runs mono-in, stereo-out
+    revIn.connect(revHP); hallVerb(revHP, revLP); revLP.connect(revOut); revOut.connect(duckA);
     const delIn = G(1), dHP = F('highpass', 350, 0.6), dLP = F('lowpass', 3200, 0.6), dL = c.createDelay(2), dR = c.createDelay(2);
     dL.delayTime.value = STEP * 3; dR.delayTime.value = STEP * 3;
     const fbL = G(0.5), fbR = G(0.5), pL = pan(-0.6), pR = pan(0.6), delOut = G(0.42);
@@ -237,7 +237,7 @@ export function createMusic(opts = {}) {
     mk('bass', bSat); bAmp.connect(L.bass); bSat.connect(bMud); bMud.connect(bHP); bHP.connect(duckB);
 
     // chord stabs: 4 voices x 2 saws held, chopped by one gate, through the sweeping resonant filter and a phaser
-    const stabO = [], sMix = G(0.12), sHP = F('highpass', 180, 0.7), sLP = F('lowpass', 600, 5), sAmp = G(0);
+    const stabO = [], sMix = G(0.2), sHP = F('highpass', 180, 0.7), sLP = F('lowpass', 600, 5), sAmp = G(0);
     for (let i = 0; i < 8; i++) { const o = O('sawtooth'); o.detune.value = (i & 1) ? 7 : -6; o.connect(sMix); o.start(); stabO.push(o); }
     sMix.connect(sHP); sHP.connect(sLP); sLP.connect(sAmp);
     mk('stab', duckA); phaser(sAmp, [500, 900, 1500, 2400], 0.11).connect(L.stab);
@@ -253,7 +253,7 @@ export function createMusic(opts = {}) {
     send(L.pad, wideIn, 0.6); send(L.pad, revIn, 0.5);
 
     // lead: saw + square through three formant band-passes (a talking, vocoder-like vowel) and a phaser
-    const lo1 = O('sawtooth'), lo2 = O('square'), lSrc = G(0.32), lvib = O('sine', 5.3), lvD = G(9);
+    const lo1 = O('sawtooth'), lo2 = O('square'), lSrc = G(0.1), lvib = O('sine', 5.3), lvD = G(9);
     lo2.detune.value = -5; lvib.connect(lvD); lvD.connect(lo1.detune); lvD.connect(lo2.detune);
     lo1.connect(lSrc); lo2.connect(lSrc);
     const lForm = G(1), bp = [F('bandpass', 800, 7), F('bandpass', 1150, 9), F('bandpass', 2900, 10)];
@@ -286,7 +286,7 @@ export function createMusic(opts = {}) {
     for (const o of [d1, d2, dl, wl]) o.start(); wn.start();
     mk('fx', sum); send(L.fx, revIn, 0.4);
 
-    N = { sum, dip, level, duck, mute, duckA, duckB, revIn, revOut, revLP, delIn, fbL, fbR, drumLP, L,
+    N = { W, sum, dip, level, duck, mute, duckA, duckB, revIn, revOut, revLP, delIn, fbL, fbR, drumLP, L,
       bass: { o: [bo1, bo2, bsub], saw: bSaw, sub: bSub, lp: bLP, amp: bAmp },
       stab: { o: stabO, lp: sLP, amp: sAmp }, pad: { o: padO, breath: pBreath, lp: pLP },
       lead: { o: [lo1, lo2], bp, amp: lAmp, last: 0, end: 0 }, chip: { o: co, amp: cAmp, pan: cPan } };
@@ -306,27 +306,36 @@ export function createMusic(opts = {}) {
 
   function waves() {
     const n = 40, re = new Float32Array(n), im = new Float32Array(n), re2 = new Float32Array(n), im2 = new Float32Array(n), D = 0.25;
+    const epIm = new Float32Array([0, 1, 0.38, 0.14, 0.06, 0.03]);
     for (let k = 1; k < n; k++) {
       im[k] = Math.pow(k, -1.35) * (k % 2 ? 1 : 0.8);                          // soft, slightly hollow saw
       const roll = 1 - k / (n + 8);                                             // 25% pulse, edges softened
       re2[k] = roll * Math.sin(2 * Math.PI * k * D) / (k * Math.PI);
       im2[k] = roll * 2 * Math.pow(Math.sin(Math.PI * k * D), 2) / (k * Math.PI);
     }
-    return { warm: ctx.createPeriodicWave(re, im), pulse: ctx.createPeriodicWave(re2, im2) };
+    return { warm: ctx.createPeriodicWave(re, im), pulse: ctx.createPeriodicWave(re2, im2), ep: ctx.createPeriodicWave(new Float32Array(6), epIm) };
   }
 
-  function makeIR(sec) {
-    const sr = ctx.sampleRate, n = Math.floor(sr * sec), b = ctx.createBuffer(2, n, sr), r = mulberry32(4242), pre = Math.floor(sr * 0.014);
-    for (let c = 0; c < 2; c++) {
-      const d = b.getChannelData(c); let lp = 0;
-      for (let i = pre; i < n; i++) {
-        const x = (i - pre) / (n - pre), damp = 0.15 + 0.8 * x;               // the tail darkens as it decays
-        lp += (r() * 2 - 1 - lp) * (1 - damp);
-        d[i] = lp * Math.exp(-6 * x) * (1 + 1.5 * damp);
-      }
-      for (let k = 0; k < 7; k++) { const at = pre + Math.floor(sr * (0.006 + 0.011 * k + 0.004 * r())); d[at] += (r() < 0.5 ? -1 : 1) * (0.45 - 0.05 * k); }
-    }
-    return b;
+  // A hall for a few delay lines' worth of CPU (a long convolver costs ~10x more): pre-delay, two Schroeder
+  // diffusers, then four damped lines mixed by a Householder matrix; odd lines feed the right, even the left.
+  function hallVerb(input, out, rt = 2.1) {
+    const pre = ctx.createDelay(0.1); pre.delayTime.value = 0.016; input.connect(pre);
+    let x = pre;
+    for (const [d, g] of [[0.0061, 0.6], [0.0089, 0.55]]) x = allpass(x, d, g);
+    const D = [0.0317, 0.0373, 0.0419, 0.0471], mixS = G(-0.5), merger = ctx.createChannelMerger(2), wet = G(0.32);
+    D.forEach((d, i) => {
+      const dl = ctx.createDelay(0.1), fb = G(Math.pow(10, (-3 * d) / rt)), damp = F('lowpass', 5200, 0.5), inj = G(i & 1 ? -0.5 : 0.5);
+      dl.delayTime.value = d;
+      dl.connect(fb); dl.connect(mixS); mixS.connect(fb); fb.connect(damp); damp.connect(dl);
+      x.connect(inj); inj.connect(dl); dl.connect(merger, 0, i & 1);
+    });
+    merger.connect(wet); wet.connect(out);
+  }
+  function allpass(input, d, g) { // v = x + g v[n-D]; y = -g v + v[n-D]
+    const v = G(1), dl = ctx.createDelay(0.05), fb = G(g), ff = G(-g), out = G(1);
+    dl.delayTime.value = d;
+    input.connect(v); v.connect(dl); dl.connect(fb); fb.connect(v); v.connect(ff); ff.connect(out); dl.connect(out);
+    return out;
   }
 
   // ------------------------------------------------------------ voices --
@@ -351,19 +360,19 @@ export function createMusic(opts = {}) {
     B.setTargetAtTime(1 - 0.72 * k * v, t, 0.003); B.setTargetAtTime(1, t + 0.03, 0.06);
   }
   function clap(t, v) {
-    for (let k = 0; k < 3; k++) nz(t + k * 0.009, 0.014, 'bandpass', 1150, 1.1, 0.8 * v, N.L.clap);
-    nz(t + 0.027, 0.17, 'bandpass', 1050, 0.9, 0.7 * v, N.L.clap);
-    nz(t, 0.09, 'highpass', 5200, 0.6, 0.3 * v, N.L.clap);
+    for (let k = 0; k < 3; k++) nz(t + k * 0.009, 0.014, 'bandpass', 1150, 1.1, 1.5 * v, N.L.clap);
+    nz(t + 0.027, 0.17, 'bandpass', 1050, 0.9, 1.3 * v, N.L.clap);
+    nz(t, 0.09, 'highpass', 5200, 0.6, 0.55 * v, N.L.clap);
     if (!room(t + 0.1)) return;
     const o = O('triangle'), e = G(0);
     o.frequency.setValueAtTime(195, t); o.frequency.exponentialRampToValueAtTime(150, t + 0.07);
-    e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(0.4 * v, t + 0.001); e.gain.setTargetAtTime(0, t + 0.002, 0.03);
+    e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(0.6 * v, t + 0.001); e.gain.setTargetAtTime(0, t + 0.002, 0.03);
     o.connect(e); e.connect(N.L.clap); o.start(t); o.stop(t + 0.16);
   }
   function snare(t, v) { nz(t, 0.08, 'bandpass', 1000, 0.8, 0.45 * v, N.L.clap); nz(t, 0.06, 'highpass', 5000, 0.6, 0.2 * v, N.L.clap); }
-  const chat = (t, v) => nz(t, 0.035 + 0.012 * v, 'highpass', 8200, 0.9, 0.34 * v, N.L.hat, 0.0008);
-  const ohat = (t, v) => nz(t, 0.2, 'highpass', 7000, 0.8, 0.26 * v, N.L.ohat, 0.003);
-  const shake = (t, v) => nz(t, 0.05, 'bandpass', 7000, 1.4, 0.32 * v, N.L.shaker, 0.007);
+  const chat = (t, v) => nz(t, 0.035 + 0.012 * v, 'highpass', 8200, 0.9, 1.3 * v, N.L.hat, 0.0008);
+  const ohat = (t, v) => nz(t, 0.2, 'highpass', 7000, 0.8, 0.58 * v, N.L.ohat, 0.003);
+  const shake = (t, v) => nz(t, 0.05, 'bandpass', 7000, 1.4, 1.6 * v, N.L.shaker, 0.007);
   function tom(t, v, p) {
     if (!room(t + 0.4)) return;
     const f = 105 * [1, 0.84, 0.7][p], o = O('sine'), e = G(0);
@@ -401,25 +410,25 @@ export function createMusic(opts = {}) {
     const c = N.chip;
     c.o.frequency.setValueAtTime(mtof(midi), t);
     const A = c.amp.gain; A.cancelScheduledValues(t - 0.002); A.setTargetAtTime(0, t - 0.002, 0.0008);
-    A.setTargetAtTime(v * 0.5, t, 0.001); A.setTargetAtTime(0, t + STEP * 0.55, 0.02);
+    A.setTargetAtTime(v * 0.3, t, 0.001); A.setTargetAtTime(0, t + STEP * 0.55, 0.02);
     if (c.pan.pan) c.pan.pan.setValueAtTime(p, t);
   }
-  function key(t, midi, v) {
-    const f = mtof(midi), dur = midi < 55 ? 3.4 : 2.6;
-    if (!room(t + dur + 0.3)) return;
-    const c = O('sine', f), m = O('sine', f), mg = G(0), e = G(0);
-    mg.gain.setValueAtTime(f * (1.4 + 1.8 * v), t); mg.gain.setTargetAtTime(f * 0.22, t, 0.32);
-    m.connect(mg); mg.connect(c.frequency);
-    e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(v * 0.28, t + 0.004);
-    e.gain.setTargetAtTime(v * 0.1, t + 0.01, 0.45); e.gain.setTargetAtTime(0, t + dur - 0.5, 0.18);
-    c.connect(e); e.connect(N.L.keys); c.start(t); m.start(t); c.stop(t + dur + 0.3); m.stop(t + dur + 0.3);
+  function key(t, midi, v) {      // electric piano: a mellow body and a short bright tine on top
+    const f = mtof(midi), dur = midi < 55 ? 3.0 : 2.3;
+    if (!room(t + dur + 0.2)) return;
+    const o = O(N.W.ep, f), e = G(0), tn = O('sine', Math.min(f * 7, 12000)), te = G(0);
+    e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(v * 0.45, t + 0.003);
+    e.gain.setTargetAtTime(v * 0.16, t + 0.005, 0.5); e.gain.setTargetAtTime(0, t + dur - 0.4, 0.15);
+    te.gain.setValueAtTime(0, t); te.gain.linearRampToValueAtTime(v * 0.1, t + 0.001); te.gain.setTargetAtTime(0, t + 0.002, 0.035);
+    o.connect(e); tn.connect(te); e.connect(N.L.keys); te.connect(N.L.keys);
+    o.start(t); tn.start(t); o.stop(t + dur + 0.2); tn.stop(t + 0.3);
   }
   function bell(t, midi, v, ratio, dur) {
     if (!room(t + dur)) return;
     const f = mtof(midi), c = O('sine', f), m = O('sine', f * ratio), mg = G(0), e = G(0);
     mg.gain.setValueAtTime(f * 2, t); mg.gain.setTargetAtTime(f * 0.1, t, dur * 0.18);
     m.connect(mg); mg.connect(c.frequency);
-    e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(v * 0.09, t + 0.002); e.gain.setTargetAtTime(0, t + 0.002, dur / 5);
+    e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(v * 0.25, t + 0.002); e.gain.setTargetAtTime(0, t + 0.002, dur / 5);
     c.connect(e); e.connect(N.L.bell); c.start(t); m.start(t); c.stop(t + dur); m.stop(t + dur);
   }
   function sweep(t, dur, v, f0, f1, dest, cut = true) {    // risers, reversed swells
@@ -577,7 +586,7 @@ export function createMusic(opts = {}) {
     set('perc', st * (0.35 + 0.65 * o) * (1 - r) + groove * sm(0.8, 1, e) * 0.45);
     set('bass', (0.28 + 0.72 * groove * sm(0.05, 0.45, e)) * (1 - 0.35 * r));
     set('stab', (groove * sm(0.12, 0.5, e) + 0.6 * st * o) * (1 - 0.8 * r));
-    set('pad', clamp(0.3 + 0.35 * calm + 0.35 * n + 0.5 * r - 0.3 * groove * e, 0.18, 1));
+    set('pad', clamp(0.24 + 0.14 * calm + 0.35 * n + 0.5 * r - 0.15 * groove * e, 0.2, 1));
     set('keys', (0.85 * calm + 0.45 * n * groove) * (1 - 0.85 * r) * (1 - 0.6 * groove * e));
     set('lead', groove * sm(0.3, 0.6, e) * (1 - 0.3 * st));
     set('chip', groove * sm(0.72, 0.95, e) + 0.7 * a);

@@ -294,7 +294,7 @@ worldReady.then((w) => {
   if (!w) return;
   // Compile the campus's shaders off the main thread where the GPU allows.
   try { renderer.compileAsync?.(room.scene, camera).catch(() => {}); } catch (e) { /* optional */ }
-  if (state.entered) ui.toast('The doors are open — the campus awaits outside.', 3600);
+  if (state.entered) ui.toast('The doors are open.', 2400);
 });
 
 // ----------------------------------------------------------------- entry --
@@ -457,7 +457,7 @@ controls.onTap = (x, y) => {
   if (state.overlay) return;
   const hit = pickAt(x, y);
   if (!hit) return;
-  if (paper && isPaper(hit.object)) { if (paper.tryPickUp(hit.object)) ui.toast('Hold F (or right mouse) and release to throw', 2600); return; }
+  if (paper && isPaper(hit.object)) { if (paper.tryPickUp(hit.object)) ui.toast('Hold F, release to throw', 2400); return; }
   const slot = findSlot(hit.object);
   if (slot !== -1 && state.inHall) { focusSlot(slot); return; }
   if (isProp(hit.object, 'catalogue')) { openExhibition(); return; }
@@ -516,8 +516,12 @@ function labelFor(o) {
   const found = world && world.actionFor(o);
   if (!found) return null;
   const { action, module } = found;
+  if (action.label) return action.label;            // a module can name its own action
   if (action.type === 'sit') return 'Sit';
   if (action.type === 'app') return action.title || 'Open';
+  const OWN = { floppies: 'Pick up the floppy', cat: 'Pet the cat', ghost: 'Buu?', photobooth: 'Take a photo',
+    radio: 'Radio on / off', vending: 'Buy something', duck: 'Squeeze the duck', gnome: 'Hm?', murals: 'Look closer', arraial: 'Ask for a song' };
+  if (OWN[module]) return OWN[module];
   if (module === 'lift') return /go-1/.test(action.id) ? 'Up · Cinema & terrace' : /go-0/.test(action.id) ? 'Down · The Hall' : 'Call the lift';
   if (module === 'cinema' || module === 'amphitheatre') return 'Choose what plays on this screen';
   if (module === 'npcs') return coarsePointer ? 'Talk' : 'Click: slap · E: talk';
@@ -779,7 +783,7 @@ function updateVisibility(now) {
         audio.reveal();
         state.revealedSwaps++;
         if (state.revealedSwaps === 1) {
-          ui.toast('The room is re-hanging itself around what holds your gaze.');
+          ui.toast('Behind you, the walls change.');
         }
       }
     }
@@ -867,7 +871,7 @@ function updatePlace(pos, floor) {
   updateSoundscape(area, pos, floor, inLift);
   if (state.entered && name && name !== state.place) {
     state.place = name;
-    if (state.frames > 30) ui.toast(name, 2400);
+    if (state.frames > 30) (ui.place ? ui.place(name) : ui.toast(name, 2400));
   }
   if (!state.inHall && state.labelSlot !== -1 && state.focused === -1) { state.labelSlot = -1; ui.setLabel(null); }
 }
@@ -1121,7 +1125,7 @@ document.addEventListener('visibilitychange', () => {
 canvas.addEventListener('webglcontextlost', (event) => {
   event.preventDefault();
   running = false;
-  ui.toast('The graphics card took a break. Reloading the room…', 4000);
+  ui.toast('Graphics hiccup. Reloading…', 4000);
   setTimeout(() => location.reload(), 1500);
 });
 

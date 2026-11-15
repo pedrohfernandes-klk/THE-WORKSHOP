@@ -203,49 +203,49 @@ export function build(ctx) {
   }
 
   // the pointed red hat, tip bent back, set slightly back on the head
-  paint(body, deform(lathe([[0.04, 0.281], [0.058, 0.277], [0.0615, 0.281], [0.06, 0.287], [0.055, 0.296],
-    [0.049, 0.312], [0.041, 0.332], [0.032, 0.352], [0.022, 0.372], [0.012, 0.389], [0.005, 0.4], [0, 0.405]]), (v) => {
-    const t = smooth(0.28, 0.405, v.y), th = Math.atan2(v.x, v.z), crumple = 1 + 0.018 * Math.sin(th * 3 + v.y * 80) * t;
-    v.x = v.x * crumple + 0.008 * t * t * t; v.z = v.z * crumple - 0.03 * t ** 2.2;
+  paint(body, deform(lathe([[0.04, 0.281], [0.058, 0.277], [0.0615, 0.281], [0.06, 0.287], [0.055, 0.297],
+    [0.049, 0.315], [0.041, 0.337], [0.032, 0.36], [0.022, 0.382], [0.012, 0.401], [0.005, 0.414], [0, 0.42]]), (v) => {
+    const t = smooth(0.28, 0.42, v.y), th = Math.atan2(v.x, v.z), crumple = 1 + 0.018 * Math.sin(th * 3 + v.y * 80) * t;
+    v.x = v.x * crumple + 0.008 * t * t * t; v.z = v.z * crumple - 0.036 * t ** 2.2;
     const a = -0.12, y = v.y - 0.28, z = v.z;
     v.y = 0.28 + y * Math.cos(a) - z * Math.sin(a); v.z = y * Math.sin(a) + z * Math.cos(a);
   }), (x, y, z, ny) => {
-    const t = smooth(0.29, 0.4, y);
+    const t = smooth(0.29, 0.415, y);
     out.copy(PAL.hat).lerp(PAL.hatTip, 0.6 * t * t);
     if (ny < -0.3) out.multiplyScalar(0.55);
     else if (y < 0.286) out.multiplyScalar(0.85);
     return t > 0.88 ? 1 : y < 0.285 ? 0.8 : 0.14;
   });
 
-  // arms: sleeves from the shoulders, cuffs, mitten hands resting on the belly
+  // arms: slim sleeves close to the body, cuffs, mitten hands resting on the belt
   for (const s of [-1, 1]) {
     const path = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(s * 0.062, 0.208, 0), new THREE.Vector3(s * 0.092, 0.188, 0.012),
-      new THREE.Vector3(s * 0.105, 0.16, 0.04), new THREE.Vector3(s * 0.055, 0.143, 0.1),
+      new THREE.Vector3(s * 0.058, 0.205, -0.004), new THREE.Vector3(s * 0.086, 0.18, 0.008),
+      new THREE.Vector3(s * 0.098, 0.15, 0.035), new THREE.Vector3(s * 0.064, 0.13, 0.086),
     ]);
     const TS = low ? 10 : 16, RS = low ? 8 : 12;
-    const tube = new THREE.TubeGeometry(path, TS, 0.02, RS, false);
+    const tube = new THREE.TubeGeometry(path, TS, 0.0165, RS, false);
     {
       const p = tube.attributes.position, c = new THREE.Vector3();
       for (let i = 0; i < p.count; i++) {
         const t = Math.floor(i / (RS + 1)) / TS;
         path.getPointAt(t, c);
-        const k = (0.021 - 0.005 * t) / 0.02;
+        const k = (0.0165 - 0.0035 * t) / 0.0165;
         v3.fromBufferAttribute(p, i).sub(c).multiplyScalar(k).add(c);
         p.setXYZ(i, v3.x, v3.y, v3.z);
       }
     }
     paint(arms, deform(prep(tube), () => {}), (x, y) => { out.copy(PAL.coat); if (y < 0.155) out.multiplyScalar(0.9); return 0.12; });
-    paint(arms, blob(0.023, s * 0.062, 0.208, 0, 1, 1, 1, 12), () => { out.copy(PAL.coat); return 0.12; });
+    paint(arms, blob(0.019, s * 0.058, 0.205, -0.004, 1, 1, 1, 12), () => { out.copy(PAL.coat); return 0.12; });
     const end = path.getPointAt(1), tan = path.getTangentAt(1);
     q4.setFromUnitVectors(Z, tan);
-    const cuff = prep(new THREE.TorusGeometry(0.0172, 0.0042, 8, 16));
+    const cuff = prep(new THREE.TorusGeometry(0.0142, 0.0036, 8, 16));
     cuff.applyQuaternion(q4); cuff.translate(end.x, end.y, end.z);
     paint(arms, cuff, () => { out.copy(PAL.coat).multiplyScalar(1.12); return 0.5; });
     const hand = prep(new THREE.SphereGeometry(1, 12, 9));
-    hand.scale(0.0175, 0.015, 0.019); hand.applyQuaternion(q4);
-    hand.translate(end.x + tan.x * 0.014, end.y + tan.y * 0.014, end.z + tan.z * 0.014);
-    paint(arms, hand, (x, y, z) => { out.copy(PAL.skin); return z > 0.118 ? 0.8 : 0.2; });
+    hand.scale(0.0158, 0.0135, 0.0172); hand.applyQuaternion(q4);
+    hand.translate(end.x + tan.x * 0.012, end.y + tan.y * 0.012, end.z + tan.z * 0.012);
+    paint(arms, hand, (x, y, z) => { out.copy(PAL.skin); return z > 0.105 ? 0.8 : 0.2; });
   }
 
   // ---- glazed ceramic: clearcoat over enamel; chips of bare terracotta, in-shader
