@@ -702,7 +702,7 @@ export async function build(ctx) {
   // Every character: 12+ lines of their own, plus lines for the moment (the visitor running
   // past, jumping, sitting nearby, the weather, being ignored or talked to again, cheeky
   // gestures, slaps once or again and again). Missing keys fall back to their language.
-  const LEVOU_NPC = ['Já levaste na boca!', 'Já levaste na boca, já!', 'Ahah, já levaste na boca!', 'AHAHAHAHA!', 'AHAHAH! Já levaste na boca!', 'LMFAO! Mas é o #%&@, ainda levas nessa fuça, irmão!'];
+  const LEVOU_NPC = ['Já levaste na boca!', 'Já levaste na boca, já!', 'Ahah, já levaste na boca!', 'AHAHAHAHA!', 'AHAHAH! Já levaste na boca!', 'LMFAO! Mas é o #%&@, ainda levas nessa fuça, irmão!', 'Eh, calma, Zé!', 'Eh pá, calma, Zé!', 'Olha que lhe arrebentas a tromba, bro! Para lá com isso, #%&@!'];
   const LEVOU_F = ['Já levaste na boca!', 'Já levaste na boca, já!', 'Ahah, já levaste na boca!'];
   const LEVOU_VIS = ['Levas na boca, porko!', 'Levaste na boca, boneco!', 'Levaste na boca, ó boneco!', 'Toma lá, boneco!', 'AHAHAHAHA!', 'AHAHAH! Já levaste na boca!', 'Já levaste na boca!', 'LMFAO! Mas é o #%&@, ainda levas nessa fuça, irmão!'];
   const DEF = {
@@ -747,7 +747,7 @@ export async function build(ctx) {
       ignored: ['Pronto, ninguém me liga.', 'Estava a falar contigo, pá!', 'Vai, vai. Vai pentear macacos!'],
       ouch: ['Ai!', 'Ui!', 'Ó pá!'],
       ouch2: ['Outra vez?!', 'Ó pá, outra vez?!', 'Mas isto é um vício?!'],
-      ouch3: ['Ó seu #%&@!', 'Raios te partam!', 'Ai o caraças! Agora é que é!'],
+      ouch3: ['Ó seu #%&@!', 'Raios te partam!', 'Ai o caraças! Agora é que é!', 'Eh, calma, Zé!'],
       up: ['Ó pá! Isso é maneira?', 'Eu ia dizer uma coisa e esqueci-me!', 'No meu tempo isto não se fazia.', 'Respeito, pá!', 'Vou fazer queixa… a alguém.', 'Chapada de amador!', 'Aprende a bater, ó mão de manteiga!', "Isso doeu-me na alma, ó cara d'urso!", 'Bate-me outra vez e faço queixinhas ao gnomo!'],
       rude: ['Ó malcriado!', 'Na minha terra isso dava estalada!', 'Que falta de educação, pá!', 'Ó palerma!', 'Olha-me este cromo!', 'Vai dar banho ao cão!', 'Ó seu #%&@!', 'Ó porco!', 'Ó estupidozinho!', 'Ó cara de papo!'],
       smug: ['Toma lá, boneco!', 'Levaste na boca, boneco!', 'Já levaste na boca!', 'Levas na boca, porko!'],
