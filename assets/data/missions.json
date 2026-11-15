@@ -1,0 +1,78 @@
+[
+  {
+    "id": "nata-expresso", "título": "Expresso com asas", "zona": "Mercado · Praça",
+    "duracaoPrevistaSegundos": [120, 240],
+    "passos": [
+      { "gatilho": "chegar", "alvo": { "x": 96, "z": 37.2, "y": 0.35, "raio": 2 }, "fala": "Vai buscar a nata ao mercado." },
+      { "gatilho": "clicar", "alvo": { "modulo": "mercado", "id": "nata", "x": 96, "z": 37.2, "y": 0.35, "raio": 3 }, "fala": "Pede a nata. Ainda está quente." },
+      { "gatilho": "chegar", "alvo": { "x": 68, "z": 29, "raio": 2 }, "fala": "Corre! Entrega na praça.", "efeito": "levar-nata" },
+      { "gatilho": "clicar", "alvo": { "modulo": "quests", "id": "pombo", "x": 60, "z": 29, "raio": 3 }, "fala": "O pombo roubou! Recupera a nata.", "efeito": "roubar-nata" },
+      { "gatilho": "chegar", "alvo": { "x": 8, "z": 41, "raio": 2 }, "fala": "À praça! O lanche tem asas.", "efeito": "recuperar-nata" },
+      { "gatilho": "clicar", "alvo": { "modulo": "quests", "id": "entrega", "x": 8, "z": 41, "raio": 3 }, "fala": "Entrega. Não menciones o pombo." }
+    ],
+    "recompensa": { "fala": "Entrega feita. Gorjeta: migalhas.", "som": "fanfarra", "pontos": 1 }
+  },
+  {
+    "id": "bombo", "título": "Dois pés, nenhum plano", "zona": "Arraial",
+    "duracaoPrevistaSegundos": [120, 240],
+    "passos": [
+      { "gatilho": "chegar", "alvo": { "x": 70, "z": 26, "raio": 1.4 }, "fala": "Vai ao arraial. Leva os pés." },
+      { "gatilho": "clicar", "alvo": { "modulo": "arraial", "id": "rosa", "x": 71.5, "z": 25.5, "raio": 6 }, "fala": "Pede o bombo à Rosa." },
+      { "gatilho": "gesto", "alvo": { "nome": "dance", "vezes": 3, "intervalo": 1.25, "x": 70, "z": 26, "raio": 2 }, "fala": "Dança três vezes. O chão aguenta." },
+      { "gatilho": "chegar", "alvo": { "x": 0, "z": 20, "raio": 1.5 }, "fala": "Convida o público à entrada." },
+      { "gatilho": "gesto", "alvo": { "nome": "wave", "x": 0, "z": 20, "raio": 2 }, "fala": "Acena. Há lugares na primeira fila." },
+      { "gatilho": "chegar", "alvo": { "x": 70, "z": 26, "raio": 1.5 }, "fala": "Regressa ao bombo. Trouxeste entusiasmo." },
+      { "gatilho": "gesto", "alvo": { "nome": "dance", "vezes": 3, "intervalo": 1.25, "x": 70, "z": 26, "raio": 2 }, "fala": "Mais três danças. Agora com convicção." },
+      { "gatilho": "gesto", "alvo": { "nome": "clap", "x": 70, "z": 26, "raio": 2 }, "fala": "Aplaude quem ficou até ao fim." }
+    ],
+    "recompensa": { "fala": "Ritmo aprovado. Pés em recurso.", "som": "fanfarra", "pontos": 1 }
+  },
+  {
+    "id": "cartao", "título": "Valentia reciclável", "zona": "Praça",
+    "duracaoPrevistaSegundos": [120, 240],
+    "passos": [
+      { "gatilho": "chegar", "alvo": { "x": 96, "z": 26.2, "y": 0.35, "raio": 2 }, "fala": "Vai ao mercado buscar cartão." },
+      { "gatilho": "clicar", "alvo": { "modulo": "mercado", "id": "fruta", "x": 96, "z": 26.2, "y": 0.35, "raio": 3 }, "fala": "Pede uma caixa. Hoje há bravura." },
+      { "gatilho": "chegar", "alvo": { "x": 14, "z": 37, "raio": 1.5 }, "fala": "Encontra o touro de cartão.", "efeito": "touro" },
+      { "gatilho": "gesto", "alvo": { "nome": "wave", "x": 14, "z": 37, "raio": 2.5 }, "fala": "Cumprimenta. Foi montado esta manhã." },
+      { "gatilho": "chegar", "alvo": { "x": 11, "z": 36, "raio": 1 }, "fala": "Contorna pela esquerda. Sem pisar colas." },
+      { "gatilho": "chegar", "alvo": { "x": 14, "z": 34, "raio": 1 }, "fala": "Agora por trás. Tem instruções." },
+      { "gatilho": "chegar", "alvo": { "x": 16, "z": 36, "raio": 1 }, "fala": "Flanco direito. O cartão está nervoso." },
+      { "gatilho": "gesto", "alvo": { "nome": "clap", "vezes": 3, "intervalo": 1.25, "x": 16, "z": 36, "raio": 2 }, "fala": "Três palmas. Coragem também se monta." },
+      { "gatilho": "clicar", "alvo": { "modulo": "quests", "id": "touro-cartao", "x": 14, "z": 36, "raio": 3 }, "fala": "Segura o touro. Devagarinho." },
+      { "gatilho": "gesto", "alvo": { "nome": "thumbs", "x": 14, "z": 36, "raio": 3 }, "fala": "Está bem? Faz sinal positivo.", "efeito": "touro-cai" }
+    ],
+    "recompensa": { "fala": "Bravo! Reciclar também exige coragem.", "som": "fanfarra", "pontos": 1 }
+  },
+  {
+    "id": "turista", "título": "O metro fica já ali", "zona": "Praça · Jardim · Metro",
+    "duracaoPrevistaSegundos": [120, 240],
+    "passos": [
+      { "gatilho": "clicar", "alvo": { "modulo": "quests", "id": "turista", "x": 8, "z": 41, "raio": 3 }, "fala": "Ajuda o turista a encontrar caminho.", "efeito": "turista" },
+      { "gatilho": "chegar", "alvo": { "x": 0, "z": 20, "raio": 2, "acompanhar": true }, "fala": "Primeiro, mostra-lhe a entrada do Hall.", "efeito": "acompanhar" },
+      { "gatilho": "gesto", "alvo": { "nome": "point", "x": 0, "z": 20, "raio": 2 }, "fala": "Aponta. As paredes guardam encontros." },
+      { "gatilho": "chegar", "alvo": { "x": -21, "z": 29, "raio": 2, "acompanhar": true }, "fala": "Mostra-lhe o anfiteatro, deste lado." },
+      { "gatilho": "gesto", "alvo": { "nome": "point", "x": -21, "z": 29, "raio": 2 }, "fala": "O metro? Era para a direita." },
+      { "gatilho": "chegar", "alvo": { "x": 0, "z": 20, "raio": 2, "acompanhar": true }, "fala": "Contorna o lago pela entrada." },
+      { "gatilho": "chegar", "alvo": { "x": 22, "z": 29, "raio": 2, "acompanhar": true }, "fala": "Até ao portão. Espera por ele." },
+      { "gatilho": "chegar", "alvo": { "x": 40, "z": 29, "raio": 2, "acompanhar": true }, "fala": "Devagar. Ele está a guardar memórias." },
+      { "gatilho": "chegar", "alvo": { "x": 52, "z": 29, "raio": 2, "acompanhar": true }, "fala": "Contorna a fonte. Ele segue-te." },
+      { "gatilho": "chegar", "alvo": { "x": 63, "z": 29, "raio": 2, "acompanhar": true }, "fala": "Quase lá. Já conhece o jardim." },
+      { "gatilho": "chegar", "alvo": { "x": 78, "z": 29, "raio": 2, "acompanhar": true }, "fala": "Sobe a rampa com ele." },
+      { "gatilho": "chegar", "alvo": { "x": 83, "z": 29, "y": 0.35, "raio": 2, "acompanhar": true }, "fala": "Fica na plataforma. Sem atravessar carris." },
+      { "gatilho": "gesto", "alvo": { "nome": "wave", "x": 83, "z": 29, "y": 0.35, "raio": 2 }, "fala": "Despede-te. Hoje ninguém se perdeu." }
+    ],
+    "recompensa": { "fala": "Obrigado. Viajar sozinho custa às vezes.", "som": "fanfarra", "pontos": 1 }
+  },
+  {
+    "id": "ficar", "título": "Ficar um pouco", "zona": "Hall", "seria": true,
+    "duracaoPrevistaSegundos": [120, 240],
+    "passos": [
+      { "gatilho": "chegar", "alvo": { "x": 0, "z": 20, "raio": 2 }, "fala": "Volta ao Hall, sem pressa." },
+      { "gatilho": "tempo", "alvo": { "modo": "night", "x": 0, "z": 20, "raio": 3 }, "fala": "Escolhe a noite no botão tempo." },
+      { "gatilho": "chegar", "alvo": { "x": 0, "z": 12, "raio": 2 }, "fala": "Entra. A tua obra espera." },
+      { "gatilho": "olhar", "alvo": { "favorita": true, "segundos": 90, "modo": "night", "raio": 2 }, "fala": "Fica diante da obra que escolheste." }
+    ],
+    "recompensa": { "fala": "Obrigado por ficares.", "som": "silencio", "pontos": 0 }
+  }
+]
