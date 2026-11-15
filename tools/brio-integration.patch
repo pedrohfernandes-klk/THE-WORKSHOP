@@ -1,0 +1,269 @@
+diff --git a/assets/gallery/controls.js b/assets/gallery/controls.js
+index f235f2e..2930c45 100644
+--- a/assets/gallery/controls.js
++++ b/assets/gallery/controls.js
+@@ -178,6 +178,29 @@ export function createControls(camera, dom, opts = {}) {
+     startFlight(from.x, from.floor + eyeHeight, from.z, yaw, pitch * 0.5, reduced ? 0.2 : 0.55);
+   };
+ 
++  // Shared combat/tram displacement: additive, collision checked, no teleport reset.
++  let impulseX=0, impulseZ=0, impulseLeft=0;
++  controls.readPosition = (out) => { out.x=px;out.y=py;out.z=pz;return out; };
++  controls.combatMove = (dx,dz) => {
++    if(typeof controls.moveCarrierDelta === 'function' && controls.moveCarrierDelta(dx,dz)) return;
++    const before=floor;
++    if(world){moveInWorld(px,pz,floor,dx,dz,RADIUS,world.regions,world.colliders,active,wtmp);px=wtmp.x;pz=wtmp.z;floor=wtmp.floor;}
++    else{moveWithCollision(px,pz,dx,dz,RADIUS,bounds,colliders,tmp);px=tmp.x;pz=tmp.z;}
++    py+=floor-before;applyCamera(0);
++  };
++  controls.applyImpulse = (dx,dz,duration=.3) => {
++    if(!Number.isFinite(dx)||!Number.isFinite(dz))return;
++    impulseX+=dx;impulseZ+=dz;const length=Math.hypot(impulseX,impulseZ);
++    if(length>1){impulseX/=length;impulseZ/=length;}
++    impulseLeft=Math.max(.05,Math.min(.3,duration));
++  };
++  controls.combatJump = () => {
++    if(seat){controls.standUp();return;}
++    if(jumpY===0&&jumpV===0&&!fl){jumpV=reduced?JUMP_V*.8:JUMP_V;interrupt();}else jumpBuf=JUMP_BUFFER;
++    firstInput();
++  };
++  controls.releaseCombatKeys = () => {keys.delete('ShiftLeft');keys.delete('ShiftRight');};
++
+   /** Place the visitor on a floor point instantly (eye height added). */
+   controls.teleport = function teleport(p) {
+     interrupt();
+@@ -448,6 +471,7 @@ export function createControls(camera, dom, opts = {}) {
+   controls.update = function update(dt) {
+     if (!(dt > 0)) return;
+     if (dt > 0.1) dt = 0.1;
++    if(impulseLeft>0){const part=Math.min(dt,impulseLeft)/impulseLeft,dx=impulseX*part,dz=impulseZ*part;impulseX-=dx;impulseZ-=dz;impulseLeft=Math.max(0,impulseLeft-dt);controls.combatMove(dx,dz);}
+     const oyaw = yaw, opitch = pitch, ox = px, oz = pz;
+     const live = controls.enabled;
+     if (live && ptrId !== -1 && ptrType !== 'mouse' && !holdWalk && !dragging && now() - downT > HOLD_MS) { holdWalk = true; interrupt(); firstInput(); }
+diff --git a/assets/gallery/main.js b/assets/gallery/main.js
+index 4d5d901..fae0667 100644
+--- a/assets/gallery/main.js
++++ b/assets/gallery/main.js
+@@ -146,6 +146,7 @@ const ui = createUI({
+ 
+ const audio = createAudio();
+ let music = null;     // optional procedural soundtrack (music.js)
++let combat = null;
+ let player = null;    // optional first-person hands and gestures (player.js)
+ const SOUND_KEY = 'workshop.sound';
+ function readSoundPreference() {
+@@ -397,6 +398,15 @@ import('./player.js').then((m) => {
+   room.scene.add(camera);
+   if (player.group && !player.group.parent) camera.add(player.group);
+ }).catch(() => { /* gestures are optional */ });
++worldReady.then(async(w)=>{
++  const {createCombat}=await import('./combat.js');
++  const npcModule=w.modules.get('npcs');if(!npcModule?.combatActors)return;
++  combat=createCombat(ctx,{camera,controls,world:w,npcModule,getPlayer:()=>player,
++    canAct:()=>state.entered&&!state.overlay&&!state.exhibitionOpen,
++    canStart:()=>!charging&&!paper?.holding,
++    onSlap:()=>{state.slaps=(state.slaps||0)+1;}});
++}).catch(err=>console.warn('[combat]',err));
++
+ let sfx = null;
+ // Eerie and wacky sound layer: zones (the ruin's heartbeat, the stage choir)
+ // and one-shots that answer the visitor (boings, slide whistles, cushions).
+@@ -643,6 +653,7 @@ function act(found, hit) {
+     if (hit && hit.distance > TALK_REACH) { ui.toast(state.viaUse ? 'Get closer to talk' : 'Get closer', 1200); return; }
+     if (!state.viaUse && !coarsePointer && npcs && typeof npcs.slap === 'function') {
+       if (hit && hit.distance > SLAP_REACH) { ui.toast('Too far to slap', 1200); return; }
++      if(combat){combat.engage(object);return;}
+       npcs.slap(object);
+       player?.gesture?.('slap') || player?.gesture?.('wave');
+       state.slaps = (state.slaps || 0) + 1;
+@@ -1089,6 +1100,7 @@ function step() {
+     interactions.beforeUpdate();
+     world.update(dt, { camera, time: now, level: floor > 5 ? 1 : 0, weather: weather ? weather.mode : 'sunny' });
+   }
++  combat?.update(dt);
+   props.update?.(dt, camera);
+   if (state.entered) updateCentrePrompt(dt);
+   if (state.seatHint && !controls.seated) clearSeatHint();
+@@ -1207,7 +1219,9 @@ function step() {
+   // Walking or turning: the depth of field fades out (it only serves stillness).
+   post.setMoving(controls.speed > 0.3 || !!state.flying || controls.turnRate > 0.6);
+   // Behind an opaque overlay the room does not need to be redrawn every frame.
+-  if (!state.exhibitionOpen || state.frames % 8 === 0) post.render(dt);
++  combat?.renderCamera();
++  try { if (!state.exhibitionOpen || state.frames % 8 === 0) post.render(dt); }
++  finally { combat?.restoreCamera(); }
+   // Hold the frame rate by trading resolution and passes, never by swapping the
+   // room's materials mid-visit (perf.js). It only listens once the campus is in.
+   perf.update(performance.now(), { active: state.entered && !!world && !state.exhibitionOpen && !state.overlay });
+diff --git a/assets/gallery/spaces/npcs.js b/assets/gallery/spaces/npcs.js
+index 381a96c..ad29bf2 100644
+--- a/assets/gallery/spaces/npcs.js
++++ b/assets/gallery/spaces/npcs.js
+@@ -10,6 +10,23 @@ import { buildCharacter, createLinePicker, createNpcEffects, mergeNpcProps } fro
+ 
+ export async function build(ctx) {
+   const { THREE, quality } = ctx;
++  // Private NPC bus: statues never suspend the ambient AudioContext.
++  const sourceAudio=ctx.audio;
++  let npcBus=null,npcContext=null,npcSpeechActive=false,npcSpeechPaused=false,statuesHeld=false,npcTime=0;
++  const npcFrame={camera:null,time:0,level:0,weather:null};
++  const npcAudio={
++    get context(){return sourceAudio?.context;},
++    get muted(){return !!sourceAudio?.muted||!!ctx.scene.userData.npcStatues;},
++    get bus(){const ac=sourceAudio?.context,bus=sourceAudio?.bus;if(!ac||!bus)return null;
++      if(npcContext!==ac){npcBus?.disconnect();npcContext=ac;npcBus=ac.createGain();npcBus.connect(bus);}
++      npcBus.gain.value=ctx.scene.userData.npcStatues?0:1;return npcBus;},
++    acquireVoice(options){return sourceAudio?.acquireVoice?.(options)||null;},
++    releaseVoice(token){sourceAudio?.releaseVoice?.(token);},
++    duck(seconds){sourceAudio?.duck?.(seconds);},
++    preparePunchline(){return sourceAudio?.preparePunchline?.()||0;}
++  };
++  ctx={...ctx,audio:npcAudio};
++
+   let cast = [];
+   try {
+     const response = await fetch(new URL('../../data/npc-cast.json', import.meta.url));
+@@ -931,11 +948,13 @@ export async function build(ctx) {
+       };
+       u.onend = done; u.onerror = done;
+       speechLease.onRelease = () => {
++        npcSpeechActive=false;npcSpeechPaused=false;
+         if (ctx.scene.userData.ttsOwner !== speech) return;
+         ctx.scene.userData.ttsOwner = null; if (ownedSpeech === speech) ownedSpeech = null;
+         try { ss.cancel(); } catch {}
+       };
+       u.voice = v; u.lang = v.lang || 'pt-PT'; u.volume = 0.35; u.rate = 0.9 + (n.seed % 0.35); u.pitch = 0.7 + ((n.seed * 1.7) % 0.8);
++      u.onstart=()=>{npcSpeechActive=true;};u.onend=u.onerror=()=>{npcSpeechActive=false;npcSpeechPaused=false;done();};
+       ss.speak(u); lastSpoke = clock;
+     } catch (e) { stopSignatureSpeech(); speechLease?.release(); /* no voice */ }
+   }
+@@ -1063,7 +1082,7 @@ export async function build(ctx) {
+     const fr = victim ? FRIEND[victim.S.name] : null;
+     for (let i = 0; i < npcs.length; i++) {
+       const m = npcs[i];
+-      if (m === victim || m.zone !== zone || (m.sillyT >= 0 && m.sillyType === 4) || m.windT > 0) continue;
++      if (m.combatHidden || m.combatControlled || m === victim || m.zone !== zone || (m.sillyT >= 0 && m.sillyType === 4) || m.windT > 0) continue;
+       const ex = m.x - x, ez = m.z - z, q = ex * ex + ez * ez;
+       if (q > 144) continue;
+       const friend = fr === m.S.name;
+@@ -1264,10 +1283,23 @@ export async function build(ctx) {
+     try { console.warn('[npcs] ' + where + ' failed; further errors are silenced', err); } catch (e) { /* none */ }
+   }
+   // A throw would make the world drop this module's update for good: contain it here.
++  function setStatues(value){
++    if(statuesHeld===!!value)return;statuesHeld=!!value;
++    if(npcBus&&npcContext)npcBus.gain.setValueAtTime(value?0:1,npcContext.currentTime);
++    comedy?.setPaused?.(!!value);
++    try{if(typeof speechSynthesis!=='undefined'){
++      if(value&&npcSpeechActive&&speechSynthesis.speaking){speechSynthesis.pause();npcSpeechPaused=true;}
++      else if(!value&&npcSpeechPaused){if(ctx.scene.userData.questQuiet)speechSynthesis.cancel();else speechSynthesis.resume();npcSpeechPaused=false;}
++    }}catch{}
++  }
+   function update(dt, frame) {
+     if (ctx.audio?.muted || ctx.scene.userData.questQuiet || ctx.scene.userData.npcStatues) stopSignatureSpeech();
+     if (!frame?.camera) return;
+-    try { fabinhe.before(dt, frame); comedy.update(dt, frame); personalities.before(dt, frame); step(dt, frame); personalities.after(dt, frame); fabinhe.after(dt, frame); comedy.after(); effects.update(frame.camera, starMat.rotation); }
++    fabinhe.before(dt,frame);
++    npcFrame.camera=frame.camera;npcFrame.level=frame.level;npcFrame.weather=frame.weather;
++    if(ctx.scene.userData.npcStatues){setStatues(true);comedy.update(0,npcFrame);effects.update(frame.camera,starMat.rotation);return;}
++    setStatues(false);npcTime+=Math.min(.1,Math.max(0,dt));npcFrame.time=npcTime;
++    try { comedy.update(dt,npcFrame);personalities.before(dt,npcFrame);step(dt,npcFrame);personalities.after(dt,npcFrame);fabinhe.after(dt,npcFrame);comedy.after();effects.update(frame.camera,starMat.rotation); }
+     catch (err) { warnOnce('update', err); }
+   }
+ 
+@@ -1282,7 +1314,7 @@ export async function build(ctx) {
+     let rank = 0;
+     for (let i = 0; i < npcs.length; i++) {
+       const n = npcs[i];
+-      if (n.zone !== camZone || n.d2 > 64 || n.gestAt > 0 || (n.sillyT >= 0 && n.sillyType === 4)) continue;
++      if (n.combatHidden || n.combatControlled || n.zone !== camZone || n.d2 > 64 || n.gestAt > 0 || (n.sillyT >= 0 && n.sillyType === 4)) continue;
+       const d = Math.sqrt(n.d2) || 0.01, tx = (n.x - pcx) / d, tz = (n.z - pcz) / d;
+       const atThem = cfx * tx + cfz * tz > 0.45;                        // done in their direction
+       const sees = -(Math.sin(n.yaw) * tx + Math.cos(n.yaw) * tz) > 0.35;  // or they were looking
+@@ -1342,6 +1374,8 @@ export async function build(ctx) {
+     let budget = 2;                                        // bubble redraws per frame
+     for (let i = 0; i < npcs.length; i++) {
+       const n = npcs[i], S = n.S;
++      if(n.combatHidden){n.root.visible=false;n.stars.visible=false;if(n.sprite)n.sprite.visible=false;if(n.blob)n.blob.visible=false;n.col.minY=-51;n.col.maxY=-50;continue;}
++      if(n.combatControlled){n.root.visible=true;if(n.sprite)n.sprite.visible=false;n.talkT=0;n.bubble=0;continue;}
+       let dx = 0, dz = 0, d2 = 1e9;
+       if (cam) { dx = cam.x - n.x; dz = cam.z - n.z; d2 = dx * dx + dz * dz; }
+       n.d2 = d2;
+@@ -1827,7 +1861,7 @@ export async function build(ctx) {
+     n.lastFall = f;
+     return f;
+   }
+-  function slap(object) { try { doSlap(findNpc(object)); } catch (err) { warnOnce('slap', err); } }
++  function slap(object) { if(ctx.scene.userData.npcStatues)return;try { doSlap(findNpc(object)); } catch (err) { warnOnce('slap', err); } }
+   function doSlap(n) {
+     if (!n) return;
+     comedy?.notify('slap', n);
+@@ -1882,7 +1916,7 @@ export async function build(ctx) {
+     }
+   }
+ 
+-  function onPick(object) { try { talk(findNpc(object)); } catch (err) { warnOnce('talk', err); } }
++  function onPick(object) { if(ctx.scene.userData.npcStatues)return;try { talk(findNpc(object)); } catch (err) { warnOnce('talk', err); } }
+   function talk(n) {
+     if (!n) return;
+     if (fabinhe.onTalk(n)) return;
+@@ -1921,5 +1955,14 @@ export async function build(ctx) {
+     n.sillyCd = 6 + Math.random() * 6;
+   }
+ 
+-  return { group, regions: [], colliders, pickables, update, onPick, slap, fabinhe, setNavigation: personalities.setNavigation };
++  function combatImpact(n,ko,move){
++    if(!n||ctx.scene.userData.npcStatues||ctx.scene.userData.questQuiet)return;
++    n.glare=0;n.escalate=false;n.pestCd=Math.max(60,n.pestCd);n.sillyCd=8;
++    if(move==='chapada'||move==='reves'||move==='sanduiche')fabinhe.onSlap(n);
++    if(ko)comedy?.defeat?.(n);
++    else if(move==='chapada'||move==='reves'||move==='sanduiche')comedy?.notify?.('slap',n);
++  }
++  return { group, regions: [], colliders, pickables, update, onPick, slap, fabinhe, setNavigation: personalities.setNavigation,
++    actors:npcs,combatActors:npcs,findActor:findNpc,combatImpact,setStatues,refreshEffects:(camera)=>effects.update(camera,starMat.rotation),get comedyMemory(){return comedy.memory;} };
++
+ }
+diff --git a/assets/gallery/npc-models.js b/assets/gallery/npc-models.js
+index 8a3b83b..293aa91 100644
+--- a/assets/gallery/npc-models.js
++++ b/assets/gallery/npc-models.js
+@@ -26,7 +26,7 @@ export function buildCharacter(THREE, M, spec = {}) {
+   const human=['human','velho','mano','chubby','forcado'].includes(kind);
+   const wardrobe=spec.clothing, tank=wardrobe==='tank_onlooker', swim=wardrobe==='swim_onlooker';
+   const fabinhe=wardrobe==='fabinhe_tracksuit';
+-  const robe=wardrobe==='robe_onlooker', tracksuit=wardrobe==='bear_tracksuit'||fabinhe;
++  const robe=wardrobe==='robe_onlooker', tracksuit=wardrobe==='bear_tracksuit'||wardrobe==='tracksuit'||fabinhe;
+   const bareArms=tank||swim, shorts=tank||swim||wardrobe==='tourist'||kind==='forcado';
+   const tailored=!wardrobe||wardrobe==='business_pig'||wardrobe==='critic'||kind==='forcado';
+   const bodyWidth=clamp(spec.bodyWidth||1,.65,1.4);
+@@ -55,7 +55,7 @@ export function buildCharacter(THREE, M, spec = {}) {
+   bones.lids=lids;
+   bones.body=body; bones.brows=brows;
+   function part(g,b,c,rough=.8,x=0,y=0,z=0,sx=1,sy=1,sz=1,rz=0,rx=0) {
+-    if((tracksuit||wardrobe==='influencer')&&(c===cloth||c===trousers))rough=.43;
++    if((tracksuit||wardrobe==='influencer')&&(c===cloth||c===trousers))rough=wardrobe==='tracksuit'?.82:.43;
+     const m = new THREE.Matrix4().compose(new THREE.Vector3(x,y,z),new THREE.Quaternion().setFromEuler(new THREE.Euler(rx,0,rz)),new THREE.Vector3(sx*(b===body?bodyWidth:1),sy,sz));
+     pelvis.updateMatrixWorld(true); g.applyMatrix4(m); M?.boxUV?.(g); g.applyMatrix4(b.matrixWorld);
+     const n=g.attributes.position.count;
+@@ -534,14 +534,16 @@ export function createNpcEffects(THREE, group, npcs, blobGeometry, blobMaterial,
+       for(let i=0;i<npcs.length;i++){
+         const n=npcs[i];
+         if(shadow){
+-          const puddle=n.comedyPuddle||0;
+-          if(puddle>0&&n.root.visible){
+-            dummy.position.set(n.x,.025,n.z);dummy.rotation.set(0,0,0);
+-            dummy.scale.set((n.colW*2+.45)*puddle,1,(n.colW*2+.2)*puddle);dummy.updateMatrix();
++          const owner=n.combatShadowProxy||n;
++          const puddle=owner.comedyPuddle||0;
++          if(puddle>0&&owner.root.visible){
++            dummy.position.set(owner.x,(owner.shadowY??Math.max(0,owner.baseY||0))+.025,owner.z);dummy.rotation.set(0,0,0);
++            dummy.scale.set((owner.colW*2+.45)*puddle,1,(owner.colW*2+.2)*puddle);dummy.updateMatrix();
+             shadow.setMatrixAt(i,dummy.matrix);shadow.setColorAt(i,puddleTint);
+           }else{
+             shadow.setColorAt(i,shadowBlack);
+-            if(n.blob?.visible){n.blob.updateMatrix();shadow.setMatrixAt(i,n.blob.matrix);}else shadow.setMatrixAt(i,invisible);
++            if(n.combatShadowProxy&&owner.root.visible){dummy.position.set(owner.x,(owner.shadowY??Math.max(0,owner.baseY||0))+.018,owner.z);dummy.rotation.set(0,0,0);dummy.scale.set(.8,1,.6);dummy.updateMatrix();shadow.setMatrixAt(i,dummy.matrix);}
++            else if(n.blob?.visible){n.blob.updateMatrix();shadow.setMatrixAt(i,n.blob.matrix);}else shadow.setMatrixAt(i,invisible);
+           }
+         }
+         if(n.stars.visible && n.root.visible){dummy.position.copy(n.stars.position);dummy.quaternion.copy(camera.quaternion);dummy.rotateZ(rotation);dummy.scale.copy(n.stars.scale);dummy.updateMatrix();stars.setMatrixAt(i,dummy.matrix);}else stars.setMatrixAt(i,invisible);
