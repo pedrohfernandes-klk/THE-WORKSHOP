@@ -35,7 +35,6 @@ export const SLOTS = (() => {
   zs.forEach((z, i) => out.push({ index: 1 + i, id: `left-${i + 1}`, kind: 'side', position: v(-HX, 2.0, z), normal: v(1, 0, 0), box: { w: 3.6, h: 3.6 } }));
   zs.forEach((z, i) => out.push({ index: 7 + i, id: `right-${i + 1}`, kind: 'side', position: v(HX, 2.0, z), normal: v(-1, 0, 0), box: { w: 3.6, h: 3.6 } }));
   out.push({ index: 13, id: 'door-left', kind: 'door', position: v(-3.9, 2.0, HZ), normal: v(0, 0, -1), box: { w: 2.6, h: 3.2 } });
-  out.push({ index: 14, id: 'door-right', kind: 'door', position: v(3.9, 2.0, HZ), normal: v(0, 0, -1), box: { w: 2.6, h: 3.2 } });
   return out;
 })();
 
@@ -414,7 +413,8 @@ float shaftDensity(vec3 p, float T) {
   float blur = 0.04 + 0.22 * h;
   float k = 0.62 * exp(-h / 2.6);
   m *= (1.0 - (1.0 - smoothstep(bw, bw + blur, dz)) * k) * (1.0 - (1.0 - smoothstep(bw, bw + blur, abs(q.x))) * k);
-  float n = 0.62 + 0.76 * gfbm(vec2(p.x * 0.4 + p.y * 0.12 + T * 0.012, p.z * 0.22 - p.y * 0.08 - T * 0.009));
+  float nf = gfbm(vec2(p.x * 0.4 + p.y * 0.12 + T * 0.012, p.z * 0.22 - p.y * 0.08 - T * 0.009));
+  float n = 0.25 + 3.0 * nf * nf;
   return m * n * (1.0 - 0.45 * smoothstep(0.0, ${HY.toFixed(1)}, h));
 }
 `;
@@ -468,7 +468,7 @@ const FloorShader = {
       V /= dist;
       float c = clamp(V.y, 0.0, 1.0);
       float graze = 1.0 - c;
-      float F = 0.045 + 0.80 * pow(graze, 3.4);
+      float F = 0.04 + 0.46 * pow(graze, 2.8);
       vec2 p = vW.xz;
       float cl = gfbm(p * 0.32);
       // micro-variation of the polish: wobbles the reflection a little
@@ -476,14 +476,16 @@ const FloorShader = {
                + (vec2(gvn(p * 23.0), gvn(p * 19.0 + 5.0)) - 0.5) * 0.0016;
       vec2 uv = vUv.xy / vUv.w + wob * (0.35 + 0.65 * graze);
       float rad = uBlur * (0.45 + 1.15 * graze) * (0.85 + 0.3 * cl);
-      float lod = clamp(log2(max(rad * 0.9, 1.0)), 0.0, 4.0);
+      float lod = clamp(log2(max(rad * 1.5, 1.0)), 0.0, 4.0);
       float ang = ign(gl_FragCoord.xy) * 6.2831853;
       float cs = cos(ang), sn = sin(ang);
       mat2 R = mat2(cs, -sn, sn, cs);
       vec3 acc = vec3(0.0);
       for (int i = 0; i < 12; i++) {
         vec2 o = R * PD[i] * rad * uTexel;
-        acc += min(textureLod(tDiffuse, clamp(uv + o, vec2(0.001), vec2(0.999)), lod).rgb, vec3(1.25));
+        vec3 sv = textureLod(tDiffuse, clamp(uv + o, vec2(0.001), vec2(0.999)), lod).rgb;
+        if (!(sv.r >= 0.0 && sv.g >= 0.0 && sv.b >= 0.0 && sv.r < 1e4 && sv.g < 1e4 && sv.b < 1e4)) sv = vec3(0.3);
+        acc += min(sv, vec3(0.85));
       }
       vec3 refl = acc / 12.0;
       refl *= vec3(0.965, 0.945, 0.915) * (0.82 + 0.36 * cl) * uTint;
@@ -566,6 +568,7 @@ function makeArtMaterial(texture, weave) {
     uDev: { value: 1 },
     uSize: { value: new THREE.Vector2(1, 1) },
     uInset: { value: 0 },
+    uWeave: { value: weave ? 1 : 0 },
   };
   const mat = new THREE.MeshStandardMaterial({
     map: texture,
@@ -576,20 +579,17 @@ function makeArtMaterial(texture, weave) {
     metalness: 0,
     envMapIntensity: 0.4,
   });
-  if (weave) {
-    mat.bumpMap = weave;
-    mat.bumpScale = 0.9;
-  }
   mat.userData.u = u;
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uDev = u.uDev;
     shader.uniforms.uSize = u.uSize;
     shader.uniforms.uInset = u.uInset;
+    shader.uniforms.uWeave = u.uWeave;
     shader.fragmentShader = shader.fragmentShader
       .replace(
         '#include <common>',
         `#include <common>
-uniform float uDev; uniform vec2 uSize; uniform float uInset;
+uniform float uDev; uniform vec2 uSize; uniform float uInset; uniform float uWeave;
 ${GLSL_NOISE}`,
       )
       .replace(
@@ -599,6 +599,16 @@ ${GLSL_NOISE}`,
   // recess shadow where a mat / frame lip overhangs the image
   float dm = min(min(vMapUv.x, 1.0 - vMapUv.x) * uSize.x, min(vMapUv.y, 1.0 - vMapUv.y) * uSize.y);
   diffuseColor.rgb *= 1.0 - uInset * (0.62 * exp(-dm / 0.0065) + 0.16 * exp(-dm / 0.035));
+  if (uWeave > 0.0) {
+    // canvas weave: analytic, fades out as the threads become sub-pixel (no moire)
+    vec2 wc = vMapUv * uSize / 0.0032;
+    float wf = max(fwidth(wc.x), fwidth(wc.y));
+    float amp = uWeave * (1.0 - smoothstep(0.12, 0.5, wf));
+    vec2 wfr = fract(wc);
+    float over = mod(floor(wc.x) + floor(wc.y), 2.0);
+    float wh = over > 0.5 ? sin(3.14159 * wfr.x) : sin(3.14159 * wfr.y);
+    diffuseColor.rgb *= 1.0 + amp * 0.11 * (wh - 0.65);
+  }
   if (uDev < 0.999) {
     // photograph in the tray: the image surfaces through a noise threshold
     float n = gfbm(vMapUv * vec2(uSize.x, uSize.y) * 3.2) * 1.02 + gvn(vMapUv * 90.0) * 0.06;
@@ -625,45 +635,73 @@ ${GLSL_NOISE}`,
 export function createRoom(renderer, { quality = 'high', reducedMotion = false } = {}) {
   const high = quality !== 'low';
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0b0a09);
 
-  // environment: a faint studio for subtle speculars on frames, steel, oak
-  {
+  // Interior-only environment: every hall material carries this PMREM as its own
+  // envMap, so the campus sky (scene.environment) never lights the interior.
+  const envTex = (() => {
     const pmrem = new THREE.PMREMGenerator(renderer);
     const env = new RoomEnvironment();
-    scene.environment = pmrem.fromScene(env, 0.04).texture;
-    scene.environmentIntensity = 0.22;
+    const tex = pmrem.fromScene(env, 0.04).texture;
     env.traverse?.((o) => {
       o.geometry?.dispose?.();
       o.material?.dispose?.();
     });
     pmrem.dispose();
-  }
+    return tex;
+  })();
 
   const U = {
     uSky: { value: 1 },
     uDay: { value: 1 },
     uTint: { value: new THREE.Vector3(1, 1, 1) },
+    uAmbSky: { value: new THREE.Vector3(1, 1, 1) },
+    uAmbGround: { value: new THREE.Vector3(1, 1, 1) },
   };
   const tintColor = new THREE.Color(1, 1, 1);
 
-  // lights: minimal and shadowless
-  const hemi = new THREE.HemisphereLight(0xfff2e0, 0xb8ad9d, 2.7);
-  const sun = new THREE.DirectionalLight(0xfff0dc, 0.9);
-  sun.position.set(2, 10, 7);
-  sun.target.position.set(0, 0, 0);
-  scene.add(hemi, sun, sun.target);
-  const HEMI_SKY = new THREE.Color(0xfff2e0);
-  const HEMI_GROUND = new THREE.Color(0xb8ad9d);
+  // No scene lights: the hall's ambient (what a hemisphere light used to give) is
+  // added inside the hall materials, so nothing here lights the campus outside.
+  const AMB_SKY = new THREE.Color(0xfff2e0);
+  const AMB_GROUND = new THREE.Color(0xb8ad9d);
+  const AMB_K = 3.3 / Math.PI;
+  let ambTint = 0;
+  const envMats = [];
+  function prep(m) {
+    m.envMap = envTex;
+    m.userData.envBase = m.envMapIntensity ?? 1;
+    envMats.push(m);
+    const prev = m.onBeforeCompile;
+    const prevKey = m.customProgramCacheKey ? m.customProgramCacheKey() : '';
+    m.onBeforeCompile = (shader, r) => {
+      if (prev) prev.call(m, shader, r);
+      shader.uniforms.uAmbSky = U.uAmbSky;
+      shader.uniforms.uAmbGround = U.uAmbGround;
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform vec3 uAmbSky; uniform vec3 uAmbGround;')
+        .replace(
+          '#include <aomap_fragment>',
+          '#include <aomap_fragment>\n{ vec3 nW_ = inverseTransformDirection(normal, viewMatrix); reflectedLight.indirectDiffuse += material.diffuseColor * mix(uAmbGround, uAmbSky, nW_.y * 0.5 + 0.5); }',
+        );
+    };
+    m.customProgramCacheKey = () => `${prevKey}|amb`;
+    return m;
+  }
+  function unprep(m) {
+    const i = envMats.indexOf(m);
+    if (i >= 0) envMats.splice(i, 1);
+  }
 
-  const plaster = makePlaster(U);
+  const plaster = prep(makePlaster(U));
 
   // ---- architecture --------------------------------------------------------
-  const arch = new THREE.Group();
-  scene.add(arch);
+  const hall = new THREE.Group();
+  hall.name = 'hall';
+  scene.add(hall);
+  const arch = hall;
 
-  function addMesh(geo, mat, parent = arch) {
+  function addMesh(geo, mat, parent = arch, cast = false) {
     const m = new THREE.Mesh(geo, mat);
+    m.castShadow = cast;
     parent.add(m);
     return m;
   }
@@ -671,16 +709,16 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
   // end wall (hero)
   {
     const g = new THREE.PlaneGeometry(HX * 2, HY);
-    const m = addMesh(g, plaster);
+    const m = addMesh(g, plaster, arch, true);
     m.position.set(0, HY / 2, -HZ);
   }
   // side walls
   {
     const gl = new THREE.PlaneGeometry(HZ * 2, HY);
-    const l = addMesh(gl, plaster);
+    const l = addMesh(gl, plaster, arch, true);
     l.rotation.y = Math.PI / 2;
     l.position.set(-HX, HY / 2, 0);
-    const r = addMesh(gl, plaster);
+    const r = addMesh(gl, plaster, arch, true);
     r.rotation.y = -Math.PI / 2;
     r.position.set(HX, HY / 2, 0);
   }
@@ -698,24 +736,10 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
     s.lineTo(-HX, HY);
     s.closePath();
     const g = new THREE.ShapeGeometry(s);
-    const m = addMesh(g, plaster);
+    const m = addMesh(g, plaster, arch, true);
     m.rotation.y = Math.PI;
     m.position.set(0, 0, HZ);
 
-    // reveals (0.4 m deep) + the daylight beyond
-    const REV = 0.4;
-    const parts = [];
-    const jl = new THREE.PlaneGeometry(REV, DOOR_H);
-    jl.rotateY(Math.PI / 2);
-    jl.translate(-hw, DOOR_H / 2, HZ + REV / 2);
-    const jr = new THREE.PlaneGeometry(REV, DOOR_H);
-    jr.rotateY(-Math.PI / 2);
-    jr.translate(hw, DOOR_H / 2, HZ + REV / 2);
-    const lt = new THREE.PlaneGeometry(DOOR_W, REV);
-    lt.rotateX(Math.PI / 2);
-    lt.translate(0, DOOR_H, HZ + REV / 2);
-    parts.push(jl, jr, lt);
-    addMesh(mergeGeometries(parts), plaster);
   }
   // ceiling with skylight opening
   {
@@ -732,9 +756,17 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
     hole.lineTo(SKY_X, -SKY_Z);
     hole.closePath();
     s.holes.push(hole);
+    // opening for the glass lift car and shaft (x 3.2..5.4, z 14.9..16.95)
+    const lift = new THREE.Path();
+    lift.moveTo(3.2, 14.9);
+    lift.lineTo(3.2, 16.95);
+    lift.lineTo(5.4, 16.95);
+    lift.lineTo(5.4, 14.9);
+    lift.closePath();
+    s.holes.push(lift);
     const g = new THREE.ShapeGeometry(s);
     g.rotateX(Math.PI / 2);
-    const m = addMesh(g, plaster);
+    const m = addMesh(g, plaster, arch, true);
     m.position.y = HY;
   }
   // light well
@@ -753,7 +785,7 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
     d.rotateY(Math.PI);
     d.translate(0, HY + WELL / 2, SKY_Z);
     parts.push(a, b, c, d);
-    addMesh(mergeGeometries(parts), plaster);
+    addMesh(mergeGeometries(parts), plaster, arch, true);
 
     // glowing diffuser
     const dg = new THREE.PlaneGeometry(SKY_X * 2, SKY_Z * 2);
@@ -763,18 +795,10 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
     diffuser.position.y = top;
     scene.userData.diffuser = diffuser;
   }
-  // door daylight
-  const daylightMat = new THREE.MeshBasicMaterial({ color: 0xffffff, map: makeDaylightTexture(), fog: false });
-  {
-    const g = new THREE.PlaneGeometry(DOOR_W + 1.4, DOOR_H + 1.2);
-    g.rotateY(Math.PI);
-    const m = addMesh(g, daylightMat);
-    m.position.set(0, (DOOR_H + 1.2) / 2, HZ + 0.42);
-  }
-
   // mullions: steel T-bars across the skylight
   {
     const mullMat = new THREE.MeshStandardMaterial({ color: 0xdedcd6, roughness: 0.55, metalness: 0.15, emissive: 0xcfc9bb, emissiveIntensity: 0.5 });
+    prep(mullMat);
     scene.userData.mullMat = mullMat;
     const count = 21;
     const geo = new THREE.BoxGeometry(1, 1, 1);
@@ -795,12 +819,12 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
   }
 
   // ---- tracks + spot fixtures ---------------------------------------------
-  const trackMat = new THREE.MeshStandardMaterial({ color: 0x0c0c0d, roughness: 0.55, metalness: 0.5 });
+  const trackMat = prep(new THREE.MeshStandardMaterial({ color: 0x0c0c0d, roughness: 0.55, metalness: 0.5 }));
   {
     const parts = [
       boxPart(-TRACK_X, TRACK_Y + 0.02, 0, 0.035, 0.04, 32),
-      boxPart(TRACK_X, TRACK_Y + 0.02, 0, 0.035, 0.04, 32),
-      boxPart(0, TRACK_Y + 0.02, 15.4, TRACK_X * 2 + 1.0, 0.04, 0.035),
+      boxPart(TRACK_X, TRACK_Y + 0.02, -0.65, 0.035, 0.04, 30.7),
+      boxPart(-0.95, TRACK_Y + 0.02, 15.4, 7.9, 0.04, 0.035),
     ];
     addMesh(mergeGeometries(parts), trackMat);
   }
@@ -832,7 +856,7 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
     parts.push(boxPart(-0.056, 0.03, 0.0, 0.007, 0.07, 0.03), boxPart(0.056, 0.03, 0.0, 0.007, 0.07, 0.03), boxPart(0, 0.066, 0.0, 0.119, 0.008, 0.03));
     return mergeGeometries(parts);
   })();
-  const fixtureMat = new THREE.MeshStandardMaterial({ color: 0x0c0c0e, roughness: 0.38, metalness: 0.75, envMapIntensity: 1.1 });
+  const fixtureMat = prep(new THREE.MeshStandardMaterial({ color: 0x0c0c0e, roughness: 0.38, metalness: 0.75, envMapIntensity: 1.1 }));
   const barrels = new THREE.InstancedMesh(barrelGeo, fixtureMat, fixtures.length);
   const stemGeo = mergeGeometries([
     boxPart(0, TRACK_Y - 0.002 - HEAD_Y, 0, 0.05, 0.03, 0.075),
@@ -877,7 +901,9 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
   oakBenchTex.rotation = Math.PI / 2;
   oakBenchTex.needsUpdate = true;
   const benchOak = new THREE.MeshStandardMaterial({ map: oakBenchTex, color: 0xf2e6d6, roughness: 0.42, metalness: 0, envMapIntensity: 1.0 });
+  prep(benchOak);
   const benchSteel = new THREE.MeshStandardMaterial({ color: 0x17171a, roughness: 0.36, metalness: 0.9, envMapIntensity: 1.2 });
+  prep(benchSteel);
   const colliders = [];
   const seatGeo = (() => {
     const w = 0.6 - 0.014;
@@ -956,7 +982,7 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
 
   // ---- floor ---------------------------------------------------------------
   const FLOOR_Z0 = -HZ;
-  const FLOOR_Z1 = HZ + 0.42;
+  const FLOOR_Z1 = HZ;
   const floorGeo = new THREE.PlaneGeometry(HX * 2, FLOOR_Z1 - FLOOR_Z0);
   let floor;
   const tmpV2 = new THREE.Vector2();
@@ -996,12 +1022,14 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
         .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n{ float j; totalEmissiveRadiance += floorBase(vBW, j); }');
     };
     mat.customProgramCacheKey = () => 'gallery-floor-low';
+    prep(mat);
     floor = new THREE.Mesh(floorGeo, mat);
   }
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(0, 0, (FLOOR_Z0 + FLOOR_Z1) / 2);
   floor.name = 'floor';
-  scene.add(floor);
+  floor.camera?.layers.set(0); // reflection renders layer 0 only
+  hall.add(floor);
 
   // ---- artwork machinery ---------------------------------------------------
   const poolTex = makePoolTexture();
@@ -1036,7 +1064,7 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
   const poolMesh = new THREE.Mesh(poolGeo, poolMat);
   poolMesh.frustumCulled = false;
   poolMesh.renderOrder = 2;
-  scene.add(poolMesh);
+  hall.add(poolMesh);
 
   // soft contact shadow of each work on the wall (ring of vertex-alpha bands)
   const SH_RINGS = [-0.012, 0.008, 0.028, 0.062];
@@ -1076,20 +1104,19 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
   const shMesh = new THREE.Mesh(shGeo, shMat);
   shMesh.frustumCulled = false;
   shMesh.renderOrder = 1;
-  scene.add(shMesh);
+  hall.add(shMesh);
 
   const unitPlane = new THREE.PlaneGeometry(1, 1);
   const unitBox = new THREE.BoxGeometry(1, 1, 1);
   const plaquePlane = new THREE.PlaneGeometry(0.22, 0.14);
-  const weaveTex = makeWeaveTexture();
   const blankTex = (() => {
     const t = new THREE.DataTexture(new Uint8Array([219, 211, 196, 255]), 1, 1);
     t.colorSpace = THREE.SRGBColorSpace;
     t.needsUpdate = true;
     return t;
   })();
-  const linenMat = new THREE.MeshStandardMaterial({ color: 0x1b1916, roughness: 0.96, metalness: 0 });
-  const blackFrameMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0b, roughness: 0.38, metalness: 0.25, envMapIntensity: 0.9 });
+  const linenMat = prep(new THREE.MeshStandardMaterial({ color: 0x1b1916, roughness: 0.96, metalness: 0 }));
+  const blackFrameMat = prep(new THREE.MeshStandardMaterial({ color: 0x0a0a0b, roughness: 0.38, metalness: 0.25, envMapIntensity: 0.9 }));
 
   const pickables = [];
   const slotState = SLOTS.map((s) => {
@@ -1248,7 +1275,10 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
     }
     const pi = pickables.indexOf(st.art);
     if (pi >= 0) pickables.splice(pi, 1);
-    for (const d of st.disposables) d.dispose?.();
+    for (const d of st.disposables) {
+      unprep(d);
+      d.dispose?.();
+    }
     st.disposables.length = 0;
     const qi = plaqueQueue.indexOf(st);
     if (qi >= 0) plaqueQueue.splice(qi, 1);
@@ -1274,20 +1304,17 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
     group.position.set(s.position.x, cy, s.position.z);
     group.rotation.y = Math.atan2(s.normal.x, s.normal.z);
     arch.add(group);
+    group.userData.__newGroup = true;
     st.group = group;
 
     const frameKind = work.frame || 'canvas';
-    const weave = frameKind === 'canvas' && work.family !== 'signal' ? weaveTex.clone() : null;
-    if (weave) {
-      weave.repeat.set(w / 0.05, h / 0.05);
-      weave.needsUpdate = true;
-      st.disposables.push(weave);
-    }
-    const artMat = makeArtMaterial(texture || blankTex, weave);
+    const weave = frameKind === 'canvas' && work.family !== 'signal';
+    const artMat = prep(makeArtMaterial(texture || blankTex, weave));
     artMat.userData.u.uSize.value.set(w, h);
     if (frameKind === 'frame') {
       artMat.roughness = 0.42;
       artMat.envMapIntensity = 0.7;
+      artMat.userData.envBase = 0.7;
     }
     st.disposables.push(artMat);
     st.artMat = artMat;
@@ -1352,6 +1379,8 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
         emissiveIntensity: 0.0,
         roughness: 0.95,
       });
+      prep(oakMat);
+      prep(paperMat);
       st.oakMat = oakMat;
       st.paperMat = paperMat;
       st.disposables.push(oakMat, paperMat);
@@ -1369,6 +1398,9 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
     group.add(art);
     st.art = art;
     pickables.push(art);
+    group.traverse((o) => {
+      if (o.isMesh) o.receiveShadow = true;
+    });
 
     // plaque
     if (s.kind !== 'hero') {
@@ -1410,7 +1442,7 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
   }
 
   const WARM = new THREE.Color(1.0, 0.925, 0.80);
-  const POOL_AMP = 0.24;
+  const POOL_AMP = 0.30;
   const LENS_HDR = new THREE.Color(7.0, 6.3, 5.0);
 
   function applyLighting(st, force) {
@@ -1440,7 +1472,7 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
   }
 
   // ---- volumetric daylight: analytic shafts from the skylight + dust motes ----
-  const volU = { uT: { value: 0 }, uK: { value: 0.045 }, uSky: U.uSky, uShaft: { value: 1 } };
+  const volU = { uT: { value: 0 }, uK: { value: 0.05 }, uSky: U.uSky, uShaft: { value: 1 } };
   const volMat = new THREE.ShaderMaterial({
     uniforms: volU,
     side: THREE.BackSide,
@@ -1480,12 +1512,12 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
         gl_FragColor = vec4(col, 1.0);
       }`,
   });
-  const volMesh = new THREE.Mesh(new THREE.BoxGeometry(HX * 2, HY, HZ * 2 + 0.42), volMat);
-  volMesh.position.set(0, HY / 2, 0.21);
+  const volMesh = new THREE.Mesh(new THREE.BoxGeometry(HX * 2, HY, HZ * 2), volMat);
+  volMesh.position.set(0, HY / 2, 0);
   volMesh.frustumCulled = false;
   volMesh.renderOrder = 10;
   volMesh.layers.set(1);
-  scene.add(volMesh);
+  hall.add(volMesh);
 
   const DUST = 3600;
   const dustGeo = new THREE.BufferGeometry();
@@ -1498,7 +1530,7 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
     dustGeo.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 4));
     dustGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 3, 0), 40);
   }
-  const dustU = { uT: volU.uT, uSky: U.uSky, uPx: { value: 800 }, uBright: { value: 1.5 } };
+  const dustU = { uT: volU.uT, uSky: U.uSky, uPx: { value: 800 }, uBright: { value: 2.4 } };
   const dust = new THREE.Points(
     dustGeo,
     new THREE.ShaderMaterial({
@@ -1522,7 +1554,7 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
           float tw = 0.65 + 0.35 * sin(uT * 0.9 * sp + aSeed.x * 60.0);
           vec4 mv = viewMatrix * vec4(p, 1.0);
           gl_Position = projectionMatrix * mv;
-          float px = uPx * 0.010 / max(-mv.z, 0.1);
+          float px = uPx * 0.014 / max(-mv.z, 0.1);
           gl_PointSize = clamp(px, 1.2, 5.0);
           vA = dens * uSky * tw * (0.35 + 0.65 * fract(aSeed.w * 13.1)) * clamp(px, 0.25, 1.0)
              * smoothstep(0.0, 0.5, y) * smoothstep(6.2, 5.6, y);
@@ -1540,13 +1572,21 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
   dust.frustumCulled = false;
   dust.layers.set(1);
   dust.renderOrder = 11;
-  scene.add(dust);
+  hall.add(dust);
   let motionT = 0;
   let reduced = !!reducedMotion;
   function setReducedMotion(v) {
     reduced = !!v;
   }
 
+  const _ac = new THREE.Color();
+  function refreshAmbient(sky) {
+    const k = AMB_K * (0.05 + 0.95 * sky);
+    _ac.copy(AMB_SKY).lerp(tintColor, ambTint);
+    U.uAmbSky.value.set(_ac.r * k, _ac.g * k, _ac.b * k);
+    _ac.copy(AMB_GROUND).lerp(tintColor, ambTint * 0.6);
+    U.uAmbGround.value.set(_ac.r * k, _ac.g * k, _ac.b * k);
+  }
   // ---- power / tint --------------------------------------------------------
   let power = 1;
   let powerDirty = true;
@@ -1562,12 +1602,10 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
     const day = 0.16 + 0.84 * smooth(0.0, 0.45, power);
     U.uSky.value = sky;
     U.uDay.value = day;
-    hemi.intensity = 2.7 * (0.05 + 0.95 * sky);
-    sun.intensity = 0.9 * (0.04 + 0.96 * sky);
-    scene.environmentIntensity = 0.22 * (0.15 + 0.85 * sky);
+    refreshAmbient(sky);
+    for (const m of envMats) m.envMapIntensity = m.userData.envBase * 0.22 * (0.15 + 0.85 * sky);
     const dm = scene.userData.diffuser.material;
     dm.color.setRGB(2.0 * sky, 1.97 * sky, 1.85 * sky);
-    daylightMat.color.setRGB(1.9 * day, 1.88 * day, 1.8 * day);
     volU.uShaft.value = smooth(0.15, 0.7, power);
     scene.userData.mullMat.emissiveIntensity = 0.5 * sky;
     for (const st of slotState) st.ramp = smooth(0, 1, clamp01((power - st.tOn) / 0.15));
@@ -1582,8 +1620,8 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
     const n = new THREE.Vector3(tintColor.r / l, tintColor.g / l, tintColor.b / l);
     const k = Math.min(1, a * 1.8);
     U.uTint.value.copy(tintBase).lerp(n, k * 0.5);
-    hemi.color.copy(HEMI_SKY).lerp(tintColor, a);
-    hemi.groundColor.copy(HEMI_GROUND).lerp(tintColor, a * 0.6);
+    ambTint = a;
+    refreshAmbient(U.uSky.value);
   }
 
   // ---- reveal --------------------------------------------------------------
@@ -1675,8 +1713,14 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
 
   const bounds = { minX: -HX + 0.45, maxX: HX - 0.45, minZ: -HZ + 0.45, maxZ: HZ - 0.45 };
 
+  // every hall mesh receives (and the shell casts) the campus sun's shadows
+  hall.traverse((o) => {
+    if (o.isMesh || o.isInstancedMesh) o.receiveShadow = true;
+  });
+
   return {
     scene,
+    hall,
     bounds,
     colliders,
     floor,

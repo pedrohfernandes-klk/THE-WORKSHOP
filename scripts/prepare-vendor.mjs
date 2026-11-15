@@ -34,6 +34,10 @@ const ADDONS = [
   'math/SimplexNoise.js',
   'objects/Reflector.js',
   'environments/RoomEnvironment.js',
+  'loaders/RGBELoader.js',
+  'utils/BufferGeometryUtils.js',
+  'geometries/RoundedBoxGeometry.js',
+  'objects/Sky.js',
 ];
 
 const FONTS = [

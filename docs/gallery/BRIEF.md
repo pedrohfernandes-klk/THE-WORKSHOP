@@ -283,3 +283,161 @@ Audio {
 Entirely procedural (Web Audio, no files): a quiet room tone with the hall's
 long reverb, footsteps on polished concrete, the lights' relays at entry, a
 barely-there cue on reveal. Restrained: a museum, not a game soundtrack.
+
+## 5. The complex (expansion — supersedes conflicting details above)
+
+The client chose to grow the single room into a small, coherent complex, all of
+it photorealistic, with the attentive hang working on both gallery floors:
+
+```
+                 z = -17 ─────────────── end walls ───────────────
+   LEVEL 1  (y = 7.2)                         LEVEL 0  (y = 0)
+   ┌──────────────────────┐                  ┌──────────────────────┐
+   │   UPPER GALLERY      │ z -17 … 5        │                      │
+   │   oak floor, saw-    │                  │       THE HALL       │ z -17 … 17
+   │   tooth north lights │                  │   (sections 3–4)     │
+   ├──────[glass door]────┤ z = 5            │                      │
+   │   ROOF TERRACE       │ z 5 … 17         │                 [LIFT]│ x 3.2…5.4, z 14.9…16.95
+   │  [skylight lantern]  │                  │                      │
+   └──────────────[LIFT]──┘                  └────────[door]────────┘ z = 17
+                                                  ENTRANCE PLAZA        z 17.4 … 50, x ±24
+```
+
+### 5.1 Levels and shell
+- Ground y = 0. Hall ceiling 6.4; roof slab top **y = 7.2** = upper floor and
+  terrace level. Upper gallery interior y ∈ [7.2, 12.2]; its sawtooth roof rises
+  to ≈ 13.6. Building footprint x ∈ [−6.9, 6.9], z ∈ [−17.4, 17.4]
+  (walls 0.4 thick, exterior faces at x = ±6.9, z = ±17.4).
+- The hall's door (x ∈ [−1.3, 1.3], h 3.6, in the z = 17 wall) is now a real
+  **open passage** to the plaza: deep reveal through the 0.4 m wall, no
+  daylight plane.
+- Hall slot **14 is removed** (the lift takes that corner). Hall slots are 0–13.
+
+### 5.2 The glass lift
+- Shaft footprint x ∈ [3.2, 5.4], z ∈ [14.9, 16.95], from y = 0 through the roof
+  to a glazed head-house on the terrace (top ≈ y 10.6). Glass panels in slim
+  dark-bronze frames; the car is visible through the shaft.
+- Car: interior x ∈ [3.35, 5.25], z ∈ [15.05, 16.8], glass walls, handrail,
+  lit ceiling, floor at `carY` ∈ [0, 7.2]. Doors: two-panel telescopic glass
+  sliding doors on the shaft's −z face, opening x ∈ [3.7, 4.9] (1.2 m), at both
+  levels, plus car doors moving with the car.
+- Call panel on the shaft front face at x = 3.45, y = 1.1 (and y = 8.3); car
+  panel inside on the +x wall with buttons **0** (Hall) and **1** (Upper gallery
+  & terrace) and a floor indicator.
+- Behaviour: call → car comes (if elsewhere) → chime → doors open (1.2 s) → stay
+  open 6 s or while someone is in the threshold → close (1.4 s, reopen if the
+  threshold is occupied) → travel with S-curve motion, max 1.0 m/s, ≈ 8–9 s
+  for 7.2 m → chime → open. The visitor rides with it.
+
+### 5.3 Upper gallery (level 1)
+- Interior x ∈ [−6.5, 6.5], z ∈ [−17, 5], y ∈ [7.2, 12.2]. Wide-plank oiled
+  oak floor, warm white walls, three sawtooth north-light roof monitors
+  (diffuse daylight, no direct sun), slim track lights.
+- Front wall at z = 5 is a full-height steel-framed glass façade with a centred
+  glass door (x ∈ [−0.9, 0.9]) onto the terrace.
+- Slots (continuing the index): **14** `hero` end wall z = −16.98, box 7.0 × 3.6,
+  centre y = 7.2 + max(2.2, 0.8 + h/2); **15–17** `side` left wall x = −6.5 at
+  z = −13.5, −8.5, −3.5 (far → near), normal +x; **18–20** `side` right wall
+  x = +6.5, same z, normal −x. Boxes 3.6 × 3.4. Hanging heights as §3 + 7.2.
+
+### 5.4 Roof terrace (level 1, outdoors)
+- Deck x ∈ [−6.5, 6.5], z ∈ [5, 17] at y = 7.2: large-format stone or
+  hardwood decking; frameless glass balustrade (h 1.1) on the three open edges.
+- Skylight lantern over the hall: x ∈ [−1.8, 1.8], z ∈ [7.0, 15.0], 0.9 m
+  high, sloped diffusing (frosted) glass in slim frames.
+- Lift head-house at the lift footprint. A couple of outdoor benches facing the
+  view. From here: the plaza below and the horizon.
+
+### 5.5 Entrance plaza (level 0, outdoors)
+- x ∈ [−24, 24], z ∈ [17.4, 50]. Pale large-format stone paving; a long
+  reflecting pool x ∈ [6, 12], z ∈ [22, 40]; a grove of multi-stem trees
+  on gravel x ∈ [−16, −8], z ∈ [24, 38]; benches; low boundary walls with
+  clipped hedges at the edges; beyond, a believable distant landscape and sky.
+- Late-afternoon sun (elevation ≈ 28°, from the south-west, i.e. from +z/−x),
+  physically based sky, soft real shadows. The building façade: refined
+  board-formed concrete or travertine, with the door glowing from inside.
+
+### 5.6 Walking (centre regions)
+The visitor's *centre* must lie inside the union of these rectangles
+(they overlap at thresholds); AABB colliders still push out with radius 0.35.
+
+Level 0: hall main x ∈ [−5.7, 5.7], z ∈ [−16.2, 14.1]; hall front-left
+x ∈ [−5.7, 2.4], z ∈ [14.0, 16.2]; door x ∈ [−0.85, 0.85], z ∈ [15.5, 18.5];
+plaza x ∈ [−23, 23], z ∈ [18.2, 49]. Lift threshold (only while the doors are
+open at this level) x ∈ [3.75, 4.85], z ∈ [13.8, 15.6]; car x ∈ [3.75, 4.85],
+z ∈ [15.45, 16.4] (only while open here, or while the visitor is inside).
+
+Level 1: upper gallery x ∈ [−5.7, 5.7], z ∈ [−16.2, 4.2]; gallery door
+x ∈ [−0.85, 0.85], z ∈ [3.8, 6.0]; terrace main x ∈ [−5.9, 5.9],
+z ∈ [5.6, 14.1]; terrace front-left x ∈ [−5.9, 2.4], z ∈ [14.0, 16.4]; lift
+threshold and car as level 0. Lantern collider x ∈ [−2.15, 2.15],
+z ∈ [6.65, 15.35].
+
+### 5.7 Rendering organisation
+- Scene groups: `hall` (room.js), `upper` (upper.js), `exterior` (exterior.js),
+  `lift` (lift.js). main.js hides the interior the visitor cannot see
+  (hall while on level 1 outside the lift, upper while on level 0), and shows
+  both during a ride.
+- The sun is a real DirectionalLight with shadows rendered **once** (static
+  scene: `shadowMap.autoUpdate = false`, update on build). Every interior mesh
+  receives shadows and the building shell casts them, so sunlight only enters
+  where it physically could (through the door).
+- Heavy exterior detail (foliage, gravel, distant scenery) lives on layer 1:
+  rendered by the main camera, skipped by floor/pool reflections.
+
+## 6. The campus (phase 2 — supersedes §5 where they differ)
+
+The client wants the classic museum's beloved spaces kept and made spectacular
+and photoreal — "it must look like GTA 6": the **Cinema**, the **Studio**, the
+**Arcade**, the **gardens** and the **amphitheatre** — plus the working glass
+lift. Built by many specialists in parallel, each owning exactly one module.
+
+### 6.1 Site plan (metres; y up; ground y = 0; the hall is §3)
+
+| Space | Where | Notes |
+|---|---|---|
+| Hall | x ±6.5, z ±17, y 0–6.4 | §3–4. Shell exterior faces x ±6.9, z ±17.4; roof slab top y 7.2 |
+| Glass lift | shaft x 3.2–5.4, z 14.9–16.95, y 0 → head-house top 10.6 | §5.2 |
+| Cinema (level 1) | interior x ±6.5, z −17…5, y 7.2–13.2 | raked seating rising toward z = 5; screen on z = −16.8 wall; glazed foyer façade at z = 5 with doors x ±0.9 |
+| Roof terrace (level 1) | x ±6.9, z 5.4–17.4, y 7.2 | §5.4 (lantern x ±1.8, z 7–15, h 0.9) |
+| Entrance plaza | x ±24, z 17.4–52, y 0 | paving; axis from the hall door |
+| Reflecting pool | x ±3.5, z 24–38 | stone coping top y 0.45 |
+| Parterres | x ±(5.5…10), z 21–35 | formal clipped-box beds, gravel |
+| Allées | trees at x = ±18, z = 21…35 every 3.5 | on gravel |
+| Studio pavilion | footprint x −23…−11, z 38–50 | door on its east face (x = −11) centred z = 44, 1.6 wide |
+| Arcade pavilion | footprint x 11…23, z 38–50 | door on its west face (x = 11) centred z = 44, 1.6 wide |
+| Plaza boundary | low walls + clipped hedges on x = ±24 and z = 52 | openings: x = −24 and x = +24 at z 27–31; z = 52 at x ±2 |
+| Amphitheatre (west) | x −62…−28, z 14–46 | sunken: rim y = 0, orchestra/stage y = −4.2; stage centred (−54, 30) facing east; tiers face west toward it; path from the plaza opening |
+| Garden (east) | x 28–64, z 14–50 | lawns, specimen trees, pergola walk, flower borders, fountain, sculpture, benches |
+| Landscape | everything else to ~600 m | rolling terrain, distant tree lines, real HDR sky |
+
+Sun: from the HDR sky photograph (`M.sky().sunDirection`).
+
+### 6.2 Space module contract
+
+Each module is `assets/gallery/spaces/<name>.js`:
+
+```js
+export function build(ctx) {
+  // ctx = { THREE, renderer, scene, M /* materials.js */, quality, reducedMotion,
+  //         audio /* may be null */, ui: { openApp(url, title), toast(text) } }
+  return {
+    group,          // THREE.Group, built in WORLD coordinates per §6.1, added to ctx.scene by the caller
+    regions,        // [{ minX, maxX, minZ, maxZ, y } | { ..., ramp: { axis: 'x'|'z', from, to, y0, y1 } }]
+                    //   where the visitor's CENTRE may stand (eye = floor + 1.62); overlap neighbours at thresholds
+    colliders,      // [{ minX, maxX, minZ, maxZ, minY, maxY }]  solid obstacles (radius 0.35 is added by controls)
+    pickables,      // Object3D[] with userData.action = { type: 'app', url, title } | { type: 'custom', id }
+    update(dt, frame) {},   // frame = { camera, time, level } — no allocations
+    onPick(object) {},      // for userData.action.type === 'custom'
+  };
+}
+```
+
+Rules for every module: materials from `ctx.M.get(name)` (photographed PBR;
+call `ctx.M.boxUV(geometry)` so textures are at real scale), real-world
+dimensions, `castShadow`/`receiveShadow` on solid meshes, `InstancedMesh` for
+repeats, no per-frame allocation, nothing outside its footprint, no external
+files beyond `assets/` (textures in `assets/textures/`, artworks in
+`assets/extracted/`, apps in `assets/apps/`, games in `assets/extracted/*.html`,
+the film `assets/video/because-you-say-so.mp4`). `quality === 'low'` builds a
+lighter version (fewer instances, no fine detail).

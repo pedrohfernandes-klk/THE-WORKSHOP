@@ -197,6 +197,7 @@ export function createPost(renderer, scene, camera, { quality = 'high' } = {}) {
     gtao.output = GTAOPass.OUTPUT.Default;
     gtao.blendIntensity = 0.8;
     gtao.updateGtaoMaterial({ radius: 0.85, distanceExponent: 1.6, thickness: 1.4, scale: 1.1, samples: 12, distanceFallOff: 1.0 });
+    gtao.setSceneClipBox(new THREE.Box3(new THREE.Vector3(-6.6, -0.5, -17.1), new THREE.Vector3(6.6, 6.5, 17.5))); // no AO on the skylight well / diffuser
     gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, radiusExponent: 1, rings: 2, samples: 12 });
     const baseSetSize = gtao.setSize.bind(gtao);
     gtao.setSize = (w, h) => baseSetSize(Math.max(2, w >> 1), Math.max(2, h >> 1)); // AO at half resolution
@@ -256,6 +257,10 @@ export function createPost(renderer, scene, camera, { quality = 'high' } = {}) {
       composer.render(dt);
     },
     setSize,
+    // calibrate interior vs exterior brightness
+    setExposure(v) {
+      renderer.toneMappingExposure = v;
+    },
     // distance in metres to the work being looked at; null fades the effect out
     setFocus(d) {
       if (d == null || !isFinite(d)) {

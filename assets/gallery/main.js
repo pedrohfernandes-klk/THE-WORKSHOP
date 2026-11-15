@@ -14,6 +14,9 @@ import { loadWorkTexture } from './textures.js';
 import { createControls } from './controls.js';
 import { createUI, showFallback } from './ui.js';
 import { createAudio } from './audio.js';
+import { createMaterials } from './materials.js';
+import { createWorld, areaAt } from './world.js';
+import { createProps } from './props.js';
 
 const params = new URLSearchParams(location.search);
 const TEST = params.has('test');
@@ -33,8 +36,16 @@ const LABEL_AFTER = 0.35;     // dwell before the wall label appears (s)
 const LABEL_LINGER = 1.6;     // label stays this long after the gaze leaves (s)
 // Walking order used by Previous / Next in focus: left wall from the door to
 // the end, the hero, the right wall back, then the door wall.
-const TOUR = [6, 5, 4, 3, 2, 1, 0, 7, 8, 9, 10, 11, 12, 14, 13];
+const TOUR = [6, 5, 4, 3, 2, 1, 0, 7, 8, 9, 10, 11, 12, 14, 13].filter((i) => i < SLOTS.length);
 const RELAYS = 7;             // banks of track spots heard switching on at entry
+
+const SCREEN_SITES = [
+  { label: 'SayWhat', detail: 'desert crossing', url: 'https://pedrohfernandes-klk.github.io/SayWhat/' },
+  { label: 'No Worries', detail: 'HrM', url: 'https://pedrohfernandes-klk.github.io/NO-WORRIES/' },
+  { label: 'Português', detail: 'EPI', url: 'https://pedrohfernandes-klk.github.io/pt/' },
+  { label: 'Lente', detail: 'EPI 2026/2027', url: 'https://pedrohfernandes-klk.github.io/lente/' },
+];
+const YOUTUBE = { label: 'YouTube (opens a new tab)', url: 'https://www.youtube.com/', newTab: true };
 
 // ------------------------------------------------------------- the visit --
 
@@ -93,6 +104,11 @@ const ui = createUI({
   onPrev: () => stepFocus(-1),
   onLeaveFocus: () => leaveFocus(true),
   onToggleSound: () => setSound(audio.muted),
+  onOverlay: (open) => {
+    state.overlay = open;
+    if (open) controls.exitLock();
+    controls.enabled = !open && state.entered && !state.exhibitionOpen;
+  },
   onResumeAttentive: () => {
     curator.setFixed(false);
     history.replaceState(null, '', location.pathname + location.search);
@@ -109,6 +125,7 @@ function readSoundPreference() {
 }
 function setSound(on) {
   audio.setMuted(!on);
+  music?.setMuted(!on);
   ui.setSound(on);
   try { localStorage.setItem(SOUND_KEY, on ? 'on' : 'off'); } catch { /* private mode */ }
 }
@@ -141,14 +158,39 @@ camera.lookAt(START.target);
 
 const room = createRoom(renderer, { quality, reducedMotion });
 const post = createPost(renderer, room.scene, camera, { quality });
+const coarsePointer = matchMedia('(pointer: coarse)').matches;
 const controls = createControls(camera, canvas, {
   bounds: room.bounds,
   colliders: room.colliders,
   eyeHeight: EYE_HEIGHT,
   reducedMotion,
+  pointerLock: !coarsePointer,   // desktop plays like a game: click to capture the mouse
 });
 controls.enabled = false;
 controls.lookAt(START.target);
+
+// ----------------------------------------------------------- the campus --
+
+const M = createMaterials(renderer, { quality });
+const props = createProps(room.scene, { quality, reducedMotion });
+const ctx = {
+  THREE, renderer, scene: room.scene, M, quality, reducedMotion, audio,
+  ui: { openApp: (url, title) => ui.openApp(url, title), toast: (t) => ui.toast(t) },
+};
+let world = null;
+const worldReady = createWorld(ctx, {
+  hallColliders: [...(room.colliders || []), ...(props.colliders || [])],
+  onProgress: (k) => { state.worldProgress = k; },
+}).then((w) => {
+  world = w;
+  controls.setWorld({ regions: w.regions, colliders: w.colliders });
+  if (w.lift) {
+    w.lift.onEvent = (name) => { if (name === 'chime') audio.reveal(); };
+  }
+  return w;
+}).catch((err) => { console.error('[world] failed', err); return null; });
+// Heavy foliage lives on layer 1 (skipped by reflections and clicks).
+camera.layers.enable(1);
 
 const hang = shared ? shared.hang : initialHang(WORKS, slotKinds, 1);
 const curator = createCurator({ works: WORKS, slots: slotKinds, hang, fixed: !!shared });
@@ -183,7 +225,7 @@ if (shared) {
   ui.showEntry({ mode: 'attentive' });
 }
 
-const ready = hangInitial().then(() => {
+const ready = Promise.all([hangInitial(), worldReady]).then(() => {
   // Compile every material once behind the entry screen, so the first steps
   // into the room do not hitch on shader compilation.
   try { renderer.compile(room.scene, camera); } catch (e) { /* optional */ }
@@ -210,12 +252,56 @@ async function enter() {
   const touch = matchMedia('(pointer: coarse)').matches;
   ui.hint(touch
     ? 'Drag to look · Tap the floor to walk · Tap a work to approach'
-    : 'Drag to look · Click the floor to walk · Click a work to approach');
+    : 'Click to play · WASD to move · Shift to run · Space to jump · E to use · 1–7 gestures · Esc to release');
+  music?.start().catch(() => {});
 }
 
 controls.onFirstInput = () => {
   setTimeout(() => ui.hint(null), 2600);
 };
+
+// ----------------------------------------------------------- game layer --
+
+const crosshair = document.getElementById('crosshair');
+let player = null;
+let music = null;
+import('./player.js').then((m) => {
+  player = m.createPlayer(camera, { reducedMotion });
+  room.scene.add(camera);
+  if (player.group && !player.group.parent) camera.add(player.group);
+}).catch(() => { /* gestures are optional */ });
+import('./music.js').then((m) => {
+  music = m.createMusic();
+  music.setMuted(audio.muted);
+  if (state.entered) music.start().catch(() => {});
+}).catch(() => { /* music is optional */ });
+
+controls.onLockChange = (locked) => {
+  crosshair.classList.toggle('is-on', locked);
+  if (!locked && state.entered && !state.overlay && !state.exhibitionOpen) ui.hint('Click to play · Esc releases the mouse');
+  else if (locked) ui.hint(null);
+};
+controls.onUse = () => { if (state.entered && !state.overlay) controls.onTap?.(innerWidth / 2, innerHeight / 2); };
+const GESTURE_KEYS = { Digit1: 'wave', Digit2: 'thumbs', Digit3: 'clap', Digit4: 'point', Digit5: 'shrug', Digit6: 'dance', Digit7: 'peace' };
+controls.onGesture = (code) => {
+  if (!player) return;
+  const list = ['wave', 'thumbs', 'clap', 'point', 'shrug', 'dance', 'peace'];
+  player.gesture(code === 'KeyG' ? list[Math.floor(Math.random() * list.length)] : GESTURE_KEYS[code]);
+};
+
+// With the mouse captured, the crosshair says what E / click will do.
+let centreClock = 0;
+function updateCentrePrompt(dt) {
+  if (!controls.locked && !coarsePointer) return;
+  centreClock += dt;
+  if (centreClock < 0.15) return;
+  centreClock = 0;
+  const hit = pickAt(innerWidth / 2, innerHeight / 2);
+  const label = hit && hit.distance < 9 && isPickable(hit.object) ? labelFor(hit.object) : null;
+  crosshair.classList.toggle('is-target', !!label);
+  const text = label ? `${coarsePointer ? 'Tap' : 'E'} · ${label}` : null;
+  if (text !== state.prompt) { state.prompt = text; ui.hint(text); }
+}
 
 // -------------------------------------------------------- focus & taps --
 
@@ -224,19 +310,99 @@ const ndc = new THREE.Vector2();
 
 controls.onTap = (x, y) => {
   if (!state.entered || state.exhibitionOpen) return;
-  ndc.set((x / innerWidth) * 2 - 1, -(y / innerHeight) * 2 + 1);
-  raycaster.setFromCamera(ndc, camera);
-  const hits = raycaster.intersectObjects([...room.pickables, room.floor], true);
-  for (const hit of hits) {
-    const slot = findSlot(hit.object);
-    if (slot !== -1) { focusSlot(slot); return; }
-    if (hit.object === room.floor || isDescendant(hit.object, room.floor)) {
-      leaveFocus(false);
-      controls.walkTo(hit.point);
-      return;
-    }
+  if (state.overlay) return;
+  const hit = pickAt(x, y);
+  if (!hit) return;
+  const slot = findSlot(hit.object);
+  if (slot !== -1 && state.inHall) { focusSlot(slot); return; }
+  if (isProp(hit.object, 'catalogue')) { openExhibition(); return; }
+  const found = world && world.actionFor(hit.object);
+  if (found) { leaveFocus(false); act(found); return; }
+  // Anything you can stand on: walk there (with the mouse captured you walk with WASD).
+  if (!controls.locked && hit.face && worldNormal(hit).y > 0.6) {
+    leaveFocus(false);
+    controls.walkTo(hit.point);
   }
 };
+
+const tmpN = new THREE.Vector3();
+const normalMatrix = new THREE.Matrix3();
+function worldNormal(hit) {
+  normalMatrix.getNormalMatrix(hit.object.matrixWorld);
+  return tmpN.copy(hit.face.normal).applyMatrix3(normalMatrix).normalize();
+}
+
+function pickAt(x, y) {
+  ndc.set((x / innerWidth) * 2 - 1, -(y / innerHeight) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  raycaster.layers.set(0);
+  raycaster.far = 60;
+  const hits = raycaster.intersectObjects(room.scene.children, true);
+  for (const hit of hits) {
+    const o = hit.object;
+    if (!o.visible || o.isSprite || o.isPoints || o.isLine) continue;
+    const m = o.material;
+    // Skip invisible helpers and see-through glass/light shafts, but keep pick proxies.
+    if (m && !Array.isArray(m) && m.transparent && m.opacity < 0.35 && !isPickable(o)) continue;
+    return hit;
+  }
+  return null;
+}
+
+function isPickable(o) {
+  for (let p = o; p; p = p.parent) {
+    if (p.userData && (p.userData.action || p.userData.prop || Number.isInteger(p.userData.slot))) return true;
+  }
+  return false;
+}
+
+function isProp(o, name) {
+  for (let p = o; p; p = p.parent) if (p.userData && p.userData.prop === name) return true;
+  return false;
+}
+
+function labelFor(o) {
+  const slot = findSlot(o);
+  if (slot !== -1 && state.inHall) return 'Approach the work';
+  if (isProp(o, 'catalogue')) return 'Your exhibition catalogue';
+  const found = world && world.actionFor(o);
+  if (!found) return null;
+  const { action, module } = found;
+  if (action.type === 'app') return action.title || 'Open';
+  if (module === 'lift') return /go-1/.test(action.id) ? 'Up · Cinema & terrace' : /go-0/.test(action.id) ? 'Down · The Hall' : 'Call the lift';
+  if (module === 'cinema' || module === 'amphitheatre') return 'Choose what plays on this screen';
+  return 'Use';
+}
+
+// The big screens show the client's own work first; YouTube is a quiet second option.
+function act(found) {
+  const { action, module, object } = found;
+  if (module === 'cinema' || module === 'amphitheatre') {
+    const secondary = [YOUTUBE];
+    if (module === 'cinema') secondary.unshift({ label: 'Film sound on/off', run: () => world.pick(object) });
+    ui.openChooser({
+      eyebrow: module === 'cinema' ? 'The Cinema' : 'The Amphitheatre',
+      title: 'What should this screen show?',
+      items: SCREEN_SITES.map((s) => ({ ...s, title: `${s.label} · on the big screen` })),
+      secondary,
+    });
+    return;
+  }
+  world.pick(object);
+}
+
+// Desktop: the cursor and a quiet prompt say what a click will do.
+let hoverAt = 0;
+canvas.addEventListener('pointermove', (e) => {
+  if (!state.entered || state.overlay || state.exhibitionOpen || e.buttons || e.pointerType === 'touch') return;
+  const t = performance.now();
+  if (t - hoverAt < 110) return;
+  hoverAt = t;
+  const hit = pickAt(e.clientX, e.clientY);
+  const label = hit && isPickable(hit.object) ? labelFor(hit.object) : null;
+  canvas.style.cursor = label ? 'pointer' : 'grab';
+  if (label !== state.prompt) { state.prompt = label; ui.hint(label); }
+});
 
 function findSlot(object) {
   for (let o = object; o; o = o.parent) {
@@ -301,6 +467,7 @@ function leaveFocus(stepBack) {
 }
 
 function stepFocus(direction) {
+  if (!state.inHall) return;
   const from = state.focused !== -1 ? state.focused : (state.gazeSlot !== -1 ? state.gazeSlot : TOUR[0]);
   const i = TOUR.indexOf(from);
   const next = TOUR[(i + direction + TOUR.length) % TOUR.length];
@@ -326,6 +493,7 @@ function shareLink(summary, date) {
 function openExhibition() {
   if (state.exhibitionOpen) return;
   state.exhibitionOpen = true;
+  controls.exitLock();
   controls.enabled = false;
   let summary, date, isShared = false;
   if (curator.fixed && shared) {
@@ -369,7 +537,7 @@ function closeExhibition() {
   if (!state.exhibitionOpen) return;
   ui.closeExhibition();
   state.exhibitionOpen = false;
-  if (state.entered) controls.enabled = true;
+  if (state.entered && !state.overlay) controls.enabled = true;
 }
 
 // ----------------------------------------------------------- the re-hang --
@@ -478,6 +646,36 @@ function updateLabelAndTint(dt, now) {
 }
 
 let rehangClock = 0;
+let placeClock = 0;
+state.inHall = true;
+
+// Where is the visitor? Announce arrivals, and stop drawing interiors that
+// cannot be seen from here.
+function updatePlace(pos, floor) {
+  const area = areaAt(pos.x, floor, pos.z);
+  const name = area ? area.name : null;
+  state.inHall = name === 'The Hall';
+  const inLift = !!(world && world.lift && world.lift.isInside(pos.x, pos.z));
+  if (room.hall) room.hall.visible = floor < 5 || inLift || !state.entered;
+  const cinema = world && world.groups.cinema;
+  if (cinema) cinema.visible = !(state.inHall && floor < 3) || inLift;
+  if (state.entered && name && name !== state.place) {
+    state.place = name;
+    if (state.frames > 30) ui.toast(name, 2400);
+  }
+  if (!state.inHall && state.labelSlot !== -1 && state.focused === -1) { state.labelSlot = -1; ui.setLabel(null); }
+}
+
+let coverClock = 0;
+function updateCatalogueCover(dt) {
+  coverClock += dt;
+  if (coverClock < 4) return;
+  coverClock = 0;
+  try {
+    const s = curator.summary(new Date());
+    props.setCatalogueCover?.({ title: titleFor(s.hang, WORKS, Object.fromEntries(s.works.map((w) => [w.id, w.seconds]))), palette: s.palette.length ? s.palette : byId.get(s.hang[0]).palette });
+  } catch (e) { /* cosmetic */ }
+}
 let prefetchClock = 0;
 
 async function maybeRehang(now) {
@@ -546,13 +744,38 @@ function frame() {
   }
 
   if (state.entered) controls.update(dt);
+  const pos = controls.position;
+  const floor = controls.floor;
+  if (world) {
+    world.lift?.setVisitor(pos.x, floor, pos.z);
+    world.update(dt, { camera, time: now, level: floor > 5 ? 1 : 0 });
+  }
+  props.update?.(dt, camera);
+  if (state.entered) updateCentrePrompt(dt);
+  if (player) {
+    player.update(dt, { speed: controls.speed, jumping: controls.airborne, turnRate: controls.turnRate });
+  }
+  if (music) music.setIntensity(Math.min(1, 0.25 + controls.speed / 5 + (state.inHall ? 0 : 0.25)));
+  music?.update?.(dt);
+  placeClock += dt;
+  if (placeClock > 0.25) { placeClock = 0; updatePlace(pos, floor); }
   // Walking away from a work you approached ends the focus.
   if (state.focused !== -1 && !state.flying && controls.speed > 0.45) leaveFocus(false);
 
   if (!state.exhibitionOpen) {
-    updateVisibility(now);
-    measureGaze(dt, now);
-    updateLabelAndTint(dt, now);
+    updateCatalogueCover(dt);
+    if (state.inHall) {
+      updateVisibility(now);
+      measureGaze(dt, now);
+      updateLabelAndTint(dt, now);
+    } else {
+      // Outside the hall nothing in it is being looked at; pending reveals wait.
+      if (state.gazeSlot !== -1 || state.gazeWeight > 0) {
+        for (let i = 0; i < SLOTS.length; i++) room.setGaze(i, 0);
+        state.gazeWeight = 0;
+      }
+      state.gazeSlot = -1;
+    }
 
     rehangClock += dt;
     if (rehangClock > REHANG_EVERY) { rehangClock = 0; maybeRehang(now); }
@@ -616,6 +839,8 @@ if (TEST) {
   window.__gallery = {
     THREE, WORKS, SLOTS, state, curator, room, camera, controls, renderer, ready,
     get quality() { return quality; },
+    get world() { return world; },
+    props, ui, post,
     get pixelRatio() { return pixelRatio; },
     // Stand in front of a slot and look at it, as a visitor would.
     async lookAtSlot(slot) {

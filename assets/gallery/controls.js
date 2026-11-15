@@ -1,13 +1,16 @@
 // Moving through the room: damped look, eased walking, collision, glides.
 import * as THREE from 'three';
-import { resolveCollision, moveWithCollision } from './collision.js';
+import { resolveCollision, moveWithCollision, groundAt, moveInWorld, nearestWalkable } from './collision.js';
 
 export { resolveCollision, moveWithCollision, isWalkable } from './collision.js';
 
 // ---- tuning -----------------------------------------------------------
 const RADIUS = 0.35;
-const WALK_SPEED = 1.6;          // m/s
-const HURRY = 1.8;
+const WALK_SPEED = 2.0;          // m/s — a brisk walk; Shift runs
+const HURRY = 2.45;              // ≈ 4.9 m/s running
+const MOUSE_SENS = 0.0021;       // rad per pixel with the pointer captured
+const JUMP_V = 4.4;              // m/s take-off
+const GRAVITY = 13.5;            // m/s² (a touch heavier than Earth: snappier)
 const ACCEL_K = 5.0;             // 1/s, exponential approach when speeding up
 const DECEL_K = 7.5;             // when slowing down
 const LOOK_K = 11;               // look damping (1/s)
@@ -40,6 +43,7 @@ export function createControls(camera, dom, opts = {}) {
   const colliders = opts.colliders || [];
   const eyeHeight = opts.eyeHeight || 1.62;
   const reduced = !!opts.reducedMotion;
+  const allowLock = !!opts.pointerLock;
 
   camera.rotation.order = 'YXZ';
 
@@ -53,6 +57,14 @@ export function createControls(camera, dom, opts = {}) {
   const tmp = { x: 0, z: 0 };
   resolveCollision(px, pz, RADIUS, bounds, colliders, tmp);
   px = tmp.x; pz = tmp.z;
+  // World mode (setWorld): many regions at many heights instead of one rectangle.
+  let world = null;
+  let floor = py - eyeHeight;
+  const wtmp = { x: 0, z: 0, floor: 0 };
+  const active = [];
+  let auto = null;   // auto-walk toward a clicked point: { x, z, resolve, stuck, last }
+  let locked = false;          // pointer captured (FPS mode)
+  let jumpY = 0, jumpV = 0;    // height above the floor while airborne
 
   const keys = new Set();
   let firstFired = false;
@@ -71,6 +83,26 @@ export function createControls(camera, dom, opts = {}) {
     get turnRate() { return turnRate; },
     get yaw() { return yaw; },
     get pitch() { return pitch; },
+    get floor() { return floor; },
+    get locked() { return locked; },
+    get airborne() { return jumpY > 0 || jumpV > 0; },
+    onUse: null, onGesture: null, onLockChange: null,
+    exitLock() { if (locked && document.exitPointerLock) document.exitPointerLock(); },
+    get position() { return { x: px, y: py, z: pz }; },
+  };
+
+  /** Switch to world mode: { regions, colliders } (arrays may be mutated in place later). */
+  controls.setWorld = function setWorld(w) {
+    world = w;
+    const g = groundAt(w.regions, px, pz, floor, 100);
+    if (g !== null) floor = g;
+    else if (nearestWalkable(w.regions, px, pz, floor, wtmp, 100)) { px = wtmp.x; pz = wtmp.z; floor = wtmp.floor; }
+  };
+  /** Place the visitor on a floor point instantly (eye height added). */
+  controls.teleport = function teleport(p) {
+    interrupt();
+    px = p.x; pz = p.z; floor = p.y || 0; py = floor + eyeHeight;
+    applyCamera(0);
   };
 
   function firstInput() {
@@ -79,14 +111,26 @@ export function createControls(camera, dom, opts = {}) {
     if (typeof controls.onFirstInput === 'function') controls.onFirstInput();
   }
   function endFlight(ok) {
-    if (!fl) return;
-    const r = fl.resolve; fl = null; r(ok);
+    if (fl) { const r = fl.resolve; fl = null; r(ok); }
   }
-  function interrupt() { endFlight(false); }
+  function endAuto(ok) {
+    if (auto) { const r = auto.resolve; auto = null; r(ok); }
+  }
+  function interrupt() { endFlight(false); endAuto(false); }
 
   // ---- input ----------------------------------------------------------
   function onKeyDown(e) {
     if (!controls.enabled || e.ctrlKey || e.metaKey || e.altKey || typingTarget(e.target)) return;
+    if (e.code === 'Space') {
+      e.preventDefault();
+      if (!e.repeat && jumpY === 0 && jumpV === 0) { jumpV = reduced ? JUMP_V * 0.8 : JUMP_V; interrupt(); firstInput(); }
+      return;
+    }
+    if (e.code === 'KeyE' && !e.repeat) { if (typeof controls.onUse === 'function') controls.onUse(); return; }
+    if ((/^Digit[1-7]$/.test(e.code) || e.code === 'KeyG') && !e.repeat) {
+      if (typeof controls.onGesture === 'function') controls.onGesture(e.code);
+      return;
+    }
     if (!KEY_CODES.has(e.code)) return;
     if (e.code.charCodeAt(0) === 65 /* Arrow* */) e.preventDefault();
     const isShift = e.code === 'ShiftLeft' || e.code === 'ShiftRight';
@@ -97,7 +141,40 @@ export function createControls(camera, dom, opts = {}) {
   function clearKeys() { keys.clear(); }
   function onVis() { if (document.hidden) { clearKeys(); cancelPointer(); } }
 
+  function onLockChange() {
+    locked = document.pointerLockElement === dom;
+    if (locked) { cancelPointer(); dom.style.cursor = 'none'; } else dom.style.cursor = 'grab';
+    if (typeof controls.onLockChange === 'function') controls.onLockChange(locked);
+  }
+  function onLockedMove(e) {
+    if (!locked || !controls.enabled) return;
+    const mx = e.movementX || 0, my = e.movementY || 0;
+    if (!mx && !my) return;
+    if (fl) endFlight(false);
+    tYaw -= mx * MOUSE_SENS;
+    tPitch = clamp(tPitch - my * MOUSE_SENS, -PITCH_MAX, PITCH_MAX);
+    // Crisp, game-like look: follow the mouse almost exactly.
+    yaw = tYaw; pitch = tPitch;
+    firstInput();
+  }
+  document.addEventListener('pointerlockchange', onLockChange);
+  document.addEventListener('mousemove', onLockedMove);
+
   function onPointerDown(e) {
+    if (locked) {
+      // Captured: the left button uses whatever is under the crosshair.
+      if (e.button === 0 && controls.enabled && typeof controls.onTap === 'function') {
+        e.preventDefault();
+        controls.onTap(innerWidth / 2, innerHeight / 2);
+      }
+      return;
+    }
+    if (allowLock && controls.enabled && e.pointerType === 'mouse' && e.button === 0 && dom.requestPointerLock) {
+      // Click to play: capture the pointer like a game. (Esc releases it.)
+      try { const r = dom.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (err) { /* unsupported */ }
+      firstInput();
+      return;
+    }
     if (!controls.enabled || ptrId !== -1) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     ptrId = e.pointerId;
@@ -181,8 +258,10 @@ export function createControls(camera, dom, opts = {}) {
   }
 
   controls.flyTo = function flyTo({ position, target, duration } = {}) {
+    endAuto(false);
     const p = position || { x: px, y: py, z: pz };
-    resolveCollision(p.x, p.z, RADIUS, bounds, colliders, tmp);
+    if (world) { tmp.x = p.x; tmp.z = p.z; }
+    else resolveCollision(p.x, p.z, RADIUS, bounds, colliders, tmp);
     const ex = tmp.x, ez = tmp.z, ey = p.y !== undefined ? p.y : py;
     let eyaw = yaw, epitch = pitch;
     if (target) {
@@ -200,6 +279,14 @@ export function createControls(camera, dom, opts = {}) {
   };
 
   controls.walkTo = function walkTo(point) {
+    if (world) {
+      // Walk there for real, so walls and glass stop the visitor instead of
+      // being glided through.
+      endFlight(false); endAuto(false);
+      const y = point.y !== undefined ? point.y : floor;
+      if (!nearestWalkable(world.regions, point.x, point.z, y, wtmp)) return Promise.resolve(false);
+      return new Promise((resolve) => { auto = { x: wtmp.x, z: wtmp.z, resolve, stuck: 0 }; });
+    }
     resolveCollision(point.x, point.z, RADIUS, bounds, colliders, tmp);
     const ex = tmp.x, ez = tmp.z;
     const dx = ex - px, dz = ez - pz;
@@ -236,12 +323,17 @@ export function createControls(camera, dom, opts = {}) {
       fl.t += dt;
       const u = Math.min(fl.t / fl.dur, 1), e = ease(u);
       const nx = fl.sx + (fl.ex - fl.sx) * e, nz = fl.sz + (fl.ez - fl.sz) * e;
-      resolveCollision(nx, nz, RADIUS, bounds, colliders, tmp); // slide along obstacles en route
+      if (world) { tmp.x = nx; tmp.z = nz; }
+      else resolveCollision(nx, nz, RADIUS, bounds, colliders, tmp); // slide along obstacles en route
       px = tmp.x; pz = tmp.z;
       py = fl.sy + (fl.ey - fl.sy) * e;
       yaw = tYaw = fl.syaw + (fl.eyaw - fl.syaw) * e;
       pitch = tPitch = fl.spitch + (fl.epitch - fl.spitch) * e;
-      if (u >= 1) { px = fl.ex; pz = fl.ez; endFlight(true); }
+      if (u >= 1) {
+        px = fl.ex; pz = fl.ez;
+        if (world) { const g = groundAt(world.regions, px, pz, py - eyeHeight, 1.2); if (g !== null) floor = g; }
+        endFlight(true);
+      }
     } else {
       // keyboard look/turn
       if (live) {
@@ -261,11 +353,23 @@ export function createControls(camera, dom, opts = {}) {
         if (keys.has('KeyD')) s += 1;
         if (keys.has('KeyA')) s -= 1;
       }
-      const mag = Math.sqrt(f * f + s * s);
+      let mag = Math.sqrt(f * f + s * s);
       if (mag > 1) { f /= mag; s /= mag; }
       const top = WALK_SPEED * (keys.has('ShiftLeft') || keys.has('ShiftRight') ? HURRY : 1);
       const sy = Math.sin(yaw), cy = Math.cos(yaw);
-      const dvx = (-sy * f + cy * s) * top, dvz = (-cy * f - sy * s) * top;
+      let dvx = (-sy * f + cy * s) * top, dvz = (-cy * f - sy * s) * top;
+      if (auto && mag === 0) {
+        const ax = auto.x - px, az = auto.z - pz;
+        const d = Math.sqrt(ax * ax + az * az);
+        if (d < 0.12) { endAuto(true); }
+        else {
+          const v = Math.min(WALK_SPEED, 0.6 + d * 1.2);
+          dvx = (ax / d) * v; dvz = (az / d) * v; mag = 1;
+          // turn the head gently toward where we are walking
+          tYaw = yaw + wrapPi(Math.atan2(-ax, -az) - yaw) * Math.min(1, dt * 1.6);
+          if (speed < 0.08 && auto) { auto.stuck += dt; if (auto.stuck > 0.8) endAuto(false); } else if (auto) auto.stuck = 0;
+        }
+      }
       const k = mag > 0 ? ACCEL_K : DECEL_K;
       const ka = 1 - Math.exp(-dt * k);
       vx += (dvx - vx) * ka; vz += (dvz - vz) * ka;
@@ -275,7 +379,14 @@ export function createControls(camera, dom, opts = {}) {
       dolly -= ds;
       if (Math.abs(dolly) < 1e-4) dolly = 0;
       const mx = vx * dt - sy * ds, mz = vz * dt - cy * ds;
-      if (mx !== 0 || mz !== 0) {
+      if (world) {
+        moveInWorld(px, pz, floor, mx, mz, RADIUS, world.regions, world.colliders, active, wtmp);
+        if (Math.abs(wtmp.x - px - mx) + Math.abs(wtmp.z - pz - mz) > 1e-6) { vx = (wtmp.x - px) / dt; vz = (wtmp.z - pz) / dt; dolly *= 0.5; }
+        px = wtmp.x; pz = wtmp.z; floor = wtmp.floor;
+        // standing still: a floor that moves (the lift car) carries the visitor
+        const g = groundAt(world.regions, px, pz, floor);
+        if (g !== null) floor = g;
+      } else if (mx !== 0 || mz !== 0) {
         moveWithCollision(px, pz, mx, mz, RADIUS, bounds, colliders, tmp);
         const ax = tmp.x - px, az = tmp.z - pz;
         // blocked: bleed velocity (and dolly) into what actually happened
@@ -286,8 +397,16 @@ export function createControls(camera, dom, opts = {}) {
         }
         px = tmp.x; pz = tmp.z;
       }
-      // y eases back to eye height after a flight that changed it
-      py += (eyeHeight - py) * (1 - Math.exp(-dt * 1.5));
+      // y follows the floor (ramps, stairs, the lift) and eases back after flights
+      const eyeTarget = (world ? floor : 0) + eyeHeight;
+      if (jumpV !== 0 || jumpY > 0) {
+        jumpV -= GRAVITY * dt;
+        jumpY += jumpV * dt;
+        if (jumpY <= 0) { jumpY = 0; jumpV = 0; }
+        py = eyeTarget + jumpY;
+      } else {
+        py += (eyeTarget - py) * (1 - Math.exp(-dt * (world ? 10 : 1.5)));
+      }
     }
 
     // measured motion -> smoothed getters
@@ -313,6 +432,9 @@ export function createControls(camera, dom, opts = {}) {
   };
 
   controls.dispose = function dispose() {
+    document.removeEventListener('pointerlockchange', onLockChange);
+    document.removeEventListener('mousemove', onLockedMove);
+    controls.exitLock();
     endFlight(false);
     window.removeEventListener('keydown', onKeyDown);
     window.removeEventListener('keyup', onKeyUp);

@@ -378,9 +378,80 @@ export function createUI(handlers = {}) {
     soundBtn.setAttribute('aria-label', on ? 'Sound on — mute' : 'Sound off — unmute');
   }
 
+  // ---------------- sites and apps, inside the Workshop ----------------
+  const appBox = $('app-overlay'), appFrame = $('app-frame'), appTitle = $('app-title'), appNew = $('app-newtab');
+  const chooser = $('chooser'), chooserList = $('chooser-list'), chooserSecondary = $('chooser-secondary');
+  let appReturn = null;
+  function isExternal(url) { return /^https?:/i.test(url) && !url.startsWith(location.origin); }
+  function openApp(url, title) {
+    closeChooser(true);
+    appReturn = document.activeElement;
+    const href = new URL(url, location.href).href;
+    appTitle.textContent = title || '';
+    appFrame.title = title || 'Inside the Workshop';
+    // Sites of the client's own projects run sandboxed; local apps are ours.
+    if (isExternal(href)) appFrame.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads');
+    else appFrame.removeAttribute('sandbox');
+    appFrame.src = href;
+    appNew.href = href;
+    appBox.classList.add('is-on');
+    appBox.setAttribute('aria-hidden', 'false');
+    handlers.onOverlay?.(true);
+    $('app-close').focus({ preventScroll: true });
+  }
+  function closeApp() {
+    if (!appBox.classList.contains('is-on')) return;
+    appBox.classList.remove('is-on');
+    appBox.setAttribute('aria-hidden', 'true');
+    appFrame.src = 'about:blank';
+    handlers.onOverlay?.(false);
+    if (appReturn && appReturn.focus) appReturn.focus({ preventScroll: true });
+  }
+  $('app-close').addEventListener('click', closeApp);
+
+  /** items: [{ label, detail, url, title } | { label, detail, run }]; secondary: same, shown small. */
+  function openChooser({ eyebrow = 'On this screen', title = 'Choose what to show', items = [], secondary = [] }) {
+    $('chooser-eyebrow').textContent = eyebrow;
+    $('chooser-title').textContent = title;
+    const make = (item, primary) => {
+      const b = el(primary ? 'button' : 'button');
+      b.type = 'button';
+      if (primary) { b.append(el('span', 't', item.label), el('span', 'd', item.detail || '')); }
+      else b.textContent = item.label;
+      b.addEventListener('click', () => {
+        if (item.run) { closeChooser(); item.run(); }
+        else if (item.newTab) { closeChooser(); window.open(item.url, '_blank', 'noopener'); }
+        else openApp(item.url, item.title || item.label);
+      });
+      return b;
+    };
+    chooserList.replaceChildren(...items.map((it) => { const li = el('li'); li.append(make(it, true)); return li; }));
+    chooserSecondary.replaceChildren(...(secondary.length ? [el('span', '', 'Also:'), ...secondary.map((it) => make(it, false))] : []));
+    chooser.classList.add('is-on');
+    chooser.setAttribute('aria-hidden', 'false');
+    handlers.onOverlay?.(true);
+    const first = chooserList.querySelector('button');
+    if (first) first.focus({ preventScroll: true });
+  }
+  function closeChooser(keepOverlay) {
+    if (!chooser.classList.contains('is-on')) return;
+    chooser.classList.remove('is-on');
+    chooser.setAttribute('aria-hidden', 'true');
+    if (!keepOverlay) handlers.onOverlay?.(false);
+  }
+  $('chooser-close').addEventListener('click', () => closeChooser());
+  chooser.addEventListener('click', (e) => { if (e.target === chooser) closeChooser(); });
+  addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (appBox.classList.contains('is-on')) { e.preventDefault(); closeApp(); }
+    else if (chooser.classList.contains('is-on')) { e.preventDefault(); closeChooser(); }
+  });
+  const isOverlayOpen = () => appBox.classList.contains('is-on') || chooser.classList.contains('is-on');
+
   return {
     showEntry, setProgress, hideEntry, setLabel, setPalette, hint, toast,
     openExhibition, closeExhibition, renderPoster, setSound,
+    openApp, closeApp, openChooser, closeChooser, isOverlayOpen,
   };
 }
 

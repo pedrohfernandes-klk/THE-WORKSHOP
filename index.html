@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'; script-src 'self' 'sha256-uGwtOHovMYHv3joVtSCTd+Gj4mW4jj0mIBAvHl0S17w='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; media-src 'self'; worker-src 'self' blob:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'; script-src 'self' 'sha256-uGwtOHovMYHv3joVtSCTd+Gj4mW4jj0mIBAvHl0S17w='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src 'self' https://pedrohfernandes-klk.github.io; media-src 'self'; worker-src 'self' blob:">
 <title>THE WORKSHOP — HrM</title>
 <meta name="description" content="THE WORKSHOP by HrM: one daylit room that hangs itself around your attention. Look slowly — what holds your gaze stays, what you pass by quietly changes. Then keep the exhibition it made of you.">
 <meta name="theme-color" content="#15120e">
@@ -366,6 +366,37 @@ a{color:inherit}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms!important;animation-delay:0s!important;transition-duration:.001ms!important;transition-delay:0s!important}
 }
+
+/* ---------- in-world apps and sites ---------- */
+#app-overlay{position:fixed;inset:0;z-index:45;display:none;background:rgba(21,18,14,.62);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);padding:14px max(14px,var(--gutter))}
+#app-overlay.is-on{display:flex;flex-direction:column;animation:labelIn .45s var(--ease) both}
+#app-overlay .bar{display:flex;align-items:center;gap:12px;color:var(--paper);padding:2px 2px 12px}
+#app-overlay .bar h2{flex:1;margin:0;font-family:var(--serif);font-weight:400;font-size:24px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#app-overlay .bar a,#app-overlay .bar button{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid rgba(244,239,230,.55);color:var(--paper);background:transparent;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;display:inline-flex;align-items:center;text-decoration:none;white-space:nowrap}
+#app-overlay .bar button:hover,#app-overlay .bar a:hover{background:var(--paper);color:var(--ink)}
+#app-overlay .frame{flex:1;min-height:0;border-radius:6px;overflow:hidden;background:var(--paper);box-shadow:0 30px 80px rgba(0,0,0,.45)}
+#app-overlay iframe{width:100%;height:100%;border:0;display:block;background:#fff}
+@media (max-width:759px){#app-overlay .bar a{display:none}#app-overlay .bar h2{font-size:19px}}
+#chooser{position:fixed;inset:0;z-index:44;display:none;align-items:center;justify-content:center;background:rgba(21,18,14,.5);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);padding:var(--gutter)}
+#chooser.is-on{display:flex;animation:labelIn .45s var(--ease) both}
+#chooser .card{width:min(520px,100%);background:var(--paper);color:var(--ink);border-radius:6px;padding:26px 26px 18px;box-shadow:0 30px 80px rgba(0,0,0,.35)}
+#chooser .eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 8px}
+#chooser h2{font-family:var(--serif);font-weight:400;font-size:34px;line-height:1.05;margin:0 0 18px}
+#chooser ul{list-style:none;margin:0;padding:0;border-top:1px solid var(--hairline)}
+#chooser li{border-bottom:1px solid var(--hairline)}
+#chooser li button{width:100%;min-height:56px;display:flex;align-items:baseline;justify-content:space-between;gap:16px;padding:14px 4px;text-align:left;background:none;border:0;color:inherit}
+#chooser li button:hover{color:var(--accent)}
+#chooser li .t{font-family:var(--serif);font-size:24px;line-height:1.1}
+#chooser li .d{font-size:12px;color:rgba(21,18,14,.62);text-align:right}
+#chooser .secondary{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin-top:14px;font-size:13px;color:rgba(21,18,14,.66)}
+#chooser .secondary a,#chooser .secondary button{color:inherit;text-decoration:underline;text-underline-offset:3px;background:none;border:0;min-height:44px;padding:0;font-size:13px}
+#chooser .close{float:right;margin:-10px -10px 0 0;min-width:44px;min-height:44px;background:none;border:0;font-size:22px;color:rgba(21,18,14,.6)}
+
+#crosshair{position:fixed;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;z-index:30;pointer-events:none;opacity:0;transition:opacity .25s,transform .25s}
+#crosshair.is-on{opacity:1}
+#crosshair i{position:absolute;inset:8px;border-radius:50%;background:rgba(255,255,255,.92);box-shadow:0 0 0 1px rgba(0,0,0,.35),0 0 8px rgba(0,0,0,.35)}
+#crosshair.is-target{transform:scale(1.35)}
+#crosshair.is-target i{inset:5px;background:transparent;border:2px solid #fff}
 </style>
 </head>
 <body>
@@ -477,6 +508,25 @@ a{color:inherit}
   </div>
 </div>
 
+
+<div id="crosshair" aria-hidden="true"><i></i></div>
+<div id="chooser" role="dialog" aria-modal="true" aria-labelledby="chooser-title" aria-hidden="true">
+  <div class="card">
+    <button type="button" class="close" id="chooser-close" aria-label="Close">×</button>
+    <p class="eyebrow" id="chooser-eyebrow">On this screen</p>
+    <h2 id="chooser-title">Choose what to show</h2>
+    <ul id="chooser-list"></ul>
+    <div class="secondary" id="chooser-secondary"></div>
+  </div>
+</div>
+<div id="app-overlay" role="dialog" aria-modal="true" aria-labelledby="app-title" aria-hidden="true">
+  <div class="bar">
+    <h2 id="app-title"></h2>
+    <a id="app-newtab" href="#" target="_blank" rel="noopener">Open in a new tab</a>
+    <button type="button" id="app-close">Back to the Workshop</button>
+  </div>
+  <div class="frame"><iframe id="app-frame" title="" allow="autoplay; fullscreen; clipboard-write" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+</div>
 <div id="fallback" role="alert">
   <div class="box">
     <p class="caps" style="color:var(--accent);margin:0">THE WORKSHOP · HrM</p>
