@@ -19,6 +19,18 @@ import { createWorld, areaAt } from './world.js';
 import { groundAt } from './collision.js';
 import { createProps } from './props.js';
 
+// Canvas roundRect arrived in Safari 16; NPC speech bubbles and the poster use it.
+if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+    const rr = Math.max(0, Math.min(typeof r === 'number' ? r : (Array.isArray(r) ? r[0] || 0 : 0), w / 2, h / 2));
+    this.moveTo(x + rr, y);
+    this.arcTo(x + w, y, x + w, y + h, rr); this.arcTo(x + w, y + h, x, y + h, rr);
+    this.arcTo(x, y + h, x, y, rr); this.arcTo(x, y, x + w, y, rr);
+    this.closePath();
+    return this;
+  };
+}
+
 const params = new URLSearchParams(location.search);
 const TEST = params.has('test');
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -153,7 +165,9 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.setPixelRatio(pixelRatio);
 renderer.setSize(innerWidth, innerHeight, false);
 
-const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.05, 120);
+// near 0.1 / far 3000: the landscape, aircraft and Skyliner are hundreds of metres
+// away, and a 24-bit depth buffer still resolves ~0.15 m at 500 m.
+const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.1, 3000);
 // The entry shot: a step outside the threshold, looking down the dim hall.
 const ENTRY_POSITION = START.position.clone().add(new THREE.Vector3(0, 0, 2.4));
 camera.position.copy(ENTRY_POSITION);
@@ -257,6 +271,7 @@ async function enter() {
   if (state.entered) return;
   // Audio must start inside the click itself, before any await.
   audio.start().catch(() => {});
+  music?.start().catch(() => {});
   await ready;
   state.entered = true;
   ui.hideEntry();
@@ -270,7 +285,6 @@ async function enter() {
   ui.hint(touch
     ? 'Drag to look · Tap the floor to walk · Tap a work to approach'
     : 'Click to play · WASD · Shift run · Space jump · E use · F throw · 1–7 gestures');
-  music?.start().catch(() => {});
 }
 
 controls.onFirstInput = () => {
@@ -342,7 +356,10 @@ function cycleWeather() {
 worldReady.then((w) => {
   if (!w) return;
   return import('./weather.js').then((m) => {
-    weather = m.createWeather(ctx, { environment: w.modules.get('environment') });
+    // Hand the weather the sun's true strength, not the indoor-dimmed value.
+    const env = w.modules.get('environment');
+    if (env && env.sun && state.sunBase !== undefined) env.sun.intensity = state.sunBase;
+    weather = m.createWeather(ctx, { environment: env });
   });
 }).catch((err) => console.warn('[weather] unavailable', err));
 addEventListener('keydown', (e) => { if (e.code === 'KeyT' && !e.repeat && state.entered && !state.overlay) cycleWeather(); });
@@ -566,7 +583,7 @@ function stepFocus(direction) {
 }
 
 addEventListener('keydown', (event) => {
-  if (!state.entered || state.exhibitionOpen) return;
+  if (!state.entered || state.exhibitionOpen || state.overlay || event.defaultPrevented) return;
   if (event.target instanceof HTMLElement && event.target.closest('input, textarea, select')) return;
   if (event.key === 'Escape' && state.focused !== -1) { leaveFocus(true); }
   else if (event.key === ']' || event.key === '.') { stepFocus(+1); }
@@ -647,7 +664,7 @@ function updateVisibility(now) {
   frustum.setFromProjectionMatrix(projScreen);
   // A generous frustum decides what is "possibly seen": wider than the real
   // view, so a work is never swapped at the very edge of the visitor's vision.
-  wideCamera.copy(camera);
+  wideCamera.copy(camera, false);   // not recursive: the camera carries the hands and the held ball
   wideCamera.fov = Math.min(150, camera.fov * 1.45);
   wideCamera.aspect = camera.aspect * 1.2;
   wideCamera.updateProjectionMatrix();
@@ -786,6 +803,8 @@ function updateSoundscape(area, pos, floor, inLift) {
   audio.setEnvironment?.(acousticsAt(area, inLift));
   state.indoor = acousticsAt(area, inLift) !== 'outdoor';
   weather?.setIndoor?.(state.indoor);
+  // Lawns and borders can't be seen from indoors: don't draw ~1M grass triangles there.
+  for (const n of ['grass', 'flowers']) { const g = world && world.groups[n]; if (g) g.visible = !state.indoor; }
   const tram = world && world.modules.get('metro')?.position;
   const mode = weather ? weather.mode : 'sunny';
   audio.setSources?.({
@@ -851,6 +870,16 @@ let running = true;
 function frame() {
   if (!running) return;
   requestAnimationFrame(frame);
+  try {
+    step();
+  } catch (err) {
+    // One failing subsystem must never freeze the whole world: report once, keep going.
+    if (!state.frameError) { state.frameError = String(err && err.stack || err); console.error('[frame]', err); }
+    try { post.render(0); } catch (e) { /* nothing more to do */ }
+  }
+}
+
+function step() {
   const dt = Math.min(clock.getDelta(), 0.1);
   const now = performance.now() / 1000;
   state.frames++;

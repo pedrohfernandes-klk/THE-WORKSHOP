@@ -106,7 +106,7 @@ export function build(ctx) {
   };
   mat.customProgramCacheKey = () => 'grass-blades-v1';
   const blades = new THREE.Mesh(geo, mat);
-  blades.frustumCulled = false; blades.castShadow = false; blades.receiveShadow = true; blades.name = 'grass-blades';
+  blades.frustumCulled = true;   // the geometry's bounding sphere covers every lawn blades.castShadow = false; blades.receiveShadow = true; blades.name = 'grass-blades';
   group.add(blades);
 
   // ---- ground-coloured base (grid of cells, same lawn mask) ----

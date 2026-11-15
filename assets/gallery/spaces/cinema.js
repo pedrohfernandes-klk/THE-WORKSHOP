@@ -447,13 +447,14 @@ export function build(ctx) {
     } catch (e) { glowTarget = 8; }
   }
 
+  let retryAt = 0;
   function update(dt, frame) {
     const c = frame.camera.position;
     const inside = frame.level === 1 && c.z < Z1 && c.z > Z0 && Math.abs(c.x) < 6.6 && c.y > FLOOR - 0.5 && c.y < CEIL;
-    if (inside && !playing) {
+    if (inside && !playing && performance.now() > retryAt) {
       if (!started) { video.preload = 'auto'; started = true; }
       playing = true;
-      const pr = video.play(); if (pr && pr.catch) pr.catch(() => { playing = false; });
+      const pr = video.play(); if (pr && pr.catch) pr.catch(() => { playing = false; retryAt = performance.now() + 3000; });
     } else if (!inside && playing) {
       playing = false; video.pause();
     }

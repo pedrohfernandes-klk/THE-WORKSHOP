@@ -72,7 +72,9 @@ export async function createWorld(ctx, { hallColliders = [], onProgress } = {}) 
   const staticColliders = hallColliders.map((c) => ({ minY: 0, maxY: 2.6, ...c }));
   const pickables = [];
   const owner = new Map();       // pickable → module name
-  for (const [name, out] of modules) {
+  for (const name of SPACES) {
+    const out = modules.get(name);
+    if (!out) continue;
     for (const r of out.regions || []) staticRegions.push(r);
     for (const c of out.colliders || []) staticColliders.push(c);
     for (const p of out.pickables || []) { pickables.push(p); owner.set(p, name); }
@@ -114,7 +116,10 @@ export async function createWorld(ctx, { hallColliders = [], onProgress } = {}) 
     if (action.type === 'app') { ctx.ui.openApp(action.url, action.title); return true; }
     const name = found.module || moduleOf(target);
     const out = name ? modules.get(name) : null;
-    if (out && typeof out.onPick === 'function') { out.onPick(target); return true; }
+    if (out && typeof out.onPick === 'function') {
+      try { out.onPick(target); } catch (err) { console.warn(`[world] ${name}.onPick failed`, err); }
+      return true;
+    }
     // A module may own the pickable without registering it (nested meshes).
     for (const m of modules.values()) if (m.pickables?.includes(target) && m.onPick) { m.onPick(target); return true; }
     return false;

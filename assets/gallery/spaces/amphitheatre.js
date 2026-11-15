@@ -316,7 +316,7 @@ export function build(ctx) {
   regions.push({ minX: -34.5, maxX: -23.5, minZ: 28, maxZ: 31, y: 0 });                       // approach path
   regions.push({ minX: -35, maxX: -30.5, minZ: 16, maxZ: 44, y: 0 });                          // rim promenade
   regions.push({ minX: -43, maxX: -35, minZ: 29, maxZ: 31, y: 0, ramp: { axis: 'x', from: -35, to: -43, y0: 0, y1: FLOOR } }); // centre aisle stair
-  regions.push({ minX: -50.3, maxX: -44, minZ: 26, maxZ: 34, y: FLOOR });                       // orchestra
+  regions.push({ minX: -50.3, maxX: -42.9, minZ: 26, maxZ: 34, y: FLOOR });                       // orchestra
   regions.push({ minX: -50.9, maxX: -50.3, minZ: 28, maxZ: 32, y: -3.7 });                      // stage step
   regions.push({ minX: -57, maxX: -50.9, minZ: 22.2, maxZ: 37.8, y: -3.2 });                    // stage
 

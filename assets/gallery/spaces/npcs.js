@@ -287,7 +287,7 @@ export function build(ctx) {
       home: [40, 29], r: 2.6, speed: 0.9, top: 2.05, sound: 'bleat',
       lines: ['Have you tried eating the carpet? Asking for me.', 'This tweed is forty percent sofa.', 'I will eat that. Not now. But I will.', 'Bleh. That was my whole opinion.', 'I climbed up here for no reason. Great reason.', 'Please do not check my pockets for cans. There is one can.', 'I am extremely professional. Maaa.', 'Fence? What fence?'] },
     { name: 'pigeon', head: 'pigeon', fur: 0x8c93a1, suit: std(0x1f8a8f, 0.55), sleeve: std(0x1f8a8f, 0.55), pants: std(0x1f8a8f, 0.55), shirt: 0xffffff, tie: 0, shoe: 0xf4f4f4, stripe: 0xffffff,
-      home: [-32, 22], r: 2.2, speed: 1.0, top: 1.95, bob: true, sound: 'coo',
+      home: [-6, 44.5], r: 1.6, speed: 1.0, top: 1.95, bob: true, sound: 'coo',
       lines: ['I have walked into this glass four times. Five.', 'Do you have any bread? Or a job?', 'Coo is a complete sentence.', 'The tracksuit is for speed. I never use it.', 'I saw a statue. We are not friends.', 'Do not look at my neck. It is just shiny.', "I live here now. Don't tell the hall.", 'Bob. Bob bob. That is the whole presentation.'] },
     { name: 'horse', head: 'horse', fur: 0x8a5a36, suit: std(0x0b0b10, 0.35), sleeve: std(0x0b0b10, 0.35), pants: std(0x0b0b10, 0.35), shirt: 0xffffff, tie: 0x0b0b10, bow: true, shoe: 0x050505, satin: true,
       home: [-3, 2], r: 0.7, speed: 0.6, top: 2.2, sound: 'neigh',
@@ -520,7 +520,7 @@ export function build(ctx) {
     g.gain.setValueAtTime(0.0001, t0);
     g.gain.exponentialRampToValueAtTime(gain, t0 + 0.04);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    o.connect(f); f.connect(g); g.connect(ac.destination);
+    o.connect(f); f.connect(g); g.connect((ctx.audio && ctx.audio.bus) || ac.destination);
     o.start(t0); o.stop(t0 + dur + 0.05);
   }
   function getAc() {
@@ -540,7 +540,7 @@ export function build(ctx) {
       }
       const t = ac.currentTime + 0.01, src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
       src.buffer = nbuf; f.type = 'bandpass'; f.frequency.value = 1900; f.Q.value = 0.7; g.gain.value = 0.9;
-      src.connect(f); f.connect(g); g.connect(ac.destination); src.start(t);
+      src.connect(f); f.connect(g); g.connect((ctx.audio && ctx.audio.bus) || ac.destination); src.start(t);
       tone(t, 'sine', 0.12, [180, 60], 0.35, 400);
     } catch (e) { /* audio unavailable */ }
   }
@@ -631,7 +631,9 @@ export function build(ctx) {
         say(PG, 'COO! COME HERE, BREAD THIEF!', false); say(PI, 'I did NOT take the bread!', false);
       }
     } else if (cSt === 1) {
-      go(PI, PCX + Math.cos(cAng + 0.5) * PRX, PCZ + Math.sin(cAng + 0.5) * PRZ, 3.6, -1);
+      // The pig lives by the school: leave the forecourt through the gate first.
+      if (PI.z > 51.5 && Math.abs(PI.x) > 1.2) go(PI, 0, 53, 3.6, -1);
+      else go(PI, PCX + Math.cos(cAng + 0.5) * PRX, PCZ + Math.sin(cAng + 0.5) * PRZ, 3.6, -1);
       go(PG, PCX + Math.cos(cAng) * PRX, PCZ + Math.sin(cAng) * PRZ, 3.8, -1);
       const ex = PG.x - PCX - Math.cos(cAng) * PRX, ez = PG.z - PCZ - Math.sin(cAng) * PRZ;
       if (ex * ex + ez * ez < 4) { cSt = 2; cLeft = TAU * 1.6; }
@@ -741,6 +743,8 @@ export function build(ctx) {
         tyaw = Math.atan2(n.faceN.x - n.x, n.faceN.z - n.z);
       } else if (n.fixed) {
         tyaw = (near || n.talkT > 0) ? Math.atan2(dx, dz) : n.baseYaw;
+        // Knocked over and back up: drift back to the spot they guard.
+        if (n.sillyT < 0 && !n.goOn) { const k = Math.min(1, dt * 3); n.x += (n.pts[0] - n.x) * k; n.z += (n.pts[1] - n.z) * k; }
       } else if (near || n.talkT > 0) {
         tyaw = Math.atan2(dx, dz);
       } else if (n.wait > 0) {

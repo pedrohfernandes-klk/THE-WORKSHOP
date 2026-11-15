@@ -520,6 +520,8 @@ export function createAudio() {
 
   const api = {
     get muted() { return A.muted; },
+    get context() { return A.ctx || null; },
+    get bus() { return (A.E && A.E.master) || null; },
 
     async start() {
       if (A.started) { try { if (A.ctx.state === 'suspended' && !A.hidden) await A.ctx.resume(); } catch (e) {} return; }

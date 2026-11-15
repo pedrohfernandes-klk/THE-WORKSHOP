@@ -146,6 +146,7 @@ export function build(ctx) {
   geo.setIndex(idx);
   geo.computeBoundingSphere();
   const tmat = M.get('terrain', { tile: 9, roughness: 1 }).clone();
+  tmat.polygonOffset = true; tmat.polygonOffsetFactor = 2; tmat.polygonOffsetUnits = 2;
   patchMaterial(tmat, THREE, 'terrain');
   const terrain = new THREE.Mesh(geo, tmat);
   terrain.receiveShadow = true;

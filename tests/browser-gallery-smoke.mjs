@@ -81,12 +81,60 @@ try {
     while (g.state.gazeWeight < 0.7 && performance.now() < settleBy) await new Promise(r => setTimeout(r, 200));
     const id = g.curator.hang[slot];
     const before = g.curator.seconds[id] || 0;
-    await new Promise(r => setTimeout(r, 3000));
+    // Measure over rendered frames, not wall-clock: software WebGL can pause for
+    // seconds between frames, and attention only accrues on frames.
+    const f0 = g.state.frames, until = performance.now() + 180000;
+    while (g.state.frames - f0 < 12 && performance.now() < until) await new Promise(r => setTimeout(r, 200));
     return { id, gained: (g.curator.seconds[id] || 0) - before, gazeSlot: g.state.gazeSlot };
   }, lookSlot);
   results.gaze = looked;
   if (looked.gazeSlot !== lookSlot) fail(`Gaze should rest on slot ${lookSlot}, got ${looked.gazeSlot}`);
   if (!(looked.gained > 0.2)) fail(`Looking at a work did not accrue attention: ${JSON.stringify(looked)}`);
+
+  // ===== 2b. Every space of the campus is reachable on foot from the start =====
+  results.walk = await page.evaluate(() => {
+    const g = window.__gallery;
+    const R = g.world.regions.slice();
+    // The lift links its two thresholds (its car regions only exist while it runs).
+    R.push({ minX: 3.75, maxX: 4.85, minZ: 13.8, maxZ: 15.6, y: 0, lift: true }, { minX: 3.75, maxX: 4.85, minZ: 13.8, maxZ: 15.6, y: 7.2, lift: true });
+    const h = (r, x, z) => {
+      if (!r.ramp) return r.y || 0;
+      const c = r.ramp.axis === 'x' ? x : z;
+      const t = Math.min(1, Math.max(0, (c - r.ramp.from) / (r.ramp.to - r.ramp.from)));
+      return r.ramp.y0 + (r.ramp.y1 - r.ramp.y0) * t;
+    };
+    const touch = (a, b) => {
+      const minX = Math.max(a.minX, b.minX), maxX = Math.min(a.maxX, b.maxX);
+      const minZ = Math.max(a.minZ, b.minZ), maxZ = Math.min(a.maxZ, b.maxZ);
+      if (minX > maxX || minZ > maxZ) return false;
+      for (const x of [minX, (minX + maxX) / 2, maxX]) for (const z of [minZ, (minZ + maxZ) / 2, maxZ]) {
+        if (Math.abs(h(a, x, z) - h(b, x, z)) <= 0.65) return true;
+      }
+      return a.lift && b.lift;
+    };
+    const at = (x, y, z) => R.findIndex(r => x >= r.minX && x <= r.maxX && z >= r.minZ && z <= r.maxZ && Math.abs(h(r, x, z) - y) <= 0.65);
+    const start = at(0, 0, 13.5);
+    const seen = new Set([start]), queue = [start];
+    while (queue.length) {
+      const i = queue.shift();
+      R.forEach((r, j) => { if (!seen.has(j) && touch(R[i], r)) { seen.add(j); queue.push(j); } });
+    }
+    // The lift's two landings are one hop apart.
+    const l0 = R.findIndex(r => r.lift && r.y === 0), l1 = R.findIndex(r => r.lift && r.y === 7.2);
+    if (seen.has(l0) && !seen.has(l1)) {
+      seen.add(l1); const q2 = [l1];
+      while (q2.length) { const i = q2.shift(); R.forEach((r, j) => { if (!seen.has(j) && touch(R[i], r)) { seen.add(j); q2.push(j); } }); }
+    }
+    const places = {
+      plaza: [0, 0, 30], garden: [40, 0, 20], amphitheatre: [-46, -4.2, 30], studio: [-17, 0, 44], arcade: [17, 0, 44],
+      'sala lente': [-10, 0, 66], 'sala de português': [10, 0, 66], terrace: [0, 7.2, 10], cinema: [0, 7.2, -14], metro: [83, 0.35, 30], ruins: [-48, 0, -30],
+    };
+    const out = {};
+    for (const [name, [x, y, z]] of Object.entries(places)) { const i = at(x, y, z); out[name] = i === -1 ? 'no region' : seen.has(i) ? 'ok' : 'unreachable'; }
+    return { start, out };
+  });
+  const broken = Object.entries(results.walk.out).filter(([, v]) => v !== 'ok');
+  if (results.walk.start === -1 || broken.length) fail(`Campus not walkable from the start: ${JSON.stringify(results.walk)}`);
 
   // ===== 3. The room re-hangs walls the visitor cannot see, and keeps what was looked at =====
   const rehang = await page.evaluate(async (slot) => {

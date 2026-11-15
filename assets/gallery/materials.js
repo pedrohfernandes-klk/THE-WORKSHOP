@@ -62,14 +62,15 @@ export function createMaterials(renderer, { quality = 'high' } = {}) {
 
   // A per-material view of a shared texture: own repeat, same GPU image.
   function view(id, kind, repeat) {
-    const t = texture(id, kind).clone();
-    t.repeat.set(repeat, repeat);
-    // clone() does not follow a load that has not finished yet.
     const src = texture(id, kind);
+    const t = src.clone();               // shares src.source, so the image arrives by itself
+    t.repeat.set(repeat, repeat);
     if (!src.image) {
-      const check = () => { if (src.image) { t.image = src.image; t.needsUpdate = true; } else setTimeout(check, 120); };
+      t.version = 0;                     // nothing to upload yet (clone() marks it dirty)
+      let tries = 0;
+      const check = () => { if (src.image) t.needsUpdate = true; else if (++tries < 500) setTimeout(check, 120); };
       check();
-    } else t.needsUpdate = true;
+    }
     return t;
   }
 

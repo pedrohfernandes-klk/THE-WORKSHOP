@@ -101,6 +101,7 @@ export function createControls(camera, dom, opts = {}) {
   /** Place the visitor on a floor point instantly (eye height added). */
   controls.teleport = function teleport(p) {
     interrupt();
+    jumpY = jumpV = vx = vz = 0;
     px = p.x; pz = p.z; floor = p.y || 0; py = floor + eyeHeight;
     applyCamera(0);
   };
@@ -151,6 +152,7 @@ export function createControls(camera, dom, opts = {}) {
     const mx = e.movementX || 0, my = e.movementY || 0;
     if (!mx && !my) return;
     if (fl) endFlight(false);
+    if (auto) endAuto(false);
     tYaw -= mx * MOUSE_SENS;
     tPitch = clamp(tPitch - my * MOUSE_SENS, -PITCH_MAX, PITCH_MAX);
     // Crisp, game-like look: follow the mouse almost exactly.
@@ -432,6 +434,7 @@ export function createControls(camera, dom, opts = {}) {
   };
 
   controls.dispose = function dispose() {
+    endAuto(false);
     document.removeEventListener('pointerlockchange', onLockChange);
     document.removeEventListener('mousemove', onLockedMove);
     controls.exitLock();
