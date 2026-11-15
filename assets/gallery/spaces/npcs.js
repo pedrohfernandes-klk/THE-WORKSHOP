@@ -729,6 +729,7 @@ export function build(ctx) {
   // past, jumping, sitting nearby, the weather, being ignored or talked to again, cheeky
   // gestures, slaps once or again and again). Missing keys fall back to their language.
   const LEVOU_NPC = ['Já levaste na boca!', 'Já levaste na boca, já!', 'Ahah, já levaste na boca!', 'AHAHAHAHA!', 'AHAHAH! Já levaste na boca!'];
+  const LEVOU_F = ['Já levaste na boca!', 'Já levaste na boca, já!', 'Ahah, já levaste na boca!'];
   const LEVOU_VIS = ['Levaste na boca, boneco!', 'Levaste na boca, ó boneco!', 'Toma lá, boneco!', 'AHAHAHAHA!', 'AHAHAH! Já levaste na boca!', 'Já levaste na boca!'];
   const DEF = {
     en: {
@@ -866,7 +867,7 @@ export function build(ctx) {
     forcado: {
       talk: ['Tá bueno!', 'Tá bueno?', 'Tá bueno, tá bueno…', 'Tá bueno.', 'Tá bueno, tá bueno!', 'Tá… bueno?', 'Tá bueno! Tá bueno!', 'Tá bueno?!', 'Hm. Tá bueno.', 'Tá bueno… tá bueno…', 'Tá bueno, tá?', 'Tá BUENO!'],
       run: ['Eh, toiro! Sai cavalinho!'], scream: ['Eh, toiro! Sai cavalinho!'], shout: ['Sai cavalinho!', 'Eh, toiro! Sai cavalinho!'],
-      ouch: ['TÁ BUENO!', 'TÁ BUENO?!', 'TÁ BUENO, TÁ BUENO!'], ouch2: ['TÁ BUENO?!', 'Tá bueno?!… TÁ BUENO!'], ouch3: ['TÁ BUENO, TÁ BUENO, TÁ BUENO!!'],
+      ouch: ['TÁ BUENO!', 'TÁ BUENO?!', 'TÁ BUENO, TÁ BUENO!'], ouch2: ['TÁ BUENO?!', 'Tá bueno?!… TÁ BUENO!'], ouch3: ['TÁ BUENO, TÁ BUENO, TÁ BUENO!!', 'TÁ BUENO!! TÁ BUENO!!', 'TÁÁÁ BUENO!'],
       up: ['Tá bueno, tá bueno…', 'Tá bueno.', 'Tá bueno?'], rude: ['Tá bueno?', 'Tá bueno!', 'Tá bueno, tá bueno…'], ha: ['Tá bueno! Tá bueno!', 'Tá bueno, tá bueno!'],
       smug: ['Tá bueno!', 'Tá bueno, tá bueno!'], miss: ['Tá bueno?'], tired: ['Tá bueno…'], ignored: ['Tá bueno.', 'Tá bueno…'], again: ['Tá bueno, tá bueno…', 'Tá bueno?'],
       hyst: ['Tá bueno! Tá bueno!', 'TÁ BUENO! Tá bueno!'], hystV: ['Tá bueno! Tá bueno!', 'TÁ BUENO! Tá bueno!'],
@@ -908,10 +909,17 @@ export function build(ctx) {
     try {
       const ss = typeof speechSynthesis !== 'undefined' ? speechSynthesis : null;
       if (!ss || ss.speaking || ss.pending || typeof SpeechSynthesisUtterance === 'undefined' || !audioOn(n)) return;
-      if (!ptVoice) { const vs = ss.getVoices() || []; for (let i = 0; i < vs.length; i++) if (/^pt[-_]PT/i.test(vs[i].lang || '')) { ptVoice = vs[i]; break; } }
-      if (!ptVoice) return;
+      // pt-PT, then any Portuguese, then whatever voice exists (the mangled accent is part of the joke)
+      let v = ptVoice;
+      if (!v) {
+        const vs = ss.getVoices() || [];
+        let br = null;
+        for (let i = 0; i < vs.length; i++) { const l = vs[i].lang || ''; if (/^pt[-_]PT/i.test(l)) { v = vs[i]; break; } if (!br && /^pt/i.test(l)) br = vs[i]; }
+        if (v || br) ptVoice = v = v || br; else v = vs[0] || null;
+      }
+      if (!v) return;
       const u = new SpeechSynthesisUtterance(text);
-      u.voice = ptVoice; u.lang = ptVoice.lang; u.volume = 0.35; u.rate = 0.9 + (n.seed % 0.35); u.pitch = 0.7 + ((n.seed * 1.7) % 0.8);
+      u.voice = v; u.lang = v.lang || 'pt-PT'; u.volume = 0.35; u.rate = 0.9 + (n.seed % 0.35); u.pitch = 0.7 + ((n.seed * 1.7) % 0.8);
       ss.speak(u); lastSpoke = clock;
     } catch (e) { /* no voice */ }
   }
@@ -970,7 +978,10 @@ export function build(ctx) {
     if (ONLY[n.S.name]) return n.talk;                       // the forcado has one line, many deliveries
     return DEF[n.S.pt ? 'pt' : 'en'][key] || n.talk;
   }
-  const line = (n, key) => pickFrom(n, pool(n, key));
+  function line(n, key) {
+    const p = pool(n, key);
+    return p.length === 1 && p[0] === n.curText ? pickFrom(n, n.talk) : pickFrom(n, p);   // a one-line pool never repeats back to back
+  }
   // A line: the bubble is redrawn on the next frame that has budget for it (flush() draws now).
   function say(n, text, withSound, up) {
     n.curText = text; n.talkT = Math.min(5, Math.max(2.2, 1.4 + text.length * 0.06)); n.armUp = up || 1.7;
@@ -1031,12 +1042,13 @@ export function build(ctx) {
       if (q > 144) continue;
       const friend = fr === m.S.name;
       m.laughAt = delay + (friend ? 0.05 : 0.15 + Math.sqrt(q) * 0.04 + Math.random() * 0.3);
-      m.laughText = friend && !ONLY[m.S.name] ? 'Já levaste na boca!' : vis ? '#V' : '#N';
+      m.laughText = friend && !ONLY[m.S.name] ? '#F' : vis ? '#V' : '#N';
       m.pointT = m.laughAt + 2.6; m.pointAt = victim; if (!m.busy && victim) m.faceN = victim;
     }
   }
   function laughLine(n, code) {
     if (code === '*') return line(n, 'ha');
+    if (code === '#F') return pickFrom(n, LEVOU_F);
     if (code === '#N' || code === '#V') {
       const own = R[n.S.name], k = code === '#N' ? 'hyst' : 'hystV';
       if (own && own[k]) return pickFrom(n, own[k]);
@@ -1050,9 +1062,10 @@ export function build(ctx) {
     if (n.escalate) {
       // the third slap: they bark at you, or they come after you for three seconds
       n.escalate = false;
-      if (!n.barker && Math.random() < 0.4) { bark(n); n.barkFit = 2; }
+      if (ONLY[n.S.name]) say(n, line(n, 'ouch3'), true);
+      else if (!n.barker && Math.random() < 0.4) { bark(n); n.barkFit = 2; }
       else if (canChase(n)) { say(n, line(n, 'ouch3'), true); startPest(n, 3, 2); }
-      else bark(n);
+      else if (!ONLY[n.S.name]) bark(n);
     } else if (n.barker && Math.random() < 0.3) bark(n);
     else say(n, line(n, 'up'), false);
     if (!n.escalate && n.pestT <= 0 && clock - n.grudge < 40 && Math.random() < 0.55 && canChase(n)) n.revengeAt = 1.2 + Math.random();
@@ -1528,7 +1541,7 @@ export function build(ctx) {
       if (n.laughAt > 0) {
         n.laughAt -= dt;
         if (n.laughAt <= 0) {
-          const code = n.laughText, hy = code === '#N' || code === '#V' || code === 'Já levaste na boca!';
+          const code = n.laughText, hy = code === '#N' || code === '#V' || code === '#F';
           if (!down || n.rofl) startLaugh(n, code ? laughLine(n, code) : '', hy);
           n.laughText = '';
         }
