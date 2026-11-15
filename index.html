@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'; script-src 'self' 'sha256-uGwtOHovMYHv3joVtSCTd+Gj4mW4jj0mIBAvHl0S17w='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; media-src 'self'; worker-src 'self' blob:">
+<title>THE WORKSHOP — HrM</title>
+<meta name="description" content="THE WORKSHOP by HrM: one daylit room that hangs itself around your attention. Look slowly — what holds your gaze stays, what you pass by quietly changes. Then keep the exhibition it made of you.">
+<meta name="theme-color" content="#15120e">
+<meta name="color-scheme" content="light">
+<link rel="canonical" href="https://pedrohfernandes-klk.github.io/THE-WORKSHOP/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%2315120e'/%3E%3Crect x='11' y='11' width='42' height='42' fill='none' stroke='%23c9a77a' stroke-width='1.5'/%3E%3C/svg%3E">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="THE WORKSHOP">
+<meta property="og:title" content="THE WORKSHOP — HrM">
+<meta property="og:description" content="One room by HrM that hangs itself around your attention. Look slowly; the room learns what holds your gaze and quietly re-hangs itself around you.">
+<meta property="og:url" content="https://pedrohfernandes-klk.github.io/THE-WORKSHOP/">
+<meta property="og:image" content="https://pedrohfernandes-klk.github.io/THE-WORKSHOP/assets/og-card.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="THE WORKSHOP by HrM — a daylit gallery hall">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="THE WORKSHOP — HrM">
+<meta name="twitter:description" content="One room by HrM that hangs itself around your attention.">
+<meta name="twitter:image" content="https://pedrohfernandes-klk.github.io/THE-WORKSHOP/assets/og-card.jpg">
+
+<script type="importmap">{"imports":{"three":"./assets/vendor/three/three.module.js","three/addons/":"./assets/vendor/three/addons/"}}</script>
+
+<style>
+@font-face{font-family:'Instrument Serif';font-style:normal;font-weight:400;font-display:swap;src:url(./assets/fonts/instrument-serif-400.woff2) format('woff2')}
+@font-face{font-family:'Instrument Serif';font-style:italic;font-weight:400;font-display:swap;src:url(./assets/fonts/instrument-serif-400-italic.woff2) format('woff2')}
+@font-face{font-family:'Instrument Sans';font-style:normal;font-weight:400 700;font-display:swap;src:url(./assets/fonts/instrument-sans-variable.woff2) format('woff2')}
+
+:root{
+  --paper:#f4efe6;
+  --paper-deep:#ebe4d7;
+  --ink:#15120e;
+  --muted:rgba(21,18,14,.58);
+  --muted-strong:rgba(21,18,14,.72);
+  --hairline:rgba(21,18,14,.14);
+  --accent:#9c3d33;
+  --glass:rgba(250,247,241,.72);
+  --glass-blur:blur(18px) saturate(1.2);
+  --on-dark:#f4efe6;
+  --on-dark-muted:rgba(244,239,230,.74);
+  --on-dark-hair:rgba(244,239,230,.22);
+  --serif:'Instrument Serif','Iowan Old Style','Palatino Linotype',Georgia,serif;
+  --sans:'Instrument Sans',system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --ease:cubic-bezier(.2,.7,.1,1);
+  --gutter:16px;
+  --sat:env(safe-area-inset-top,0px);
+  --sar:env(safe-area-inset-right,0px);
+  --sab:env(safe-area-inset-bottom,0px);
+  --sal:env(safe-area-inset-left,0px);
+  --pad-t:max(var(--gutter),var(--sat));
+  --pad-r:max(var(--gutter),var(--sar));
+  --pad-b:max(var(--gutter),var(--sab));
+  --pad-l:max(var(--gutter),var(--sal));
+}
+@media (min-width:760px){:root{--gutter:28px}}
+
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#0f0c09;color:var(--ink)}
+body{font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;overscroll-behavior:none}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:0;padding:0;-webkit-tap-highlight-color:transparent}
+a{color:inherit}
+[hidden]{display:none!important}
+.sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+:focus{outline:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
+.on-dark :focus-visible{outline-color:var(--on-dark)}
+
+.caps{font-size:11px;line-height:1.3;letter-spacing:.14em;text-transform:uppercase;font-weight:500}
+.num{font-variant-numeric:tabular-nums lining-nums}
+
+#stage{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;background:#0f0c09;outline:none}
+
+/* ============ ENTRY ============ */
+#entry{
+  position:fixed;inset:0;z-index:30;color:var(--on-dark);
+  display:grid;grid-template-rows:auto 1fr auto;
+  padding:var(--pad-t) var(--pad-r) var(--pad-b) var(--pad-l);
+  background:
+    linear-gradient(90deg,rgba(15,11,8,.82) 0%,rgba(15,11,8,.62) 46%,rgba(15,11,8,.26) 100%),
+    linear-gradient(0deg,rgba(15,11,8,.7) 0%,rgba(15,11,8,0) 38%),
+    linear-gradient(180deg,rgba(15,11,8,.5) 0%,rgba(15,11,8,0) 22%);
+  transition:opacity .9s var(--ease),visibility 0s linear .9s;
+  overflow-y:auto;overscroll-behavior:contain;
+}
+#entry.is-hidden{opacity:0;visibility:hidden;pointer-events:none}
+.entry-top{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:44px}
+.entry-sig{display:block;height:28px;width:auto;opacity:.92}
+.entry-top .caps{color:var(--on-dark-muted)}
+.entry-main{align-self:center;padding:40px 0;max-width:1100px}
+.entry-eyebrow{margin:0 0 clamp(14px,2.2vw,26px);color:var(--on-dark-muted)}
+.entry-title{
+  font-family:var(--serif);font-weight:400;margin:0;
+  font-size:clamp(68px,15.2vw,248px);line-height:.86;letter-spacing:-.025em;
+  text-wrap:balance;
+}
+.entry-title .it{font-style:italic;letter-spacing:-.01em;margin-right:.08em}
+.entry-title.is-long{font-size:clamp(46px,9.4vw,150px);line-height:.94;letter-spacing:-.02em}
+.entry-date{margin:clamp(14px,2vw,22px) 0 0;color:var(--on-dark-muted)}
+.entry-lede{
+  font-family:var(--serif);font-size:clamp(22px,2.7vw,36px);line-height:1.18;
+  margin:clamp(22px,3.4vw,44px) 0 0;max-width:20em;font-weight:400;
+}
+.entry-sub{margin:12px 0 0;max-width:30em;color:var(--on-dark-muted);font-size:clamp(14px,1.2vw,16px);line-height:1.55}
+.entry-actions{display:flex;flex-wrap:wrap;align-items:center;gap:14px 28px;margin-top:clamp(26px,3.6vw,48px)}
+
+.btn-enter{
+  position:relative;overflow:hidden;isolation:isolate;
+  min-height:56px;min-width:208px;padding:0 34px;border-radius:999px;
+  background:var(--paper);color:var(--ink);
+  font-size:12px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;
+  display:inline-flex;align-items:center;justify-content:center;gap:12px;
+  transition:transform .5s var(--ease),background-color .4s var(--ease),color .4s var(--ease);
+}
+.btn-enter .arrow{display:inline-block;transition:transform .5s var(--ease)}
+.btn-enter:not(:disabled):hover .arrow{transform:translateX(5px)}
+.btn-enter:not(:disabled):active{transform:scale(.985)}
+.btn-enter:disabled{cursor:progress;background:rgba(244,239,230,.1);color:var(--on-dark);box-shadow:inset 0 0 0 1px var(--on-dark-hair)}
+.btn-enter .fill{position:absolute;inset:0;z-index:-1;background:rgba(244,239,230,.2);transform-origin:left center;transform:scaleX(0);transition:transform .35s var(--ease)}
+.btn-enter:not(:disabled) .fill{opacity:0}
+.btn-enter .pct{font-variant-numeric:tabular-nums;opacity:.8;letter-spacing:.08em}
+
+.btn-quiet{
+  min-height:44px;padding:0 2px;font-size:14px;color:var(--on-dark);
+  border-bottom:1px solid var(--on-dark-hair);border-radius:0;
+  display:inline-flex;align-items:center;gap:8px;
+  transition:border-color .4s var(--ease),color .4s var(--ease);
+}
+.btn-quiet:hover{border-color:var(--on-dark)}
+
+.entry-legend{
+  list-style:none;margin:clamp(26px,3.4vw,44px) 0 0;padding:0;
+  display:flex;flex-wrap:wrap;gap:8px 0;color:var(--on-dark-muted);
+}
+.entry-legend li{display:flex;align-items:center}
+.entry-legend li+li::before{content:"";width:1px;height:12px;background:var(--on-dark-hair);margin:0 18px}
+.entry-legend .touch{display:none}
+@media (hover:none) and (pointer:coarse){
+  .entry-legend .mouse{display:none}
+  .entry-legend .touch{display:flex}
+}
+.entry-foot{display:flex;justify-content:space-between;align-items:center;gap:16px;min-height:44px;color:var(--on-dark-muted)}
+.entry-foot a{display:inline-flex;align-items:center;min-height:44px;text-decoration:none;border-bottom:1px solid transparent;transition:color .3s,border-color .3s}
+.entry-foot a:hover{color:var(--on-dark);border-color:var(--on-dark-hair)}
+.entry-foot .name{font-family:var(--serif);font-size:20px;letter-spacing:.01em;color:var(--on-dark)}
+
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+#entry:not(.is-hidden) .entry-top,
+#entry:not(.is-hidden) .entry-main>*,
+#entry:not(.is-hidden) .entry-foot{animation:rise 1.1s var(--ease) both}
+#entry:not(.is-hidden) .entry-main>:nth-child(2){animation-delay:.08s}
+#entry:not(.is-hidden) .entry-main>:nth-child(3){animation-delay:.16s}
+#entry:not(.is-hidden) .entry-main>:nth-child(4){animation-delay:.26s}
+#entry:not(.is-hidden) .entry-main>:nth-child(5){animation-delay:.36s}
+#entry:not(.is-hidden) .entry-main>:nth-child(6){animation-delay:.46s}
+#entry:not(.is-hidden) .entry-foot{animation-delay:.6s}
+
+@media (max-width:759px){
+  .entry-main{padding:28px 0}
+  .entry-legend{flex-direction:column;gap:2px}
+  .entry-legend li+li::before{display:none}
+  .btn-enter{width:100%}
+  #entry{background:
+    linear-gradient(180deg,rgba(15,11,8,.62) 0%,rgba(15,11,8,.66) 55%,rgba(15,11,8,.82) 100%)}
+}
+@media (max-height:640px) and (min-width:760px){
+  .entry-title{font-size:clamp(60px,12vh,120px)}
+}
+
+/* ============ HUD ============ */
+#hud{position:fixed;inset:0;z-index:10;pointer-events:none;color:var(--ink);transition:opacity .9s var(--ease)}
+#hud.is-hidden{opacity:0;visibility:hidden}
+#hud>*{pointer-events:auto}
+.glass{
+  background:var(--glass);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border:1px solid rgba(255,255,255,.5);box-shadow:0 1px 0 rgba(255,255,255,.4) inset,0 10px 40px rgba(21,18,14,.12);
+  border-radius:4px;
+}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.glass{background:rgba(250,247,241,.94)}}
+
+#wordmark{
+  position:absolute;top:var(--pad-t);left:var(--pad-l);
+  display:flex;align-items:center;gap:12px;padding:9px 16px 9px 14px;min-height:44px;
+}
+#wordmark .sig{display:block;height:19px;width:auto;filter:brightness(0);opacity:.82}
+#wordmark .name{font-family:var(--serif);font-size:20px;line-height:1;letter-spacing:.005em;white-space:nowrap}
+#wordmark .name i{font-style:italic}
+#wordmark .rule{width:1px;height:16px;background:var(--hairline)}
+
+#label{
+  position:absolute;left:var(--pad-l);bottom:var(--pad-b);
+  width:min(400px,calc(100vw - var(--pad-l) - var(--pad-r)));
+  padding:18px 22px 18px;
+  transition:opacity .6s var(--ease),transform .7s var(--ease),width .7s var(--ease);
+  max-height:calc(100dvh - var(--pad-t) - var(--pad-b) - 72px);overflow:auto;
+}
+#label.is-empty{opacity:0;transform:translateY(8px);pointer-events:none;visibility:hidden;transition:opacity .6s var(--ease),transform .7s var(--ease),visibility 0s linear .6s}
+#label[data-focused="true"]{width:min(440px,calc(100vw - var(--pad-l) - var(--pad-r)))}
+.label-title{font-family:var(--serif);font-weight:400;font-size:24px;line-height:1.1;margin:0;letter-spacing:-.003em;text-wrap:balance}
+.label-meta{margin:9px 0 0;color:var(--muted-strong)}
+.label-meta .nb{white-space:nowrap}
+.label-meta .sep{margin:0 .5em;opacity:.55}
+.label-time{margin:10px 0 0;font-size:13px;color:var(--muted-strong)}
+.label-time b{font-weight:500;color:var(--ink)}
+.label-fade{animation:labelIn .6s var(--ease) both}
+@keyframes labelIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+.label-extra{display:grid;grid-template-rows:0fr;transition:grid-template-rows .7s var(--ease),opacity .6s var(--ease);opacity:0}
+#label[data-focused="true"] .label-extra{grid-template-rows:1fr;opacity:1}
+.label-extra>div{overflow:hidden;min-height:0}
+.label-rule{height:1px;background:var(--hairline);margin:16px 0 14px}
+.label-credit{margin:0 0 10px;color:var(--muted-strong)}
+.label-note{margin:0;font-size:14.5px;line-height:1.6;color:rgba(21,18,14,.86);text-wrap:pretty}
+.label-nav{display:flex;align-items:center;gap:4px;margin:18px -10px 0}
+.label-nav .spacer{flex:1}
+.btn-text{
+  min-height:44px;padding:0 10px;display:inline-flex;align-items:center;gap:8px;
+  font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;border-radius:2px;
+  transition:color .3s,background-color .3s;
+}
+.btn-text:hover{color:var(--accent)}
+.btn-text .arrow{display:inline-block;transition:transform .45s var(--ease)}
+.btn-text.prev:hover .arrow{transform:translateX(-3px)}
+.btn-text.next:hover .arrow{transform:translateX(3px)}
+
+#exh-btn{
+  position:absolute;right:var(--pad-r);bottom:var(--pad-b);
+  min-height:56px;min-width:216px;padding:12px 18px 14px;text-align:left;
+  display:flex;flex-direction:column;gap:10px;
+  transition:transform .5s var(--ease),box-shadow .5s var(--ease);
+}
+#exh-btn:hover{transform:translateY(-2px);box-shadow:0 1px 0 rgba(255,255,255,.4) inset,0 14px 44px rgba(21,18,14,.18)}
+#exh-btn .row{display:flex;align-items:center;justify-content:space-between;gap:18px}
+#exh-btn .t{font-size:13px;font-weight:500;letter-spacing:.01em}
+#exh-btn .arrow{transition:transform .45s var(--ease)}
+#exh-btn:hover .arrow{transform:translateX(3px)}
+.strip{display:flex;height:4px;width:100%;overflow:hidden;border-radius:1px;background:transparent;position:relative}
+.strip.is-empty{background:none;height:1px;margin:1.5px 0;background:var(--hairline)}
+.strip i{display:block;height:100%;flex:0 0 auto;transition:flex-basis .9s var(--ease),background-color .9s var(--ease)}
+
+#notices{
+  position:absolute;left:50%;transform:translateX(-50%);bottom:var(--pad-b);
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  width:min(520px,calc(100vw - 2*var(--gutter)));pointer-events:none!important;
+}
+#notices>*{pointer-events:none}
+#hint{
+  font-family:var(--serif);font-style:italic;font-size:19px;line-height:1.2;text-align:center;
+  color:#fff;text-shadow:0 1px 18px rgba(0,0,0,.55),0 0 2px rgba(0,0,0,.35);
+  padding:0 8px;min-height:24px;opacity:0;transform:translateY(6px);
+  transition:opacity .7s var(--ease),transform .7s var(--ease);
+}
+#hint.is-on{opacity:1;transform:none}
+#toast{
+  order:-1;padding:12px 20px;font-size:14px;text-align:center;max-width:100%;
+  opacity:0;transform:translateY(8px);visibility:hidden;
+  transition:opacity .5s var(--ease),transform .6s var(--ease),visibility 0s linear .5s;
+}
+#toast.is-on{opacity:1;transform:none;visibility:visible;transition-delay:0s}
+
+@media (max-width:759px){
+  #wordmark{padding:8px 12px 8px 11px;gap:10px}
+  #wordmark .name{font-size:18px}
+  #wordmark .sig{height:17px}
+  #exh-btn{bottom:auto;top:var(--pad-t);min-width:0;min-height:44px;padding:9px 14px 10px;gap:7px}
+  #exh-btn .row{gap:12px}
+  #exh-btn .t{font-size:12.5px}
+  #label{padding:15px 18px 16px;width:calc(100vw - var(--pad-l) - var(--pad-r))}
+  #label[data-focused="true"]{width:calc(100vw - var(--pad-l) - var(--pad-r));max-height:calc(100dvh - var(--pad-t) - var(--pad-b) - 150px)}
+  .label-title{font-size:22px}
+  #notices{bottom:auto;top:calc(var(--pad-t) + 62px);flex-direction:column}
+  #notices #toast{order:1}
+  #hint{font-size:18px}
+}
+
+/* ============ EXHIBITION ============ */
+#exhibition{
+  position:fixed;inset:0;z-index:40;background:var(--paper);color:var(--ink);
+  opacity:0;visibility:hidden;transform:translateY(18px);
+  transition:opacity .6s var(--ease),transform .8s var(--ease),visibility 0s linear .8s;
+}
+#exhibition.is-open{opacity:1;visibility:visible;transform:none;transition-delay:0s}
+.exh-scroll{height:100%;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;scroll-padding-bottom:120px}
+.exh-page{max-width:1240px;margin:0 auto;padding:0 max(var(--gutter),var(--sar)) 0 max(var(--gutter),var(--sal))}
+.exh-top{display:flex;justify-content:space-between;align-items:center;min-height:44px;padding-top:max(14px,var(--sat));gap:16px}
+.exh-top .brand{display:flex;align-items:center;gap:12px}
+.exh-top .brand img{height:20px;width:auto;filter:brightness(0);opacity:.82}
+.exh-top .brand span{font-family:var(--serif);font-size:20px}
+.btn-line{
+  min-height:44px;padding:0 18px;border:1px solid var(--ink);border-radius:999px;
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;white-space:nowrap;
+  transition:background-color .4s var(--ease),color .4s var(--ease),border-color .4s var(--ease);
+}
+.btn-line:hover{background:var(--ink);color:var(--paper)}
+.btn-solid{background:var(--ink);color:var(--paper)}
+.btn-solid:hover{background:var(--accent);border-color:var(--accent)}
+.btn-line[aria-busy="true"]{opacity:.6;pointer-events:none}
+
+.exh-head{padding:clamp(40px,8vw,104px) 0 clamp(28px,4vw,48px)}
+.exh-eyebrow{margin:0 0 clamp(14px,2vw,24px);color:var(--accent)}
+.exh-title{font-family:var(--serif);font-weight:400;margin:0;font-size:clamp(52px,10.4vw,176px);line-height:.92;letter-spacing:-.025em;text-wrap:balance;max-width:12em}
+.exh-sub{margin:clamp(18px,2.4vw,30px) 0 0;color:var(--muted-strong);font-size:14px}
+.exh-band{display:flex;height:clamp(28px,4.4vw,56px);width:100%;overflow:hidden;border-radius:1px;background:var(--hairline)}
+.exh-band i{display:block;height:100%;flex:0 0 auto}
+.exh-band.is-empty{height:1px;background:var(--hairline)}
+.exh-band-cap{display:flex;justify-content:space-between;gap:16px;margin:10px 0 0;color:var(--muted-strong)}
+.exh-stats{margin-top:clamp(44px,6vw,80px);padding-top:16px;border-top:1px solid var(--ink);display:flex;justify-content:space-between;gap:16px;color:var(--muted-strong)}
+.exh-grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr));gap:clamp(28px,3.4vw,48px) clamp(18px,2.4vw,32px);padding-top:28px;padding-bottom:64px}
+.exh-card{display:flex;flex-direction:column;min-width:0}
+.exh-card .ph{position:relative;aspect-ratio:4/5;overflow:hidden;background:var(--paper-deep)}
+.exh-card .ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.exh-card .meta{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:12px 0 6px;color:var(--muted-strong)}
+.exh-card .time{color:var(--ink);font-weight:600}
+.exh-card .time.zero{color:var(--muted);font-weight:400}
+.exh-card h3{font-family:var(--serif);font-weight:400;font-size:24px;line-height:1.1;margin:0;text-wrap:balance}
+.exh-card p{margin:5px 0 0;font-size:13px;line-height:1.45;color:var(--muted-strong)}
+.exh-dock{position:sticky;bottom:0;z-index:2;background:linear-gradient(180deg,rgba(244,239,230,0),var(--paper) 34%);padding:34px 0 max(16px,var(--sab))}
+.exh-dock .in{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding-top:18px;border-top:1px solid var(--hairline);background:var(--paper)}
+.exh-dock .in .grow{flex:1}
+.exh-link{flex:1 1 220px;min-width:0;min-height:44px;padding:0 4px;border:0;border-bottom:1px solid var(--hairline);background:transparent;font-size:13px;color:var(--muted-strong);text-overflow:ellipsis;border-radius:0}
+.exh-link:focus-visible{border-bottom-color:var(--ink);outline-offset:2px}
+@media (max-width:759px){
+  .exh-top .btn-line .long{display:none}
+  .exh-dock .in{gap:8px}
+  .exh-dock .btn-line{flex:1 1 calc(50% - 8px);padding:0 10px;letter-spacing:.1em}
+  .exh-dock .btn-line.back{flex-basis:100%}
+  .exh-link{order:9;flex-basis:100%}
+  .exh-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .exh-card h3{font-size:20px}
+}
+
+/* ============ FALLBACK ============ */
+#fallback{
+  position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+  padding:var(--pad-t) var(--pad-r) var(--pad-b) var(--pad-l);
+  background:var(--paper);color:var(--ink);overflow:auto;
+}
+#fallback.is-on{display:flex}
+#fallback .box{max-width:560px;width:100%}
+#fallback h1{font-family:var(--serif);font-weight:400;font-size:clamp(44px,8vw,84px);line-height:.95;letter-spacing:-.02em;margin:14px 0 22px}
+#fallback h1 i{font-style:italic}
+#fallback p{margin:0 0 14px;color:var(--muted-strong);font-size:16px;line-height:1.6;max-width:34em}
+#fallback .why{color:var(--ink)}
+#fallback ul{margin:0 0 30px;padding:0;list-style:none;border-top:1px solid var(--hairline)}
+#fallback li{padding:12px 0;border-bottom:1px solid var(--hairline);font-size:14px;color:var(--muted-strong)}
+#fallback .btn-line{text-decoration:none}
+.noscript{position:fixed;inset:0;z-index:70;background:var(--paper);color:var(--ink);display:flex;align-items:center;justify-content:center;padding:var(--gutter);text-align:left}
+.noscript div{max-width:520px}
+.noscript h1{font-family:'Instrument Serif',Georgia,serif;font-weight:400;font-size:56px;line-height:1;margin:0 0 16px}
+.noscript p{font-size:16px;line-height:1.6;color:var(--muted-strong)}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-delay:0s!important;transition-duration:.001ms!important;transition-delay:0s!important}
+}
+</style>
+</head>
+<body>
+<canvas id="stage" aria-label="A daylit gallery hall by HrM. Drag to look around; click the floor to walk; click a work to approach it." tabindex="-1"></canvas>
+
+<div id="hud" class="is-hidden">
+  <header id="wordmark" class="glass">
+    <img class="sig" src="./assets/extracted/hrm-signature.webp" alt="HrM" width="1400" height="729">
+    <span class="rule" aria-hidden="true"></span>
+    <span class="name"><i>The</i> Workshop</span>
+  </header>
+
+  <section id="label" class="glass is-empty" aria-label="Wall label" data-focused="false">
+    <div id="label-compact" aria-live="polite" aria-atomic="true">
+      <h2 class="label-title" id="label-title"></h2>
+      <p class="label-meta caps" id="label-meta"></p>
+      <p class="label-time num" id="label-time" hidden></p>
+    </div>
+    <div class="label-extra" id="label-extra" inert>
+      <div>
+        <div class="label-rule"></div>
+        <p class="label-credit caps" id="label-credit" hidden></p>
+        <p class="label-note" id="label-note"></p>
+        <div class="label-nav">
+          <button type="button" class="btn-text prev" id="label-prev"><span class="arrow" aria-hidden="true">←</span>Previous</button>
+          <button type="button" class="btn-text next" id="label-next">Next<span class="arrow" aria-hidden="true">→</span></button>
+          <span class="spacer"></span>
+          <button type="button" class="btn-text" id="label-leave">Step back</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <button type="button" id="exh-btn" class="glass" aria-label="Your exhibition">
+    <span class="row"><span class="t">Your exhibition</span><span class="arrow" aria-hidden="true">→</span></span>
+    <span class="strip is-empty" id="exh-strip" aria-hidden="true"></span>
+  </button>
+
+  <div id="notices">
+    <div id="toast" class="glass" role="status" aria-live="polite"></div>
+    <div id="hint" role="status" aria-live="polite"></div>
+  </div>
+</div>
+
+<section id="entry" class="on-dark" aria-labelledby="entry-title">
+  <div class="entry-top">
+    <img class="entry-sig" src="./assets/extracted/hrm-signature.webp" alt="HrM" width="1400" height="729">
+    <span class="caps">A room by HrM</span>
+  </div>
+  <div class="entry-main">
+    <p class="entry-eyebrow caps" id="entry-eyebrow">A single room</p>
+    <h1 class="entry-title" id="entry-title"><span class="it">The</span> Workshop</h1>
+    <p class="entry-date caps num" id="entry-date" hidden></p>
+    <p class="entry-lede" id="entry-lede">One room that hangs itself around your attention.</p>
+    <p class="entry-sub" id="entry-sub">Look slowly. What holds your gaze stays; what you pass by quietly changes.</p>
+    <div class="entry-actions">
+      <button type="button" class="btn-enter" id="enter" disabled aria-live="polite">
+        <span class="fill" id="enter-fill"></span>
+        <span id="enter-label">Preparing the room</span>
+        <span class="pct" id="enter-pct">0%</span>
+      </button>
+      <button type="button" class="btn-quiet" id="entry-resume" hidden>Let the room watch you instead</button>
+    </div>
+    <ul class="entry-legend caps" id="entry-legend" aria-label="Controls">
+      <li class="mouse">Drag to look</li><li class="mouse">Click the floor to walk</li><li class="mouse">Click a work to approach</li>
+      <li class="touch">Drag to look</li><li class="touch">Tap to walk</li><li class="touch">Tap a work</li>
+    </ul>
+  </div>
+  <div class="entry-foot">
+    <span class="name">HrM</span>
+    <a href="classic.html" class="caps">The classic Workshop →</a>
+  </div>
+</section>
+
+<div id="exhibition" role="dialog" aria-modal="true" aria-labelledby="exh-title" aria-hidden="true" tabindex="-1">
+  <div class="exh-scroll" id="exh-scroll">
+    <div class="exh-page">
+      <div class="exh-top">
+        <div class="brand"><img src="./assets/extracted/hrm-signature.webp" alt="" width="1400" height="729"><span>The Workshop</span></div>
+        <button type="button" class="btn-line" id="exh-close-top" aria-label="Return to the room">Close</button>
+      </div>
+      <header class="exh-head">
+        <p class="exh-eyebrow caps">Exhibition</p>
+        <h1 class="exh-title" id="exh-title"></h1>
+        <p class="exh-sub" id="exh-sub"></p>
+      </header>
+      <div class="exh-band is-empty" id="exh-band" role="img" aria-label="Palette"></div>
+      <p class="exh-band-cap caps"><span>The palette of attention</span><span id="exh-band-note"></span></p>
+      <div class="exh-stats caps num"><span id="exh-count"></span><span id="exh-total"></span></div>
+      <ol class="exh-grid" id="exh-works"></ol>
+      <div class="exh-dock">
+        <div class="in">
+          <button type="button" class="btn-line btn-solid" id="exh-copy">Copy link</button>
+          <button type="button" class="btn-line" id="exh-poster">Download poster</button>
+          <input class="exh-link" id="exh-link" type="text" readonly aria-label="Link to this exhibition" spellcheck="false">
+          <span class="grow"></span>
+          <button type="button" class="btn-line back" id="exh-close">Return to the room</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="fallback" role="alert">
+  <div class="box">
+    <p class="caps" style="color:var(--accent);margin:0">THE WORKSHOP · HrM</p>
+    <h1><i>The</i> room needs WebGL</h1>
+    <p class="why" id="fallback-message">This browser cannot draw the room.</p>
+    <p>The gallery is rendered live in 3D, so it needs hardware-accelerated WebGL 2. You can:</p>
+    <ul>
+      <li>Turn on hardware acceleration in your browser settings, then reload.</li>
+      <li>Try a current version of Chrome, Edge, Firefox or Safari.</li>
+      <li>Or walk the classic Workshop, which runs everywhere.</li>
+    </ul>
+    <a class="btn-line btn-solid" href="classic.html">Open the classic Workshop →</a>
+  </div>
+</div>
+
+<noscript>
+  <div class="noscript"><div>
+    <h1><i>The</i> Workshop</h1>
+    <p>THE WORKSHOP is a live 3D room and needs JavaScript. Enable it and reload, or visit the <a href="classic.html">classic Workshop</a>.</p>
+  </div></div>
+</noscript>
+
+<script type="module" src="./assets/gallery/main.js"></script>
+</body>
+</html>
