@@ -1,0 +1,2824 @@
+{
+  "version": 2,
+  "maxActive": 14,
+  "populationPolicy": "Twenty-six authored characters, at most fourteen active slots. The fourteen legacy characters remain enabled by default. Twelve original alternatives are opt-in replacements through npcAssignments; never append them to the active roster. Leo chooses casting. Preferred slots are suggestions, not automatic activation.",
+  "protectedLines": [
+    "Tá bueno!",
+    "Tá bueno?",
+    "Sai cavalinho!",
+    "Tá bonito, tá!",
+    "Tenho MB Way, tenho MB Way",
+    "Já levaste na boca!",
+    "Levaste na boca, boneco!",
+    "Ai, que tromba boa p'ra levar chapadões!",
+    "Esta gente esquisita… tsk, tsk",
+    "Calma, bro!",
+    "Tens criptomoedas, bro?",
+    "Queres o quê?",
+    "Cara d'urso!",
+    "Ó nabo!",
+    "Ó porco!",
+    "Ó estupidozinho!",
+    "Ó cara de papo!",
+    "Tens uma testa que parece um papo seco!",
+    "Levas na boca, porko!",
+    "Tens boa voz para escrever à máquina.",
+    "Olha este, é do mesmo tamanho sentado e de pé!"
+  ],
+  "characters": [
+    {
+      "id": "bull",
+      "legacy": true,
+      "enabledByDefault": true,
+      "model": {
+        "id": "bull",
+        "head": "bull",
+        "shape": [
+          1.22,
+          0.9,
+          1.05
+        ],
+        "colors": {
+          "skin": "#694733",
+          "jacket": "#293342",
+          "trousers": "#41404a",
+          "shirt": "#fff3d6",
+          "hair": "#342b28",
+          "accent": "#ffcd75"
+        }
+      },
+      "lines": {
+        "ignored": [
+          "Estou aqui. Sem apresentação.",
+          "A conversa ficou em espera."
+        ],
+        "slap1": [
+          "Já levaste na boca!",
+          "A mão vinha sem assunto?"
+        ],
+        "slap2": [
+          "Levaste na boca, boneco!",
+          "Outra vez? Faltou pontuação?"
+        ],
+        "slap3": [
+          "Ai, que tromba boa p'ra levar chapadões!",
+          "Já percebi. Agora dá espaço."
+        ],
+        "bystander_laugh": [
+          "A dignidade foi dar uma volta.",
+          "Foi ensaio. Espero eu."
+        ],
+        "run_past": [
+          "A pressa vai à frente!",
+          "Levas a pausa contigo?"
+        ],
+        "jump": [
+          "O chão ficou ofendido.",
+          "Isso conta como escadas?"
+        ],
+        "sit_beside": [
+          "Senta. Não cobro conversa.",
+          "Cabe aqui mais um silêncio."
+        ],
+        "gesture_rude": [
+          "A legenda ficou em manutenção.",
+          "Ó seu #%&@! Bip preventivo."
+        ],
+        "golden": [
+          "Até a pressa ficou dourada.",
+          "Esta luz merece uma pausa."
+        ],
+        "sunny": [
+          "A sombra chegou primeiro.",
+          "O sol está muito disponível."
+        ],
+        "storm": [
+          "O céu bateu a porta.",
+          "O toldo pediu transferência."
+        ],
+        "rainbow": [
+          "O céu abriu a caixa.",
+          "Trouxe todas as cores hoje."
+        ],
+        "night": [
+          "Agora ouve-se melhor o silêncio.",
+          "Há luz para ficar mais pouco."
+        ],
+        "talk": [
+          "A reunião podia ser uma sesta.",
+          "Cobro à hora. Parado também."
+        ],
+        "human": [
+          "Hoje deixei a agenda vazia.",
+          "Obrigado por ficares um bocadinho."
+        ]
+      },
+      "humanMoment": "Hoje deixei a agenda vazia.",
+      "legacyLinesSource": "spaces/npcs.js SPECS.bull.lines (unchanged by patch)"
+    },
+    {
+      "id": "goat",
+      "legacy": true,
+      "enabledByDefault": true,
+      "model": {
+        "id": "goat",
+        "head": "goat",
+        "shape": [
+          1,
+          1.38,
+          0.8
+        ],
+        "colors": {
+          "skin": "#e6dcca",
+          "jacket": "#7b6045",
+          "trousers": "#41404a",
+          "shirt": "#fff3d6",
+          "hair": "#342b28",
+          "accent": "#ffcd75"
+        }
+      },
+      "lines": {
+        "ignored": [
+          "Estou aqui. Sem apresentação.",
+          "A conversa ficou em espera."
+        ],
+        "slap1": [
+          "Já levaste na boca!",
+          "A mão vinha sem assunto?"
+        ],
+        "slap2": [
+          "Levaste na boca, boneco!",
+          "Outra vez? Faltou pontuação?"
+        ],
+        "slap3": [
+          "Ai, que tromba boa p'ra levar chapadões!",
+          "Já percebi. Agora dá espaço."
+        ],
+        "bystander_laugh": [
+          "A dignidade foi dar uma volta.",
+          "Foi ensaio. Espero eu."
+        ],
+        "run_past": [
+          "A pressa vai à frente!",
+          "Levas a pausa contigo?"
+        ],
+        "jump": [
+          "O chão ficou ofendido.",
+          "Isso conta como escadas?"
+        ],
+        "sit_beside": [
+          "Senta. Não cobro conversa.",
+          "Cabe aqui mais um silêncio."
+        ],
+        "gesture_rude": [
+          "A legenda ficou em manutenção.",
+          "Ó seu #%&@! Bip preventivo."
+        ],
+        "golden": [
+          "Até a pressa ficou dourada.",
+          "Esta luz merece uma pausa."
+        ],
+        "sunny": [
+          "A sombra chegou primeiro.",
+          "O sol está muito disponível."
+        ],
+        "storm": [
+          "O céu bateu a porta.",
+          "O toldo pediu transferência."
+        ],
+        "rainbow": [
+          "O céu abriu a caixa.",
+          "Trouxe todas as cores hoje."
+        ],
+        "night": [
+          "Agora ouve-se melhor o silêncio.",
+          "Há luz para ficar mais pouco."
+        ],
+        "talk": [
+          "O catálogo é comestível?",
+          "Este casaco já foi sofá."
+        ],
+        "human": [
+          "Guardei a melhor folha para ti.",
+          "Obrigado por ficares um bocadinho."
+        ]
+      },
+      "humanMoment": "Guardei a melhor folha para ti.",
+      "legacyLinesSource": "spaces/npcs.js SPECS.goat.lines (unchanged by patch)"
+    },
+    {
+      "id": "pigeon",
+      "legacy": true,
+      "enabledByDefault": true,
+      "model": {
+        "id": "pigeon",
+        "head": "pigeon",
+        "shape": [
+          0.66,
+          0.8,
+          1.5
+        ],
+        "colors": {
+          "skin": "#9198a4",
+          "jacket": "#267e87",
+          "trousers": "#41404a",
+          "shirt": "#fff3d6",
+          "hair": "#342b28",
+          "accent": "#ffcd75"
+        }
+      },
+      "lines": {
+        "ignored": [
+          "Estou aqui. Sem apresentação.",
+          "A conversa ficou em espera."
+        ],
+        "slap1": [
+          "Já levaste na boca!",
+          "A mão vinha sem assunto?"
+        ],
+        "slap2": [
+          "Levaste na boca, boneco!",
+          "Outra vez? Faltou pontuação?"
+        ],
+        "slap3": [
+          "Ai, que tromba boa p'ra levar chapadões!",
+          "Já percebi. Agora dá espaço."
+        ],
+        "bystander_laugh": [
+          "A dignidade foi dar uma volta.",
+          "Foi ensaio. Espero eu."
+        ],
+        "run_past": [
+          "A pressa vai à frente!",
+          "Levas a pausa contigo?"
+        ],
+        "jump": [
+          "O chão ficou ofendido.",
+          "Isso conta como escadas?"
+        ],
+        "sit_beside": [
+          "Senta. Não cobro conversa.",
+          "Cabe aqui mais um silêncio."
+        ],
+        "gesture_rude": [
+          "A legenda ficou em manutenção.",
+          "Ó seu #%&@! Bip preventivo."
+        ],
+        "golden": [
+          "Até a pressa ficou dourada.",
+          "Esta luz merece uma pausa."
+        ],
+        "sunny": [
+          "A sombra chegou primeiro.",
+          "O sol está muito disponível."
+        ],
+        "storm": [
+          "O céu bateu a porta.",
+          "O toldo pediu transferência."
+        ],
+        "rainbow": [
+          "O céu abriu a caixa.",
+          "Trouxe todas as cores hoje."
+        ],
+        "night": [
+          "Agora ouve-se melhor o silêncio.",
+          "Há luz para ficar mais pouco."
+        ],
+        "talk": [
+          "A apresentação acabou. Arrulhei tudo.",
+          "Tenho currículo. E migalhas."
+        ],
+        "human": [
+          "Partilho as migalhas. Senta-te.",
+          "Obrigado por ficares um bocadinho."
+        ]
+      },
+      "humanMoment": "Partilho as migalhas. Senta-te.",
+      "legacyLinesSource": "spaces/npcs.js SPECS.pigeon.lines (unchanged by patch)"
+    },
+    {
+      "id": "horse",
+      "legacy": true,
+      "enabledByDefault": true,
+      "model": {
+        "id": "horse",
+        "head": "horse",
+        "shape": [
+          1.04,
+          1.45,
+          1.2
+        ],
+        "colors": {
+          "skin": "#926440",
+          "jacket": "#191920",
+          "trousers": "#41404a",
+          "shirt": "#fff3d6",
+          "hair": "#342b28",
+          "accent": "#ffcd75"
+        }
+      },
+      "lines": {
+        "ignored": [
+          "Estou aqui. Sem apresentação.",
+          "A conversa ficou em espera."
+        ],
+        "slap1": [
+          "Já levaste na boca!",
+          "A mão vinha sem assunto?"
+        ],
+        "slap2": [
+          "Levaste na boca, boneco!",
+          "Outra vez? Faltou pontuação?"
+        ],
+        "slap3": [
+          "Ai, que tromba boa p'ra levar chapadões!",
+          "Já percebi. Agora dá espaço."
+        ],
+        "bystander_laugh": [
+          "A dignidade foi dar uma volta.",
+          "Foi ensaio. Espero eu."
+        ],
+        "run_past": [
+          "A pressa vai à frente!",
+          "Levas a pausa contigo?"
+        ],
+        "jump": [
+          "O chão ficou ofendido.",
+          "Isso conta como escadas?"
+        ],
+        "sit_beside": [
+          "Senta. Não cobro conversa.",
+          "Cabe aqui mais um silêncio."
+        ],
+        "gesture_rude": [
+          "A legenda ficou em manutenção.",
+          "Ó seu #%&@! Bip preventivo."
+        ],
+        "golden": [
+          "Até a pressa ficou dourada.",
+          "Esta luz merece uma pausa."
+        ],
+        "sunny": [
+          "A sombra chegou primeiro.",
+          "O sol está muito disponível."
+        ],
+        "storm": [
+          "O céu bateu a porta.",
+          "O toldo pediu transferência."
+        ],
+        "rainbow": [
+          "O céu abriu a caixa.",
+          "Trouxe todas as cores hoje."
+        ],
+        "night": [
+          "Agora ouve-se melhor o silêncio.",
+          "Há luz para ficar mais pouco."
+        ],
+        "talk": [
+          "A gala acabou. Fiquei vestido.",
+          "O laço segura a dignidade."
+        ],
+        "human": [
+          "O laço era do meu avô.",
+          "Obrigado por ficares um bocadinho."
+        ]
+      },
+      "humanMoment": "O laço era do meu avô.",
+      "legacyLinesSource": "spaces/npcs.js SPECS.horse.lines (unchanged by patch)"
+    },
+    {
+      "id": "cat",
+      "legacy": true,
+      "enabledByDefault": true,
+      "model": {
+        "id": "cat",
+        "head": "cat",
+        "shape": [
+          0.95,
+          0.62,
+          1.55
+        ],
+        "colors": {
+          "skin": "#d68d47",
+          "jacket": "#34313d",
+          "trousers": "#41404a",
+          "shirt": "#fff3d6",
+          "hair": "#342b28",
+          "accent": "#ffcd75"
+        }
+      },
+      "lines": {
+        "ignored": [
+          "Estou aqui. Sem apresentação.",
+          "A conversa ficou em espera."
+        ],
+        "slap1": [
+          "Já levaste na boca!",
+          "A mão vinha sem assunto?"
+        ],
+        "slap2": [
+          "Levaste na boca, boneco!",
+          "Outra vez? Faltou pontuação?"
+        ],
+        "slap3": [
+          "Ai, que tromba boa p'ra levar chapadões!",
+          "Já percebi. Agora dá espaço."
+        ],
+        "bystander_laugh": [
+          "A dignidade foi dar uma volta.",
+          "Foi ensaio. Espero eu."
+        ],
+        "run_past": [
+          "A pressa vai à frente!",
+          "Levas a pausa contigo?"
+        ],
+        "jump": [
+          "O chão ficou ofendido.",
+          "Isso conta como escadas?"
+        ],
+        "sit_beside": [
+          "Senta. Não cobro conversa.",
+          "Cabe aqui mais um silêncio."
+        ],
+        "gesture_rude": [
+          "A legenda ficou em manutenção.",
+          "Ó seu #%&@! Bip preventivo."
+        ],
+        "golden": [
+          "Até a pressa ficou dourada.",
+          "Esta luz merece uma pausa."
+        ],
+        "sunny": [
+          "A sombra chegou primeiro.",
+          "O sol está muito disponível."
+        ],
+        "storm": [
+          "O céu bateu a porta.",
+          "O toldo pediu transferência."
+        ],
+        "rainbow": [
+          "O céu abriu a caixa.",
+          "Trouxe todas as cores hoje."
+        ],
+        "night": [
+          "Agora ouve-se melhor o silêncio.",
+          "Há luz para ficar mais pouco."
+        ],
+        "talk": [
+          "Esta parede piscou primeiro.",
+          "Ronrono em contexto curatorial."
+        ],
+        "human": [
+          "Podes ficar. Gosto de companhia.",
+          "Obrigado por ficares um bocadinho."
+        ]
+      },
+      "humanMoment": "Podes ficar. Gosto de companhia.",
+      "legacyLinesSource": "spaces/npcs.js SPECS.cat.lines (unchanged by patch)"
+    },
+    {
+      "id": "pig",
+      "legacy": true,
+      "enabledByDefault": true,
+      "model": {
+        "id": "pig",
+        "head": "pig",
+        "shape": [
+          0.95,
+          0.6,
+          1.45
+        ],
+        "colors": {
+          "skin": "#e8a4a3",
+          "jacket": "#394c65",
+          "trousers": "#41404a",
+          "shirt": "#fff3d6",
+          "hair": "#342b28",
+          "accent": "#ffcd75"
+        }
+      },
+      "lines": {
+        "ignored": [
+          "Estou aqui. Sem apresentação.",
+          "A conversa ficou em espera."
+        ],
+        "slap1": [
+          "Já levaste na boca!",
+          "A mão vinha sem assunto?"
+        ],
+        "slap2": [
+          "Levaste na boca, boneco!",
+          "Outra vez? Faltou pontuação?"
+        ],
+        "slap3": [
+          "Ai, que tromba boa p'ra levar chapadões!",
+          "Já percebi. Agora dá espaço."
+        ],
+        "bystander_laugh": [
+          "A dignidade foi dar uma volta.",
+          "Foi ensaio. Espero eu."
+        ],
+        "run_past": [
+          "A pressa vai à frente!",
+          "Levas a pausa contigo?"
+        ],
+        "jump": [
+          "O chão ficou ofendido.",
+          "Isso conta como escadas?"
+        ],
+        "sit_beside": [
+          "Senta. Não cobro conversa.",
+          "Cabe aqui mais um silêncio."
+        ],
+        "gesture_rude": [
+          "A legenda ficou em manutenção.",
+          "Ó seu #%&@! Bip preventivo."
+        ],
+        "golden": [
+          "Até a pressa ficou dourada.",
+          "Esta luz merece uma pausa."
+        ],
+        "sunny": [
+          "A sombra chegou primeiro.",
+          "O sol está muito disponível."
+        ],
+        "storm": [
+          "O céu bateu a porta.",
+          "O toldo pediu transferência."
+        ],
+        "rainbow": [
+          "O céu abriu a caixa.",
+          "Trouxe todas as cores hoje."
+        ],
+        "night": [
+          "Agora ouve-se melhor o silêncio.",
+          "Há luz para ficar mais pouco."
+        ],
+        "talk": [
+          "O colete faz-me encarregado?",
+          "Tenho formação em apontar."
+        ],
+        "human": [
+          "Ainda estou a aprender isto.",
+          "Obrigado por ficares um bocadinho."
+        ]
+      },
+      "humanMoment": "Ainda estou a aprender isto.",
+      "legacyLinesSource": "spaces/npcs.js SPECS.pig.lines (unchanged by patch)"
+    },
+    {
+      "id": "walrus",
+      "legacy": true,
+      "enabledByDefault": true,
+      "model": {
+        "id": "walrus",
+        "head": "walrus",
+        "shape": [
+          1.18,
+          0.8,
+          1.2
+        ],
+        "colors": {
+          "skin": "#94745f",
+          "jacket": "#d987a7",
+          "trousers": "#41404a",
+          "shirt": "#fff3d6",
+          "hair": "#342b28",
+          "accent": "#ffcd75"
+        }
+      },
+      "lines": {
+        "ignored": [
+          "Estou aqui. Sem apresentação.",
+          "A conversa ficou em espera."
+        ],
+        "slap1": [
+          "Já levaste na boca!",
+          "A mão vinha sem assunto?"
+        ],
+        "slap2": [
+          "Levaste na boca, boneco!",
+          "Outra vez? Faltou pontuação?"
+        ],
+        "slap3": [
+          "Ai, que tromba boa p'ra levar chapadões!",
+          "Já percebi. Agora dá espaço."
+        ],
+        "bystander_laugh": [
+          "A dignidade foi dar uma volta.",
+          "Foi ensaio. Espero eu."
+        ],
+        "run_past": [
+          "A pressa vai à frente!",
+          "Levas a pausa contigo?"
+        ],
+        "jump": [
+          "O chão ficou ofendido.",
+          "Isso conta como escadas?"
+        ],
+        "sit_beside": [
+          "Senta. Não cobro conversa.",
+          "Cabe aqui mais um silêncio."
+        ],
+        "gesture_rude": [
+          "A legenda ficou em manutenção.",
+          "Ó seu #%&@! Bip preventivo."
+        ],
+        "golden": [
+          "Até a pressa ficou dourada.",
+          "Esta luz merece uma pausa."
+        ],
+        "sunny": [
+          "A sombra chegou primeiro.",
+          "O sol está muito disponível."
+        ],
+        "storm": [
+          "O céu bateu a porta.",
+          "O toldo pediu transferência."
+        ],
+        "rainbow": [
+          "O céu abriu a caixa.",
+          "Trouxe todas as cores hoje."
+        ],
+        "night": [
+          "Agora ouve-se melhor o silêncio.",
+          "Há luz para ficar mais pouco."
+        ],
+        "talk": [
+          "O almoço está em consulta pública.",
+          "A grelha exige silêncio."
+        ],
+        "human": [
+          "Fiz comida a mais. De propósito.",
+          "Obrigado por ficares um bocadinho."
+        ]
+      },
+      "humanMoment": "Fiz comida a mais. De propósito.",
+      "legacyLinesSource": "spaces/npcs.js SPECS.walrus.lines (unchanged by patch)"
+    },
+    {
+      "id": "rooster",
+      "legacy": true,
+      "enabledByDefault": true,
+      "model": {
+        "id": "rooster",
+        "head": "rooster",
+        "shape": [
+          1,
+          1.35,
+          0.74
+        ],
+        "colors": {
+          "skin": "#b85a35",
+          "jacket": "#243c68",
+          "trousers": "#41404a",
+          "shirt": "#fff3d6",
+          "hair": "#342b28",
+          "accent": "#ffcd75"
+        }
+      },
+      "lines": {
+        "ignored": [
+          "Estou aqui. Sem apresentação.",
+          "A conversa ficou em espera."
+        ],
+        "slap1": [
+          "Já levaste na boca!",
+          "A mão vinha sem assunto?"
+        ],
+        "slap2": [
+          "Levaste na boca, boneco!",
+          "Outra vez? Faltou pontuação?"
+        ],
+        "slap3": [
+          "Ai, que tromba boa p'ra levar chapadões!",
+          "Já percebi. Agora dá espaço."
+        ],
+        "bystander_laugh": [
+          "A dignidade foi dar uma volta.",
+          "Foi ensaio. Espero eu."
+        ],
+        "run_past": [
+          "A pressa vai à frente!",
+          "Levas a pausa contigo?"
+        ],
+        "jump": [
+          "O chão ficou ofendido.",
+          "Isso conta como escadas?"
+        ],
+        "sit_beside": [
+          "Senta. Não cobro conversa.",
+          "Cabe aqui mais um silêncio."
+        ],
+        "gesture_rude": [
+          "A legenda ficou em manutenção.",
+          "Ó seu #%&@! Bip preventivo."
+        ],
+        "golden": [
+          "Até a pressa ficou dourada.",
+          "Esta luz merece uma pausa."
+        ],
+        "sunny": [
+          "A sombra chegou primeiro.",
+          "O sol está muito disponível."
+        ],
+        "storm": [
+          "O céu bateu a porta.",
+          "O toldo pediu transferência."
+        ],
+        "rainbow": [
+          "O céu abriu a caixa.",
+          "Trouxe todas as cores hoje."
+        ],
+        "night": [
+          "Agora ouve-se melhor o silêncio.",
+          "Há luz para ficar mais pouco."
+        ],
+        "talk": [
+          "Anunciei o dia. Já anoiteceu.",
+          "O comunicado leva gravata."
+        ],
+        "human": [
+          "Às vezes também me falta voz.",
+          "Obrigado por ficares um bocadinho."
+        ]
+      },
+      "humanMoment": "Às vezes também me falta voz.",
+      "legacyLinesSource": "spaces/npcs.js SPECS.rooster.lines (unchanged by patch)"
+    },
+    {
+      "id": "tortoise",
+      "legacy": true,
+      "enabledByDefault": true,
+      "model": {
+        "id": "tortoise",
+        "head": "tortoise",
+        "shape": [
+          1,
+          1,
+          1.3
+        ],
+        "colors": {
+          "skin": "#829052",
+          "jacket": "#9e824d",
+          "trousers": "#41404a",
+          "shirt": "#fff3d6",
+          "hair": "#342b28",
+          "accent": "#ffcd75"
+        }
+      },
+      "lines": {
+        "ignored": [
+          "Estou aqui. Sem apresentação.",
+          "A conversa ficou em espera."
+        ],
+        "slap1": [
+          "Já levaste na boca!",
+          "A mão vinha sem assunto?"
+        ],
+        "slap2": [
+          "Levaste na boca, boneco!",
+          "Outra vez? Faltou pontuação?"
+        ],
+        "slap3": [
+          "Ai, que tromba boa p'ra levar chapadões!",
+          "Já percebi. Agora dá espaço."
+        ],
+        "bystander_laugh": [
+          "A dignidade foi dar uma volta.",
+          "Foi ensaio. Espero eu."
+        ],
+        "run_past": [
+          "A pressa vai à frente!",
+          "Levas a pausa contigo?"
+        ],
+        "jump": [
+          "O chão ficou ofendido.",
+          "Isso conta como escadas?"
+        ],
+        "sit_beside": [
+          "Senta. Não cobro conversa.",
+          "Cabe aqui mais um silêncio."
+        ],
+        "gesture_rude": [
+          "A legenda ficou em manutenção.",
+          "Ó seu #%&@! Bip preventivo."
+        ],
+        "golden": [
+          "Até a pressa ficou dourada.",
+          "Esta luz merece uma pausa."
+        ],
+        "sunny": [
+          "A sombra chegou primeiro.",
+          "O sol está muito disponível."
+        ],
+        "storm": [
+          "O céu bateu a porta.",
+          "O toldo pediu transferência."
+        ],
+        "rainbow": [
+          "O céu abriu a caixa.",
+          "Trouxe todas as cores hoje."
+        ],
+        "night": [
+          "Agora ouve-se melhor o silêncio.",
+          "Há luz para ficar mais pouco."
+        ],
+        "talk": [
+          "Cheguei cedo à pausa.",
+          "A pressa passa. Eu fico."
+        ],
+        "human": [
+          "Tenho tempo. Conta lá.",
+          "Obrigado por ficares um bocadinho."
+        ]
+      },
+      "humanMoment": "Tenho tempo. Conta lá.",
+      "legacyLinesSource": "spaces/npcs.js SPECS.tortoise.lines (unchanged by patch)"
+    },
+    {
+      "id": "raccoon",
+      "legacy": true,
+      "enabledByDefault": true,
+      "model": {
+        "id": "raccoon",
+        "head": "raccoon",
+        "shape": [
+          1,
+          1,
+          1.35
+        ],
+        "colors": {
+          "skin": "#969494",
+          "jacket": "#b7483d",
+          "trousers": "#41404a",
+          "shirt": "#fff3d6",
+          "hair": "#342b28",
+          "accent": "#ffcd75"
+        }
+      },
+      "lines": {
+        "ignored": [
+          "Estou aqui. Sem apresentação.",
+          "A conversa ficou em espera."
+        ],
+        "slap1": [
+          "Já levaste na boca!",
+          "A mão vinha sem assunto?"
+        ],
+        "slap2": [
+          "Levaste na boca, boneco!",
+          "Outra vez? Faltou pontuação?"
+        ],
+        "slap3": [
+          "Ai, que tromba boa p'ra levar chapadões!",
+          "Já percebi. Agora dá espaço."
+        ],
+        "bystander_laugh": [
+          "A dignidade foi dar uma volta.",
+          "Foi ensaio. Espero eu."
+        ],
+        "run_past": [
+          "A pressa vai à frente!",
+          "Levas a pausa contigo?"
+        ],
+        "jump": [
+          "O chão ficou ofendido.",
+          "Isso conta como escadas?"
+        ],
+        "sit_beside": [
+          "Senta. Não cobro conversa.",
+          "Cabe aqui mais um silêncio."
+        ],
+        "gesture_rude": [
+          "A legenda ficou em manutenção.",
+          "Ó seu #%&@! Bip preventivo."
+        ],
+        "golden": [
+          "Até a pressa ficou dourada.",
+          "Esta luz merece uma pausa."
+        ],
+        "sunny": [
+          "A sombra chegou primeiro.",
+          "O sol está muito disponível."
+        ],
+        "storm": [
+          "O céu bateu a porta.",
+          "O toldo pediu transferência."
+        ],
+        "rainbow": [
+          "O céu abriu a caixa.",
+          "Trouxe todas as cores hoje."
+        ],
+        "night": [
+          "Agora ouve-se melhor o silêncio.",
+          "Há luz para ficar mais pouco."
+        ],
+        "talk": [
+          "Reparei isto. Sobrou aquilo.",
+          "A peça extra é confiança."
+        ],
+        "human": [
+          "Arranjo coisas para não as perder.",
+          "Obrigado por ficares um bocadinho."
+        ]
+      },
+      "humanMoment": "Arranjo coisas para não as perder.",
+      "legacyLinesSource": "spaces/npcs.js SPECS.raccoon.lines (unchanged by patch)"
+    },
+    {
+      "id": "forcado",
+      "legacy": true,
+      "enabledByDefault": true,
+      "model": {
+        "id": "forcado",
+        "head": "forcado",
+        "shape": [
+          0.95,
+          0.68,
+          1.6
+        ],
+        "colors": {
+          "skin": "#e4ac8c",
+          "jacket": "#792e3b",
+          "trousers": "#dec99a",
+          "shirt": "#fff3d6",
+          "hair": "#342b28",
+          "accent": "#c6ac74",
+          "shoes": "#302116",
+          "hat": "#287848"
+        },
+        "sash": true,
+        "stock": true,
+        "moustache": true,
+        "hat": true,
+        "clothing": "forcado",
+        "bodyWidth": 1.02,
+        "armLength": 1,
+        "tie": 0,
+        "bow": false,
+        "braces": false,
+        "hoodie": false,
+        "phone": false,
+        "vest": false,
+        "polo": false,
+        "turtle": false,
+        "satin": false,
+        "stripe": 0,
+        "pin": false
+      },
+      "lines": {
+        "ignored": [
+          "Estou aqui. Sem apresentação.",
+          "A conversa ficou em espera."
+        ],
+        "slap1": [
+          "Já levaste na boca!",
+          "A mão vinha sem assunto?"
+        ],
+        "slap2": [
+          "Levaste na boca, boneco!",
+          "Outra vez? Faltou pontuação?"
+        ],
+        "slap3": [
+          "Ai, que tromba boa p'ra levar chapadões!",
+          "Já percebi. Agora dá espaço."
+        ],
+        "bystander_laugh": [
+          "A dignidade foi dar uma volta.",
+          "Foi ensaio. Espero eu."
+        ],
+        "run_past": [
+          "A pressa vai à frente!",
+          "Levas a pausa contigo?"
+        ],
+        "jump": [
+          "O chão ficou ofendido.",
+          "Isso conta como escadas?"
+        ],
+        "sit_beside": [
+          "Senta. Não cobro conversa.",
+          "Cabe aqui mais um silêncio."
+        ],
+        "gesture_rude": [
+          "A legenda ficou em manutenção.",
+          "Ó seu #%&@! Bip preventivo."
+        ],
+        "golden": [
+          "Até a pressa ficou dourada.",
+          "Esta luz merece uma pausa."
+        ],
+        "sunny": [
+          "A sombra chegou primeiro.",
+          "O sol está muito disponível."
+        ],
+        "storm": [
+          "O céu bateu a porta.",
+          "O toldo pediu transferência."
+        ],
+        "rainbow": [
+          "O céu abriu a caixa.",
+          "Trouxe todas as cores hoje."
+        ],
+        "night": [
+          "Agora ouve-se melhor o silêncio.",
+          "Há luz para ficar mais pouco."
+        ],
+        "talk": [
+          "Tá bueno!",
+          "Tá bueno?",
+          "Sai cavalinho!"
+        ],
+        "human": [
+          "Hoje o touro é de cartão.",
+          "Obrigado por ficares um bocadinho."
+        ]
+      },
+      "humanMoment": "Hoje o touro é de cartão.",
+      "behavior": "Keep existing proud bullring walk, brace and Tá bueno sequences unchanged.",
+      "legacyLinesSource": "spaces/npcs.js SPECS.forcado.lines (unchanged by patch)"
+    },
+    {
+      "id": "velho",
+      "legacy": true,
+      "enabledByDefault": true,
+      "model": {
+        "id": "velho",
+        "head": "velho",
+        "shape": [
+          1,
+          1.3,
+          1.32
+        ],
+        "colors": {
+          "skin": "#e4ac8c",
+          "jacket": "#716e68",
+          "trousers": "#41404a",
+          "shirt": "#fff3d6",
+          "hair": "#342b28",
+          "accent": "#ffcd75"
+        }
+      },
+      "lines": {
+        "ignored": [
+          "Estou aqui. Sem apresentação.",
+          "A conversa ficou em espera."
+        ],
+        "slap1": [
+          "Já levaste na boca!",
+          "A mão vinha sem assunto?"
+        ],
+        "slap2": [
+          "Levaste na boca, boneco!",
+          "Outra vez? Faltou pontuação?"
+        ],
+        "slap3": [
+          "Ai, que tromba boa p'ra levar chapadões!",
+          "Já percebi. Agora dá espaço."
+        ],
+        "bystander_laugh": [
+          "A dignidade foi dar uma volta.",
+          "Foi ensaio. Espero eu."
+        ],
+        "run_past": [
+          "A pressa vai à frente!",
+          "Levas a pausa contigo?"
+        ],
+        "jump": [
+          "O chão ficou ofendido.",
+          "Isso conta como escadas?"
+        ],
+        "sit_beside": [
+          "Senta. Não cobro conversa.",
+          "Cabe aqui mais um silêncio."
+        ],
+        "gesture_rude": [
+          "A legenda ficou em manutenção.",
+          "Ó seu #%&@! Bip preventivo."
+        ],
+        "golden": [
+          "Até a pressa ficou dourada.",
+          "Esta luz merece uma pausa."
+        ],
+        "sunny": [
+          "A sombra chegou primeiro.",
+          "O sol está muito disponível."
+        ],
+        "storm": [
+          "O céu bateu a porta.",
+          "O toldo pediu transferência."
+        ],
+        "rainbow": [
+          "O céu abriu a caixa.",
+          "Trouxe todas as cores hoje."
+        ],
+        "night": [
+          "Agora ouve-se melhor o silêncio.",
+          "Há luz para ficar mais pouco."
+        ],
+        "talk": [
+          "Tá bonito, tá!",
+          "Esta gente esquisita… tsk, tsk"
+        ],
+        "human": [
+          "Esta luz lembra-me a minha cozinha.",
+          "Obrigado por ficares um bocadinho."
+        ]
+      },
+      "humanMoment": "Esta luz lembra-me a minha cozinha.",
+      "legacyLinesSource": "spaces/npcs.js SPECS.velho.lines (unchanged by patch)"
+    },
+    {
+      "id": "gordo",
+      "legacy": true,
+      "enabledByDefault": true,
+      "model": {
+        "id": "gordo",
+        "head": "chubby",
+        "shape": [
+          1,
+          0.76,
+          1.28
+        ],
+        "colors": {
+          "skin": "#e4ac8c",
+          "jacket": "#eee4d0",
+          "trousers": "#41404a",
+          "shirt": "#fff3d6",
+          "hair": "#342b28",
+          "accent": "#ffcd75"
+        },
+        "braces": true
+      },
+      "lines": {
+        "ignored": [
+          "Estou aqui. Sem apresentação.",
+          "A conversa ficou em espera."
+        ],
+        "slap1": [
+          "Já levaste na boca!",
+          "A mão vinha sem assunto?"
+        ],
+        "slap2": [
+          "Levaste na boca, boneco!",
+          "Outra vez? Faltou pontuação?"
+        ],
+        "slap3": [
+          "Ai, que tromba boa p'ra levar chapadões!",
+          "Já percebi. Agora dá espaço."
+        ],
+        "bystander_laugh": [
+          "A dignidade foi dar uma volta.",
+          "Foi ensaio. Espero eu."
+        ],
+        "run_past": [
+          "A pressa vai à frente!",
+          "Levas a pausa contigo?"
+        ],
+        "jump": [
+          "O chão ficou ofendido.",
+          "Isso conta como escadas?"
+        ],
+        "sit_beside": [
+          "Senta. Não cobro conversa.",
+          "Cabe aqui mais um silêncio."
+        ],
+        "gesture_rude": [
+          "A legenda ficou em manutenção.",
+          "Ó seu #%&@! Bip preventivo."
+        ],
+        "golden": [
+          "Até a pressa ficou dourada.",
+          "Esta luz merece uma pausa."
+        ],
+        "sunny": [
+          "A sombra chegou primeiro.",
+          "O sol está muito disponível."
+        ],
+        "storm": [
+          "O céu bateu a porta.",
+          "O toldo pediu transferência."
+        ],
+        "rainbow": [
+          "O céu abriu a caixa.",
+          "Trouxe todas as cores hoje."
+        ],
+        "night": [
+          "Agora ouve-se melhor o silêncio.",
+          "Há luz para ficar mais pouco."
+        ],
+        "talk": [
+          "A pausa tem de ser oficial.",
+          "Trouxe assunto. Esqueci-me dele."
+        ],
+        "human": [
+          "Fica mais um bocadinho.",
+          "Obrigado por ficares um bocadinho."
+        ]
+      },
+      "humanMoment": "Fica mais um bocadinho.",
+      "legacyLinesSource": "spaces/npcs.js SPECS.gordo.lines (unchanged by patch)"
+    },
+    {
+      "id": "mano",
+      "legacy": true,
+      "enabledByDefault": true,
+      "model": {
+        "id": "mano",
+        "head": "mano",
+        "shape": [
+          0.86,
+          0.9,
+          1.42
+        ],
+        "colors": {
+          "skin": "#e4ac8c",
+          "jacket": "#424956",
+          "trousers": "#41404a",
+          "shirt": "#fff3d6",
+          "hair": "#342b28",
+          "accent": "#ffcd75"
+        },
+        "phone": true,
+        "hoodie": true
+      },
+      "lines": {
+        "ignored": [
+          "Estou aqui. Sem apresentação.",
+          "A conversa ficou em espera."
+        ],
+        "slap1": [
+          "Já levaste na boca!",
+          "A mão vinha sem assunto?"
+        ],
+        "slap2": [
+          "Levaste na boca, boneco!",
+          "Outra vez? Faltou pontuação?"
+        ],
+        "slap3": [
+          "Ai, que tromba boa p'ra levar chapadões!",
+          "Já percebi. Agora dá espaço."
+        ],
+        "bystander_laugh": [
+          "A dignidade foi dar uma volta.",
+          "Foi ensaio. Espero eu."
+        ],
+        "run_past": [
+          "A pressa vai à frente!",
+          "Levas a pausa contigo?"
+        ],
+        "jump": [
+          "O chão ficou ofendido.",
+          "Isso conta como escadas?"
+        ],
+        "sit_beside": [
+          "Senta. Não cobro conversa.",
+          "Cabe aqui mais um silêncio."
+        ],
+        "gesture_rude": [
+          "A legenda ficou em manutenção.",
+          "Ó seu #%&@! Bip preventivo."
+        ],
+        "golden": [
+          "Até a pressa ficou dourada.",
+          "Esta luz merece uma pausa."
+        ],
+        "sunny": [
+          "A sombra chegou primeiro.",
+          "O sol está muito disponível."
+        ],
+        "storm": [
+          "O céu bateu a porta.",
+          "O toldo pediu transferência."
+        ],
+        "rainbow": [
+          "O céu abriu a caixa.",
+          "Trouxe todas as cores hoje."
+        ],
+        "night": [
+          "Agora ouve-se melhor o silêncio.",
+          "Há luz para ficar mais pouco."
+        ],
+        "talk": [
+          "Tenho MB Way, tenho MB Way",
+          "Calma, bro!",
+          "Tens criptomoedas, bro?"
+        ],
+        "human": [
+          "Hoje desliguei as notificações.",
+          "Obrigado por ficares um bocadinho."
+        ]
+      },
+      "humanMoment": "Hoje desliguei as notificações.",
+      "legacyLinesSource": "spaces/npcs.js SPECS.mano.lines (unchanged by patch)"
+    },
+    {
+      "id": "influencer",
+      "legacy": false,
+      "enabledByDefault": false,
+      "model": {
+        "id": "influencer",
+        "head": "human",
+        "shape": [
+          1.05,
+          1.4,
+          0.85
+        ],
+        "colors": {
+          "skin": "#e4ac8c",
+          "jacket": "#b9654c",
+          "trousers": "#414851",
+          "shirt": "#eee4d2",
+          "hair": "#302a27",
+          "accent": "#e4b763"
+        },
+        "clothing": "influencer",
+        "tie": 0,
+        "bow": false,
+        "sash": false,
+        "stock": false,
+        "braces": false,
+        "hoodie": false,
+        "phone": true,
+        "vest": false,
+        "polo": false,
+        "turtle": false,
+        "satin": false,
+        "stripe": 0,
+        "pin": false,
+        "proud": false,
+        "hat": false,
+        "fat": 1,
+        "bodyWidth": 0.76,
+        "armLength": 1.12
+      },
+      "lines": {
+        "ignored": [
+          "Estou aqui. Sem apresentação.",
+          "A conversa ficou em espera."
+        ],
+        "slap1": [
+          "Já levaste na boca!",
+          "A mão vinha sem assunto?"
+        ],
+        "slap2": [
+          "Levaste na boca, boneco!",
+          "Outra vez? Faltou pontuação?"
+        ],
+        "slap3": [
+          "Ai, que tromba boa p'ra levar chapadões!",
+          "Já percebi. Agora dá espaço."
+        ],
+        "bystander_laugh": [
+          "A dignidade foi dar uma volta.",
+          "Foi ensaio. Espero eu."
+        ],
+        "run_past": [
+          "A pressa vai à frente!",
+          "Levas a pausa contigo?"
+        ],
+        "jump": [
+          "O chão ficou ofendido.",
+          "Isso conta como escadas?"
+        ],
+        "sit_beside": [
+          "Senta. Não cobro conversa.",
+          "Cabe aqui mais um silêncio."
+        ],
+        "gesture_rude": [
+          "A legenda ficou em manutenção.",
+          "Ó seu #%&@! Bip preventivo."
+        ],
+        "golden": [
+          "Até a pressa ficou dourada.",
+          "Esta luz merece uma pausa."
+        ],
+        "sunny": [
+          "A sombra chegou primeiro.",
+          "O sol está muito disponível."
+        ],
+        "storm": [
+          "O céu bateu a porta.",
+          "O toldo pediu transferência."
+        ],
+        "rainbow": [
+          "O céu abriu a caixa.",
+          "Trouxe todas as cores hoje."
+        ],
+        "night": [
+          "Agora ouve-se melhor o silêncio.",
+          "Há luz para ficar mais pouco."
+        ],
+        "talk": [
+          "Espera. A espontaneidade ficou tremida.",
+          "Já filmei o descanso. Duas vezes."
+        ],
+        "human": [
+          "Hoje quero guardar isto sem filmar.",
+          "Obrigado por ficares um bocadinho."
+        ]
+      },
+      "humanMoment": "Hoje quero guardar isto sem filmar.",
+      "casting": {
+        "preferredSlots": [
+          "rooster",
+          "mano"
+        ],
+        "keepSlotLocation": true
+      }
+    },
+    {
+      "id": "tio",
+      "legacy": false,
+      "enabledByDefault": false,
+      "model": {
+        "id": "tio",
+        "head": "human",
+        "shape": [
+          0.85,
+          0.65,
+          1.6
+        ],
+        "colors": {
+          "skin": "#e4ac8c",
+          "jacket": "#907a55",
+          "trousers": "#4d4a40",
+          "shirt": "#e3d7bc",
+          "hair": "#7a7265",
+          "accent": "#b04c3b"
+        },
+        "clothing": "uncle",
+        "tie": 0,
+        "bow": false,
+        "sash": false,
+        "stock": false,
+        "braces": false,
+        "hoodie": false,
+        "phone": false,
+        "vest": false,
+        "polo": false,
+        "turtle": false,
+        "satin": false,
+        "stripe": 0,
+        "pin": false,
+        "proud": false,
+        "hat": false,
+        "fat": 1,
+        "bodyWidth": 1.12,
+        "armLength": 0.94,
+        "hairStyle": "receding"
+      },
+      "lines": {
+        "ignored": [
+          "Estou aqui. Sem apresentação.",
+          "A conversa ficou em espera."
+        ],
+        "slap1": [
+          "Já levaste na boca!",
+          "A mão vinha sem assunto?",
+          "Ó nabo!"
+        ],
+        "slap2": [
+          "Levaste na boca, boneco!",
+          "Outra vez? Faltou pontuação?"
+        ],
+        "slap3": [
+          "Ai, que tromba boa p'ra levar chapadões!",
+          "Já percebi. Agora dá espaço."
+        ],
+        "bystander_laugh": [
+          "A dignidade foi dar uma volta.",
+          "Foi ensaio. Espero eu."
+        ],
+        "run_past": [
+          "A pressa vai à frente!",
+          "Levas a pausa contigo?"
+        ],
+        "jump": [
+          "O chão ficou ofendido.",
+          "Isso conta como escadas?"
+        ],
+        "sit_beside": [
+          "Senta. Não cobro conversa.",
+          "Cabe aqui mais um silêncio."
+        ],
+        "gesture_rude": [
+          "A legenda ficou em manutenção.",
+          "Ó seu #%&@! Bip preventivo."
+        ],
+        "golden": [
+          "Até a pressa ficou dourada.",
+          "Esta luz merece uma pausa."
+        ],
+        "sunny": [
+          "A sombra chegou primeiro.",
+          "O sol está muito disponível."
+        ],
+        "storm": [
+          "O céu bateu a porta.",
+          "O toldo pediu transferência."
+        ],
+        "rainbow": [
+          "O céu abriu a caixa.",
+          "Trouxe todas as cores hoje."
+        ],
+        "night": [
+          "Agora ouve-se melhor o silêncio.",
+          "Há luz para ficar mais pouco."
+        ],
+        "talk": [
+          "Eu sabia. Antes de saber.",
+          "Tenho opinião com garantia vitalícia."
+        ],
+        "human": [
+          "Não sei. Ensinas-me?",
+          "Obrigado por ficares um bocadinho."
+        ]
+      },
+      "humanMoment": "Não sei. Ensinas-me?",
+      "casting": {
+        "preferredSlots": [
+          "walrus",
+          "velho"
+        ],
+        "keepSlotLocation": true
+      }
+    },
+    {
+      "id": "arrumador",
+      "legacy": false,
+      "enabledByDefault": false,
+      "model": {
+        "id": "arrumador",
+        "head": "human",
+        "shape": [
+          1.02,
+          1.15,
+          0.95
+        ],
+        "colors": {
+          "skin": "#e4ac8c",
+          "jacket": "#57605c",
+          "trousers": "#3d4547",
+          "shirt": "#ded6c8",
+          "hair": "#342b28",
+          "accent": "#c5d46f"
+        },
+        "clothing": "usher",
+        "tie": 0,
+        "bow": false,
+        "sash": false,
+        "stock": false,
+        "braces": false,
+        "hoodie": false,
+        "phone": false,
+        "vest": false,
+        "polo": false,
+        "turtle": false,
+        "satin": false,
+        "stripe": 0,
+        "pin": false,
+        "proud": false,
+        "hat": false,
+        "fat": 1,
+        "bodyWidth": 0.92,
+        "armLength": 1.04
+      },
+      "lines": {
+        "ignored": [
+          "Estou aqui. Sem apresentação.",
+          "A conversa ficou em espera."
+        ],
+        "slap1": [
+          "Já levaste na boca!",
+          "A mão vinha sem assunto?"
+        ],
+        "slap2": [
+          "Levaste na boca, boneco!",
+          "Outra vez? Faltou pontuação?"
+        ],
+        "slap3": [
+          "Ai, que tromba boa p'ra levar chapadões!",
+          "Já percebi. Agora dá espaço."
+        ],
+        "bystander_laugh": [
+          "A dignidade foi dar uma volta.",
+          "Foi ensaio. Espero eu."
+        ],
+        "run_past": [
+          "A pressa vai à frente!",
+          "Levas a pausa contigo?"
+        ],
+        "jump": [
+          "O chão ficou ofendido.",
+          "Isso conta como escadas?"
+        ],
+        "sit_beside": [
+          "Senta. Não cobro conversa.",
+          "Cabe aqui mais um silêncio."
+        ],
+        "gesture_rude": [
+          "A legenda ficou em manutenção.",
+          "Ó seu #%&@! Bip preventivo."
+        ],
+        "golden": [
+          "Até a pressa ficou dourada.",
+          "Esta luz merece uma pausa."
+        ],
+        "sunny": [
+          "A sombra chegou primeiro.",
+          "O sol está muito disponível."
+        ],
+        "storm": [
+          "O céu bateu a porta.",
+          "O toldo pediu transferência."
+        ],
+        "rainbow": [
+          "O céu abriu a caixa.",
+          "Trouxe todas as cores hoje."
+        ],
+        "night": [
+          "Agora ouve-se melhor o silêncio.",
+          "Há luz para ficar mais pouco."
+        ],
+        "talk": [
+          "Mais atrás. Agora filosoficamente.",
+          "Aqui cabe. Na minha imaginação."
+        ],
+        "human": [
+          "Gosto quando alguém diz bom dia.",
+          "Obrigado por ficares um bocadinho."
+        ]
+      },
+      "humanMoment": "Gosto quando alguém diz bom dia.",
+      "casting": {
+        "preferredSlots": [
+          "rooster",
+          "bull"
+        ],
+        "keepSlotLocation": true
+      }
+    },
+    {
+      "id": "vizinha",
+      "legacy": false,
+      "enabledByDefault": false,
+      "model": {
+        "id": "vizinha",
+        "head": "human",
+        "shape": [
+          0.85,
+          0.7,
+          1.55
+        ],
+        "colors": {
+          "skin": "#e4ac8c",
+          "jacket": "#9c6260",
+          "trousers": "#5c514e",
+          "shirt": "#eee2cb",
+          "hair": "#574a42",
+          "accent": "#6f8164"
+        },
+        "clothing": "neighbor",
+        "tie": 0,
+        "bow": false,
+        "sash": false,
+        "stock": false,
+        "braces": false,
+        "hoodie": false,
+        "phone": false,
+        "vest": false,
+        "polo": false,
+        "turtle": false,
+        "satin": false,
+        "stripe": 0,
+        "pin": false,
+        "proud": false,
+        "hat": false,
+        "fat": 1,
+        "bodyWidth": 1.08,
+        "armLength": 0.96
+      },
+      "lines": {
+        "ignored": [
+          "Estou aqui. Sem apresentação.",
+          "A conversa ficou em espera."
+        ],
+        "slap1": [
+          "Já levaste na boca!",
+          "A mão vinha sem assunto?"
+        ],
+        "slap2": [
+          "Levaste na boca, boneco!",
+          "Outra vez? Faltou pontuação?"
+        ],
+        "slap3": [
+          "Ai, que tromba boa p'ra levar chapadões!",
+          "Já percebi. Agora dá espaço."
+        ],
+        "bystander_laugh": [
+          "A dignidade foi dar uma volta.",
+          "Foi ensaio. Espero eu."
+        ],
+        "run_past": [
+          "A pressa vai à frente!",
+          "Levas a pausa contigo?"
+        ],
+        "jump": [
+          "O chão ficou ofendido.",
+          "Isso conta como escadas?"
+        ],
+        "sit_beside": [
+          "Senta. Não cobro conversa.",
+          "Cabe aqui mais um silêncio."
+        ],
+        "gesture_rude": [
+          "A legenda ficou em manutenção.",
+          "Ó seu #%&@! Bip preventivo."
+        ],
+        "golden": [
+          "Até a pressa ficou dourada.",
+          "Esta luz merece uma pausa."
+        ],
+        "sunny": [
+          "A sombra chegou primeiro.",
+          "O sol está muito disponível."
+        ],
+        "storm": [
+          "O céu bateu a porta.",
+          "O toldo pediu transferência."
+        ],
+        "rainbow": [
+          "O céu abriu a caixa.",
+          "Trouxe todas as cores hoje."
+        ],
+        "night": [
+          "Agora ouve-se melhor o silêncio.",
+          "Há luz para ficar mais pouco."
+        ],
+        "talk": [
+          "Não espreito. Faço controlo de qualidade.",
+          "A janela tem melhor cobertura."
+        ],
+        "human": [
+          "A janela é companhia.",
+          "Obrigado por ficares um bocadinho."
+        ]
+      },
+      "humanMoment": "A janela é companhia.",
+      "casting": {
+        "preferredSlots": [
+          "raccoon",
+          "tortoise"
+        ],
+        "keepSlotLocation": true
+      }
+    },
+    {
+      "id": "critico",
+      "legacy": false,
+      "enabledByDefault": false,
+      "model": {
+        "id": "critico",
+        "head": "human",
+        "shape": [
+          1.05,
+          1.45,
+          0.8
+        ],
+        "colors": {
+          "skin": "#e4ac8c",
+          "jacket": "#373f47",
+          "trousers": "#30373e",
+          "shirt": "#e2dbce",
+          "hair": "#332d29",
+          "accent": "#9b4b51"
+        },
+        "clothing": "critic",
+        "tie": 0,
+        "bow": false,
+        "sash": false,
+        "stock": false,
+        "braces": false,
+        "hoodie": false,
+        "phone": false,
+        "vest": false,
+        "polo": false,
+        "turtle": false,
+        "satin": false,
+        "stripe": 0,
+        "pin": false,
+        "proud": false,
+        "hat": false,
+        "fat": 1,
+        "bodyWidth": 0.7,
+        "armLength": 1.16
+      },
+      "lines": {
+        "ignored": [
+          "Estou aqui. Sem apresentação.",
+          "A conversa ficou em espera."
+        ],
+        "slap1": [
+          "Já levaste na boca!",
+          "A mão vinha sem assunto?"
+        ],
+        "slap2": [
+          "Levaste na boca, boneco!",
+          "Outra vez? Faltou pontuação?"
+        ],
+        "slap3": [
+          "Ai, que tromba boa p'ra levar chapadões!",
+          "Já percebi. Agora dá espaço."
+        ],
+        "bystander_laugh": [
+          "A dignidade foi dar uma volta.",
+          "Foi ensaio. Espero eu."
+        ],
+        "run_past": [
+          "A pressa vai à frente!",
+          "Levas a pausa contigo?"
+        ],
+        "jump": [
+          "O chão ficou ofendido.",
+          "Isso conta como escadas?"
+        ],
+        "sit_beside": [
+          "Senta. Não cobro conversa.",
+          "Cabe aqui mais um silêncio."
+        ],
+        "gesture_rude": [
+          "A legenda ficou em manutenção.",
+          "Ó seu #%&@! Bip preventivo.",
+          "Tens boa voz para escrever à máquina."
+        ],
+        "golden": [
+          "Até a pressa ficou dourada.",
+          "Esta luz merece uma pausa."
+        ],
+        "sunny": [
+          "A sombra chegou primeiro.",
+          "O sol está muito disponível."
+        ],
+        "storm": [
+          "O céu bateu a porta.",
+          "O toldo pediu transferência."
+        ],
+        "rainbow": [
+          "O céu abriu a caixa.",
+          "Trouxe todas as cores hoje."
+        ],
+        "night": [
+          "Agora ouve-se melhor o silêncio.",
+          "Há luz para ficar mais pouco."
+        ],
+        "talk": [
+          "A ausência dialoga com o vazio.",
+          "Gostei. Vou complicar a explicação."
+        ],
+        "human": [
+          "Esta obra faz-me falta.",
+          "Obrigado por ficares um bocadinho."
+        ]
+      },
+      "humanMoment": "Esta obra faz-me falta.",
+      "casting": {
+        "preferredSlots": [
+          "rooster",
+          "bull"
+        ],
+        "keepSlotLocation": true
+      }
+    },
+    {
+      "id": "adepto",
+      "legacy": false,
+      "enabledByDefault": false,
+      "model": {
+        "id": "adepto",
+        "head": "human",
+        "shape": [
+          0.95,
+          0.9,
+          1.3
+        ],
+        "colors": {
+          "skin": "#e4ac8c",
+          "jacket": "#3e6b7b",
+          "trousers": "#414745",
+          "shirt": "#f0e7d6",
+          "hair": "#43362d",
+          "accent": "#d8b65f"
+        },
+        "clothing": "fan",
+        "tie": 0,
+        "bow": false,
+        "sash": false,
+        "stock": false,
+        "braces": false,
+        "hoodie": false,
+        "phone": false,
+        "vest": false,
+        "polo": false,
+        "turtle": false,
+        "satin": false,
+        "stripe": 0,
+        "pin": false,
+        "proud": false,
+        "hat": false,
+        "fat": 1,
+        "bodyWidth": 1.25,
+        "armLength": 1.02
+      },
+      "lines": {
+        "ignored": [
+          "Estou aqui. Sem apresentação.",
+          "A conversa ficou em espera."
+        ],
+        "slap1": [
+          "Já levaste na boca!",
+          "A mão vinha sem assunto?"
+        ],
+        "slap2": [
+          "Levaste na boca, boneco!",
+          "Outra vez? Faltou pontuação?"
+        ],
+        "slap3": [
+          "Ai, que tromba boa p'ra levar chapadões!",
+          "Já percebi. Agora dá espaço."
+        ],
+        "bystander_laugh": [
+          "A dignidade foi dar uma volta.",
+          "Foi ensaio. Espero eu."
+        ],
+        "run_past": [
+          "A pressa vai à frente!",
+          "Levas a pausa contigo?"
+        ],
+        "jump": [
+          "O chão ficou ofendido.",
+          "Isso conta como escadas?"
+        ],
+        "sit_beside": [
+          "Senta. Não cobro conversa.",
+          "Cabe aqui mais um silêncio."
+        ],
+        "gesture_rude": [
+          "A legenda ficou em manutenção.",
+          "Ó seu #%&@! Bip preventivo."
+        ],
+        "golden": [
+          "Até a pressa ficou dourada.",
+          "Esta luz merece uma pausa."
+        ],
+        "sunny": [
+          "A sombra chegou primeiro.",
+          "O sol está muito disponível."
+        ],
+        "storm": [
+          "O céu bateu a porta.",
+          "O toldo pediu transferência."
+        ],
+        "rainbow": [
+          "O céu abriu a caixa.",
+          "Trouxe todas as cores hoje."
+        ],
+        "night": [
+          "Agora ouve-se melhor o silêncio.",
+          "Há luz para ficar mais pouco."
+        ],
+        "talk": [
+          "Foi falta. Ainda não aconteceu?",
+          "Trouxe cachecol para qualquer resultado."
+        ],
+        "human": [
+          "Vou aos jogos pelo meu pai.",
+          "Obrigado por ficares um bocadinho."
+        ]
+      },
+      "humanMoment": "Vou aos jogos pelo meu pai.",
+      "casting": {
+        "preferredSlots": [
+          "walrus",
+          "gordo"
+        ],
+        "keepSlotLocation": true
+      }
+    },
+    {
+      "id": "turista",
+      "legacy": false,
+      "enabledByDefault": false,
+      "model": {
+        "id": "turista",
+        "head": "human",
+        "shape": [
+          1.02,
+          1.15,
+          1
+        ],
+        "colors": {
+          "skin": "#e4ac8c",
+          "jacket": "#b9a77f",
+          "trousers": "#6f7a68",
+          "shirt": "#f0e5ce",
+          "hair": "#665344",
+          "accent": "#638c9a",
+          "shoes": "#77553a",
+          "hat": "#c3ad7b"
+        },
+        "clothing": "tourist",
+        "tie": 0,
+        "bow": false,
+        "sash": false,
+        "stock": true,
+        "braces": false,
+        "hoodie": false,
+        "phone": false,
+        "vest": false,
+        "polo": false,
+        "turtle": false,
+        "satin": false,
+        "stripe": 0,
+        "pin": false,
+        "proud": false,
+        "hat": true,
+        "fat": 1,
+        "bodyWidth": 1,
+        "armLength": 1.02
+      },
+      "lines": {
+        "ignored": [
+          "Estou aqui. Sem apresentação.",
+          "A conversa ficou em espera."
+        ],
+        "slap1": [
+          "Já levaste na boca!",
+          "A mão vinha sem assunto?"
+        ],
+        "slap2": [
+          "Levaste na boca, boneco!",
+          "Outra vez? Faltou pontuação?"
+        ],
+        "slap3": [
+          "Ai, que tromba boa p'ra levar chapadões!",
+          "Já percebi. Agora dá espaço."
+        ],
+        "bystander_laugh": [
+          "A dignidade foi dar uma volta.",
+          "Foi ensaio. Espero eu."
+        ],
+        "run_past": [
+          "A pressa vai à frente!",
+          "Levas a pausa contigo?"
+        ],
+        "jump": [
+          "O chão ficou ofendido.",
+          "Isso conta como escadas?"
+        ],
+        "sit_beside": [
+          "Senta. Não cobro conversa.",
+          "Cabe aqui mais um silêncio."
+        ],
+        "gesture_rude": [
+          "A legenda ficou em manutenção.",
+          "Ó seu #%&@! Bip preventivo."
+        ],
+        "golden": [
+          "Até a pressa ficou dourada.",
+          "Esta luz merece uma pausa."
+        ],
+        "sunny": [
+          "A sombra chegou primeiro.",
+          "O sol está muito disponível."
+        ],
+        "storm": [
+          "O céu bateu a porta.",
+          "O toldo pediu transferência."
+        ],
+        "rainbow": [
+          "O céu abriu a caixa.",
+          "Trouxe todas as cores hoje."
+        ],
+        "night": [
+          "Agora ouve-se melhor o silêncio.",
+          "Há luz para ficar mais pouco."
+        ],
+        "talk": [
+          "Onde fica a saída da chegada?",
+          "O mapa também parece perdido."
+        ],
+        "human": [
+          "Perdi-me. Mas fui bem recebido.",
+          "Obrigado por ficares um bocadinho."
+        ]
+      },
+      "humanMoment": "Perdi-me. Mas fui bem recebido.",
+      "casting": {
+        "preferredSlots": [
+          "raccoon",
+          "rooster"
+        ],
+        "keepSlotLocation": true
+      }
+    },
+    {
+      "id": "tio_camisola",
+      "displayName": "O observador de camisola",
+      "legacy": false,
+      "enabledByDefault": false,
+      "model": {
+        "id": "tio_camisola",
+        "head": "human",
+        "clothing": "tank_onlooker",
+        "shape": [
+          0.86,
+          0.66,
+          1.6
+        ],
+        "bodyWidth": 1.18,
+        "armLength": 1.18,
+        "tie": 0,
+        "bow": false,
+        "sash": false,
+        "stock": true,
+        "braces": false,
+        "hoodie": false,
+        "phone": false,
+        "vest": false,
+        "polo": false,
+        "turtle": false,
+        "satin": false,
+        "stripe": 0,
+        "pin": false,
+        "proud": false,
+        "hat": false,
+        "fat": 1,
+        "hairStyle": "receding",
+        "colors": {
+          "skin": "#c79879",
+          "hair": "#6d6357",
+          "jacket": "#e4dfcf",
+          "trousers": "#38464b",
+          "shirt": "#f0e9d9",
+          "accent": "#d3b278",
+          "shoes": "#80654b"
+        }
+      },
+      "behavior": "onlooker",
+      "tags": [
+        "onlooker"
+      ],
+      "casting": {
+        "preferredSlots": [
+          "walrus",
+          "velho"
+        ],
+        "keepSlotLocation": true
+      },
+      "lines": {
+        "talk": [
+          "Estou só a ver. Profissionalmente.",
+          "Não me meto. Faço comentários.",
+          "Queres o quê?"
+        ],
+        "ignored": [
+          "Pronto. Guardo a opinião para depois.",
+          "Também sei ficar calado. Quase sempre."
+        ],
+        "slap1": [
+          "A conversa era ali ao lado.",
+          "Isso vinha acompanhado de argumento?"
+        ],
+        "slap2": [
+          "Já ouvi. Com as duas orelhas.",
+          "Podes repetir, mas com palavras?"
+        ],
+        "slap3": [
+          "Dá-me espaço. A conversa espera.",
+          "Pronto. Já não estou só a ver."
+        ],
+        "bystander_laugh": [
+          "Esta parte não estava no programa.",
+          "Vou fingir que não achei graça.",
+          "Tens uma testa que parece um papo seco!"
+        ],
+        "run_past": [
+          "Vai devagar. A opinião não foge.",
+          "Eu fazia isso. Sentado."
+        ],
+        "jump": [
+          "Já viste? Agora também há altitude.",
+          "O chão pediu uma segunda oportunidade."
+        ],
+        "sit_beside": [
+          "Senta. Daqui vê-se sem atrapalhar.",
+          "Queres conversa ou companhia?"
+        ],
+        "gesture_rude": [
+          "Essa opinião veio sem vogais.",
+          "Ó seu #%&@! Pronto, passou."
+        ],
+        "golden": [
+          "Até o muro parece ter férias.",
+          "Esta luz faz parar a conversa."
+        ],
+        "sunny": [
+          "A sombra está ocupada por mim.",
+          "Hoje observo do lado fresco."
+        ],
+        "storm": [
+          "Agora é o céu a comentar.",
+          "Quem deixou a janela das nuvens aberta?"
+        ],
+        "rainbow": [
+          "Olha aquilo. Esqueci-me da minha opinião.",
+          "Desta vez não tenho nada a acrescentar."
+        ],
+        "night": [
+          "À noite observo mais baixinho.",
+          "Ainda bem que deixaram uma luz."
+        ],
+        "peek": [
+          "Só estou a confirmar uma coisa.",
+          "Não estou a espreitar. Estou atento."
+        ],
+        "feign": [
+          "Eu? Estava a admirar o pavimento.",
+          "Que conversa? Bela pedra, esta."
+        ],
+        "comment": [
+          "Faltou uma reunião para explicar aquilo.",
+          "Eu tinha avisado. Só pensei, pronto."
+        ],
+        "human": [
+          "Às vezes fico para ter companhia.",
+          "Obrigado por ouvires até ao fim."
+        ]
+      },
+      "humanMoment": "Às vezes fico para ter companhia.",
+      "lineContext": {
+        "Tens uma testa que parece um papo seco!": {
+          "target": "fictional_npc",
+          "allowedTargetIds": [
+            "tio_camisola",
+            "forcado"
+          ],
+          "event": "bystander_laugh"
+        }
+      }
+    },
+    {
+      "id": "senhor_banho",
+      "displayName": "O observador de calções",
+      "legacy": false,
+      "enabledByDefault": false,
+      "model": {
+        "id": "senhor_banho",
+        "head": "human",
+        "clothing": "swim_onlooker",
+        "shape": [
+          1,
+          0.95,
+          1.1
+        ],
+        "bodyWidth": 1.08,
+        "armLength": 1,
+        "tie": 0,
+        "bow": false,
+        "sash": false,
+        "stock": false,
+        "braces": false,
+        "hoodie": false,
+        "phone": false,
+        "vest": false,
+        "polo": false,
+        "turtle": false,
+        "satin": false,
+        "stripe": 0,
+        "pin": false,
+        "proud": false,
+        "hat": false,
+        "fat": 1,
+        "hairStyle": "receding",
+        "colors": {
+          "skin": "#ba8868",
+          "hair": "#564337",
+          "jacket": "#4e8990",
+          "trousers": "#4e8990",
+          "shirt": "#eee5d4",
+          "accent": "#e2c07f",
+          "shoes": "#42575b"
+        }
+      },
+      "behavior": "onlooker",
+      "tags": [
+        "onlooker"
+      ],
+      "casting": {
+        "preferredSlots": [
+          "rooster",
+          "bull"
+        ],
+        "keepSlotLocation": true
+      },
+      "lines": {
+        "talk": [
+          "Trouxe toalha. Esqueci-me do plano.",
+          "Disseram água. Não especificaram a profundidade."
+        ],
+        "ignored": [
+          "Tudo bem. Continuo a secar.",
+          "Já volto. Vou ali ficar parado."
+        ],
+        "slap1": [
+          "Era um cumprimento ou uma onda?",
+          "Isso não estava no folheto.",
+          "Ó cara de papo!"
+        ],
+        "slap2": [
+          "Agora já reconheço o teu estilo.",
+          "Podemos experimentar uma conversa normal?"
+        ],
+        "slap3": [
+          "Está bem. Preciso de algum espaço.",
+          "Hoje fico fora dessa brincadeira."
+        ],
+        "bystander_laugh": [
+          "Eu fazia igual. Por acidente.",
+          "Essa coreografia precisa de corrimão."
+        ],
+        "run_past": [
+          "A pressa também precisa de descanso.",
+          "O chão não vai a lado nenhum."
+        ],
+        "jump": [
+          "Boa entrada. Falta encontrar a piscina.",
+          "Ficou elegante. Até aterrares."
+        ],
+        "sit_beside": [
+          "Senta. A toalha não reserva lugares.",
+          "Também vieste sem saber bem porquê?"
+        ],
+        "gesture_rude": [
+          "Não percebi. Deve ser um exercício.",
+          "Esse gesto fica por tua conta."
+        ],
+        "golden": [
+          "A luz sabe quando sair bem.",
+          "Ficava aqui até acabar esta cor."
+        ],
+        "sunny": [
+          "Hoje o passeio já conta como férias.",
+          "A sombra não exige marcação."
+        ],
+        "storm": [
+          "Já não preciso de procurar água.",
+          "A toalha pediu um telhado."
+        ],
+        "rainbow": [
+          "Trouxeram o catálogo inteiro de cores.",
+          "Isto merece ficar quieto um instante."
+        ],
+        "night": [
+          "Agora a água guarda as luzes.",
+          "Ainda há tempo para um passeio."
+        ],
+        "peek": [
+          "Estou a ver onde acaba aquilo.",
+          "Só estou a localizar uma saída."
+        ],
+        "feign": [
+          "Eu estava a contar candeeiros.",
+          "Não ouvi nada. Estava muito vento."
+        ],
+        "comment": [
+          "Aquela decisão precisava de uma boia.",
+          "Isto já dava uma história inteira."
+        ],
+        "human": [
+          "Estava a precisar de sair de casa.",
+          "Obrigado por ouvires até ao fim."
+        ]
+      },
+      "humanMoment": "Estava a precisar de sair de casa."
+    },
+    {
+      "id": "cusco_roupao",
+      "displayName": "O observador de roupão",
+      "legacy": false,
+      "enabledByDefault": false,
+      "model": {
+        "id": "cusco_roupao",
+        "head": "human",
+        "clothing": "robe_onlooker",
+        "shape": [
+          1.06,
+          1.4,
+          0.85
+        ],
+        "bodyWidth": 0.76,
+        "armLength": 1,
+        "tie": 0,
+        "bow": false,
+        "sash": false,
+        "stock": false,
+        "braces": false,
+        "hoodie": false,
+        "phone": false,
+        "vest": false,
+        "polo": false,
+        "turtle": false,
+        "satin": false,
+        "stripe": 0,
+        "pin": false,
+        "proud": false,
+        "hat": false,
+        "fat": 1,
+        "hairStyle": "receding",
+        "colors": {
+          "skin": "#c79879",
+          "hair": "#c2b9aa",
+          "jacket": "#7d7e9c",
+          "trousers": "#696c84",
+          "shirt": "#e5dfd4",
+          "accent": "#c4b8cc",
+          "shoes": "#777184"
+        }
+      },
+      "behavior": "onlooker",
+      "tags": [
+        "onlooker"
+      ],
+      "casting": {
+        "preferredSlots": [
+          "tortoise",
+          "raccoon"
+        ],
+        "keepSlotLocation": true
+      },
+      "lines": {
+        "talk": [
+          "Saí para ver se acontecia alguma coisa.",
+          "O jornal ainda não chegou aqui."
+        ],
+        "ignored": [
+          "Pronto. A edição de hoje fica suspensa.",
+          "Tenho tempo. A chávena também."
+        ],
+        "slap1": [
+          "Isso pede uma nota de rodapé.",
+          "A notícia podia vir mais devagar."
+        ],
+        "slap2": [
+          "A segunda edição era desnecessária.",
+          "Já registei. Agora deixa falar.",
+          "Ó estupidozinho!"
+        ],
+        "slap3": [
+          "Fechamos a redação por hoje.",
+          "Preciso de sossego. Tu também, talvez."
+        ],
+        "bystander_laugh": [
+          "Não publicarei isto. Vou só lembrar-me.",
+          "Foi um susto com excelente pontuação.",
+          "Olha este, é do mesmo tamanho sentado e de pé!"
+        ],
+        "run_past": [
+          "Leva um casaco para essa urgência.",
+          "O recado não precisa de fugir."
+        ],
+        "jump": [
+          "Vi tudo. O teto não participou.",
+          "Isso conta como mudança de piso?"
+        ],
+        "sit_beside": [
+          "Senta. Hoje há edição tranquila.",
+          "Não precisamos de preencher o silêncio."
+        ],
+        "gesture_rude": [
+          "Essa frase precisa de revisão.",
+          "Vou censurar isso na minha memória."
+        ],
+        "golden": [
+          "A tarde está a fechar bem.",
+          "Olha que luz nas janelas."
+        ],
+        "sunny": [
+          "Hoje a notícia é lá fora.",
+          "Abri as cortinas. Já fiz bastante."
+        ],
+        "storm": [
+          "O céu publicou uma edição especial.",
+          "Vou investigar debaixo daquele telhado."
+        ],
+        "rainbow": [
+          "Nem eu conseguia acrescentar tantas cores.",
+          "Hoje dispenso comentários. Olha só."
+        ],
+        "night": [
+          "Há janelas que fazem companhia.",
+          "Já posso falar mais baixinho."
+        ],
+        "peek": [
+          "Só vim verificar o barulho.",
+          "Isto é uma observação de rotina."
+        ],
+        "feign": [
+          "Eu? Estava a acertar o cinto.",
+          "Que assunto? Vim ver as estrelas."
+        ],
+        "comment": [
+          "Faltou confirmar essa informação no terreno.",
+          "A conversa cresceu sem pedir licença."
+        ],
+        "human": [
+          "Às vezes uma conversa muda o dia.",
+          "Obrigado por ouvires até ao fim."
+        ]
+      },
+      "humanMoment": "Às vezes uma conversa muda o dia.",
+      "lineContext": {
+        "Olha este, é do mesmo tamanho sentado e de pé!": {
+          "target": "fictional_npc",
+          "allowedTargetIds": [
+            "tio_camisola",
+            "forcado"
+          ],
+          "event": "bystander_laugh"
+        }
+      }
+    },
+    {
+      "id": "porco_fato",
+      "displayName": "O farejador de reuniões",
+      "legacy": false,
+      "enabledByDefault": false,
+      "model": {
+        "id": "porco_fato",
+        "head": "pig",
+        "clothing": "business_pig",
+        "shape": [
+          0.95,
+          0.72,
+          1.25
+        ],
+        "bodyWidth": 1.28,
+        "armLength": 1,
+        "tie": 9059140,
+        "bow": false,
+        "sash": false,
+        "stock": false,
+        "braces": false,
+        "hoodie": false,
+        "phone": false,
+        "vest": false,
+        "polo": false,
+        "turtle": false,
+        "satin": false,
+        "stripe": 0,
+        "pin": false,
+        "proud": false,
+        "hat": false,
+        "fat": 1,
+        "colors": {
+          "skin": "#ce9b9e",
+          "hair": "#625049",
+          "jacket": "#303943",
+          "trousers": "#303943",
+          "shirt": "#f1e6d5",
+          "accent": "#8a3b44",
+          "shoes": "#372a25"
+        }
+      },
+      "behavior": "sniffer",
+      "tags": [],
+      "casting": {
+        "preferredSlots": [
+          "bull",
+          "rooster"
+        ],
+        "keepSlotLocation": true
+      },
+      "lines": {
+        "talk": [
+          "Cheira a reunião sem agenda.",
+          "Trouxe um plano. Veio numa caixa."
+        ],
+        "ignored": [
+          "Fico disponível. É o meu passatempo.",
+          "A proposta pode esperar pelo lanche."
+        ],
+        "slap1": [
+          "Isso entra nas despesas de representação?",
+          "A apresentação era sem contacto.",
+          "Ó porco!"
+        ],
+        "slap2": [
+          "Vamos rever o método de comunicação.",
+          "A ata já tem a primeira.",
+          "Levas na boca, porko!"
+        ],
+        "slap3": [
+          "Reunião terminada. Preciso de espaço.",
+          "A próxima conversa fica para amanhã."
+        ],
+        "bystander_laugh": [
+          "Isso tinha um risco operacional evidente.",
+          "Vou chamar-lhe uma demonstração prática."
+        ],
+        "run_past": [
+          "A agenda também está atrasada?",
+          "Trazes algum prazo atrás de ti?"
+        ],
+        "jump": [
+          "Bom. Agora temos uma visão elevada.",
+          "Aquela previsão subiu demasiado depressa."
+        ],
+        "sit_beside": [
+          "Senta. Não é uma entrevista.",
+          "Podemos conversar sem chegar a conclusões."
+        ],
+        "gesture_rude": [
+          "Essa cláusula não passa na revisão.",
+          "Não assino essa linguagem corporal."
+        ],
+        "golden": [
+          "A tarde tem boa apresentação.",
+          "Esta luz dispensa um relatório."
+        ],
+        "sunny": [
+          "O sol chegou antes da direção.",
+          "Hoje podemos reunir à sombra."
+        ],
+        "storm": [
+          "O céu chumbou o orçamento.",
+          "Precisamos de um plano com telhado."
+        ],
+        "rainbow": [
+          "Finalmente um gráfico que merece atenção.",
+          "Isto não precisa de mais diapositivos."
+        ],
+        "night": [
+          "O escritório pode esperar até amanhã.",
+          "Apaguei o ecrã. Ainda vejo coisas."
+        ],
+        "sniff": [
+          "Cheira a pão. Excelente ponto de partida.",
+          "Há qualquer coisa boa ali perto."
+        ],
+        "snort": [
+          "Foi uma vírgula pelo nariz.",
+          "Desculpa. O entusiasmo saiu primeiro."
+        ],
+        "human": [
+          "Hoje prefiro ouvir a apresentar.",
+          "Obrigado por ouvires até ao fim."
+        ]
+      },
+      "humanMoment": "Hoje prefiro ouvir a apresentar."
+    },
+    {
+      "id": "urso_treino",
+      "displayName": "O companheiro de aquecimento",
+      "legacy": false,
+      "enabledByDefault": false,
+      "model": {
+        "id": "urso_treino",
+        "head": "bear",
+        "clothing": "bear_tracksuit",
+        "shape": [
+          1.12,
+          0.95,
+          1.2
+        ],
+        "bodyWidth": 1.28,
+        "armLength": 1,
+        "tie": 0,
+        "bow": false,
+        "sash": false,
+        "stock": false,
+        "braces": false,
+        "hoodie": false,
+        "phone": false,
+        "vest": false,
+        "polo": false,
+        "turtle": false,
+        "satin": false,
+        "stripe": 15261642,
+        "pin": false,
+        "proud": false,
+        "hat": false,
+        "fat": 1,
+        "colors": {
+          "skin": "#735542",
+          "hair": "#514033",
+          "jacket": "#536e9d",
+          "trousers": "#536e9d",
+          "shirt": "#e8dfca",
+          "accent": "#e8dfca",
+          "shoes": "#d1c9b8"
+        }
+      },
+      "behavior": "hugger",
+      "tags": [],
+      "casting": {
+        "preferredSlots": [
+          "walrus",
+          "gordo"
+        ],
+        "keepSlotLocation": true
+      },
+      "lines": {
+        "talk": [
+          "O aquecimento também pode ser uma conversa.",
+          "Hoje treino saber quando parar."
+        ],
+        "ignored": [
+          "Está bem. Fico aqui, sem insistir.",
+          "Se precisares, sabes onde estou."
+        ],
+        "slap1": [
+          "Esse cumprimento saiu com demasiada força.",
+          "Podemos começar outra vez, mais devagar?",
+          "Cara d'urso!"
+        ],
+        "slap2": [
+          "Já percebi. Agora dá-me espaço.",
+          "Também gosto de limites claros."
+        ],
+        "slap3": [
+          "Paro por aqui. Falamos depois.",
+          "Vou respirar um pouco mais longe."
+        ],
+        "bystander_laugh": [
+          "O equilíbrio teve uma pequena folga.",
+          "Já me aconteceu. Estava sozinho, felizmente."
+        ],
+        "run_past": [
+          "Respira. O caminho continua amanhã.",
+          "Não te esqueças de chegar inteiro."
+        ],
+        "jump": [
+          "Boa energia. Guarda alguma para voltar.",
+          "A aterragem também faz parte."
+        ],
+        "sit_beside": [
+          "Descansar também conta. Senta-te.",
+          "Não tens de fazer nada agora."
+        ],
+        "gesture_rude": [
+          "Hoje não treino essa modalidade.",
+          "Está bem. Ficamos por aqui."
+        ],
+        "golden": [
+          "Esta luz faz bem ao passeio.",
+          "Podemos acabar o dia sem correr."
+        ],
+        "sunny": [
+          "Uma sombra também é uma meta.",
+          "Hoje basta dar mais uns passos."
+        ],
+        "storm": [
+          "O treino passa para debaixo do telhado.",
+          "Nem todas as nuvens pedem resistência."
+        ],
+        "rainbow": [
+          "Olha. O céu alongou todas as cores.",
+          "Podemos parar só para ver isto."
+        ],
+        "night": [
+          "Já fizemos o suficiente por hoje.",
+          "O descanso não precisa de desculpa."
+        ],
+        "hug": [
+          "Abraço? Só se quiseres.",
+          "Não? Tudo bem. Fico aqui."
+        ],
+        "human": [
+          "Às vezes também preciso que perguntem.",
+          "Obrigado por ouvires até ao fim."
+        ]
+      },
+      "humanMoment": "Às vezes também preciso que perguntem."
+    }
+  ],
+  "protectedLineContext": {
+    "Tens uma testa que parece um papo seco!": {
+      "target": "fictional_npc",
+      "allowedTargetIds": [
+        "tio_camisola",
+        "forcado"
+      ],
+      "event": "bystander_laugh"
+    },
+    "Olha este, é do mesmo tamanho sentado e de pé!": {
+      "target": "fictional_npc",
+      "allowedTargetIds": [
+        "tio_camisola",
+        "forcado"
+      ],
+      "event": "bystander_laugh"
+    }
+  }
+}
