@@ -137,3 +137,7 @@ fanfarra, troca de tempo, alvo favorito, cancelar/restaurar áudio e curador,
 ausência de erros e os limites de 0,1 ms / draw calls. Cronometrar do pedido à
 conclusão: ajustar distâncias/etapas se o percurso normal sair de 2–4 minutos,
 sem acrescentar esperas para disfarçar duração. Sprint não fica proibido.
+
+### Rádio e voz fora do Hall
+
+O patch inclui `spaces/radio.js`: `startTalk` recusa `questQuiet`, e a atualização trata o pedido como silêncio para cancelar voz ativa. Assim o rádio não volta a iniciar TTS enquanto a missão séria está ativa, mesmo se o visitante regressar ao terraço.
