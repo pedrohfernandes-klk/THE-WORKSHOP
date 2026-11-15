@@ -702,7 +702,7 @@ export function createWeather(ctx, { environment } = {}) {
     const stormish = P.over > 0.5 && overEnv;
     scene.environment = stormish ? overEnv : sunnyEnvTex;
     if (fog) { fog.color.copy(fogColor).multiplyScalar(lerp(P.expo, 1, P.night)); fog.density = baseFogDens * P.fogK; }
-    flashLight.intensity = f * 5.0 * (1 - 0.85 * indoor); // indoors only what the windows let in
+    flashLight.intensity = f * 4.0 * (1 - 0.85 * indoor); // indoors only what the windows let in
     // the landscape's own distance haze follows the fog (linear radiance, paler by day)
     // (re-found after a mode change: an environment swap can recompile it)
     if (time > hazeAt && hazeTries < 24) { hazeAt = time + (hazeU.length ? 6 : 1.5); findHaze(); }

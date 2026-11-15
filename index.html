@@ -243,7 +243,8 @@ kbd{
 #weather-btn:not([data-mode]) .wx-sunny,#weather-btn[data-mode="sunny"] .wx-sunny,#weather-btn[data-mode="storm"] .wx-storm,#weather-btn[data-mode="rainbow"] .wx-rainbow,#weather-btn[data-mode="night"] .wx-night{display:block}
 #keys-btn{font-family:var(--hud);font-size:16px;line-height:1}
 #keys-btn[aria-expanded="true"]{background:var(--paper);color:var(--ink)}
-@media (hover:none) and (pointer:coarse){#wordmark .sound{width:44px;height:44px}#keys-btn{display:none}}
+@media (hover:none) and (pointer:coarse){#wordmark .sound{width:44px;height:44px}#wordmark #keys-btn{display:none}}
+@media (max-width:374px){#wordmark .sig,#wordmark .rule{display:none}#wordmark{padding-left:5px}}
 
 #keys{
   position:absolute;top:calc(var(--pad-t) + 58px);left:var(--pad-l);max-width:calc(100vw - var(--pad-l) - var(--pad-r));
