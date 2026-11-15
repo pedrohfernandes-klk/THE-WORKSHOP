@@ -1,0 +1,489 @@
+diff --git a/assets/gallery/spaces/npcs.js b/assets/gallery/spaces/npcs.js
+index b6e3ecf..381a96c 100644
+--- a/assets/gallery/spaces/npcs.js
++++ b/assets/gallery/spaces/npcs.js
+@@ -3,7 +3,9 @@ import { reserveModuleVoice, finishModuleVoice } from '../audio-lease.js';
+ // campus, face the visitor when close, and talk (speech bubble + synthesised noise)
+ // when picked. Procedural low-poly-but-smooth models; no per-frame allocation.
+ 
++import { createNpcComedy } from '../npc-comedy.js';
+ import { createNpcPersonalities } from '../npc-onlookers.js';
++import { createFabinhe } from '../fabinhe.js';
+ import { buildCharacter, createLinePicker, createNpcEffects, mergeNpcProps } from '../npc-models.js';
+ 
+ export async function build(ctx) {
+@@ -438,24 +440,25 @@ export async function build(ctx) {
+     if (typeof document === 'undefined') return null;
+     const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+     const gr = g.createRadialGradient(32, 32, 2, 32, 32, 31);
+-    gr.addColorStop(0, 'rgba(0,0,0,0.7)'); gr.addColorStop(0.55, 'rgba(0,0,0,0.35)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
++    gr.addColorStop(0, 'rgba(255,255,255,0.7)'); gr.addColorStop(0.55, 'rgba(255,255,255,0.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+     g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+     return new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, opacity: 0.75, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+   })();
+ 
+   // ---------- build the characters ----------
+-  let personalities = null;
++  let personalities = null, comedy = null, fabinhe = null;
+   const npcs = [];
+   const pickables = [];
+   const propSource = new THREE.Group();
+   // A director may replace slots, never silently add another actor.
+   const assignments = ctx.scene?.userData?.npcAssignments;
+   const roster = SPECS.map((legacy, i) => {
+-    const entry = Array.isArray(assignments) ? castById.get(assignments[i]) : null;
++    const entry = Array.isArray(assignments) ? castById.get(assignments[i]) : legacy.name === 'rooster' ? castById.get('fabinhe') : null;
+     if (!entry || entry.legacy) return legacy;
+     return { ...legacy, name: entry.id, head: entry.model.head, lines: entry.lines.talk,
+       pt: true, phone: entry.model.clothing === 'influencer', proud: false, fixed: false,
+-      seated: false, r: Math.max(0.7, legacy.r), speed: 0.65, props: null, extra: null };
++      seated: false, r: Math.max(0.7, legacy.r), speed: 0.65, props: null, extra: null,
++      ...(entry.id === 'fabinhe' ? { sound: 'tut', tie: null, braces: false, hoodie: false, stock: false, fat: 1 } : {}) };
+   });
+   roster.forEach((S, idx) => {
+     const root = new THREE.Group(); root.name = 'npc-' + S.name; root.rotation.order = 'YXZ';
+@@ -531,6 +534,15 @@ export async function build(ctx) {
+   // Parked below the floor (inactive) until the visitor is near.
+   const colliders = npcs.map((n) => (n.col = { minX: n.x - 0.3, maxX: n.x + 0.3, minZ: n.z - 0.3, maxZ: n.z + 0.3, minY: -51, maxY: -50 }));
+   personalities = createNpcPersonalities(ctx, { npcs, castById, chooseLine, say });
++  comedy = createNpcComedy(ctx, { npcs, say, startLaugh, fall: dominoFall });
++  function dominoFall(n) {
++    if(n.fixed||n.S.seated||n.sillyT>=0||n.busy)return;
++    n.fallType=reduced?3:nextFall(n);n.fallDir=1;n.thud=false;n.whistled=false;n.whistleAt=0;n.impT=-1;n.rofl=false;
++    n.freezeT=0;n.slapSpin=false;n.slapTurns=1;n.sqT=.3;n.sillyCd=9;
++    startSilly(n,4,FALL_D[n.fallType]);
++  }
++  comedy.loadManifest(); // background: never delays the Enter button
++  fabinhe = createFabinhe(ctx, { npcs, say });
+ 
+   // ---------- sound ----------
+   // Web Audio is read lazily from ctx.audio (null until the visitor enters) and
+@@ -880,7 +892,7 @@ export async function build(ctx) {
+   for (let i = 0; i < npcs.length; i++) { const n = npcs[i], own = R[n.S.name]; n.talk = ONLY[n.S.name] ? own.talk : n.S.lines.concat((own && own.talk) || []); }
+   const TROMBA = ["Ai, que tromba boa p'ra levar chapadões!", 'Olha-me esta tromba, a pedir chapadões!', "Que trombinha jeitosa p'ra um chapadão!"];
+   DEF.pt.wind = DEF.pt.wind.concat(TROMBA);
+-  // Three signature lines are also heard: a pt-PT voice only, rare, low, never overlapping.
++  // Only this NPC signature may use an available Portuguese voice, rarely.
+   const SPOKEN = { 'Tá bueno!': 1, 'Já levaste na boca!': 1, "Ai, que tromba boa p'ra levar chapadões!": 1 };
+   let ptVoice = null, lastSpoke = -99, ownedSpeech = null;
+   function stopSignatureSpeech() {
+@@ -893,7 +905,7 @@ export async function build(ctx) {
+     speech.lease.release();
+   }
+   function speakMaybe(n, text) {
+-    if (!SPOKEN[text] || clock - lastSpoke < 25 || Math.random() > 0.4 || !n.near2) return;
++    if (!(comedy ? comedy.isSignature(n, text) : SPOKEN[text]) || clock - lastSpoke < 25 || Math.random() > 0.4 || !n.near2) return;
+     let speechLease = null;
+     try {
+       const ss = typeof speechSynthesis !== 'undefined' ? speechSynthesis : null;
+@@ -904,7 +916,7 @@ export async function build(ctx) {
+         const vs = (ss.getVoices() || []).filter(voice => voice.localService === true);
+         let br = null;
+         for (let i = 0; i < vs.length; i++) { const l = vs[i].lang || ''; if (/^pt[-_]PT/i.test(l)) { v = vs[i]; break; } if (!br && /^pt/i.test(l)) br = vs[i]; }
+-        if (v || br) ptVoice = v = v || br; else v = vs[0] || null;
++        if (v || br) ptVoice = v = v || br; else v = null;
+       }
+       if (!v) return;
+       speechLease = reserveModuleVoice(ctx, 3, true, Math.max(2, Math.min(15, text.length * .16 + 1)), bus);
+@@ -983,6 +995,7 @@ export async function build(ctx) {
+     return DEF[n.S.pt ? 'pt' : 'en'][key] || n.talk;
+   }
+   function line(n, key) {
++    if (comedy) return comedy.line(n, key);
+     const entry = castById.get(n.S.name);
+     if (entry && !entry.legacy) return chooseLine(entry, lineKeys[key] || key);
+     const p = pool(n, key);
+@@ -992,13 +1005,15 @@ export async function build(ctx) {
+   function say(n, text, withSound, up) {
+     if (ctx.scene.userData.questQuiet) return;
+     if (typeof text !== 'string' || !text) return;
++    if (comedy && !comedy.allow(n, text)) return;
+     n.curText = text; n.talkT = Math.min(5, Math.max(2.2, 1.4 + text.length * 0.06)); n.armUp = up || 1.7;
+     if (n.near2) { const A = ctx.audio; if (A && typeof A.duck === 'function') { try { A.duck(n.talkT); } catch (e) { /* no score */ } } }
+     personalities?.onEvent('speech', n);
+     n.dirty = true; n.bubble = Math.min(n.bubble, 0.55); n.mutterCd = 14;
+     if (withSound) noise(n);
+-    if (text.indexOf('#%&@') >= 0) sfx(n, 'bip');              // bleeped, like the censored gestures
++    if (text.indexOf('#%&@') >= 0) { if (comedy) comedy.sound(n, 'bleep'); else sfx(n, 'bip'); }              // bleeped, like the censored gestures
+     else speakMaybe(n, text);
++    return true;
+   }
+   function flush(n) { if (n.dirty) { drawBubble(n, n.curText); n.dirty = false; } }
+   function startSilly(n, type, dur) { n.sillyType = type; n.sillyDur = dur; n.sillyT = 0; n.meant = false; }
+@@ -1031,9 +1046,10 @@ export async function build(ctx) {
+     if (best && best.judgeAt <= 0) best.judgeAt = delay;
+   }
+   function startLaugh(n, text, hyst) {
++    if (comedy && !comedy.allowLaugh(n)) return;
+     n.laughT = hyst ? 2.8 : 2.3;
+     if (text) say(n, text, false);
+-    if (n.near2 && !personalities?.sound('laugh', n)) laughSound(n, hyst);
++    if (n.near2) { if (comedy) comedy.sound(n, 'laugh'); else if (!personalities?.sound('laugh', n)) laughSound(n, hyst); }
+     if (LAUGHER[n.S.name] && !n.fixed && !reduced && n.sillyT < 0 && !n.busy && Math.random() < (hyst ? 0.2 : 0.12)) {
+       // laughs so hard they fall over
+       n.fallType = 0; n.fallDir = 1; n.thud = false; n.whistled = false; n.impT = -1; n.rofl = true; n.freezeT = 0;
+@@ -1043,6 +1059,7 @@ export async function build(ctx) {
+   // Somebody "levou na boca": everyone within 12 m bursts out laughing, each in their own silly
+   // voice, the victim's friend first and loudest. vis: it was the visitor who got it.
+   function hysterics(x, z, zone, victim, delay, vis) {
++    let queued = 0;
+     const fr = victim ? FRIEND[victim.S.name] : null;
+     for (let i = 0; i < npcs.length; i++) {
+       const m = npcs[i];
+@@ -1053,9 +1070,11 @@ export async function build(ctx) {
+       m.laughAt = delay + (friend ? 0.05 : 0.15 + Math.sqrt(q) * 0.04 + Math.random() * 0.3);
+       m.laughText = friend && !ONLY[m.S.name] ? '#F' : vis ? '#V' : '#N';
+       m.pointT = m.laughAt + 2.6; m.pointAt = victim; if (!m.busy && victim) m.faceN = victim;
++      if (++queued >= 3) break;
+     }
+   }
+   function laughLine(n, code) {
++    if (comedy) return comedy.line(n, 'witness');
+     const entry = castById.get(n.S.name);
+     if (entry && !entry.legacy) return chooseLine(entry, 'bystander_laugh');
+     if (code === '*') return line(n, 'ha');
+@@ -1248,7 +1267,7 @@ export async function build(ctx) {
+   function update(dt, frame) {
+     if (ctx.audio?.muted || ctx.scene.userData.questQuiet || ctx.scene.userData.npcStatues) stopSignatureSpeech();
+     if (!frame?.camera) return;
+-    try { personalities.before(dt, frame); step(dt, frame); personalities.after(dt, frame); effects.update(frame.camera, starMat.rotation); }
++    try { fabinhe.before(dt, frame); comedy.update(dt, frame); personalities.before(dt, frame); step(dt, frame); personalities.after(dt, frame); fabinhe.after(dt, frame); comedy.after(); effects.update(frame.camera, starMat.rotation); }
+     catch (err) { warnOnce('update', err); }
+   }
+ 
+@@ -1317,7 +1336,7 @@ export async function build(ctx) {
+       judgeCd -= dt;
+       if (judgeCd <= 0) { judgeCd = 7 + Math.random() * 7; judge(0.01); }
+     } else camZone = 9;
+-    director(dt);
++    if (!comedy) director(dt);
+     if (clock - lastSpoke < 8 || ctx.scene.userData.questQuiet) { try { const A = ctx.audio; if (A && (A.muted || ctx.scene.userData.questQuiet)) stopSignatureSpeech(); } catch (e) { /* none */ } }
+     starMat.rotation = time * 5;
+     let budget = 2;                                        // bubble redraws per frame
+@@ -1484,7 +1503,8 @@ export async function build(ctx) {
+       // movement
+       let moving = false, tyaw = n.yaw;
+       if (n.goT > 0) { n.goT -= dt; if (n.goT <= 0) { n.goOn = false; n.goT = -1; } }
+-      if (floor || n.windT > 0) {
++      if (n.fabinhePerforming) { moving = false; }
++      else if (floor || n.windT > 0) {
+         if (n.windT > 0) tyaw = Math.atan2(dx, dz);
+       } else if (n.goOn) {
+         const ex = n.gx - n.x, ez = n.gz - n.z, ed = Math.sqrt(ex * ex + ez * ez);
+@@ -1615,7 +1635,7 @@ export async function build(ctx) {
+               else sfx(n, ft === 6 ? 'whistle' : ft === 1 ? 'whistleUp' : ft === 2 ? 'whirr' : ft === 4 ? 'skid' : '', IMPACT[ft] * n.sillyDur);
+             }
+             if (n.whistleAt > 0 && u >= n.whistleAt) { n.whistleAt = 0; sfx(n, 'whistle', (IMPACT[3] - 0.5) * n.sillyDur); }
+-            if (u >= IMPACT[ft] && !n.thud) { n.thud = true; n.impT = n.sillyT; sfx(n, 'thud'); if (ft === 5 || ft === 0) sfx(n, 'boing'); n.sqT = 0.3; }
++            if (u >= IMPACT[ft] && !n.thud) { comedy?.notify('fall',n); n.thud = true; n.impT = n.sillyT; sfx(n, 'thud'); if (ft === 5 || ft === 0) sfx(n, 'boing'); n.sqT = 0.3; }
+             if (ft === 0) { tilt = -1.6 * d; if (u > a && u < b) { legsUp = 1; tilt += Math.sin(u * 90) * 0.01; } }
+             else if (ft === 1) {
+               if (u < a) { const q = u / a; roll = -TAU * E(q) * n.fallDir; hop = Math.sin(E(q) * Math.PI) * 0.9; const v = 1.4 * 6 * q * (1 - q) / (a * n.sillyDur) * dt * n.fallDir; n.x += Math.cos(n.yaw) * v; n.z -= Math.sin(n.yaw) * v; }
+@@ -1810,6 +1830,8 @@ export async function build(ctx) {
+   function slap(object) { try { doSlap(findNpc(object)); } catch (err) { warnOnce('slap', err); } }
+   function doSlap(n) {
+     if (!n) return;
++    comedy?.notify('slap', n);
++    fabinhe.onSlap(n);
+     const S = n.S;
+     n.seqStage = 0; n.gestAt = 0; n.windT = 0; n.judgeAt = 0;
+     if (n.pestT > 0) endPest(n, null);
+@@ -1863,6 +1885,7 @@ export async function build(ctx) {
+   function onPick(object) { try { talk(findNpc(object)); } catch (err) { warnOnce('talk', err); } }
+   function talk(n) {
+     if (!n) return;
++    if (fabinhe.onTalk(n)) return;
+     const S = n.S;
+     n.seqStage = 0; n.lingerT = 0;
+     if (n.windT > 0) return;                                   // mid wind-up: no time for chat
+@@ -1875,6 +1898,7 @@ export async function build(ctx) {
+       return;
+     }
+     personalities.onEvent('talk', n);
++    comedy?.notify('talk', n);
+     const again = clock - n.lastTalk < 25;
+     n.lastTalk = clock;
+     if (S.name === 'cat' && Math.random() < 0.25) {
+@@ -1897,5 +1921,5 @@ export async function build(ctx) {
+     n.sillyCd = 6 + Math.random() * 6;
+   }
+ 
+-  return { group, regions: [], colliders, pickables, update, onPick, slap, setNavigation: personalities.setNavigation };
++  return { group, regions: [], colliders, pickables, update, onPick, slap, fabinhe, setNavigation: personalities.setNavigation };
+ }
+diff --git a/assets/gallery/npc-models.js b/assets/gallery/npc-models.js
+index 0b8c36d..8a3b83b 100644
+--- a/assets/gallery/npc-models.js
++++ b/assets/gallery/npc-models.js
+@@ -25,7 +25,8 @@ export function buildCharacter(THREE, M, spec = {}) {
+   const kind = spec.head || spec.kind || 'human';
+   const human=['human','velho','mano','chubby','forcado'].includes(kind);
+   const wardrobe=spec.clothing, tank=wardrobe==='tank_onlooker', swim=wardrobe==='swim_onlooker';
+-  const robe=wardrobe==='robe_onlooker', tracksuit=wardrobe==='bear_tracksuit';
++  const fabinhe=wardrobe==='fabinhe_tracksuit';
++  const robe=wardrobe==='robe_onlooker', tracksuit=wardrobe==='bear_tracksuit'||fabinhe;
+   const bareArms=tank||swim, shorts=tank||swim||wardrobe==='tourist'||kind==='forcado';
+   const tailored=!wardrobe||wardrobe==='business_pig'||wardrobe==='critic'||kind==='forcado';
+   const bodyWidth=clamp(spec.bodyWidth||1,.65,1.4);
+@@ -84,7 +85,7 @@ export function buildCharacter(THREE, M, spec = {}) {
+     part(new THREE.LatheGeometry(profile.map(p=>new THREE.Vector2(...p)),spec.quality==='low'?8:12),b,c,rough,x,y,z);
+   };
+   const hem=kind==='forcado'?.99:.72;
+-  const torsoProfile=[[0,hem],[.18,hem],[.21,hem+.06],[.195,1.08],[.23,1.29],[.255,1.38],[.23,1.45],[.12,1.52],[.10,1.55],[0,1.55]];
++  const torsoProfile=fabinhe ? [[0,hem],[.185,hem],[.24,hem+.06],[.23,1.08],[.255,1.29],[.275,1.38],[.24,1.45],[.12,1.52],[.10,1.55],[0,1.55]] : [[0,hem],[.18,hem],[.21,hem+.06],[.195,1.08],[.23,1.29],[.255,1.38],[.23,1.45],[.12,1.52],[.10,1.55],[0,1.55]];
+   part(new THREE.LatheGeometry(torsoProfile.map(p=>new THREE.Vector2(...p)),spec.quality==='low'?10:14),body,(swim||tank)?skin:cloth,(swim||tank)?.63:.85,0,0,0,1,1,.78);
+   if(tank) {
+     // The garment actually ends below the exposed chest and shoulders.
+@@ -117,7 +118,8 @@ export function buildCharacter(THREE, M, spec = {}) {
+     const sign=i?1:-1;
+     part(new THREE.SphereGeometry(1,8,6),a,skin,.62,-sign*.061,-.637,.035,.022,.04,.024,sign*.35);
+     for(let f=0;f<4;f++)part(new THREE.SphereGeometry(1,6,6),a,skin,.63,(f-1.5)*.028,-.713+Math.abs(f-1.5)*.005,.019,.016,.036,.021);
+-    cap(l,trousers,0,shorts?-.19:-.39,0,.087,shorts?.2:.55);
++    cap(l,trousers,0,shorts?-.19:-.39,0,fabinhe?.112:.087,shorts?.2:.55);
++    if(fabinhe){cap(l,seam,0,-.70,0,.089,.045,.85);box(a,seam,0,-.48,.077,.13,.018,.014,.9);}
+     if(shorts)cap(l,skin,0,-.54,0,.071,.28,.65);
+     const sockFoot=tank||wardrobe==='tourist';
+     sph(l,sockFoot?white:(bareArms||robe)?skin:shoe,0,-.775,.06,.105,.065,.175,sockFoot?.9:(bareArms||robe)?.64:.36);
+@@ -135,7 +137,7 @@ export function buildCharacter(THREE, M, spec = {}) {
+     // Cuff seam, pressed trouser crease and small sleeve buttons.
+     if(!bareArms)box(a,seam,0,-.51,.061,.095,.009,.006,.9);
+     if(!shorts)box(l,trousers,0,-.38,.087,.005,.43,.004,.88);
+-    if(spec.quality!=='low'&&!bareArms) {
++    if(spec.quality!=='low'&&!bareArms&&!fabinhe) {
+       box(l,sole,0,-.798,.145,.17,.01,.005,.8);
+       for(const y of [-.49,-.465])part(new THREE.CylinderGeometry(.008,.008,.005,8),a,ink,.45,.05,y,.047,1,1,1,0,Math.PI/2);
+     }
+@@ -207,11 +209,15 @@ export function buildCharacter(THREE, M, spec = {}) {
+     tube(head,lip,[[-.064,-.102,.177],[-.032,-.083,.188],[0,-.087,.193],[.033,-.084,.189],[.065,-.101,.177]],.008,.48);
+     tube(jaw,lip,[[-.064,-.028,.028],[-.034,-.06,.04],[0,-.066,.045],[.034,-.06,.04],[.065,-.028,.028]],.009,.46);
+     tube(head,gum,[[-.048,-.101,.184],[0,-.096,.193],[.048,-.102,.184]],.01,.55);
+-    for(let i=0;i<6;i++){
++    if(fabinhe) {
++      // Two separate enamel incisors, with a small natural gap; face anatomy is unchanged.
++      for(const sign of [-1,1])part(new THREE.SphereGeometry(1,8,6),head,white,.29,sign*.018,-.116,.205,.014,.024,.009,sign*.025);
++    }
++    for(let i=0;i<(fabinhe?0:6);i++){
+       const x=(i-2.5)*.017,z=.198-.012*Math.abs(i-2.5)/2.5;
+       part(new THREE.SphereGeometry(1,8,6),head,white,.29,x,-.11-(i===2?.003:0),z,.009,.014,.006,0,(i-2.5)*.025);
+     }
+-    if(spec.quality!=='low')for(let i=0;i<4;i++)
++    if(!fabinhe&&spec.quality!=='low')for(let i=0;i<4;i++)
+       part(new THREE.SphereGeometry(1,8,6),jaw,white,.32,(i-1.5)*.019,-.052,.042,.009,.01,.006);
+   }
+   if(human) {
+@@ -284,6 +290,7 @@ export function buildCharacter(THREE, M, spec = {}) {
+       } else if(wardrobe==='critic')part(new THREE.SphereGeometry(1,seg,8),hat,hc,.88,.018,.25,-.025,.22,.035,.19,.16);
+       else sph(hat,hc,0,.25,-.025,.195,.08,.18,.9);
+       if(wardrobe==='influencer')box(hat,hc,0,.2,.19,.23,.018,.16,.65);
++      if(fabinhe)part(new THREE.BoxGeometry(.23,.018,.16).rotateY(.95),hat,hc,.65,Math.sin(.95)*.19,.2,Math.cos(.95)*.19);
+     }
+   }
+   const glasses=(y,z,round=false)=>{
+@@ -366,9 +373,17 @@ export function buildCharacter(THREE, M, spec = {}) {
+       box(bones.arms[i],white,(i?1:-1)*.061,-.28,.025,.012,.43,.06,.75);
+       box(bones.legs[i],white,(i?1:-1)*.084,-.39,.01,.012,.54,.08,.75);
+     }
++    if(fabinhe) {
++      // Stitched zipper, dropped pockets and elastic hem; no borrowed gold-chain costume.
++      box(body,seam,0,1.12,.193,.013,.55,.013,.65);
++      for(const sign of [-1,1])box(body,seam,sign*.15,.94,.177,.12,.014,.014,.86,sign*.15);
++      box(body,seam,0,.76,.15,.37,.035,.014,.85);
++    }
++    if(!fabinhe) {
+     const gold=tint(null,0xd3aa4b);
+     tube(body,gold,[[-.13,1.47,.12],[-.11,1.33,.21],[0,1.27,.23],[.11,1.33,.21],[.13,1.47,.12]],.009,.3);
+     part(new THREE.CylinderGeometry(.027,.027,.007,10),body,gold,.3,0,1.25,.235,1,1,1,0,Math.PI/2);
++    }
+   }
+   if(kind==='tortoise')sph(body,tint(null,0x72623c),0,1.15,-.27,.29,.31,.23,.8);
+   if(kind==='raccoon')for(let i=0;i<6;i++)sph(body,i%2?ink:white,0,.85-i*.04,-.3-i*.09,.07,.065,.075,.9);
+@@ -511,18 +526,30 @@ export function createNpcEffects(THREE, group, npcs, blobGeometry, blobMaterial,
+   stars.frustumCulled=false;stars.renderOrder=9;stars.raycast=()=>{};group.add(stars);
+   if(shadow){shadow.frustumCulled=false;shadow.renderOrder=1;shadow.raycast=()=>{};group.add(shadow);}
+   const selected=new Int16Array(3), distances=new Float64Array(3);
++  const shadowBlack=new THREE.Color(0), puddleTint=new THREE.Color('#a58b43');
++  if(shadow)shadow.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(npcs.length*3),3);
+   return {
+     update(camera,rotation=0) {
+       selected.fill(-1);distances.fill(Infinity);
+       for(let i=0;i<npcs.length;i++){
+         const n=npcs[i];
+-        if(shadow){if(n.blob?.visible){n.blob.updateMatrix();shadow.setMatrixAt(i,n.blob.matrix);}else shadow.setMatrixAt(i,invisible);}
++        if(shadow){
++          const puddle=n.comedyPuddle||0;
++          if(puddle>0&&n.root.visible){
++            dummy.position.set(n.x,.025,n.z);dummy.rotation.set(0,0,0);
++            dummy.scale.set((n.colW*2+.45)*puddle,1,(n.colW*2+.2)*puddle);dummy.updateMatrix();
++            shadow.setMatrixAt(i,dummy.matrix);shadow.setColorAt(i,puddleTint);
++          }else{
++            shadow.setColorAt(i,shadowBlack);
++            if(n.blob?.visible){n.blob.updateMatrix();shadow.setMatrixAt(i,n.blob.matrix);}else shadow.setMatrixAt(i,invisible);
++          }
++        }
+         if(n.stars.visible && n.root.visible){dummy.position.copy(n.stars.position);dummy.quaternion.copy(camera.quaternion);dummy.rotateZ(rotation);dummy.scale.copy(n.stars.scale);dummy.updateMatrix();stars.setMatrixAt(i,dummy.matrix);}else stars.setMatrixAt(i,invisible);
+         if(n.sprite?.visible){for(let j=0;j<3;j++)if(n.d2<distances[j]){for(let k=2;k>j;k--){distances[k]=distances[k-1];selected[k]=selected[k-1];}distances[j]=n.d2;selected[j]=i;break;}}
+       }
+       // Deterministic nearest-three presentation; speech state/queues unchanged.
+       for(let i=0;i<npcs.length;i++)if(npcs[i].sprite)npcs[i].sprite.visible=npcs[i].sprite.visible && (i===selected[0]||i===selected[1]||i===selected[2]);
+-      stars.instanceMatrix.needsUpdate=true;if(shadow)shadow.instanceMatrix.needsUpdate=true;
++      stars.instanceMatrix.needsUpdate=true;if(shadow){shadow.instanceMatrix.needsUpdate=true;shadow.instanceColor.needsUpdate=true;}
+     }
+   };
+ }
+diff --git a/assets/data/npc-cast.json b/assets/data/npc-cast.json
+index e90a1ce..9eff3a5 100644
+--- a/assets/data/npc-cast.json
++++ b/assets/data/npc-cast.json
+@@ -1,7 +1,7 @@
+ {
+   "version": 2,
+   "maxActive": 14,
+-  "populationPolicy": "Twenty-six authored characters, at most fourteen active slots. The fourteen legacy characters remain enabled by default. Twelve original alternatives are opt-in replacements through npcAssignments; never append them to the active roster. Leo chooses casting. Preferred slots are suggestions, not automatic activation.",
++  "populationPolicy": "Twenty-seven authored characters; fourteen active slots. Fabinhe replaces the rooster slot only when npcAssignments is absent. Explicit assignments remain sovereign. The rooster remains available as an authored replacement; never append a fifteenth actor.",
+   "protectedLines": [
+     "Tá bueno!",
+     "Tá bueno?",
+@@ -23,7 +23,11 @@
+     "Tens uma testa que parece um papo seco!",
+     "Levas na boca, porko!",
+     "Tens boa voz para escrever à máquina.",
+-    "Olha este, é do mesmo tamanho sentado e de pé!"
++    "Olha este, é do mesmo tamanho sentado e de pé!",
++    "Se as pingas da chuva fosse pingas de Bow-Seta, que chuva de Mer-dass seriaaa!",
++    "Gostaste? É minha.",
++    "Faço concertos por MB Way.",
++    "Isto é um êxito, pá!"
+   ],
+   "characters": [
+     {
+@@ -659,7 +663,7 @@
+     {
+       "id": "rooster",
+       "legacy": true,
+-      "enabledByDefault": true,
++      "enabledByDefault": false,
+       "model": {
+         "id": "rooster",
+         "head": "rooster",
+@@ -2801,6 +2805,121 @@
+         ]
+       },
+       "humanMoment": "Às vezes também preciso que perguntem."
++    },
++    {
++      "id": "fabinhe",
++      "legacy": false,
++      "enabledByDefault": true,
++      "ageGroup": "adult",
++      "behavior": "performer",
++      "casting": {
++        "preferredSlots": [
++          "rooster"
++        ],
++        "keepSlotLocation": true
++      },
++      "model": {
++        "id": "fabinhe",
++        "head": "human",
++        "clothing": "fabinhe_tracksuit",
++        "shape": [
++          1.04,
++          1.45,
++          0.91
++        ],
++        "bodyWidth": 0.82,
++        "armLength": 1.12,
++        "armRadius": 0.084,
++        "hat": true,
++        "hatStyle": "sideways_cap",
++        "moustache": false,
++        "tie": null,
++        "braces": false,
++        "hoodie": false,
++        "stock": false,
++        "phone": false,
++        "fat": 1,
++        "sound": "tut",
++        "colors": {
++          "skin": "#d7ad90",
++          "hair": "#34271f",
++          "jacket": "#527e86",
++          "trousers": "#394f69",
++          "shirt": "#e5ddd0",
++          "shoes": "#dbd5c9",
++          "hat": "#796080"
++        }
++      },
++      "lines": {
++        "talk": [
++          "Gostaste? É minha.",
++          "Faço concertos por MB Way.",
++          "Isto é um êxito, pá!"
++        ],
++        "ignored": [
++          "Estava a ensaiar uma saída em grande. Saíste tu."
++        ],
++        "slap1": [
++          "O assobio não estava no refrão."
++        ],
++        "slap2": [
++          "Duas? Isso já é percussão sem convite."
++        ],
++        "slap3": [
++          "Chega. O concerto não inclui porrada."
++        ],
++        "bystander_laugh": [
++          "O trombil levou uma nota fora da escala."
++        ],
++        "run_past": [
++          "Esse andamento não é o meu."
++        ],
++        "jump": [
++          "Só falta acertar a aterragem no tempo."
++        ],
++        "sit_beside": [
++          "Senta. Posso ensaiar ficar calado."
++        ],
++        "gesture_rude": [
++          "Não preciso de um maestro desses."
++        ],
++        "golden": [
++          "Esta luz dava uma capa."
++        ],
++        "sunny": [
++          "O sol também quer o solo."
++        ],
++        "storm": [
++          "Chuva! Já tenho a primeira palavra."
++        ],
++        "rainbow": [
++          "Olha o cenário que me arranjaram!"
++        ],
++        "night": [
++          "À noite canto mais baixo. Há quem precise de paz."
++        ],
++        "human": [
++          "Às vezes só quero que alguém fique até ao fim."
++        ]
++      },
++      "humanMoment": "Às vezes só quero que alguém fique até ao fim.",
++      "signatureSong": {
++        "text": "Se as pingas da chuva fosse pingas de Bow-Seta, que chuva de Mer-dass seriaaa!",
++        "bpm": 96,
++        "scale": [
++          "A",
++          "C",
++          "D",
++          "E",
++          "G"
++        ],
++        "localVoicePreference": [
++          "pt-PT",
++          "en"
++        ],
++        "maxSeconds": 8.2,
++        "cooldownSeconds": 600
++      }
+     }
+   ],
+   "protectedLineContext": {
