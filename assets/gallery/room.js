@@ -400,6 +400,25 @@ vec3 floorBase(vec3 W, out float joint) {
 }
 `;
 
+
+const GLSL_SHAFT = /* glsl */ `
+const vec3 SUNDIR = normalize(vec3(0.16, -1.0, 0.22));
+float shaftDensity(vec3 p, float T) {
+  float h = ${HY.toFixed(1)} - p.y;
+  if (h < 0.0 || p.y < 0.0) return 0.0;
+  vec3 q = p - SUNDIR * (h / -SUNDIR.y);
+  float soft = 0.05 + 0.12 * h;
+  float m = smoothstep(0.0, soft, ${SKY_X.toFixed(1)} - abs(q.x)) * smoothstep(0.0, soft * 1.5, ${SKY_Z.toFixed(1)} - abs(q.z));
+  float dz = abs(fract((q.z + ${SKY_Z.toFixed(1)}) / 1.5 + 0.5) - 0.5) * 1.5;
+  float bw = 0.036;
+  float blur = 0.04 + 0.22 * h;
+  float k = 0.62 * exp(-h / 2.6);
+  m *= (1.0 - (1.0 - smoothstep(bw, bw + blur, dz)) * k) * (1.0 - (1.0 - smoothstep(bw, bw + blur, abs(q.x))) * k);
+  float n = 0.62 + 0.76 * gfbm(vec2(p.x * 0.4 + p.y * 0.12 + T * 0.012, p.z * 0.22 - p.y * 0.08 - T * 0.009));
+  return m * n * (1.0 - 0.45 * smoothstep(0.0, ${HY.toFixed(1)}, h));
+}
+`;
+
 // ---------------------------------------------------------------------------
 // The floor shader (Reflector)
 // ---------------------------------------------------------------------------
@@ -449,21 +468,22 @@ const FloorShader = {
       V /= dist;
       float c = clamp(V.y, 0.0, 1.0);
       float graze = 1.0 - c;
-      float F = 0.075 + 0.925 * pow(graze, 3.2);
+      float F = 0.045 + 0.80 * pow(graze, 3.4);
       vec2 p = vW.xz;
       float cl = gfbm(p * 0.32);
       // micro-variation of the polish: wobbles the reflection a little
-      vec2 wob = (vec2(gvn(p * 3.0), gvn(p * 3.0 + 31.7)) - 0.5) * 0.0042
+      vec2 wob = (vec2(gvn(p * 3.0), gvn(p * 3.0 + 31.7)) - 0.5) * 0.0026
                + (vec2(gvn(p * 23.0), gvn(p * 19.0 + 5.0)) - 0.5) * 0.0016;
       vec2 uv = vUv.xy / vUv.w + wob * (0.35 + 0.65 * graze);
       float rad = uBlur * (0.45 + 1.15 * graze) * (0.85 + 0.3 * cl);
+      float lod = clamp(log2(max(rad * 0.9, 1.0)), 0.0, 4.0);
       float ang = ign(gl_FragCoord.xy) * 6.2831853;
       float cs = cos(ang), sn = sin(ang);
       mat2 R = mat2(cs, -sn, sn, cs);
       vec3 acc = vec3(0.0);
       for (int i = 0; i < 12; i++) {
         vec2 o = R * PD[i] * rad * uTexel;
-        acc += min(texture2D(tDiffuse, clamp(uv + o, vec2(0.001), vec2(0.999))).rgb, vec3(2.2));
+        acc += min(textureLod(tDiffuse, clamp(uv + o, vec2(0.001), vec2(0.999)), lod).rgb, vec3(1.25));
       }
       vec3 refl = acc / 12.0;
       refl *= vec3(0.965, 0.945, 0.915) * (0.82 + 0.36 * cl) * uTint;
@@ -602,7 +622,7 @@ ${GLSL_NOISE}`,
 // ---------------------------------------------------------------------------
 // createRoom
 // ---------------------------------------------------------------------------
-export function createRoom(renderer, { quality = 'high' } = {}) {
+export function createRoom(renderer, { quality = 'high', reducedMotion = false } = {}) {
   const high = quality !== 'low';
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0b0a09);
@@ -628,7 +648,7 @@ export function createRoom(renderer, { quality = 'high' } = {}) {
   const tintColor = new THREE.Color(1, 1, 1);
 
   // lights: minimal and shadowless
-  const hemi = new THREE.HemisphereLight(0xfff2e0, 0xb8ad9d, 1.9);
+  const hemi = new THREE.HemisphereLight(0xfff2e0, 0xb8ad9d, 2.7);
   const sun = new THREE.DirectionalLight(0xfff0dc, 0.9);
   sun.position.set(2, 10, 7);
   sun.target.position.set(0, 0, 0);
@@ -845,6 +865,7 @@ export function createRoom(renderer, { quality = 'high' } = {}) {
     lenses.instanceMatrix.needsUpdate = true;
     stems.instanceMatrix.needsUpdate = true;
   }
+  lenses.layers.set(1); // glints stay out of the floor reflection
   arch.add(barrels, lenses, stems);
 
   // ---- benches ------------------------------------------------------------
@@ -914,7 +935,7 @@ export function createRoom(renderer, { quality = 'high' } = {}) {
     color: 0x000000,
     alphaMap: blobTex,
     transparent: true,
-    opacity: 0.62,
+    opacity: 0.32,
     depthWrite: false,
     polygonOffset: true,
     polygonOffsetFactor: -1,
@@ -951,6 +972,9 @@ export function createRoom(renderer, { quality = 'high' } = {}) {
       multisample: 2,
       shader: FloorShader,
     });
+    const rtex = floor.getRenderTarget().texture;
+    rtex.generateMipmaps = true;
+    rtex.minFilter = THREE.LinearMipmapLinearFilter;
     const un = floor.material.uniforms;
     un.uSky = U.uSky;
     un.uDay = U.uDay;
@@ -992,6 +1016,8 @@ export function createRoom(renderer, { quality = 'high' } = {}) {
     poolIdx.set([v, v + 1, v + 2, v, v + 2, v + 3], i * 6);
   }
   poolGeo.setAttribute('position', new THREE.BufferAttribute(poolPos, 3));
+  const poolNor = new Float32Array(POOL_COUNT * 4 * 3);
+  poolGeo.setAttribute('normal', new THREE.BufferAttribute(poolNor, 3));
   poolGeo.setAttribute('uv', new THREE.BufferAttribute(poolUv, 2));
   poolGeo.setAttribute('color', new THREE.BufferAttribute(poolCol, 3));
   poolGeo.setIndex(new THREE.BufferAttribute(poolIdx, 1));
@@ -1033,6 +1059,8 @@ export function createRoom(renderer, { quality = 'high' } = {}) {
   }
   const shGeo = new THREE.BufferGeometry();
   shGeo.setAttribute('position', new THREE.BufferAttribute(shPos, 3));
+  const shNor = new Float32Array(POOL_COUNT * 16 * 3);
+  shGeo.setAttribute('normal', new THREE.BufferAttribute(shNor, 3));
   shGeo.setAttribute('color', new THREE.BufferAttribute(shCol, 4));
   shGeo.setIndex(new THREE.BufferAttribute(shIdx, 1));
   shGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 3, 0), 40);
@@ -1158,11 +1186,13 @@ export function createRoom(renderer, { quality = 'high' } = {}) {
       poolPos[vi * 3] = wallC.x + _right.x * sx;
       poolPos[vi * 3 + 1] = wallC.y + sy;
       poolPos[vi * 3 + 2] = wallC.z + _right.z * sx;
+      poolNor.set([n.x, n.y, n.z], vi * 3);
       poolUv[vi * 2] = uu;
       poolUv[vi * 2 + 1] = vv;
     }
     poolGeo.attributes.position.needsUpdate = true;
     poolGeo.attributes.uv.needsUpdate = true;
+    poolGeo.attributes.normal.needsUpdate = true;
   }
 
   function writeShadow(st) {
@@ -1184,9 +1214,11 @@ export function createRoom(renderer, { quality = 'high' } = {}) {
         shPos[vi * 3] = c.x + _right.x * xs[j];
         shPos[vi * 3 + 1] = c.y + ys[j];
         shPos[vi * 3 + 2] = c.z + _right.z * xs[j];
+        shNor.set([n.x, n.y, n.z], vi * 3);
       }
     }
     shGeo.attributes.position.needsUpdate = true;
+    shGeo.attributes.normal.needsUpdate = true;
   }
 
   function setShadowAlpha(i, f) {
@@ -1400,11 +1432,119 @@ export function createRoom(renderer, { quality = 'high' } = {}) {
       st.artMat.emissiveIntensity = ART_EMISSIVE * (0.07 + 0.93 * st.ramp) * (1 + 0.22 * g);
     }
     const light = (0.06 + 0.94 * st.ramp) * (1 + 0.2 * g);
-    if (st.oakMat) st.oakMat.emissiveIntensity = 0.42 * light;
-    if (st.paperMat) st.paperMat.emissiveIntensity = 0.62 * light;
+    if (st.oakMat) st.oakMat.emissiveIntensity = 0.30 * light;
+    if (st.paperMat) st.paperMat.emissiveIntensity = 0.40 * light;
     if (st.plaqueMat) st.plaqueMat.color.setScalar(0.20 + 0.62 * st.ramp + 0.1 * g);
     st.lastRamp = st.ramp;
     st.lastGaze = g;
+  }
+
+  // ---- volumetric daylight: analytic shafts from the skylight + dust motes ----
+  const volU = { uT: { value: 0 }, uK: { value: 0.045 }, uSky: U.uSky, uShaft: { value: 1 } };
+  const volMat = new THREE.ShaderMaterial({
+    uniforms: volU,
+    side: THREE.BackSide,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    vertexShader: /* glsl */ `
+      varying vec3 vW;
+      void main() { vec4 wp = modelMatrix * vec4(position, 1.0); vW = wp.xyz; gl_Position = projectionMatrix * viewMatrix * wp; }`,
+    fragmentShader: /* glsl */ `
+      varying vec3 vW;
+      uniform float uT, uK, uSky, uShaft;
+      ${GLSL_NOISE}
+      ${GLSL_SHAFT}
+      float ign(vec2 p) { return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))); }
+      void main() {
+        vec3 ro = cameraPosition;
+        vec3 rd = vW - ro;
+        float tEnd = length(rd);
+        rd /= tEnd;
+        vec3 inv = 1.0 / (rd + vec3(1e-6));
+        vec3 bmin = vec3(-2.1, 0.0, -15.3), bmax = vec3(3.3, ${HY.toFixed(1)}, 16.8);
+        vec3 t0 = (bmin - ro) * inv, t1 = (bmax - ro) * inv;
+        vec3 tmn = min(t0, t1), tmx = max(t0, t1);
+        float ta = max(max(tmn.x, tmn.y), max(tmn.z, 0.0));
+        float tb = min(min(tmx.x, tmx.y), min(tmx.z, tEnd));
+        if (tb <= ta) { gl_FragColor = vec4(0.0); return; }
+        const int N = 28;
+        float dt = (tb - ta) / float(N);
+        float j = ign(gl_FragCoord.xy);
+        float acc = 0.0;
+        for (int i = 0; i < N; i++) acc += shaftDensity(ro + rd * (ta + (float(i) + j) * dt), uT);
+        acc *= dt;
+        float ph = 0.7 + 0.8 * pow(max(dot(rd, -SUNDIR), 0.0), 3.0);
+        vec3 col = vec3(1.0, 0.94, 0.82) * acc * ph * uK * uSky * uShaft;
+        gl_FragColor = vec4(col, 1.0);
+      }`,
+  });
+  const volMesh = new THREE.Mesh(new THREE.BoxGeometry(HX * 2, HY, HZ * 2 + 0.42), volMat);
+  volMesh.position.set(0, HY / 2, 0.21);
+  volMesh.frustumCulled = false;
+  volMesh.renderOrder = 10;
+  volMesh.layers.set(1);
+  scene.add(volMesh);
+
+  const DUST = 3600;
+  const dustGeo = new THREE.BufferGeometry();
+  {
+    const seeds = new Float32Array(DUST * 4);
+    let rs = 12345;
+    const rnd = () => ((rs = (rs * 1664525 + 1013904223) >>> 0) / 4294967296);
+    for (let i = 0; i < seeds.length; i++) seeds[i] = rnd();
+    dustGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(DUST * 3), 3));
+    dustGeo.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 4));
+    dustGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 3, 0), 40);
+  }
+  const dustU = { uT: volU.uT, uSky: U.uSky, uPx: { value: 800 }, uBright: { value: 1.5 } };
+  const dust = new THREE.Points(
+    dustGeo,
+    new THREE.ShaderMaterial({
+      uniforms: dustU,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      vertexShader: /* glsl */ `
+        uniform float uT, uSky, uPx;
+        attribute vec4 aSeed;
+        varying float vA;
+        ${GLSL_NOISE}
+        ${GLSL_SHAFT}
+        void main() {
+          float sp = 0.5 + aSeed.w;
+          float y = mod(aSeed.y * 6.2 - uT * 0.015 * sp, 6.2);
+          vec3 p = vec3((aSeed.x - 0.5) * 7.2 + 0.7 + sin(uT * 0.09 * sp + aSeed.w * 40.0) * 0.35 + sin(y * 0.9 + aSeed.z * 20.0) * 0.12,
+                        y + 0.15,
+                        (aSeed.z - 0.5) * 31.0 + cos(uT * 0.07 * sp + aSeed.x * 30.0) * 0.35);
+          float dens = shaftDensity(p, uT);
+          float tw = 0.65 + 0.35 * sin(uT * 0.9 * sp + aSeed.x * 60.0);
+          vec4 mv = viewMatrix * vec4(p, 1.0);
+          gl_Position = projectionMatrix * mv;
+          float px = uPx * 0.010 / max(-mv.z, 0.1);
+          gl_PointSize = clamp(px, 1.2, 5.0);
+          vA = dens * uSky * tw * (0.35 + 0.65 * fract(aSeed.w * 13.1)) * clamp(px, 0.25, 1.0)
+             * smoothstep(0.0, 0.5, y) * smoothstep(6.2, 5.6, y);
+        }`,
+      fragmentShader: /* glsl */ `
+        uniform float uBright;
+        varying float vA;
+        void main() {
+          float d = length(gl_PointCoord - 0.5) * 2.0;
+          float a = smoothstep(1.0, 0.15, d);
+          gl_FragColor = vec4(vec3(1.0, 0.93, 0.80) * vA * uBright * a, 1.0);
+        }`,
+    }),
+  );
+  dust.frustumCulled = false;
+  dust.layers.set(1);
+  dust.renderOrder = 11;
+  scene.add(dust);
+  let motionT = 0;
+  let reduced = !!reducedMotion;
+  function setReducedMotion(v) {
+    reduced = !!v;
   }
 
   // ---- power / tint --------------------------------------------------------
@@ -1422,12 +1562,14 @@ export function createRoom(renderer, { quality = 'high' } = {}) {
     const day = 0.16 + 0.84 * smooth(0.0, 0.45, power);
     U.uSky.value = sky;
     U.uDay.value = day;
-    hemi.intensity = 1.9 * (0.05 + 0.95 * sky);
+    hemi.intensity = 2.7 * (0.05 + 0.95 * sky);
     sun.intensity = 0.9 * (0.04 + 0.96 * sky);
     scene.environmentIntensity = 0.22 * (0.15 + 0.85 * sky);
     const dm = scene.userData.diffuser.material;
-    dm.color.setRGB(3.1 * sky, 3.05 * sky, 2.85 * sky);
-    daylightMat.color.setRGB(2.5 * day, 2.48 * day, 2.38 * day);
+    dm.color.setRGB(2.0 * sky, 1.97 * sky, 1.85 * sky);
+    daylightMat.color.setRGB(1.9 * day, 1.88 * day, 1.8 * day);
+    volU.uShaft.value = smooth(0.15, 0.7, power);
+    scene.userData.mullMat.emissiveIntensity = 0.5 * sky;
     for (const st of slotState) st.ramp = smooth(0, 1, clamp01((power - st.tOn) / 0.15));
   }
 
@@ -1458,7 +1600,12 @@ export function createRoom(renderer, { quality = 'high' } = {}) {
   let frame = 0;
   function update(dt, camera) {
     frame++;
-    if (camera) camera.layers.enable(1);
+    if (camera) {
+      camera.layers.enable(1);
+      dustU.uPx.value = renderer.getDrawingBufferSize(_dbs).y * 0.5 * camera.projectionMatrix.elements[5];
+    }
+    if (!reduced) motionT += dt;
+    volU.uT.value = motionT;
     if (powerDirty) {
       applyPower();
       powerDirty = false;
@@ -1546,6 +1693,7 @@ export function createRoom(renderer, { quality = 'high' } = {}) {
     },
     setPower,
     setTint,
+    setReducedMotion,
     update,
     dispose() {
       for (const st of slotState) release(st);

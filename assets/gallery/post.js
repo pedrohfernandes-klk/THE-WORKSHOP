@@ -20,7 +20,7 @@ const GradeShader = {
     uTime: { value: 0 },
     uGrain: { value: 0.022 },
     uVignette: { value: 0.22 },
-    uAberration: { value: 0.00035 },
+    uAberration: { value: 0.0002 },
     uAspect: { value: 1 },
   },
   vertexShader: /* glsl */ `
@@ -211,7 +211,7 @@ export function createPost(renderer, scene, camera, { quality = 'high' } = {}) {
   let bloom = null;
   if (high) {
     const s = renderer.getSize(new THREE.Vector2());
-    bloom = new UnrealBloomPass(new THREE.Vector2(s.x, s.y), 0.34, 0.65, 1.05);
+    bloom = new UnrealBloomPass(new THREE.Vector2(s.x, s.y), 0.20, 0.55, 1.1);
     composer.addPass(bloom);
   }
   composer.addPass(new OutputPass());
