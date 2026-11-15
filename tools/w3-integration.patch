@@ -1,0 +1,402 @@
+diff --git a/assets/gallery/spaces/npcs.js b/assets/gallery/spaces/npcs.js
+--- a/assets/gallery/spaces/npcs.js
++++ b/assets/gallery/spaces/npcs.js
+@@ -2,8 +2,19 @@
+ // campus, face the visitor when close, and talk (speech bubble + synthesised noise)
+ // when picked. Procedural low-poly-but-smooth models; no per-frame allocation.
+ 
+-export function build(ctx) {
++import { createNpcPersonalities } from '../npc-onlookers.js';
++import { buildCharacter, createLinePicker, createNpcEffects, mergeNpcProps } from '../npc-models.js';
++
++export async function build(ctx) {
+   const { THREE, quality } = ctx;
++  let cast = [];
++  try {
++    const response = await fetch(new URL('../../data/npc-cast.json', import.meta.url));
++    if (response.ok) cast = (await response.json()).characters || [];
++  } catch { /* Existing cast remains usable when optional data is unavailable. */ }
++  const castById = new Map(cast.map(c => [c.id, c]));
++  const chooseLine = createLinePicker();
++  const lineKeys = { ouch: 'slap1', ouch2: 'slap2', ouch3: 'slap3', ha: 'bystander_laugh', sit: 'sit_beside', rude: 'gesture_rude', run: 'run_past' };
+   const reduced = !!ctx.reducedMotion;
+   const low = quality === 'low';
+   const group = new THREE.Group();
+@@ -343,7 +354,7 @@
+   ];
+ 
+   // ---------- speech bubble ----------
+-  const BW = 512, BH = 256;
++  const BW = 256, BH = 128;
+   function rrect(g, x, y, w, h, r) {
+     if (g.roundRect) { g.roundRect(x, y, w, h, r); return; }
+     g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+@@ -352,26 +363,26 @@
+   function drawBubble(n, text) {
+     const g = n.bctx; if (!g) return;
+     g.clearRect(0, 0, BW, BH);
+-    const x = 8, y = 8, w = BW - 16, h = BH - 56, r = 38;
++    const x = 4, y = 4, w = BW - 8, h = BH - 28, r = 18;
+     g.fillStyle = 'rgba(0,0,0,0.18)';
+     g.beginPath(); rrect(g, x + 3, y + 5, w, h, r); g.fill();
+-    g.fillStyle = '#ffffff'; g.strokeStyle = '#1b1b1b'; g.lineWidth = 5;
++    g.fillStyle = '#ffffff'; g.strokeStyle = '#1b1b1b'; g.lineWidth = 2;
+     g.beginPath(); rrect(g, x, y, w, h, r);
+-    g.moveTo(BW / 2 - 22, y + h); g.lineTo(BW / 2, BH - 10); g.lineTo(BW / 2 + 22, y + h);
++    g.moveTo(BW / 2 - 11, y + h); g.lineTo(BW / 2, BH - 5); g.lineTo(BW / 2 + 11, y + h);
+     g.fill(); g.stroke();
+-    g.fillStyle = '#ffffff'; g.fillRect(BW / 2 - 19, y + h - 6, 38, 10);
++    g.fillStyle = '#ffffff'; g.fillRect(BW / 2 - 9, y + h - 3, 18, 5);
+     g.fillStyle = '#161616'; g.textAlign = 'center'; g.textBaseline = 'middle';
+-    const sizes = [40, 34, 29, 25];
+-    let lines = [], size = 25;
++    const sizes = [20, 17, 15, 13];
++    let lines = [], size = 13;
+     for (let si = 0; si < sizes.length; si++) {
+       size = sizes[si]; g.font = `600 ${size}px "Instrument Sans", sans-serif`;
+       lines = []; let cur = '';
+       for (const word of text.split(' ')) {
+         const t = cur ? cur + ' ' + word : word;
+-        if (g.measureText(t).width > w - 56 && cur) { lines.push(cur); cur = word; } else cur = t;
++        if (g.measureText(t).width > w - 28 && cur) { lines.push(cur); cur = word; } else cur = t;
+       }
+       lines.push(cur);
+-      if (lines.length * size * 1.18 <= h - 30) break;
++      if (lines.length * size * 1.18 <= h - 15) break;
+     }
+     const lh = size * 1.18, y0 = y + h / 2 - ((lines.length - 1) * lh) / 2;
+     for (let i = 0; i < lines.length; i++) g.fillText(lines[i], BW / 2, y0 + i * lh);
+@@ -432,80 +443,35 @@
+   })();
+ 
+   // ---------- build the characters ----------
++  let personalities = null;
+   const npcs = [];
+   const pickables = [];
+-  SPECS.forEach((S, idx) => {
++  const propSource = new THREE.Group();
++  // A director may replace slots, never silently add another actor.
++  const assignments = ctx.scene?.userData?.npcAssignments;
++  const roster = SPECS.map((legacy, i) => {
++    const entry = Array.isArray(assignments) ? castById.get(assignments[i]) : null;
++    if (!entry || entry.legacy) return legacy;
++    return { ...legacy, name: entry.id, head: entry.model.head, lines: entry.lines.talk,
++      pt: true, phone: entry.model.clothing === 'influencer', proud: false, fixed: false,
++      seated: false, r: Math.max(0.7, legacy.r), speed: 0.65, props: null, extra: null };
++  });
++  roster.forEach((S, idx) => {
+     const root = new THREE.Group(); root.name = 'npc-' + S.name; root.rotation.order = 'YXZ';
+-    const shp = SHAPE[S.name] || [1, 1, 1], topH = 0.82 * (shp[1] - 1) + 1.74 + 0.17 * (shp[2] - 1) + (S.top - 1.74) * shp[2];
+-    const body = new THREE.Group(); root.add(body);
+-    const furM = std(S.fur, 0.8);
+-    const suitM = S.suit;
+-    // torso
+-    const torso = add(body, cap(0.225, 0.42), suitM, 0, 1.12, 0); torso.scale.set(1, 1, 0.8);
+-    if (S.turtle) {
+-      add(body, new THREE.CylinderGeometry(0.1, 0.12, 0.14, SEG), suitM, 0, 1.55, 0);
+-    } else {
+-      add(body, new THREE.BoxGeometry(0.2, 0.46, 0.02), std(S.shirt, 0.5), 0, 1.18, 0.178);
+-      if (S.tie) { add(body, new THREE.BoxGeometry(0.05, 0.3, 0.02), std(S.tie, 0.4), 0, 1.15, 0.19); }
+-      if (S.bow) {
+-        const b = std(S.tie, 0.3);
+-        add(body, sph(0.03), b, 0, 1.4, 0.19);
+-        add(body, new THREE.ConeGeometry(0.05, 0.07, 3), b, -0.06, 1.4, 0.19).rotation.z = Math.PI / 2;
+-        add(body, new THREE.ConeGeometry(0.05, 0.07, 3), b, 0.06, 1.4, 0.19).rotation.z = -Math.PI / 2;
+-      }
+-      for (const s of S.polo ? [] : [-1, 1]) {
+-        const lap = add(body, new THREE.BoxGeometry(0.07, 0.4, 0.02), S.satin ? std(0x1c1c24, 0.2, 0.2) : suitM, s * 0.115, 1.2, 0.185);
+-        lap.rotation.z = s * 0.18;
+-      }
+-    }
+-    if (S.vest) {
+-      add(body, cap(0.24, 0.32), std(0xd5ff1a, 0.55, 0, { emissive: 0x8fb000, emissiveIntensity: 0.35 }), 0, 1.1, 0).scale.set(1, 1, 0.84);
+-      const refl = std(0xdfe3e6, 0.25, 0.6);
+-      add(body, new THREE.BoxGeometry(0.5, 0.05, 0.02), refl, 0, 1.0, 0.205);
+-      add(body, new THREE.BoxGeometry(0.5, 0.05, 0.02), refl, 0, 1.2, 0.2);
+-      for (const s of [-1, 1]) add(body, new THREE.BoxGeometry(0.05, 0.4, 0.02), refl, s * 0.13, 1.18, 0.205);
+-    }
+-    if (S.sash) { const sh = add(body, new THREE.TorusGeometry(0.225, 0.04, 8, SEG), std(0xc01818, 0.5), 0, 0.9, 0); sh.rotation.x = Math.PI / 2; sh.scale.set(1.02, 0.82, 1.2); }
+-    if (S.hoodie) { const hd = add(body, new THREE.TorusGeometry(0.15, 0.05, 8, SEG), std(0x3a3f4c, 0.95), 0, 1.5, -0.02); hd.rotation.x = Math.PI / 2 - 0.3; add(body, box(0.3, 0.12, 0.02), std(0x2d313c, 0.95), 0, 1.0, 0.19); }
+-    if (S.braces) for (const s of [-1, 1]) add(body, box(0.04, 0.62, 0.02), std(0x8a1c1c, 0.6), s * 0.1, 1.15, 0.19);
+-    if (S.pin) { add(body, sph(0.022), std(0xe9a23a, 0.3, 0.8), -0.15, 1.32, 0.2); add(body, sph(0.012), std(0xd01c28, 0.4), -0.15, 1.35, 0.2); }
+-    // arms
+-    const arms = [];
+-    for (const s of [-1, 1]) {
+-      const a = new THREE.Group(); a.position.set(s * 0.3, 1.38, 0); body.add(a);
+-      add(a, cap(0.062, 0.46), S.sleeve, 0, -0.3, 0);
+-      add(a, sph(0.075), furM, 0, -0.64, 0);
+-      if (S.phone && s === 1) { const ph = add(a, box(0.07, 0.14, 0.012), std(0x0c0c10, 0.2, 0.5), 0, -0.68, 0.07); add(ph, box(0.06, 0.12, 0.002), std(0x6fd0ff, 0.2, 0, { emissive: 0x2a6a9a, emissiveIntensity: 0.8 }), 0, 0, 0.007); }
+-      if (S.stripe) add(a, new THREE.BoxGeometry(0.02, 0.5, 0.13), std(S.stripe, 0.6), s * 0.055, -0.3, 0);
+-      arms.push(a);
+-    }
+-    // legs
+-    const legs = [];
+-    for (const s of [-1, 1]) {
+-      const l = new THREE.Group(); l.position.set(s * 0.1, 0.82 * shp[1], 0); l.scale.y = shp[1]; root.add(l);
+-      add(l, cap(0.085, 0.56), S.pants, 0, -0.4, 0);
+-      add(l, sph(0.1), std(S.shoe, 0.3, 0.1), 0, -0.8, 0.04).scale.set(1, 0.65, 1.6);
+-      if (S.stripe) add(l, new THREE.BoxGeometry(0.02, 0.6, 0.12), std(S.stripe, 0.6), s * 0.082, -0.4, 0);
+-      if (S.stock) add(l, new THREE.CylinderGeometry(0.092, 0.088, 0.34, SEG), std(0xf5f5f0, 0.7), 0, -0.62, 0);
+-      legs.push(l);
+-    }
+-    // head
+-    const head = new THREE.Group(); head.position.set(0, 1.74 + 0.17 * (shp[2] - 1), 0); head.scale.setScalar(shp[2]); body.add(head);
+-    heads[S.head](head, S.fur);
+-    let hat = head.userData.hat; const hatReal = !!hat;
+-    if (!hat) { hat = new THREE.Group(); add(hat, cyl(0.15, 0.08), std(0x3a3a46, 0.8)); add(hat, box(0.2, 0.015, 0.1), std(0x3a3a46, 0.8), 0, -0.01, 0.14); hat.visible = false; group.add(hat); }
++    const shp = castById.get(S.name)?.model?.shape || SHAPE[S.name] || [1, 1, 1];
++    const rig = buildCharacter(THREE, ctx.M, { ...S, ...castById.get(S.name)?.model, shape: shp, quality });
++    const topH = rig.height;
++    root.add(rig.mesh);
++    const { body, head, arms, legs } = rig.bones;
++    const hat = rig.bones.hat, hatReal = rig.hasHat;
+     const stars = new THREE.Sprite(starMat);
+     stars.scale.set(0.6, 0.6, 1); stars.visible = false; stars.renderOrder = 9; stars.raycast = noop; group.add(stars);
+-    if (S.extra) S.extra(body);
+-    // tails / extras kept minimal: pig curly tail
+-    if (S.name === 'pig') {
+-      const tail = add(body, new THREE.TorusGeometry(0.04, 0.012, 6, 12, Math.PI * 1.6), furM, 0, 0.95, -0.2); tail.rotation.y = Math.PI / 2;
+-    }
+     // bubble
+     let bctx = null, btex = null, sprite = null;
+     if (typeof document !== 'undefined') {
+       const c = document.createElement('canvas'); c.width = BW; c.height = BH; bctx = c.getContext('2d');
+       btex = new THREE.CanvasTexture(c); btex.colorSpace = THREE.SRGBColorSpace;
++      btex.magFilter = btex.minFilter = THREE.NearestFilter; btex.generateMipmaps = false;
+       sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: btex, transparent: true, depthWrite: false }));
+       sprite.center.set(0.5, 0); sprite.scale.set(0.01, 0.005, 1);
+       sprite.renderOrder = 10; sprite.visible = false; sprite.raycast = noop; group.add(sprite);
+@@ -513,6 +479,7 @@
+     // pick hitbox
+     const hit = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 2.1, 10), hitMat);
+     hit.scale.y = Math.max(0.6, topH / 2.1); hit.position.y = topH / 2; hit.userData.action = { type: 'custom', id: 'npc-' + S.name }; root.add(hit);
++    hit.material.visible = false; // keep hit.visible for main.pickAt; skip drawing only
+     root.userData.action = hit.userData.action;
+     pickables.push(hit, root);
+ 
+@@ -523,9 +490,9 @@
+       const a = (k / nPts) * TAU + idx;
+       pts.push(S.home[0] + Math.cos(a) * S.r, S.home[1] + Math.sin(a) * S.r * (nPts === 2 ? 0.6 : 1));
+     }
+-    root.position.set(pts[0], 0, pts[1]); root.scale.setScalar(shp[0]);
++    root.position.set(pts[0], 0, pts[1]); root.scale.setScalar(rig.shape[0]);
+     group.add(root);
+-    if (S.props) S.props(group);
++    if (S.props) S.props(propSource);
+     let blob = null;
+     if (!S.fixed) {
+       root.traverse((o) => { if (o.isMesh) o.castShadow = false; });
+@@ -533,7 +500,7 @@
+       if (blobMat) { blob = new THREE.Mesh(blobGeo, blobMat); blob.raycast = noop; blob.renderOrder = 1; blob.position.set(pts[0], 0.02, pts[1]); group.add(blob); }
+     }
+     const n = {
+-      S, root, body, head, arms, legs, hit, sprite, bctx, btex, pts, nPts, ti: 1,
++      S, rig, root, body, head, arms, legs, hit, sprite, bctx, btex, pts, nPts, ti: 1,
+       x: pts[0], z: pts[1], yaw: S.yaw !== undefined ? S.yaw : idx * 1.1, yawOff: 0, wait: 1 + idx * 0.7, ph: idx * 2, walk: 0,
+       sillyCd: 4 + idx * 2.3, sillyT: -1, sillyDur: 1, sillyType: 0,
+       talkT: 0, bubble: 0, near: false, mutterCd: 6, line: -1, seed: idx * 1.7,
+@@ -544,8 +511,8 @@
+       d2: 1e9, near2: false, zone: zoneAt(S.home[0], S.home[1], 0), barker: !!BARK[S.name], barkCd: 14 + idx, jerk: 0, jerkAt: 0,
+       seqStage: 0, seqT: 0, seqRest: '', glare: 0, fist: 0, gestAt: 0, gestKind: '', impT: -1, rofl: false, whistled: false,
+       lastFall: -1, lastOf: new Map(), dirty: false, blob, pestSide: 1, bumpCd: 0, pushT: 0, ghostT: 0, col: null,
+-      talk: S.lines, sz: shp[0], hs: shp[2], bodyY0: 0.82 * (shp[1] - 1), headY: 1.74 + 0.17 * (shp[2] - 1), bOff: (S.top - 1.74) * shp[2] * shp[0] + 0.04,
+-      colW: Math.max(0.2, 0.3 * Math.min(1.25, S.fat || 1) * shp[0]), colH: Math.min(2.4, topH * shp[0]),
++      talk: S.lines, sz: rig.shape[0], hs: rig.shape[2], bodyY0: rig.bodyY0, headY: rig.headY, bOff: Math.max(0.1, (rig.height - rig.bodyY0 - rig.headY) * rig.shape[0]) + 0.04,
++      colW: Math.max(0.2, 0.3 * Math.max(1, S.fat || 1, castById.get(S.name)?.model?.bodyWidth || 1) * rig.shape[0]), colH: rig.height * rig.shape[0],
+       shakeT: 0, lookOverT: 0, lookT: 0, brace: 0, sqT: 0, swingT: 0, snubT: 0, snapT: 0, snapDir: 1, freezeT: 0, whistleAt: 0,
+       toVis: 0, lastTalk: -99, slaps: 0, lastSlapT: -99, grudge: -99, escalate: false, windT: 0, slapCd: 0, lingerT: 0, pestMode: 0,
+       seqKind: 0, shoutCd: 25 + idx, fartCd: 200 + idx * 23, judgeAt: 0, murmurCd: 0, revengeAt: 0, barkFit: 0,
+@@ -553,10 +520,16 @@
+     hit.userData.npc = n; root.userData.npc = n;
+     npcs.push(n);
+   });
++  const propsBatch = mergeNpcProps(THREE, propSource);
++  if (propsBatch) group.add(propsBatch);
++  // Keep transforms as animation proxies; the two instanced meshes render them.
++  for (const n of npcs) { group.remove(n.stars); if (n.blob) group.remove(n.blob); }
++  const effects = createNpcEffects(THREE, group, npcs, blobGeo, blobMat, starMat);
+   onFont.push(() => { for (const n of npcs) if (n.talkT > 0 && n.curText) drawBubble(n, n.curText); });
+   // One moving box per NPC. world.js keeps these very objects in its live list: mutate, never replace.
+   // Parked below the floor (inactive) until the visitor is near.
+   const colliders = npcs.map((n) => (n.col = { minX: n.x - 0.3, maxX: n.x + 0.3, minZ: n.z - 0.3, maxZ: n.z + 0.3, minY: -51, maxY: -50 }));
++  personalities = createNpcPersonalities(ctx, { npcs, castById, chooseLine, say });
+ 
+   // ---------- sound ----------
+   // Web Audio is read lazily from ctx.audio (null until the visitor enters) and
+@@ -979,13 +952,17 @@
+     return DEF[n.S.pt ? 'pt' : 'en'][key] || n.talk;
+   }
+   function line(n, key) {
++    const entry = castById.get(n.S.name);
++    if (entry && !entry.legacy) return chooseLine(entry, lineKeys[key] || key);
+     const p = pool(n, key);
+     return p.length === 1 && p[0] === n.curText ? pickFrom(n, n.talk) : pickFrom(n, p);   // a one-line pool never repeats back to back
+   }
+   // A line: the bubble is redrawn on the next frame that has budget for it (flush() draws now).
+   function say(n, text, withSound, up) {
++    if (typeof text !== 'string' || !text) return;
+     n.curText = text; n.talkT = Math.min(5, Math.max(2.2, 1.4 + text.length * 0.06)); n.armUp = up || 1.7;
+     if (n.near2) { const A = ctx.audio; if (A && typeof A.duck === 'function') { try { A.duck(n.talkT); } catch (e) { /* no score */ } } }
++    personalities?.onEvent('speech', n);
+     n.dirty = true; n.bubble = Math.min(n.bubble, 0.55); n.mutterCd = 14;
+     if (withSound) noise(n);
+     if (text.indexOf('#%&@') >= 0) sfx(n, 'bip');              // bleeped, like the censored gestures
+@@ -1024,7 +1001,7 @@
+   function startLaugh(n, text, hyst) {
+     n.laughT = hyst ? 2.8 : 2.3;
+     if (text) say(n, text, false);
+-    if (n.near2) laughSound(n, hyst);
++    if (n.near2 && !personalities?.sound('laugh', n)) laughSound(n, hyst);
+     if (LAUGHER[n.S.name] && !n.fixed && !reduced && n.sillyT < 0 && !n.busy && Math.random() < (hyst ? 0.2 : 0.12)) {
+       // laughs so hard they fall over
+       n.fallType = 0; n.fallDir = 1; n.thud = false; n.whistled = false; n.impT = -1; n.rofl = true; n.freezeT = 0;
+@@ -1047,6 +1024,8 @@
+     }
+   }
+   function laughLine(n, code) {
++    const entry = castById.get(n.S.name);
++    if (entry && !entry.legacy) return chooseLine(entry, 'bystander_laugh');
+     if (code === '*') return line(n, 'ha');
+     if (code === '#F') return pickFrom(n, LEVOU_F);
+     if (code === '#N' || code === '#V') {
+@@ -1164,7 +1143,7 @@
+     // argument
+     if (aSt === 0) {
+       aT -= dt;
+-      if (aT <= 0 && !HO.busy && !CA.busy && HO.talkT <= 0) {
++      if (HO.S.name === 'horse' && CA.S.name === 'cat' && aT <= 0 && !HO.busy && !CA.busy && HO.talkT <= 0) {
+         aSt = 1; HO.busy = CA.busy = true;
+         const ex = HO.x - CA.x, ez = HO.z - CA.z, d = Math.sqrt(ex * ex + ez * ez) || 1;
+         go(HO, CA.x + (ex / d) * 2.3, CA.z + (ez / d) * 2.3, 1.7, -1);
+@@ -1196,8 +1175,9 @@
+         aSt = 0; aT = 50 + Math.random() * 25;
+       }
+     }
++    // Assigned profiles do not inherit a legacy director role.
+     // chase
+-    if (reduced) return;
++    if (reduced || PG.S.name !== 'pigeon' || PI.S.name !== 'pig') return;
+     if (cSt === 0) {
+       cT -= dt;
+       if (cT <= 0 && !PG.busy && !PI.busy) {
+@@ -1226,14 +1206,18 @@
+   const wrapA = (a) => a - TAU * Math.round(a / TAU);
+   let pcx = 0, pcy = 0, pcz = 0, havePrev = false, vy = 0, cvx = 0, cvz = 0, cfx = 0, cfz = 1, camZone = 9, cs = 0;
+   let lastGestT = null, chasing = 0, warned = false, sitT = 0, sitDone = false, wxMode = '', wxT = 0, wxCd = 40, judgeCd = 8;
+-  const VIS2 = 85 * 85;
++  const VIS2 = 40 * 40;
+   function warnOnce(where, err) {
+     if (warned) return;
+     warned = true;
+     try { console.warn('[npcs] ' + where + ' failed; further errors are silenced', err); } catch (e) { /* none */ }
+   }
+   // A throw would make the world drop this module's update for good: contain it here.
+-  function update(dt, frame) { try { step(dt, frame); } catch (err) { warnOnce('update', err); } }
++  function update(dt, frame) {
++    if (!frame?.camera) return;
++    try { personalities.before(dt, frame); step(dt, frame); personalities.after(dt, frame); effects.update(frame.camera, starMat.rotation); }
++    catch (err) { warnOnce('update', err); }
++  }
+ 
+   // The visitor's cheeky gestures (written by main.js); react once per new event.
+   function checkGesture() {
+@@ -1316,6 +1300,10 @@
+         if (n.blob) n.blob.visible = vis;
+         if (!vis) { n.stars.visible = false; if (n.sprite) n.sprite.visible = false; }
+       }
++      if (!vis) {
++        n.col.minY = -51; n.col.maxY = -50;
++        continue; // sleep simulation beyond 40m, retaining state for return
++      }
+       const near = here && d2 < 16;
+       n.near2 = here && d2 < 225;
+       const down = n.sillyT >= 0 && n.sillyType === 4;
+@@ -1380,7 +1368,7 @@
+       }
+       // the goat's monologues
+       n.monoCd -= dt;
+-      if (n === GO && n.monoCd <= 0 && n.talkT <= 0 && here && d2 < 400 && !down) {
++      if (n === GO && n.S.name === 'goat' && n.monoCd <= 0 && n.talkT <= 0 && here && d2 < 400 && !down) {
+         say(n, pickFrom(n, DRAMA), false, 2.7); n.monoCd = 40 + Math.random() * 20;
+       }
+       // mutter when the visitor walks close
+@@ -1743,6 +1731,8 @@
+         else n.body.rotation.y = 0;
+       } else n.body.rotation.y = 0;
+ 
++      n.rig.setExpression(n.talkT > 0 ? 0.3 + 0.3 * Math.sin(time * 14) : 0,
++        n.glare > 0 ? 1 : n.laughT > 0 ? -0.5 : 0);
+       // where the head is, without a matrix update (root order YXZ: yaw, tilt, roll)
+       const yawR = n.yaw + spin + byaw, hh = (n.body.position.y + n.headY) * n.sz;
+       const ha = -hh * Math.sin(roll), hb = hh * Math.cos(roll), hc = hb * Math.sin(tilt);
+@@ -1818,7 +1808,8 @@
+     const k = n.slaps >= 3 ? 'ouch3' : n.slaps === 2 ? 'ouch2' : 'ouch';
+     if (n.slaps >= 3) n.escalate = true;
+     if (n.barker && Math.random() < 0.4) bark(n);       // the reply to a slap, sometimes: deadpan
+-    else { say(n, line(n, k), false); noise(n); }
++    else { say(n, line(n, k), false); if (!personalities.sound('slap', n)) noise(n); }
++    personalities.onEvent('slap', n);
+     flush(n);
+     whack(n, n.slaps >= 2);
+     hysterics(n.x, n.z, n.zone, n, impact, false);
+@@ -1850,6 +1841,7 @@
+       flush(n);
+       return;
+     }
++    personalities.onEvent('talk', n);
+     const again = clock - n.lastTalk < 25;
+     n.lastTalk = clock;
+     if (S.name === 'cat' && Math.random() < 0.25) {
+@@ -1857,7 +1849,7 @@
+       say(n, '…', false); n.snubT = 2.4;
+       const m = nearestIdle(100, true);
+       if (m && m !== n) { m.laughAt = 0.9; m.laughText = Math.random() < 0.5 ? 'Ahah, já levaste na boca!' : 'Já levaste na boca, já!'; }
+-    } else if (n === GO && Math.random() < 0.5) say(n, pickFrom(n, DRAMA), true, 2.7);
++    } else if (n === GO && n.S.name === 'goat' && Math.random() < 0.5) say(n, pickFrom(n, DRAMA), true, 2.7);
+     else if (again && Math.random() < 0.55) say(n, line(n, 'again'), true);
+     else if (n.barker && Math.random() < 0.35) midBark(n);
+     else if (ONLY[S.name] && Math.random() < 0.12) { say(n, line(n, 'shout'), true); n.brace = 1.2; }
+@@ -1872,5 +1864,5 @@
+     n.sillyCd = 6 + Math.random() * 6;
+   }
+ 
+-  return { group, regions: [], colliders, pickables, update, onPick, slap };
++  return { group, regions: [], colliders, pickables, update, onPick, slap, setNavigation: personalities.setNavigation };
+ }
+diff --git a/assets/gallery/main.js b/assets/gallery/main.js
+--- a/assets/gallery/main.js
++++ b/assets/gallery/main.js
+@@ -217,6 +217,7 @@
+   onProgress: (k) => { state.worldProgress = k; },
+ }).then((w) => {
+   world = w;
++  w.modules.get('npcs')?.setNavigation?.(w);
+   if (TEST) performance.mark('workshop:campus-built');
+   controls.setWorld({ regions: w.regions, colliders: w.colliders });
+   // A mirror only needs re-rendering from the side where it can be seen: the
+diff --git a/assets/gallery/spaces/floorsnake.js b/assets/gallery/spaces/floorsnake.js
+--- a/assets/gallery/spaces/floorsnake.js
++++ b/assets/gallery/spaces/floorsnake.js
+@@ -451,7 +451,14 @@
+     }
+     return true;
+   }
++  const snakeEvent = { time: 0, x: CX, z: CZ, kind: '' };
++  ctx.scene.userData.snakeEvent = snakeEvent;
++  function publishSnake(kind, cam) {
++    snakeEvent.time++; snakeEvent.kind = kind;
++    snakeEvent.x = cam.position.x; snakeEvent.z = cam.position.z;
++  }
+   function startRound(i, j, cam) {
++    publishSnake('start', cam);
+     newRound(G, i, j);
+     mode = READY; t = 0; acc = 0; readyMin = rounds ? 0.8 : 0.5; moved = false; vc = j * COLS + i;
+     roundT = 0; gulped = false; won = false; danger = 0; msgStr = msgIcon = null;
+@@ -465,6 +472,7 @@
+     if (bye) sfx('bye', cam, CX, CZ);
+   }
+   function finish(win, cam) {
++    publishSnake(win ? 'win' : 'lose', cam);
+     mode = END; won = win; show();
+     const reduced = !!ctx.reducedMotion, face = faceOf(cam), p = cam.position;
+     if (win) {
