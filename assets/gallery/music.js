@@ -270,7 +270,7 @@ export function createMusic(opts = {}) {
     mk('chip', sum); cPan.connect(L.chip);
     send(L.chip, delIn, 0.35); send(L.chip, revIn, 0.12);
 
-    // keys (FM electric piano) with a slow stereo tremolo; bells; ruin drone and wind; fx
+    // keys (additive electric piano) with a slow stereo tremolo; bells; ruin drone and wind; fx
     const kP = pan(0); mk('keys', kP); kP.connect(sum);
     if (kP.pan) { const kl = O('sine', 2.4), kd = G(0.28); kl.connect(kd); kd.connect(kP.pan); kl.start(); }
     send(L.keys, revIn, 0.45); send(L.keys, delIn, 0.14);

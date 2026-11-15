@@ -158,6 +158,8 @@ export function createWeather(ctx, { environment } = {}) {
       // after the storm: the deck breaks around a low sun (silver lining, warm hole)
       float sd = max(dot(d, uSun), 0.0);
       c += vec3(1.0,0.82,0.6) * uBreak * (pow(sd, 8.0)*1.4 + pow(sd, 90.0)*6.0);
+      // ...while the rain curtain opposite the sun stays slate
+      c *= 1.0 - 0.45 * uBreak * smoothstep(-0.1, 0.7, -dot(d, uSun));
       gl_FragColor = vec4(c, uA);` + TAIL + `}`, overU, -4);
   function loadOvercast() {
     if (overLoading) return; overLoading = true;
@@ -217,7 +219,7 @@ export function createWeather(ctx, { environment } = {}) {
           vec3 mw = mix(vec3(0.62,0.70,0.95), vec3(1.0,0.86,0.66), clamp(cen*0.7 + bulge*0.8, 0.0, 1.0));
           // extinction toward the horizon
           float ext = smoothstep(-0.02, 0.35, h);
-          c += mw * I * 0.075 * ext * uMW;
+          c += mw * I * 0.1 * ext * uMW;
         }
       }
       gl_FragColor = vec4(c, uA);` + TAIL + `}`, nightU, -3);
@@ -244,24 +246,24 @@ export function createWeather(ctx, { environment } = {}) {
         for (int i = 0; i < 9; i++) {
           float w = (float(i) + 0.5) / 9.0;
           float x = th - mix(40.6, 42.35, w);            // >0: dark side (outside)
-          float p = x > 0.0 ? exp(-x*x/0.09) : 0.62*exp(x/0.9) + 0.38*exp(x/7.0);
+          float p = x > 0.0 ? exp(-x*x/0.09) : exp(x/0.55) + 0.09*exp(x/6.0);
           p *= 1.0 + (x < 0.0 ? 0.35*cos(x*5.2)*exp(x/1.6) : 0.0); // supernumeraries
           add += spec(w) * p;
         }
-        add *= 0.95 / 9.0;
+        add *= 1.2 / 9.0;
       }
       if (th > 48.0) {
         vec3 s2 = vec3(0.0);
         for (int i = 0; i < 7; i++) {
           float w = (float(i) + 0.5) / 7.0;
           float x = mix(53.6, 50.4, w) - th;             // >0: dark side (inside, toward the band)
-          float p = x > 0.0 ? exp(-x*x/0.16) : 0.6*exp(x/1.4) + 0.4*exp(x/9.0);
+          float p = x > 0.0 ? exp(-x*x/0.16) : exp(x/0.8) + 0.06*exp(x/5.0);
           s2 += spec(w) * p;
         }
-        add += s2 * (0.4 / 7.0);
+        add += s2 * (0.5 / 7.0) * (1.0 - smoothstep(54.5, 60.0, th));
       }
       // Alexander's band: no added light, and the curtain dims what is behind it
-      att = smoothstep(42.0, 43.2, th) * (1.0 - smoothstep(49.6, 50.8, th)) * 0.16;
+      att = smoothstep(42.0, 43.2, th) * (1.0 - smoothstep(49.6, 50.8, th)) * 0.14;
       // the curtain is a rain shaft, not a stencil: soft at the ground and up high
       float f = smoothstep(-0.01, 0.05, d.y) * (1.0 - 0.35*smoothstep(0.35, 0.8, d.y));
       gl_FragColor = vec4(add * f * uA, att * f * uA);` + TAIL + `}`, bowU, -2, {
@@ -732,7 +734,7 @@ export function createWeather(ctx, { environment } = {}) {
     overDome.visible = !!overOn; overU.uA.value = Math.min(1, P.over * 1.6);
     const breakK = mode === 'rainbow' ? Math.min(1, tMode / 4) : 0;
     overU.uBreak.value = lerp(overU.uBreak.value, breakK, k);
-    overU.uI.value = 0.9 * (0.4 + 0.45 * overU.uBreak.value) * lerp(P.expo, 1, indoor); overU.uFlash.value = f;
+    overU.uI.value = 0.9 * (0.4 + 0.3 * overU.uBreak.value) * lerp(P.expo, 1, indoor); overU.uFlash.value = f;
     nightDome.visible = P.night > 0.004; nightU.uA.value = P.night;
     bowDome.visible = P.bow > 0.004 && lightDir.y < 0.74; bowU.uA.value = P.bow * Math.min(1, P.sun * baseSun / 3) * (1 - 0.6 * P.rain);
     flare.mesh.visible = P.flare > 0.01 && lightDir.y > -0.05; flare.uni.uA.value = 0.55 * P.flare * (1 - P.night) * (mode === 'rainbow' ? overU.uBreak.value : 1); flare.uni.uGold.value = P.gold;
