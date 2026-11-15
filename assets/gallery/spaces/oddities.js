@@ -8,7 +8,7 @@
 //   4 boulder floating over the east lawn ........ (60.6, 3.2, 24)   the olive at (56, 21) owns the asked-for spot
 //   5 pink neon "?" on the ruin's fallen roof .... (-48, ~2.45, -33) sits on the tilted slab (ruins.js transform)
 //   6 paper plane looping over the roof terrace .. around (0, 9.5, 11), r ≈ 4
-//   7 ginger cat asleep on a bench end ........... (13.03, 0.45, 34.42) click 'odd-cat'
+//   7 ginger cat asleep on a bench end ........... (12.98, 0.45, 34.43) click 'odd-cat'
 //   8 lone streetlamp + "you found the edge" ..... (0, ground, 115)  wakes when the visitor comes near
 //
 // Reduced motion: nothing bobs, loops or flickers; the plane is parked on the terrace rail.
@@ -26,7 +26,7 @@ const VEND = { x: 10.62, z: 47.5 };          // back against the arcade's west w
 const BOULDER = { x: 60.6, y: 3.2, z: 24.0 };
 const NEON = { x: -48, z: -33 };
 const PLANE = { x: 0, y: 9.5, z: 11 };
-const CAT = { x: 13.03, y: 0.452, z: 34.42 }; // seat top of the bench at (13, 35): slats y 0.40–0.45, z 34.1–35.9
+const CAT = { x: 12.98, y: 0.452, z: 34.43 }; // seat top of the bench at (13, 35): slats x 12.76–13.24, y ≤ 0.45, z 34.1–35.9
 const LAMP = { x: 0, z: 115 };
 // The nearest place a visitor can stand is ~44 m away (the school's back classrooms, whose south
 // windows look out over the meadow), so the lamp wakes inside 48 m: a literal 40 m would never fire.
@@ -353,7 +353,7 @@ export function build(ctx) {
   let kioskLamp, phone;
   {
     const red = M.get('plaster', { color: 0xa3261d, roughness: 0.45 });
-    const cream = M.get('plaster', { color: 0xf1e6cb, roughness: 0.5 });
+    const cream = M.get('plaster', { color: 0xf7dca6, roughness: 0.5 });
     const S = 0.46, P = 0.07, IN = 2 * (S - P);
     const Rd = [], Cr = [], Gl = [];
     Cr.push(box(1.0, 0.08, 1.0, 0, 0.04, 0));                          // plinth
@@ -471,7 +471,7 @@ export function build(ctx) {
   group.add(vend);
   pickables.push(vend);
   colliders.push({ minX: VEND.x - 0.38, maxX: VEND.x + 0.37, minZ: VEND.z - 0.47, maxZ: VEND.z + 0.47, minY: 0, maxY: 1.9 });
-  let vendFront, card, cardT = -1, vendStutter = 0, vendNext = 9;
+  let vendFront, card;
   {
     // body: painted steel with a few dents and grime from the ground up
     const body = new THREE.BoxGeometry(0.9, 1.84, 0.72, 6, 12, 5);
@@ -571,7 +571,7 @@ export function build(ctx) {
       g.strokeStyle = '#c9d0d0'; g.lineWidth = Math.max(1, X(0.003));
       for (let k = 0; k < 5; k++) { g.beginPath(); g.ellipse(X(cx - 0.05 + k * 0.025), Y(y + 0.075), X(0.011), X(0.032), 0.25, 0, TAU); g.stroke(); }
       g.fillStyle = '#f7f4ea'; g.fillRect(...rect(cx - 0.065, y + 0.008, cx + 0.065, y + 0.04));
-      g.fillStyle = i === 11 ? '#d6262e' : '#1b1b1b'; g.font = `700 ${X(0.019)}px ${MONO}`;
+      g.fillStyle = i === 11 ? '#d6262e' : '#1b1b1b'; g.font = `700 ${X(0.016)}px ${MONO}`;
       g.fillText(`${'ABCD'[r]}${cI + 1} ${PRICES[i]}`, X(cx), Y(y + 0.024));
     }
     g.strokeStyle = 'rgba(0,0,0,0.3)'; g.lineWidth = Math.max(1, X(0.0025));
@@ -596,7 +596,7 @@ export function build(ctx) {
     g.fillStyle = '#ffd23f'; g.beginPath(); g.arc(X(0.712), Y(0.84), X(0.058), 0, TAU); g.fill();
     g.fillStyle = '#fff6cf'; g.beginPath(); g.moveTo(X(0.75), Y(0.81)); g.lineTo(X(0.77), Y(0.83)); g.lineTo(X(0.745), Y(0.835)); g.closePath(); g.fill();
     g.save(); g.translate(X(0.712), Y(0.84)); g.rotate(-0.2);
-    riso(g, (q) => { q.font = `900 ${X(0.026)}px ${HEAVY}`; q.fillText('SORTE!', 0, 0); }, '#d6262e', '#d6262e', 0, 0);
+    riso(g, (q) => { q.font = `900 ${X(0.021)}px ${HEAVY}`; q.fillText('SORTE!', 0, 0); }, '#d6262e', '#d6262e', 0, 0);
     g.restore();
     g.save(); g.translate(X(0.713), Y(0.6)); g.rotate(0.06);
     g.fillStyle = '#fff5b8'; g.fillRect(-X(0.094), -X(0.085), X(0.188), X(0.17));
@@ -697,10 +697,11 @@ export function build(ctx) {
     }
   }
   const dummy = new THREE.Object3D();
-  function placePebbles(t) {
+  function placePebbles(t) {                                        // t: seconds (called with no argument per frame)
     if (!pebbles) return;
+    if (t === undefined) t = st.t;
     for (let i = 0; i < pebbleSpec.length; i++) {
-      const [rad, dy, ph, s] = pebbleSpec[i], a = ph + t * 0.22;
+      const sp = pebbleSpec[i], rad = sp[0], dy = sp[1], ph = sp[2], s = sp[3], a = ph + t * 0.22;
       dummy.position.set(BOULDER.x + Math.cos(a) * rad, boulder.position.y + dy + 0.05 * Math.sin(t * 0.9 + ph), BOULDER.z + Math.sin(a) * rad);
       dummy.rotation.set(t * 0.3 + ph, t * 0.2, ph);
       dummy.scale.set(s, s * 0.8, s);
@@ -772,9 +773,9 @@ export function build(ctx) {
     for (let y = S * 0.08; y < S; y += S * 0.07) { g.beginPath(); g.moveTo(0, y); g.lineTo(S, y); g.stroke(); }
     g.strokeStyle = 'rgba(220,70,70,0.5)'; g.beginPath(); g.moveTo(S * 0.18, 0); g.lineTo(S * 0.18, S); g.stroke();
     g.strokeStyle = 'rgba(60,60,70,0.7)'; g.lineWidth = S / 128; g.lineCap = 'round';
-    const st = [];
-    for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, r = k % 2 ? S * 0.035 : S * 0.08; st.push([S * 0.7 + Math.cos(a) * r, S * 0.42 + Math.sin(a) * r]); }
-    wobblyPath(g, st, R, S / 300, S / 40, true);
+    const starPts = [];
+    for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, r = k % 2 ? S * 0.035 : S * 0.08; starPts.push([S * 0.7 + Math.cos(a) * r, S * 0.42 + Math.sin(a) * r]); }
+    wobblyPath(g, starPts, R, S / 300, S / 40, true);
     g.fillStyle = 'rgba(60,60,70,0.75)'; g.textBaseline = 'middle';
     handText(g, 'wheee', S * 0.28, S * 0.72, S * 0.09, R, { weight: 'normal' });
     const P = { N: [0, 0.004, 0.17], C: [0, 0, -0.11], WL: [0.118, 0.02, -0.125], WR: [-0.118, 0.02, -0.125], K: [0, -0.034, -0.105] };
@@ -798,6 +799,7 @@ export function build(ctx) {
     }
   }
   function placePlane(t) {
+    if (t === undefined) t = st.t;
     const om = 0.3, th = t * om;
     const rr = 3.85 + 0.3 * Math.sin(t * 0.21), drr = 0.063 * Math.cos(t * 0.21);
     const cth = Math.cos(th), sth = Math.sin(th);
@@ -812,11 +814,11 @@ export function build(ctx) {
   const cat = new THREE.Group();
   cat.name = 'oddities-cat';
   cat.position.set(CAT.x, CAT.y, CAT.z);
-  cat.rotation.y = Math.PI - 0.5;                                   // face toward the plaza and the bench end
+  cat.rotation.y = Math.PI / 2 + 0.25;                              // curled along the seat, nose to the bench end
   cat.userData.action = { type: 'custom', id: 'odd-cat' };
   group.add(cat);
   pickables.push(cat);
-  let catBody, catHead, zzz = null, twitch = 0;
+  let catBody, catHead, zzz = null;
   const HEAD_Y = 0.1;
   {
     const GINGER = new THREE.Color(0xdb843c), DARK = new THREE.Color(0xa6511c), CREAM = new THREE.Color(0xf4e0c4);
@@ -869,6 +871,7 @@ export function build(ctx) {
     }
     const headMesh = mesh(merge(head, true), catMat, catHead);
     headMesh.rotation.z = -0.12;                                      // chin tucked down onto its paws
+    headMesh.scale.setScalar(1.12);                                   // a slightly big head: cuter
     if (!low && !calm) {
       const zc = makeCanvas(128, 128), zg = zc.getContext('2d'), ZR = mulberry(12);
       zg.strokeStyle = '#9fd0ff'; zg.lineWidth = 11; zg.lineCap = 'round'; zg.lineJoin = 'round';
@@ -881,7 +884,7 @@ export function build(ctx) {
   }
 
   // ============================================= 8. the lamp at the edge of the world ==
-  let lampGlassMat, lampGlow, lampOn = false, lampT = 0, lampLevel = 0;
+  let lampGlassMat, lampGlow;
   {
     const gy = heightAt(LAMP.x, LAMP.z);
     const L = new THREE.Group(); L.name = 'oddities-edge-lamp';
@@ -950,75 +953,79 @@ export function build(ctx) {
   // ================================================================ behaviour ==
   const voices = shuffled(PHONE_VOICES), fortunes = shuffled(FORTUNES);
   let voiceI = 0, fortuneI = 0;
-  let ringIn = 18 + Math.random() * 10, ringT = -1, chimes = 0, clock = 0;
-  let neonNext = 5, neonStut = 0;
+  // Per-frame numbers live on one object: doubles in closure variables would be boxed every frame.
+  const st = {
+    t: 0, clock: 0, ringIn: 18 + Math.random() * 10, ringT: -1, chimes: 0, neonNext: 5, neonStut: 0,
+    vendNext: 9, vendStutter: 0, cardT: -1, twitch: 0, lampOn: false, lampT: 0, lampLevel: 0,
+  };
   const RING = 3.9;
   const toast = (text) => { try { ctx.ui?.toast?.(text); } catch (e) { /* the joke is optional */ } };
 
   function update(dt, frame) {
-    clock += dt;
-    const t = frame && typeof frame.time === 'number' ? frame.time : clock;
+    st.clock += dt;
+    const t = st.t = frame && typeof frame.time === 'number' ? frame.time : st.clock;
     const cam = frame && frame.camera ? frame.camera.position : null;
 
     // 2 · the kiosk rings: two bursts, the lamp blinks, the phone rattles on its board
-    ringIn -= dt;
-    if (ringIn <= 0 && ringT < 0) { ringT = 0; chimes = 0; ringIn = 40 + Math.random() * 10; }
-    if (ringT >= 0) {
-      ringT += dt;
-      const burst = ringT < 1.6 || (ringT > 2.2 && ringT < 3.8);
-      const near = cam && cam.y < 6 && (cam.x - KIOSK.x) * (cam.x - KIOSK.x) + (cam.z - KIOSK.z) * (cam.z - KIOSK.z) < 26 * 26;
-      if (chimes === 0 || (chimes === 1 && ringT > 2.2)) { if (near) ctx.audio?.chime?.(); chimes++; }
+    st.ringIn -= dt;
+    if (st.ringIn <= 0 && st.ringT < 0) { st.ringT = 0; st.chimes = 0; st.ringIn = 40 + Math.random() * 10; }
+    if (st.ringT >= 0) {
+      st.ringT += dt;
+      const burst = st.ringT < 1.6 || (st.ringT > 2.2 && st.ringT < 3.8);
+      // heard only out on the plaza near it (not from the hall, the pavilions or upstairs)
+      const near = cam && cam.y < 6 && cam.z > 17.6 && (cam.x - KIOSK.x) * (cam.x - KIOSK.x) + (cam.z - KIOSK.z) * (cam.z - KIOSK.z) < 20 * 20;
+      if (st.chimes === 0 || (st.chimes === 1 && st.ringT > 2.2)) { if (near) ctx.audio?.chime?.(); st.chimes++; }
       if (calm) kioskLamp.emissiveIntensity = 4;
       else {
-        kioskLamp.emissiveIntensity = burst && ((ringT * 6) % 1) < 0.55 ? 6 : 0.2;
-        phone.rotation.z = burst ? Math.sin(ringT * 80) * 0.014 : 0;
-        phone.position.x = burst ? Math.sin(ringT * 57) * 0.002 : 0;
+        kioskLamp.emissiveIntensity = burst && ((st.ringT * 6) % 1) < 0.55 ? 6 : 0.2;
+        phone.rotation.z = burst ? Math.sin(st.ringT * 80) * 0.014 : 0;
+        phone.position.x = burst ? Math.sin(st.ringT * 57) * 0.002 : 0;
       }
-      if (ringT > RING) { ringT = -1; kioskLamp.emissiveIntensity = 0.15; phone.rotation.z = 0; phone.position.x = 0; }
+      if (st.ringT > RING) { st.ringT = -1; kioskLamp.emissiveIntensity = 0.15; phone.rotation.z = 0; phone.position.x = 0; }
     }
 
     // 3 · the machine's tube stutters now and then; the card slides out
     if (!calm) {
-      vendNext -= dt;
-      if (vendNext <= 0) { vendStutter = 0.45; vendNext = 14 + Math.random() * 14; }
-      if (vendStutter > 0) { vendStutter -= dt; vendFront.emissiveIntensity = Math.sin(vendStutter * 40) > 0 ? 0.15 : 0.75; }
+      st.vendNext -= dt;
+      if (st.vendNext <= 0) { st.vendStutter = 0.45; st.vendNext = 14 + Math.random() * 14; }
+      if (st.vendStutter > 0) { st.vendStutter -= dt; vendFront.emissiveIntensity = Math.sin(st.vendStutter * 40) > 0 ? 0.15 : 0.75; }
       else vendFront.emissiveIntensity = 0.75;
     }
-    if (cardT >= 0) {
-      cardT += dt;
-      const k = calm ? 1 : 1 - Math.pow(1 - Math.min(1, cardT / 0.5), 3);
+    if (st.cardT >= 0) {
+      st.cardT += dt;
+      const k = calm ? 1 : 1 - Math.pow(1 - Math.min(1, st.cardT / 0.5), 3);
       card.position.y = 0.33 - 0.09 * k; card.position.z = 0.4 + 0.015 * k;
-      if (cardT > 7) { card.visible = false; cardT = -1; }
+      if (st.cardT > 7) { card.visible = false; st.cardT = -1; }
     }
 
     // 4 · the boulder breathes in the air
     if (!calm) {
       boulder.position.y = BOULDER.y + 0.1 * Math.sin(t * 0.84);
       boulder.rotation.set(0.05 + 0.03 * Math.sin(t * 0.5), 0.35 + t * 0.045, -0.04 + 0.025 * Math.sin(t * 0.37 + 1));
-      placePebbles(t);
+      placePebbles();
     }
 
     // 5 · the neon hums, and sometimes loses its nerve
     if (!calm) {
-      neonNext -= dt;
-      if (neonNext <= 0) { neonStut = 0.4; neonNext = 4 + Math.random() * 8; }
+      st.neonNext -= dt;
+      if (st.neonNext <= 0) { st.neonStut = 0.4; st.neonNext = 4 + Math.random() * 8; }
       let k = 1 + 0.045 * Math.sin(t * 2.1) + 0.025 * Math.sin(t * 6.3 + 1);
-      if (neonStut > 0) { neonStut -= dt; k *= Math.sin(neonStut * 48) > 0.25 ? 0.22 : 0.9; }
+      if (st.neonStut > 0) { st.neonStut -= dt; k *= Math.sin(st.neonStut * 48) > 0.25 ? 0.22 : 0.9; }
       neonMat.emissiveIntensity = 3.2 * k;
       neonHalo.material.opacity = 0.5 * k;
     }
 
     // 6 · lazy loops over the roof terrace, banking into the turn
-    if (!calm) placePlane(t);
+    if (!calm) placePlane();
 
     // 7 · the cat breathes; a "z" drifts up when someone is near enough to see it
     if (!calm) {
       const b = Math.sin(t * 1.85);
       catBody.scale.set(1 + 0.018 * b, 1 + 0.035 * b, 1 + 0.012 * b);
       catHead.position.y = HEAD_Y + 0.003 * b;
-      if (twitch > 0) { twitch = Math.max(0, twitch - dt); catHead.rotation.x = Math.sin(twitch * 30) * 0.08 * twitch; }
+      if (st.twitch > 0) { st.twitch = Math.max(0, st.twitch - dt); catHead.rotation.x = Math.sin(st.twitch * 30) * 0.08 * st.twitch; }
       if (zzz) {
-        const near = cam && (cam.x - CAT.x) * (cam.x - CAT.x) + (cam.z - CAT.z) * (cam.z - CAT.z) < 18 * 18;
+        const near = cam && (cam.x - CAT.x) * (cam.x - CAT.x) + (cam.z - CAT.z) * (cam.z - CAT.z) < 12 * 12;
         const p = (t % 4.6) / 3.2;
         zzz.visible = !!near && p <= 1;
         if (zzz.visible) {
@@ -1032,16 +1039,16 @@ export function build(ctx) {
     // 8 · the lamp at the edge wakes when someone comes near
     if (cam) {
       const dx = cam.x - LAMP.x, dz = cam.z - LAMP.z, d2 = dx * dx + dz * dz;
-      if (!lampOn && d2 < LAMP_WAKE * LAMP_WAKE) { lampOn = true; lampT = 0; }
-      else if (lampOn && d2 > LAMP_SLEEP * LAMP_SLEEP) { lampOn = false; lampT = 0; }
+      if (!st.lampOn && d2 < LAMP_WAKE * LAMP_WAKE) { st.lampOn = true; st.lampT = 0; }
+      else if (st.lampOn && d2 > LAMP_SLEEP * LAMP_SLEEP) { st.lampOn = false; st.lampT = 0; }
     }
-    lampT += dt;
+    st.lampT += dt;
     let lv;
-    if (calm) lv = lampOn ? 1 : 0;
-    else if (lampOn) { const f = lampT; lv = f < 0.08 ? 0.9 : f < 0.22 ? 0.04 : f < 0.3 ? 0.6 : f < 0.5 ? 0.08 : Math.min(1, 0.3 + (f - 0.5) * 0.9); }
-    else lv = Math.max(0, lampLevel - dt * 1.4);
-    if (lv !== lampLevel) {
-      lampLevel = lv;
+    if (calm) lv = st.lampOn ? 1 : 0;
+    else if (st.lampOn) { const f = st.lampT; lv = f < 0.08 ? 0.9 : f < 0.22 ? 0.04 : f < 0.3 ? 0.6 : f < 0.5 ? 0.08 : Math.min(1, 0.3 + (f - 0.5) * 0.9); }
+    else lv = Math.max(0, st.lampLevel - dt * 1.4);
+    if (lv !== st.lampLevel) {
+      st.lampLevel = lv;
       lampGlassMat.emissiveIntensity = 0.04 + 5.5 * lv;
       lampGlow.material.opacity = 0.85 * lv;
       lampGlow.visible = lv > 0.01;
@@ -1051,16 +1058,16 @@ export function build(ctx) {
   function onPick(object) {
     const id = object && object.userData && object.userData.action && object.userData.action.id;
     if (id === 'odd-phone') {
-      if (ringT >= 0) { ringT = RING + 1; chimes = 2; }                 // answered: the next update hangs the bell up
+      if (st.ringT >= 0) { st.ringT = RING + 1; st.chimes = 2; }                 // answered: the next update hangs the bell up
       toast(`“${voices[voiceI++ % voices.length]}”`);
     } else if (id === 'odd-vending') {
       const [f, pt] = fortunes[fortuneI++ % fortunes.length];
       toast(`${pt ? 'A sua sorte' : 'Your fortune'}: “${f}”`);
       ctx.audio?.click?.();
-      cardT = 0; card.visible = true;
+      st.cardT = 0; card.visible = true;
     } else if (id === 'odd-cat') {
       toast('The cat ignores you. Correctly.');
-      if (!calm) twitch = 0.5;
+      if (!calm) st.twitch = 0.5;
     }
   }
 

@@ -52,6 +52,24 @@ export function build(ctx) {
   }
   const col = (minX, maxX, minZ, maxZ, minY = 0, maxY = 3.6) => colliders.push({ minX, maxX, minZ, maxZ, minY, maxY });
 
+  // ---------- sit contract (main.js seats the visitor on the listed place nearest the click) ----------
+  // A place is { x, y (seat top), z, facing: [fx, fz] } in world metres. Every chair gets one pick
+  // proxy (invisible MATERIAL, visible object) boxing its seat, backrest and legs, so a ray that
+  // reaches the chair meets the proxy first; it carries { type: 'sit', seats: [its place] }.
+  const seats = [];
+  const sitMat = new THREE.MeshBasicMaterial({ visible: false });
+  const mm = v => Math.round(v * 1000) / 1000 || 0;   // drop float noise (and -0)
+  // box in the chair's own frame: w along room u (the chair's depth), d along room lz, from y0 to y1
+  const sitBox = (w, d, y0, y1) => new THREE.BoxGeometry(w, y1 - y0, d).translate(0, (y0 + y1) / 2, 0);
+  function sitProxy(geo, m, place, name) {
+    const p = new THREE.Mesh(geo, sitMat);
+    p.name = name; p.applyMatrix4(m);
+    p.userData.action = { type: 'sit', seats: [place] };
+    group.add(p); pickables.push(p); seats.push(place);
+  }
+  // student chair: seat 0.42 x 0.42 centred on the place, backrest 0.2 behind it, top 0.79 -> 2-3 cm to spare
+  const chairBox = sitBox(0.47, 0.46, 0, 0.82);
+
   // ---------- fonts + canvas textures ----------
   const redraws = [];
   function canvasTex(w, h, draw, { text = false, repeat = null, srgb = true } = {}) {
@@ -414,7 +432,9 @@ export function build(ctx) {
     const L = (u, y, lz, ry = 0, rx = 0) => mul(roomM, Tm(u, y, lz, ry, rx));
     const worldXZ = (u, lz) => [x0 + (s > 0 ? -u : u), ZC + (s > 0 ? -lz : lz)];
     const aabb = (u0, u1, l0, l1, y1 = 0.8, y0 = 0) => { const a = worldXZ(u0, l0), b = worldXZ(u1, l1); col(Math.min(a[0], b[0]), Math.max(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[1], b[1]), y0, y1); };
-    const R = { s, x0, roomM, L, worldXZ, aabb };
+    // sit place at room-local (u, lz), seat top y, looking along room u by k (+1 / -1); proxy box geo
+    const sit = (geo, u, lz, y, k, name) => { const [wx, wz] = worldXZ(u, lz); sitProxy(geo, L(u, 0, lz), { x: mm(wx), y: mm(y), z: mm(wz), facing: [s > 0 ? -k : k, 0] }, name); };
+    const R = { s, x0, roomM, L, worldXZ, aabb, sit };
     rooms.push(R);
     // ceiling LEDs
     for (const u of [2.2, 4.9, 7.6]) for (const lz of [-3.4, 0, 3.4]) { const [wx, wz] = worldXZ(u, lz); led(wx, wz, 2.4); }
@@ -444,6 +464,8 @@ export function build(ctx) {
         I('seat', seatGeo, s < 0 ? plasticBlue : plasticGrey, L(cu, 0.45, lz));
         I('back', backGeo, s < 0 ? plasticBlue : plasticGrey, L(cu + 0.2, 0.68, lz));
         for (const [dx, dz] of [[-0.17, -0.17], [0.17, -0.17], [-0.17, 0.17], [0.17, 0.17]]) I('cleg', cLegGeo, steel, L(cu + dx, 0.22, lz + dz));
+        // sit: seat top 0.45 + 0.02, looking at the board (-u, away from the backrest at cu + 0.2)
+        sit(chairBox, cu, lz, 0.45 + 0.02, -1, `school-${s < 0 ? 'lente' : 'portugues'}-chair-r${rowsU.indexOf(u) + 1}c${(g < 0 ? 1 : 3) + (o < 0 ? 0 : 1)}`);
       }
     }
     return R;
@@ -509,11 +531,16 @@ export function build(ctx) {
     aabb(1.5, 2.3, -3.1, -1.5, 0.8);
     const lm = L(1.85, 0.76, -2.3, PI / 2 * 0 + 0.0);
     BX(steel, 0.23, 0.015, 0.33, 0, 0.008, 0, lm);
-    const lid = addPlane(emissiveScreen(lapTex), 0.31, 0.19, mul(lm, Tm(0.12, 0.13, 0, PI / 2, -0.0, 0).multiply(new THREE.Matrix4().makeRotationZ(0))));
+    // Screen just in front of the lid's back (x 0.119–0.131), facing the teacher's chair (−x): inside the box it was hidden and unclickable.
+    const lid = addPlane(emissiveScreen(lapTex), 0.31, 0.19, mul(lm, Tm(0.112, 0.13, 0, -PI / 2, -0.0, 0).multiply(new THREE.Matrix4().makeRotationZ(0))));
     BX(dark, 0.012, 0.21, 0.33, 0.125, 0.13, 0, lm);
     lid.userData.action = { type: 'app', url: 'https://pedrohfernandes-klk.github.io/lente/', title: 'Lente · EPI 2026/2027' }; pickables.push(lid);
     I('seat', new RoundedBoxGeometry(0.45, 0.05, 0.45, 2, 0.02), plasticGrey, L(1.05, 0.48, -2.3)); I('back', new RoundedBoxGeometry(0.04, 0.4, 0.42, 2, 0.015), plasticGrey, L(0.84, 0.74, -2.3));
     CY(steel, 0.025, 0.46, 0, 0, 0, L(1.05, 0.23, -2.3));
+    // sit: the teacher looks at the class (+u, away from the backrest at 0.84). Seat top 0.48 + 0.02: the
+    // shared 'seat' instance key draws this seat with the students' 0.04 m seat; the box also covers the
+    // declared 0.45 seat and 0.4 m backrest (top 0.94).
+    A.sit(sitBox(0.5, 0.49, 0, 0.97), 1.05, -2.3, 0.48 + 0.02, 1, 'school-lente-chair-teacher');
     // wall photographs on the door wall and partition
     hang(L(2.2, 1.8, -5.545, 0), 1.0, 0.73, photoTexs[0]); hang(L(4.0, 1.8, -5.545, 0), 1.0, 0.73, photoTexs[2]);
     hang(L(9.78, 1.7, -2.2, -PI / 2), 0.8, 1.1, photoTexsP[0]); hang(L(9.78, 1.7, 0.0, -PI / 2), 0.8, 1.1, photoTexsP[1]); hang(L(9.78, 1.7, 2.2, -PI / 2), 0.8, 1.1, photoTexsP[2]);
@@ -538,6 +565,8 @@ export function build(ctx) {
     aabb(0.0, 2.7, -4.3, 4.7, 0.15); colliders.pop(); // dais is walkable
     aabb(1.15, 2.05, -1.05, 0.65, 0.95, 0.0);
     I('seat', new RoundedBoxGeometry(0.45, 0.05, 0.45, 2, 0.02), plasticGrey, L(0.85, 0.65, -0.2)); I('back', new RoundedBoxGeometry(0.04, 0.4, 0.42, 2, 0.015), plasticGrey, L(0.63, 0.92, -0.2));
+    // sit: on the dais (top 0.15), looking at the class (+u); seat top 0.65 + 0.02 (drawn 0.04 thick, as in Lente)
+    B.sit(sitBox(0.5, 0.49, 0.15, 1.15), 0.85, -0.2, 0.65 + 0.02, 1, 'school-portugues-chair-teacher');
     BX(new THREE.MeshStandardMaterial({ color: 0xf0f0f0 }), 0.2, 0.01, 0.3, 0, 0, 0, L(1.55, 0.93, 0.2)); // papers
     // wall map of Portugal (door wall, world z = 60.5)
     BX(oakM, 1.5, 2.1, 0.03, 0, 0, 0, L(4.2, 1.7, 5.54));
@@ -598,5 +627,5 @@ export function build(ctx) {
   regions.push({ minX: 12.4, maxX: 14.5, minZ: 61.0, maxZ: 70.8, y: 0.15 });
   regions.pop(); // keep flat (dais is 0.15 m, stepped over)
 
-  return { group, regions, colliders, pickables, update() {}, onPick() {} };
+  return { group, regions, colliders, pickables, seats, update() {}, onPick() {} };
 }

@@ -10,30 +10,60 @@ export async function build(ctx) {
 
   // The photographed sun disc (peak ~72 000) is ~2/3 of this sky's light. Left in
   // the PMREM it fills every shadow with unshadowed sunlight (shadow:lit ~1:1.45,
-  // flat, milky). Light the world from a copy with the disc capped; the shadowed
-  // DirectionalLight below carries that energy. The background keeps the disc.
-  let environment = sky.environment;
+  // flat, milky). Light the world from a copy with the sun inpainted (disc and
+  // aureole replaced by the surrounding sky); the shadowed DirectionalLight below
+  // carries that energy. The copy is also offered as `backgroundNoSun`, so weather
+  // can draw its own sun at any elevation (golden hour, radiant noon, rainbow).
+  // scene.background keeps the photographed disc for anything without weather.
+  let environment = sky.environment, backgroundNoSun = null;
   try {
-    const img = sky.background && sky.background.image;
-    if (img && img.data instanceof Uint16Array && !sky.background.userData.discCapped) {
-      const cap = THREE.DataUtils.toHalfFloat(32);
-      const d = img.data.slice();
-      // positive half floats order like uint16; alpha (1.0 = 0x3C00) is below the cap
+    const bg = sky.background, img = bg && bg.image;
+    if (img && img.data instanceof Uint16Array && img.width > 8) {
+      const W = img.width, H = img.height, d = img.data.slice();
+      const h2f = THREE.DataUtils.fromHalfFloat, f2h = THREE.DataUtils.toHalfFloat;
+      // brightest texel = the sun (positive half floats order like uint16)
+      let best = 0, bi = 0;
+      for (let p = 0, n = W * H; p < n; p++) { const x = d[p * 4 + 1]; if (x > best && x < 0x7c00) { best = x; bi = p; } }
+      const i0 = bi % W, j0 = (bi / W) | 0;
+      const cl = Math.max(0.15, Math.cos(Math.PI * (0.5 - (j0 + 0.5) / H)));
+      const ppd = W / 360, R0 = 2.4, R1 = 5.5, RR = 6.5;
+      const di = Math.ceil(RR * ppd / cl), dj = Math.ceil(RR * ppd);
+      const j0a = Math.max(0, j0 - dj), j0b = Math.min(H - 1, j0 + dj);
+      const at = (ii, j) => ((((i0 + ii) % W) + W) % W + j * W) * 4;
+      let sr = 0, sg = 0, sb = 0, sn = 0;
+      for (let j = j0a; j <= j0b; j++) for (let ii = -di; ii <= di; ii++) {
+        const r = Math.hypot(ii * cl, j - j0) / ppd; if (r < R1 || r > RR) continue;
+        const p = at(ii, j);
+        sr += Math.min(h2f(d[p]), 8); sg += Math.min(h2f(d[p + 1]), 8); sb += Math.min(h2f(d[p + 2]), 8); sn++;
+      }
+      if (sn) {
+        const ring = [sr / sn, sg / sn, sb / sn];
+        for (let j = j0a; j <= j0b; j++) for (let ii = -di; ii <= di; ii++) {
+          const r = Math.hypot(ii * cl, j - j0) / ppd; if (r >= R1) continue;
+          const t = Math.max(0, Math.min(1, (r - R0) / (R1 - R0))), s2 = t * t * (3 - 2 * t);
+          const p = at(ii, j);
+          for (let c = 0; c < 3; c++) {
+            const o = h2f(d[p + c]), a = ring[c];
+            d[p + c] = f2h(Math.max(0, Math.min(a + (o - a) * s2, a * (1 + 3 * s2))));
+          }
+        }
+      }
+      const cap = f2h(32); // safety: no stray texel may light the world unshadowed
       for (let i = 0; i < d.length; i++) if (d[i] > cap && d[i] < 0x8000) d[i] = cap;
-      const src = new THREE.DataTexture(d, img.width, img.height, sky.background.format, sky.background.type);
+      const src = new THREE.DataTexture(d, W, H, bg.format, bg.type);
       src.mapping = THREE.EquirectangularReflectionMapping;
-      src.colorSpace = sky.background.colorSpace;
-      src.flipY = sky.background.flipY;
+      src.colorSpace = bg.colorSpace;
+      src.flipY = bg.flipY;
       src.minFilter = src.magFilter = THREE.LinearFilter;
       src.generateMipmaps = false;
       src.needsUpdate = true;
       const pmrem = new THREE.PMREMGenerator(renderer);
       environment = pmrem.fromEquirectangular(src).texture;
       pmrem.dispose();
-      src.dispose();
       environment.userData.discCapped = true;
+      backgroundNoSun = src;
     }
-  } catch (e) { environment = sky.environment; }
+  } catch (e) { environment = sky.environment; backgroundNoSun = null; }
   const capped = environment !== sky.environment;
 
   scene.background = sky.background;
@@ -112,6 +142,7 @@ export async function build(ctx) {
     refreshShadows, sun, sunDirection: dir, update() {},
     // the photographed sun (sky.hdr); the live light direction is sun.position - target
     baseSunDirection: dir.clone(),
+    backgroundNoSun,
     setSunDirection(d) { if (d && d.lengthSq() > 1e-8) { aim(d); refreshShadows(); } },
   };
 }

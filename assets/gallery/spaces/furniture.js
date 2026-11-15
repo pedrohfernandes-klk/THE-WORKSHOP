@@ -52,8 +52,13 @@ export function build(ctx) {
   const headGeo = uv(new THREE.CylinderGeometry(0.1, 0.12, 0.1, 24));
   const lensGeo = new THREE.CylinderGeometry(0.095, 0.095, 0.015, 24);
 
-  const binBodyGeo = uv(new THREE.CylinderGeometry(0.19, 0.2, 0.76, low ? 12 : 28));
-  const binLidGeo = uv(new THREE.CylinderGeometry(0.205, 0.205, 0.04, low ? 12 : 28));
+  // Open-topped: the paper-ball game scores through a rim at y 0.8, so a solid
+  // lid made every basket vanish through steel. Open can (both faces drawn),
+  // a rolled rim and a dark floor instead.
+  const binBodyGeo = uv(new THREE.CylinderGeometry(0.19, 0.2, 0.76, low ? 12 : 28, 1, true));
+  const binLidGeo = uv(new THREE.TorusGeometry(0.195, 0.014, 6, low ? 12 : 28).rotateX(Math.PI / 2));
+  const binFloorGeo = new THREE.CircleGeometry(0.19, low ? 12 : 28).rotateX(-Math.PI / 2);
+  const binSteel = blackSteel.clone(); binSteel.side = THREE.DoubleSide;
 
   const hoopGeo = uv(new THREE.TorusGeometry(0.3, 0.016, 8, low ? 12 : 24, Math.PI));
   const hoopLegGeo = uv(new THREE.CylinderGeometry(0.016, 0.016, 0.4, 8));
@@ -100,8 +105,9 @@ export function build(ctx) {
   const bins = [];
   for (const z of [26.6, 36.6]) for (const x of [-13, 13]) bins.push({ x, z });
   for (const b of bins) {
-    add('binBody', binBodyGeo, blackSteel, T(b.x, 0.38, b.z));
-    add('binLid', binLidGeo, blackSteel, T(b.x, 0.78, b.z));
+    add('binBody', binBodyGeo, binSteel, T(b.x, 0.38, b.z));
+    add('binLid', binLidGeo, blackSteel, T(b.x, 0.775, b.z));
+    add('binFloor', binFloorGeo, blackSteel, T(b.x, 0.08, b.z));
   }
 
   // ---- Bike rack: 5 stainless hoops at x −5 … −3, z 19.6 ---------------------

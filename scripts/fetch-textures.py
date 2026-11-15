@@ -167,7 +167,9 @@ def main():
     (OUT / "LICENSE.txt").write_text(
         "All textures and the sky in this folder are from Poly Haven (https://polyhaven.com)\n"
         "and are released under CC0 1.0 (public domain): https://polyhaven.com/license\n"
-        f"Textures: {', '.join(TEXTURES)}\nSky: {hid} ({res})\n")
+        f"Textures: {', '.join(TEXTURES)}\nSky: {hid} ({res})\n"
+        "Storm sky: kloofendal_overcast_puresky (2k)\n"
+        "Derived here: <id>/*-512.webp, sky-1k.hdr, sky-overcast-1k.hdr (same licence)\n")
     variants()
 
 if __name__ == "__main__":

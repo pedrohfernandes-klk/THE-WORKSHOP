@@ -28,9 +28,11 @@ const BOING = [1, 1, 0, 1, 0];   // which outdoor jumps go boing: 3 in 5
 const LONG_AIR = 0.95;           // s of effective airtime for a slide whistle (a flat jump is 0.65)
 const GRAVITY = 13.5;            // controls.js: turns a floor drop into extra fall time
 
-// Linear levels before the bus (measured offline: see the note at the end).
+// Linear levels before the bus, set by offline measurement at 48 kHz: ruin
+// heart ≈ −30 dBFS RMS (peak −19), stage choir ≈ −33 RMS (peak −18), orchestra
+// ≈ −42 RMS, sprint wind ≈ −35 RMS (peak −20); one-shots peak −20…−25 dBFS.
 const LV = {
-  drone: 0.037, drip: 0.09, whisper: 0.4, creak: 0.62, choir: 0.12, whoosh: 0.28,
+  drone: 0.037, drip: 0.09, whisper: 0.4, creak: 0.62, choir: 0.113, whoosh: 0.28,
   boing: 0.1, slide: 0.08, pfff: 0.3, bird: 0.06,
 };
 
@@ -434,6 +436,7 @@ export function createSfx(audio) {
   };
   const played = { boing: 0, slide: 0, pfff: 0, bird: 0, whisper: 0, creak: 0, dropped: 0 };
 
+  const mkRuin = () => buildRuin(E, rnd), mkChoir = () => buildChoir(E, rnd), mkWhoosh = () => buildWhoosh(E);
   const bedsLive = () => (beds.ruin.B ? 1 : 0) + (beds.choir.B ? 1 : 0) + (beds.whoosh.B ? 1 : 0);
   const free = () => MAX_VOICES - voices.length - bedsLive();
 
@@ -597,11 +600,11 @@ export function createSfx(audio) {
       // places
       const ruinT = ruinDepth(x, y, z), bowlT = bowlDepth(x, y, z);
       const stageT = bowlT > 0.5 && onStage(x, y, z) ? 1 : 0;
-      manage(beds.ruin, ruinT, 1 / XFADE, 1 / XFADE, dt, () => buildRuin(E, rnd));
-      manage(beds.choir, bowlT, 1 / XFADE, 1 / XFADE, dt, () => buildChoir(E, rnd));
+      manage(beds.ruin, ruinT, 1 / XFADE, 1 / XFADE, dt, mkRuin);
+      manage(beds.choir, bowlT, 1 / XFADE, 1 / XFADE, dt, mkChoir);
       st.stage += clamp(stageT - st.stage, -dt / XFADE, dt / XFADE);
       const windT = st.whooshOn ? clamp((speed - 2.5) / 3.5, 0, 0.8) : 0;
-      manage(beds.whoosh, windT, 1 / 0.8, 1 / 0.5, dt, () => buildWhoosh(E));
+      manage(beds.whoosh, windT, 1 / 0.8, 1 / 0.5, dt, mkWhoosh);
       st.pclock += dt;
       if (st.pclock >= 0.1) { st.pclock = 0; applyBeds(now, speed); }
 

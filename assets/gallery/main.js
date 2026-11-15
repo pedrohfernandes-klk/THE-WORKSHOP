@@ -10,6 +10,7 @@ import { WORKS } from './catalogue.js';
 import { createCurator, initialHang, encodeShow, decodeShow, titleFor } from './curator.js';
 import { createRoom, SLOTS, EYE_HEIGHT, START } from './room.js';
 import { createPost } from './post.js';
+import { createPerf } from './perf.js';
 import { loadWorkTexture } from './textures.js';
 import { createControls } from './controls.js';
 import { createUI, showFallback } from './ui.js';
@@ -159,8 +160,11 @@ try {
 }
 
 const quality = pickQuality();
-const maxRatio = quality === 'high' ? 1.75 : 1.25;
-let pixelRatio = Math.min(devicePixelRatio || 1, maxRatio);
+// Resolution and the expensive passes belong to the governor (perf.js): render
+// resolution between 0.6x and 1x of min(devicePixelRatio, 2), starting low on
+// weak machines and climbing while frames keep up. onChange is wired below.
+const perf = createPerf({ renderer, quality, debug: TEST });
+let pixelRatio = perf.pixelRatio;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.setPixelRatio(pixelRatio);
 renderer.setSize(innerWidth, innerHeight, false);
@@ -175,6 +179,9 @@ camera.lookAt(START.target);
 
 const room = createRoom(renderer, { quality, reducedMotion });
 const post = createPost(renderer, room.scene, camera, { quality });
+perf.attach(post);
+const mirrors = [];   // reflectors the governor resizes (the hall floor follows the drawing buffer in room.js)
+perf.onChange = () => { applySize(); };
 const coarsePointer = matchMedia('(pointer: coarse)').matches;
 const controls = createControls(camera, canvas, {
   bounds: room.bounds,
@@ -205,13 +212,28 @@ const worldReady = createWorld(ctx, {
   // hall floor from inside the hall, the pool from outdoors. Elsewhere it keeps
   // its last image (it is barely visible through a doorway), which roughly
   // halves the cost of every outdoor frame.
+  // Only for the visitor's own view: never inside an override pass (a
+  // normal/depth pass sets scene.overrideMaterial) or another camera's render
+  // (a mirror seen in a mirror): each would re-render the whole campus again.
+  // The governor (perf.js) may refresh mirrors every 2nd/3rd frame at its lower
+  // steps; a mirror that has been idle renders at once.
   const gate = (mesh, visible) => {
     if (!mesh || typeof mesh.onBeforeRender !== 'function') return;
     const render = mesh.onBeforeRender;
-    mesh.onBeforeRender = function (...args) { if (visible()) render.apply(this, args); };
+    let last = -1;
+    mesh.onBeforeRender = function (r, scene, cam, ...rest) {
+      if (cam !== camera || room.scene.overrideMaterial || !visible()) return;
+      if (last >= 0 && state.frames - last >= 0 && state.frames - last < perf.mirrorEvery) return;
+      last = state.frames;
+      render.call(this, r, scene, cam, ...rest);
+    };
   };
-  if (room.floor && room.floor.getRenderTarget) gate(room.floor, () => !state.entered || state.inHall);
-  w.groups.pool?.traverse((o) => { if (o.getRenderTarget) gate(o, () => !state.indoor); });
+  if (room.floor && room.floor.getRenderTarget) {
+    gate(room.floor, () => !state.entered || state.inHall);
+    room.floor.userData.scale = perf.mirrorScale; // read by room.js once it supports it
+  }
+  w.groups.pool?.traverse((o) => { if (o.getRenderTarget) { gate(o, () => !state.indoor); mirrors.push(o); } });
+  sizeMirrors();
   if (w.lift) {
     w.lift.onEvent = (name) => {
       if (name === 'chime') (audio.chime || audio.reveal)();
@@ -905,8 +927,6 @@ function prefetch() {
 
 const clock = new THREE.Clock();
 let paletteClock = 0;
-let slowFrames = 0;
-let fastFrames = 0;
 let running = true;
 
 function frame() {
@@ -961,10 +981,12 @@ function step() {
   // Visible speed: the view opens a little when running, like a camera
   // operator pulling back; it settles when you stop. Off with reduced motion.
   if (!reducedMotion) {
-    const run = THREE.MathUtils.clamp((controls.speed - 2.2) / 2.6, 0, 1);
-    const fovTarget = 52 + run * 7 + (airborne ? 1.5 : 0);
+    // Follows the run as it ramps in (controls.sprint), at most +6°, eased the
+    // same at any frame rate (exact exponential, ~0.3 s).
+    const run = THREE.MathUtils.clamp(Math.min((controls.speed - 2.2) / 2.6, controls.sprint ?? 1), 0, 1);
+    const fovTarget = 52 + run * 6 + (airborne ? 1 : 0);
     if (Math.abs(camera.fov - fovTarget) > 0.01) {
-      camera.fov += (fovTarget - camera.fov) * Math.min(1, dt * 3.5);
+      camera.fov += (fovTarget - camera.fov) * (1 - Math.exp(-dt * 3.5));
       camera.updateProjectionMatrix();
     }
   }
@@ -1019,34 +1041,39 @@ function step() {
   audio.setMotion({ speed: Math.min(controls.speed, 3.2), moving: state.entered && controls.speed > 0.25 });
   audio.update(dt);
   room.update(dt, camera);
+  // Walking or turning: the depth of field fades out (it only serves stillness).
+  post.setMoving(controls.speed > 0.3 || !!state.flying || controls.turnRate > 0.6);
   // Behind an opaque overlay the room does not need to be redrawn every frame.
   if (!state.exhibitionOpen || state.frames % 8 === 0) post.render(dt);
-  adaptQuality(dt);
-}
-
-// Hold the frame rate by trading resolution, never by dropping the room's
-// materials mid-visit.
-function adaptQuality(dt) {
-  if (!state.entered) return;
-  if (dt > 1 / 38) { slowFrames++; fastFrames = 0; }
-  else if (dt < 1 / 58) { fastFrames++; slowFrames = Math.max(0, slowFrames - 1); }
-  if (slowFrames > 90 && pixelRatio > 0.85) {
-    pixelRatio = Math.max(0.85, pixelRatio - 0.2);
-    applySize();
-    slowFrames = 0;
-  } else if (fastFrames > 600 && pixelRatio < Math.min(devicePixelRatio || 1, maxRatio)) {
-    pixelRatio = Math.min(Math.min(devicePixelRatio || 1, maxRatio), pixelRatio + 0.15);
-    applySize();
-    fastFrames = 0;
-  }
+  // Hold the frame rate by trading resolution and passes, never by swapping the
+  // room's materials mid-visit (perf.js). It only listens once the campus is in.
+  perf.update(performance.now(), { active: state.entered && !!world && !state.exhibitionOpen && !state.overlay });
 }
 
 function applySize() {
+  pixelRatio = perf.pixelRatio;
   renderer.setPixelRatio(pixelRatio);
   renderer.setSize(innerWidth, innerHeight, false);
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   post.setSize(innerWidth, innerHeight);
+  sizeMirrors();
+}
+
+// The pool mirror: half the drawing buffer's long side (as pool.js builds it),
+// times the governor's mirror scale. The hall floor follows the drawing buffer
+// in room.js.
+const _mirrorDb = new THREE.Vector2();
+function sizeMirrors() {
+  if (room.floor && room.floor.userData) room.floor.userData.scale = perf.mirrorScale;
+  if (!mirrors.length) return;
+  renderer.getDrawingBufferSize(_mirrorDb);
+  const w = Math.max(256, Math.round(Math.min(2048, Math.max(_mirrorDb.x, _mirrorDb.y) * 0.5 * perf.mirrorScale)));
+  const h = Math.round(w * 0.56);
+  for (const m of mirrors) {
+    const rt = m.getRenderTarget();
+    if (rt.width !== w || rt.height !== h) rt.setSize(w, h);
+  }
 }
 
 addEventListener('resize', applySize);

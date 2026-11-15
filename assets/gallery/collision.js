@@ -182,11 +182,13 @@ export function moveInWorld(x, z, floor, dx, dz, radius, regions, colliders, act
     }
     const pg = regionHeight(r2, out.x, out.z);
     if (r2 !== reg) {
+      // Compare both floors where they meet (the old region's edge nearest the
+      // new point): a ramp's foot adds nothing, a stair riser its height.
       if (reg === null) jump += pg - cf;
       else {
         const qx = out.x < reg.minX ? reg.minX : out.x > reg.maxX ? reg.maxX : out.x;
         const qz = out.z < reg.minZ ? reg.minZ : out.z > reg.maxZ ? reg.maxZ : out.z;
-        jump += pg - regionHeight(reg, qx, qz);
+        jump += regionHeight(r2, qx, qz) - regionHeight(reg, qx, qz);
       }
       reg = r2;
     }

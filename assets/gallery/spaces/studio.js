@@ -8,6 +8,17 @@ export function build(ctx) {
   group.name = 'studio';
   const colliders = [];
   const pickables = [];
+  const seats = [];   // places to sit (sit contract): { x, y (seat top), z, facing: [fx, fz] }, world metres
+  // Invisible pick proxy for a seat: material.visible = false (never object.visible), so the
+  // raycaster still hits it while nothing is drawn. It encloses its furniture so it is hit before
+  // the leather, and carries { type: 'sit', seats }; the visitor takes the place nearest the click.
+  const sitMat = new THREE.MeshBasicMaterial({ visible: false });
+  const sitProxy = (parent, w, h, d, x, y, z, action, name) => {
+    const p = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), sitMat);
+    p.position.set(x, y, z); p.name = name; p.userData.action = action;
+    parent.add(p); pickables.push(p);
+    return p;
+  };
 
   const X0 = -23, X1 = -11, Z0 = 38, Z1 = 50;
   const T = 0.3;
@@ -358,9 +369,11 @@ export function build(ctx) {
     pickables.push(tg);
   }
 
-  // operator's chair
+  // operator's chair — it faces the desk: its front (local +z, away from the backrest at local
+  // z -0.25) turns to world -x, toward the console and the monitors' sweet spot (-17.6, 44).
+  // (rotation.y = +PI/2 + 0.1 had turned its back to the console.)
   {
-    const c = new THREE.Group(); c.position.set(-17.45, 0, 44); c.rotation.y = Math.PI / 2 + 0.1; group.add(c);
+    const c = new THREE.Group(); c.position.set(-17.45, 0, 44); c.rotation.y = -Math.PI / 2 + 0.1; group.add(c);
     rbox(c, 0.5, 0.09, 0.5, 0.035, leather, 0, 0.5, 0);
     rbox(c, 0.46, 0.5, 0.08, 0.035, leather, 0, 0.86, -0.25, { rx: -0.08 });
     cyl(c, 0.025, 0.03, 0.34, blackSteel, 0, 0.3, 0, {}, 12);
@@ -369,6 +382,15 @@ export function build(ctx) {
       box(c, 0.3, 0.03, 0.045, blackSteel, Math.cos(a) * 0.15, 0.1, Math.sin(a) * 0.15, { ry: -a });
       cyl(c, 0.025, 0.025, 0.03, blackSteel, Math.cos(a) * 0.3, 0.04, Math.sin(a) * 0.3, {}, 10);
     }
+    // Sitting: one place, the centre of the seat pad (top 0.5 + 0.09 / 2), facing the chair's
+    // front — the console. Two proxies rather than one tall box, so the empty air above the seat
+    // stays clear and a click past the chair still reaches the desk and its tablet:
+    // seat + column + five-star base, then the backrest.
+    const chairSeat = { x: c.position.x, y: 0.5 + 0.09 / 2, z: c.position.z, facing: [Math.sin(c.rotation.y), Math.cos(c.rotation.y)] };
+    const sit = { type: 'sit', seats: [chairSeat] };
+    sitProxy(c, 0.68, 0.58, 0.68, 0, 0.29, 0, sit, 'operator-chair-sit-pick');
+    sitProxy(c, 0.5, 0.57, 0.16, 0, 0.845, -0.26, sit, 'operator-chair-back-sit-pick');
+    seats.push(chairSeat);
   }
 
   // ---------------------------------------------------------------- monitors
@@ -427,6 +449,10 @@ export function build(ctx) {
     const st = new THREE.Group(); st.position.set(-16.3, 0, IZ0 + 1.25); group.add(st);
     rbox(st, 0.55, 0.1, 0.32, 0.03, leather, 0, 0.5, 0);
     for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(st, 0.03, 0.46, 0.03, blackLac, dx * 0.23, 0.23, dz * 0.12);
+    // Sitting: one place on the stool's leather top (0.5 + 0.1 / 2), facing the keys (-z).
+    const stoolSeat = { x: st.position.x, y: 0.5 + 0.1 / 2, z: st.position.z, facing: [0, -1] };
+    sitProxy(st, 0.59, 0.58, 0.36, 0, 0.29, 0, { type: 'sit', seats: [stoolSeat] }, 'piano-stool-sit-pick');
+    seats.push(stoolSeat);
     solid(-17.0, -15.4, IZ0, IZ0 + 0.7, 0, 1.3);
     cyl(pg, 0.07, 0.07, 0.02, brass, 0.5, 1.25, -0.05, {}, 16);
     cyl(pg, 0.012, 0.012, 0.28, brass, 0.5, 1.4, -0.05, {}, 8);
@@ -445,6 +471,13 @@ export function build(ctx) {
     rbox(sg, 0.12, 0.38, 0.38, 0.05, fabricSand, 0.1, 0.78, -0.7, { rz: -0.18, ry: 0.2 });
     rbox(sg, 0.12, 0.34, 0.34, 0.05, fabricTeal, 0.1, 0.76, 0.75, { rz: -0.18, ry: -0.3 });
     solid(sg.position.x - 0.5, sg.position.x + 0.5, 39.7, 42.2, 0, 0.95);
+    // Sitting: one place per seat cushion (cushion centre x -0.08, z -0.73 + i * 0.73; top
+    // 0.5 + 0.16 / 2), facing into the room (-x), away from the backrest along the east wall (+x).
+    // One proxy a little larger than the whole sofa (arms, back and cushions) carries all three.
+    const sofaSeats = [];
+    for (let i = 0; i < 3; i++) sofaSeats.push({ x: sg.position.x - 0.08, y: 0.5 + 0.16 / 2, z: sg.position.z + (-0.73 + i * 0.73), facing: [-1, 0] });
+    sitProxy(sg, 0.94, 1.1, 2.44, 0, 0.55, 0, { type: 'sit', seats: sofaSeats }, 'sofa-sit-pick');
+    seats.push(...sofaSeats);
     const ct = new THREE.Group(); ct.position.set(-14.2, 0, 40.9); group.add(ct);
     rbox(ct, 0.7, 0.04, 1.1, 0.012, oak, 0, 0.38, 0);
     for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(ct, 0.03, 0.36, 0.03, blackSteel, dx * 0.3, 0.18, dz * 0.5);
@@ -596,6 +629,7 @@ export function build(ctx) {
 
   return {
     group, regions, colliders, pickables,
+    seats,   // every place to sit in the studio (sit contract), world metres
     update(dt, frame) {
       if (ctx.reducedMotion) return;
       acc += dt;

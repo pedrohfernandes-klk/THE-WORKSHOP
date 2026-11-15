@@ -56,7 +56,7 @@ const BASE_COMPILE = THREE.Material.prototype.onBeforeCompile;
 const BASE_CACHE_KEY = THREE.Material.prototype.customProgramCacheKey;
 const BASE_MAT_RENDER = THREE.Material.prototype.onBeforeRender;
 
-function hasKeys(o) { for (const k in o) return true; return false; }  // eslint-disable-line no-unreachable-loop
+function hasKeys(o) { for (const k in o) if (Object.prototype.hasOwnProperty.call(o, k)) return true; return false; }
 
 function isCustomShader(m) {
   return !!(m.isShaderMaterial || m.isRawShaderMaterial
@@ -77,6 +77,7 @@ function meshReason(o) {
   }
   if (o.children.length) return 'has-children';
   if (o.onBeforeRender !== BASE_RENDER || o.onAfterRender !== BASE_AFTER) return 'render-hook';
+  if (o.raycast !== THREE.Mesh.prototype.raycast) return 'custom-raycast';   // e.g. made unclickable
   if (o.morphTargetInfluences && o.morphTargetInfluences.length) return 'morph';
   if (o.customDepthMaterial || o.customDistanceMaterial) return 'custom-depth';
   const m = o.material;
@@ -159,7 +160,7 @@ function partRaycast(raycaster, intersects) {
 
 const _v = new THREE.Vector3();
 const _nm = new THREE.Matrix3();
-// items: [{ o, rel, flip }] sharing material, flags and attribute names.
+// items: [{ o, rel, flip, identity }] sharing material, flags and attribute names.
 function mergeItems(items, names) {
   let nv = 0, ni = 0;
   for (const it of items) {
@@ -186,12 +187,12 @@ function mergeItems(items, names) {
           const j = (vo + i) * 3; out[j] = _v.x; out[j + 1] = _v.y; out[j + 2] = _v.z;
           box.expandByPoint(_v);
         }
-      } else if (name === 'normal') {
+      } else if (name === 'normal' && !it.identity) {
         for (let i = 0; i < count; i++) {
           _v.fromBufferAttribute(a, i).applyMatrix3(_nm).normalize();
           const j = (vo + i) * 3; out[j] = _v.x; out[j + 1] = _v.y; out[j + 2] = _v.z;
         }
-      } else if (name === 'tangent') {
+      } else if (name === 'tangent' && !it.identity) {
         for (let i = 0; i < count; i++) {
           _v.set(a.getX(i), a.getY(i), a.getZ(i)).transformDirection(rel);
           const j = (vo + i) * 4; out[j] = _v.x; out[j + 1] = _v.y; out[j + 2] = _v.z; out[j + 3] = a.getW(i);
@@ -262,6 +263,7 @@ export function createBatcher({ scene, modules, pickables = [], onDone } = {}) {
       const walk = (o, blocked) => {
         if (o !== group) {
           if (!o.visible) blocked = blocked || 'hidden';
+          else if (o.isLOD) blocked = blocked || 'lod';   // LOD toggles its children by distance
           else if (pickSet.has(o)) blocked = blocked || 'pickable';
           else if (hasKeys(o.userData)) blocked = blocked || 'userData';
         } else if (pickSet.has(o) || (o.userData && o.userData.action)) {
@@ -302,7 +304,7 @@ export function createBatcher({ scene, modules, pickables = [], onDone } = {}) {
       const key = `${m.uuid}|${o.layers.mask}|${+o.castShadow}${+o.receiveShadow}${+o.frustumCulled}|${o.renderOrder}|${sig}|${cell}`;
       let b = buckets.get(key);
       if (!b) buckets.set(key, (b = { names, items: [] }));
-      b.items.push({ o, rel, flip: det < 0 });
+      b.items.push({ o, rel, flip: det < 0, identity: isIdentity(rel) });   // identity: data copied as is
     }
     let made = 0;
     for (const { names, items } of buckets.values()) {

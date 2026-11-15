@@ -211,10 +211,11 @@ export function build(ctx) {
     const py = by;
     box(group, steelBrushed, 0.115, 0.31, 0.016, 3.45, py + 0.015, SZ0 - 0.055);
     for (const [dx, dy] of [[-0.045, 0.14], [0.045, 0.14], [-0.045, -0.11], [0.045, -0.11]]) cyl(group, steel, 0.006, 0.05, 'z', 3.45 + dx, py + dy, SZ0 - 0.03);
-    const b = makeButton(group, 'lift-call-' + i, 3.45, py - 0.035, SZ0 - 0.0465, -1, null, 0.03);
+    // On the plate's hall-facing surface (z = SZ0 - 0.063): set deeper, the button sat inside the plate, unseen and unclickable.
+    const b = makeButton(group, 'lift-call-' + i, 3.45, py - 0.035, SZ0 - 0.064, -1, null, 0.03);
     callBtns.push(b);
     const am = new THREE.MeshStandardMaterial({ color: 0x3a2a14, emissive: 0xffa233, emissiveIntensity: 0, roughness: 0.5 });
-    const a = new THREE.Mesh(i === 0 ? arrowGeoUp : arrowGeoDn, am); a.rotation.y = Math.PI; a.position.set(3.45, py + 0.075, SZ0 - 0.0465); group.add(a);
+    const a = new THREE.Mesh(i === 0 ? arrowGeoUp : arrowGeoDn, am); a.rotation.y = Math.PI; a.position.set(3.45, py + 0.075, SZ0 - 0.065); group.add(a);
     callArrows.push(am);
     const d = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.1), dispMat); d.rotation.y = Math.PI; d.position.set(4.3, L + 2.62, SZ0 - 0.03); group.add(d); landingDisp.push(d);
     box(group, bronzeDk, 0.22, 0.12, 0.012, 4.3, L + 2.62, SZ0 - 0.018, false);

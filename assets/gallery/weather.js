@@ -1,4 +1,5 @@
-// Weather module: sunny / storm / rainbow / night with ~3 s crossfades.
+// Weather module: golden (default, canon: late afternoon) / sunny (radiant noon) /
+// storm / rainbow / night with ~3 s crossfades.
 // Usage: const weather = createWeather(ctx, { environment });
 //   weather.set('storm'); each frame: weather.update(dt, { camera, ... });
 // Extras: weather.setConstellations(bool), weather.setIndoor(bool) (hides rain),
@@ -47,14 +48,14 @@ void main(){
 const EXPO = 0.78;
 // The sun disc is capped out of the IBL (environment.js): interiors that only see
 // the IBL (sun faded indoors) get its energy back while the visitor is inside.
-const INDOOR_ENV = 2.6;
+const INDOOR_ENV = 3.0;
 
 export function createWeather(ctx, { environment } = {}) {
   const { THREE, renderer, scene, reducedMotion } = ctx;
   const sun = environment && environment.sun;
   const q = ctx.quality;
   const low = q === 'low' || q === 0 || (typeof q === 'number' && q < 0.6) || (q && q.tier === 'low');
-  const modes = ['sunny', 'storm', 'rainbow', 'night'];
+  const modes = ['golden', 'sunny', 'storm', 'rainbow', 'night'];
   const group = new THREE.Group(); group.name = 'weather';
   scene.add(group);
   const disposables = [];
@@ -67,7 +68,7 @@ export function createWeather(ctx, { environment } = {}) {
   const baseBg = scene.backgroundIntensity ?? 0.9;
   const sunnyEnvTex = scene.environment;
   const capped = !!(sunnyEnvTex && sunnyEnvTex.userData && sunnyEnvTex.userData.discCapped);
-  const indoorEnv = capped ? INDOOR_ENV : 1 / EXPO;
+  const indoorEnv = capped ? INDOOR_ENV : 1;
   const fog = scene.fog;
   const baseFogColor = fog ? fog.color.clone() : new THREE.Color(0xa3a9b8);
   const baseFogDens = fog ? fog.density : 0.0012;
@@ -75,34 +76,46 @@ export function createWeather(ctx, { environment } = {}) {
   if (environment && environment.sunDirection) sunDir.copy(environment.sunDirection);
   else if (sun) sunDir.copy(sun.position).sub(sun.target.position);
   sunDir.normalize();
-  // After the storm the sun breaks through low (a bow needs the sun below 42 deg):
-  // same azimuth as the photographed sun, 21 deg up, warmer.
-  const bowSunDir = new THREE.Vector3(sunDir.x, 0, sunDir.z);
-  if (bowSunDir.lengthSq() < 1e-6) bowSunDir.set(-0.5, 0, 0.8);
-  bowSunDir.normalize().multiplyScalar(Math.cos(21 * D2R)); bowSunDir.y = Math.sin(21 * D2R);
+  // Sun elevation by mode, on the photographed sun's azimuth: radiant noon = the
+  // photographed 48 deg; golden late afternoon 28 deg (canon); after the storm the
+  // sun breaks through at 22 deg (a bow needs it below 42 deg). Weather draws the
+  // sun itself over environment.backgroundNoSun, so there is never a second sun.
+  const ownSun = !!(environment && environment.backgroundNoSun);
+  const atElev = (deg) => {
+    const v = new THREE.Vector3(sunDir.x, 0, sunDir.z); if (v.lengthSq() < 1e-6) v.set(-0.5, 0, 0.8);
+    v.normalize().multiplyScalar(Math.cos(deg * D2R)); v.y = Math.sin(deg * D2R); return v;
+  };
+  const goldSunDir = ownSun ? atElev(28) : sunDir.clone(), bowSunDir = atElev(22);
+  const AIM = { base: sunDir, gold: goldSunDir, bow: bowSunDir };
+  const WANT = { golden: 'gold', sunny: 'base', storm: null, rainbow: 'bow', night: 'gold' };
   const lightDir = sunDir.clone(); // where the DirectionalLight currently points from
   let sunAim = 'base';
 
   // ---- parameter blending --------------------------------------------------
   const P = {
-    sun: 1, env: 1, bg: 1, fogK: 1, rain: 0, bow: 0, night: 0, over: 0, flare: 1, moonL: 0, cons: 0, wet: 0, glow: 0,
+    sun: 1, env: 1, bg: 1, fogK: 1, rain: 0, bow: 0, night: 0, over: 0, flare: 1, moonL: 0, cons: 0, wet: 0, glow: 0, expo: EXPO, gold: 0,
   };
   const fogColor = baseFogColor.clone();
   const FOGC = {
+    golden: baseFogColor.clone().lerp(new THREE.Color(0xc9b8a4), 0.3).multiplyScalar(0.7),
     sunny: baseFogColor,
     storm: new THREE.Color(0x3a4452),
     rainbow: baseFogColor.clone().lerp(new THREE.Color(0x8d97a4), 0.5),
     night: new THREE.Color(0x070b14),
   };
-  const SUNC = { sunny: baseSunColor, storm: new THREE.Color(0xc9d3e2), rainbow: new THREE.Color(0xffdcb0), night: baseSunColor };
+  const SUNC = { golden: new THREE.Color(0xffc98e), sunny: baseSunColor, storm: new THREE.Color(0xc9d3e2), rainbow: new THREE.Color(0xffdcb0), night: baseSunColor };
   const T = {
-    sunny:   { sun: 1.1, env: 1, bg: 1, fogK: 1, rain: 0, bow: 0, night: 0, over: 0, flare: 1, moonL: 0, wet: 0, glow: 0 },
-    storm:   { sun: 0.15 / baseSun, env: 0.42, bg: 0.4, fogK: 2.8, rain: 1, bow: 0, night: 0, over: 1, flare: 0, moonL: 0, wet: 1, glow: 0.35 },
-    rainbow: { sun: 0.9, env: 0.75, bg: 0.85, fogK: 1.25, rain: 0.2, bow: 1, night: 0, over: 1, flare: 0.8, moonL: 0, wet: 0.75, glow: 0 },
-    night:   { sun: 0, env: 0.11, bg: 0, fogK: 1.15, rain: 0, bow: 0, night: 1, over: 0, flare: 0, moonL: 1, wet: 0, glow: 1 },
+    // key:fill on the ground ~2.6:1 (warm key, cool sky fill), long raking shadows
+    golden:  { sun: 0.85, env: 0.62, bg: 0.62, fogK: 1.05, rain: 0, bow: 0, night: 0, over: 0, flare: 1, moonL: 0, wet: 0, glow: 0.15, expo: 1.08, gold: 1 },
+    // "sol radiante": high, hard, saturated noon light, ~3.2:1
+    sunny:   { sun: 1.1, env: 1, bg: 1, fogK: 1, rain: 0, bow: 0, night: 0, over: 0, flare: 1, moonL: 0, wet: 0, glow: 0, expo: EXPO, gold: 0 },
+    storm:   { sun: 0, env: 0.42, bg: 0.4, fogK: 2.8, rain: 1, bow: 0, night: 0, over: 1, flare: 0, moonL: 0, wet: 1, glow: 0.35, expo: 0.95, gold: 0 },
+    rainbow: { sun: 0.9, env: 0.75, bg: 0.85, fogK: 1.25, rain: 0.2, bow: 1, night: 0, over: 1, flare: 0.8, moonL: 0, wet: 0.75, glow: 0, expo: 0.9, gold: 0.5 },
+    night:   { sun: 0, env: 0.11, bg: 0, fogK: 1.15, rain: 0, bow: 0, night: 1, over: 0, flare: 0, moonL: 1, wet: 0.45, glow: 1, expo: 1, gold: 0 },
   };
-  let mode = 'sunny', tgt = T.sunny, tgtFog = FOGC.sunny, tMode = 0, time = 0, indoor = 0, indoorTgt = 0;
+  let mode = 'golden', tgt = T.golden, tgtFog = FOGC.golden, tMode = 0, time = 0, indoor = 0, indoorTgt = 0;
   let consOn = true;
+  Object.assign(P, T.golden); fogColor.copy(FOGC.golden);
 
   // ---- published state -----------------------------------------------------
   let W = null;
@@ -237,7 +250,7 @@ export function createWeather(ctx, { environment } = {}) {
           p *= 1.0 + (x < 0.0 ? 0.35*cos(x*5.2)*exp(x/1.6) : 0.0); // supernumeraries
           add += spec(w) * p;
         }
-        add *= 0.62 / 9.0;
+        add *= 0.95 / 9.0;
       }
       if (th > 48.0) {
         vec3 s2 = vec3(0.0);
@@ -247,7 +260,7 @@ export function createWeather(ctx, { environment } = {}) {
           float p = x > 0.0 ? exp(-x*x/0.16) : 0.6*exp(x/1.4) + 0.4*exp(x/9.0);
           s2 += spec(w) * p;
         }
-        add += s2 * (0.27 / 7.0);
+        add += s2 * (0.4 / 7.0);
       }
       // Alexander's band: no added light, and the curtain dims what is behind it
       att = smoothstep(42.0, 43.2, th) * (1.0 - smoothstep(49.6, 50.8, th)) * 0.16;
@@ -277,12 +290,17 @@ export function createWeather(ctx, { environment } = {}) {
     return { mesh, uni };
   }
   const flareDir = sunDir.clone();
+  // the sun: a 1 deg disc far over the bloom threshold, its glare, and at golden
+  // hour a wider, warmer aureole (forward scattering in the low, long air path)
   const flare = billboard(`
-    uniform float uA; varying vec2 vUv;
+    uniform float uA, uGold, uDisc; varying vec2 vUv;
     void main(){
       float r = length(vUv);
       float g = 0.55*exp(-r*5.5) + 0.25*exp(-r*1.8) + 0.9*exp(-r*r*500.);
-      gl_FragColor = vec4(vec3(1.,.86,.62)*g*uA, 1.);` + TAIL + `}`, flareDir, 0.7, null, true, -1);
+      vec3 warm = mix(vec3(1.,.86,.62), vec3(1.,.6,.3), uGold);
+      float disc = (1. - smoothstep(0.0115, 0.0135, r)) * uDisc;
+      vec3 c = warm*g*(1. + 0.9*uGold) + mix(vec3(1.,.95,.86), vec3(1.,.8,.55), uGold)*disc*60.;
+      gl_FragColor = vec4(c*uA, 1.);` + TAIL + `}`, flareDir, 0.7, { uGold: { value: 1 }, uDisc: { value: ownSun ? 1 : 0 } }, true, -1);
   const moonDir = new THREE.Vector3(0.3, 0.6, -0.7).normalize();
   const sunW = sunDir.clone().negate();
   let moonFrac = 0.5;
@@ -437,7 +455,7 @@ export function createWeather(ctx, { environment } = {}) {
 
   // ---- materials that react: wet ground, night lamps, the landscape's haze -----------
   // Scanned once, lazily (first storm / night), never per frame.
-  let wetList = null, glowList = null, hazeU = [], hazeTries = 0, lastWet = -1, lastGlow = -1;
+  let wetList = null, glowList = null, hazeU = [], hazeTries = 0, hazeAt = 0, lastWet = -1, lastGlow = -1;
   const _box = new THREE.Box3(), _size = new THREE.Vector3();
   function scanWet() {
     wetList = [];
@@ -464,7 +482,7 @@ export function createWeather(ctx, { environment } = {}) {
       if (!o.isMesh) return;
       const ms = Array.isArray(o.material) ? o.material : [o.material];
       for (const m of ms) {
-        if (!m || seen.has(m) || m.userData.nightGlow === false) continue;
+        if (!m || seen.has(m) || m.userData.nightGlow === false || (m.envMap && !m.userData.nightGlow)) continue;
         const tag = typeof m.userData.nightGlow === 'number' ? m.userData.nightGlow : 0;
         if (m.isMeshStandardMaterial && m.emissive) {
           const e = m.emissive, warm = e.r > 0.5 && e.r >= e.b * 1.15;
@@ -558,7 +576,10 @@ export function createWeather(ctx, { environment } = {}) {
     }
     const a = boltGeo.attributes.position.array;
     let o = 0;
-    for (let i = 0; i + 1 < BOLT_PTS; i++) { for (let k = 0; k < 6; k++) a[o + k] = chan[i * 3 + (k % 3)] ; a[o + 3] = chan[(i + 1) * 3]; a[o + 4] = chan[(i + 1) * 3 + 1]; a[o + 5] = chan[(i + 1) * 3 + 2]; o += 6; }
+    for (let i = 0; i + 1 < BOLT_PTS; i++) {
+      for (let k = 0; k < 3; k++) { a[o + k] = chan[i * 3 + k]; a[o + 3 + k] = chan[(i + 1) * 3 + k]; }
+      o += 6;
+    }
     for (let b = 0; b < 2; b++) {
       const s = 3 + Math.floor(Math.random() * 6);
       let bx = chan[s * 3], by = chan[s * 3 + 1], bz = chan[s * 3 + 2];
@@ -582,8 +603,8 @@ export function createWeather(ctx, { environment } = {}) {
     let v = 0;
     for (let i = 0; i < 4; i++) {
       if (i >= strokes) break;
-      const t0 = i * 0.085 + (i > 1 ? 0.06 : 0), x = flashT - t0;
-      if (x >= 0) v = Math.max(v, Math.exp(-x * 16) * (1 - i * 0.18));
+      const t0 = i * 0.042 + (i > 1 ? 0.012 : 0), x = flashT - t0; // all strokes within ~150 ms
+      if (x >= 0) v = Math.max(v, Math.exp(-x * 30) * (1 - i * 0.18));
     }
     return flashT > 1.0 ? 0 : v + 0.12 * Math.exp(-flashT * 3);
   }
@@ -592,23 +613,31 @@ export function createWeather(ctx, { environment } = {}) {
   function set(m) {
     if (!modes.includes(m) || m === mode) return;
     mode = m; tgt = T[m]; tgtFog = FOGC[m]; tMode = 0;
-    if (m === 'storm' || m === 'rainbow') { loadOvercast(); if (!wetList) scanWet(); }
+    if (m === 'storm' || m === 'rainbow') loadOvercast();
+    if ((m === 'storm' || m === 'rainbow' || m === 'night') && !wetList) scanWet();
     if (m === 'storm') nextFlash = 1.5 + Math.random() * 3;
     if (m === 'night') { loadSky(); refreshCelestial(); }
     if (!glowList) scanGlow();
+    hazeTries = Math.min(hazeTries, 20); hazeAt = time + 1;
     publish();
   }
 
   const lerp = (a, b, k) => a + (b - a) * k;
-  const sunCol = baseSunColor.clone();
-  function aimSun(which) {
-    if (sunAim === which) return;
-    sunAim = which;
-    lightDir.copy(which === 'bow' ? bowSunDir : sunDir);
+  const sunCol = SUNC.golden.clone();
+  let sweepKey = null, sweepT = 0, sweepFrame = 0;
+  const sweepFrom = new THREE.Vector3();
+  function applyAim() {
     flareDir.copy(lightDir); basis(flareDir, flare.uni.uRight.value, flare.uni.uUp.value);
     antiV.copy(lightDir).negate();
     if (environment && environment.setSunDirection) environment.setSunDirection(lightDir);
   }
+  function aimSun(which) { // snap: while the direct sun is dim, at start, on dispose
+    sunAim = which; sweepKey = null;
+    lightDir.copy(AIM[which]); applyAim();
+  }
+  const baseBackground = scene.background;
+  if (ownSun) scene.background = environment.backgroundNoSun;
+  aimSun('gold');
   function update(dt, frame) {
     if (dt > 0.25) dt = 0.25;
     time += dt; tMode += dt;
@@ -627,10 +656,20 @@ export function createWeather(ctx, { environment } = {}) {
     fogColor.lerp(tgtFog, k);
     if (W) { W.t = Math.min(1, tMode / 3); W.nightK = P.night; W.stormK = mode === 'rainbow' ? 0 : P.over; W.rainK = P.rain; W.bowK = P.bow; W.wetK = P.wet; }
 
-    // the low rainbow sun: re-aim (one shadow re-render) while the direct sun is dim
+    // sun elevation per mode: snap while the direct sun is dim (one shadow re-render),
+    // else sweep it across the sky in 2.5 s (shadow map re-rendered every other frame)
     const sunAbs = baseSun * P.sun;
-    const wantAim = mode === 'rainbow' ? 'bow' : 'base';
-    if (wantAim !== sunAim && (sunAbs < 0.6 || tMode > 2.5)) aimSun(wantAim);
+    const wantAim = WANT[mode] || sunAim;
+    if (wantAim !== sunAim) {
+      if (sunAbs < 0.6) aimSun(wantAim);
+      else {
+        if (sweepKey !== wantAim) { sweepKey = wantAim; sweepFrom.copy(lightDir); sweepT = 0; }
+        sweepT = Math.min(1, sweepT + dt / 2.5);
+        const s = sweepT * sweepT * (3 - 2 * sweepT);
+        lightDir.copy(sweepFrom).lerp(AIM[wantAim], s).normalize();
+        if (sweepT >= 1) { sunAim = wantAim; sweepKey = null; applyAim(); } else if ((++sweepFrame & 1) === 0) applyAim();
+      }
+    }
 
     // flash
     if (mode === 'storm') {
@@ -643,20 +682,22 @@ export function createWeather(ctx, { environment } = {}) {
     if (W) W.flash = f;
 
     // scene state (outdoor radiance x EXPO; interiors that only see the IBL get the disc back)
-    const env = lerp(EXPO, indoorEnv, indoor);
+    const env = lerp(P.expo, indoorEnv, indoor);
     if (sun) {
-      sun.intensity = baseSun * P.sun * EXPO; sun.visible = P.sun > 0.002;
-      const ck = mode === 'storm' ? SUNC.storm : mode === 'rainbow' ? SUNC.rainbow : SUNC.sunny;
+      // never toggle visibility: a light-count change recompiles every material
+      sun.intensity = baseSun * P.sun * P.expo;
+      const ck = SUNC[mode] || SUNC.sunny;
       sunCol.lerp(ck, k); sun.color.copy(sunCol);
     }
     scene.environmentIntensity = baseEnv * P.env * env + f * 0.6;
-    scene.backgroundIntensity = baseBg * P.bg * lerp(EXPO, 1, indoor);
+    scene.backgroundIntensity = baseBg * P.bg * lerp(P.expo, 1, indoor);
     const stormish = P.over > 0.5 && overEnv;
     scene.environment = stormish ? overEnv : sunnyEnvTex;
-    if (fog) { fog.color.copy(fogColor).multiplyScalar(EXPO + (1 - EXPO) * P.night); fog.density = baseFogDens * P.fogK; }
+    if (fog) { fog.color.copy(fogColor).multiplyScalar(lerp(P.expo, 1, P.night)); fog.density = baseFogDens * P.fogK; }
     flashLight.intensity = f * 5.0;
     // the landscape's own distance haze follows the fog (linear radiance, paler by day)
-    if (!hazeU.length && hazeTries < 20 && (time > hazeTries * 1.5)) findHaze();
+    // (re-found after a mode change: an environment swap can recompile it)
+    if (time > hazeAt && hazeTries < 24) { hazeAt = time + (hazeU.length ? 6 : 1.5); findHaze(); }
     if (fog) for (let i = 0; i < hazeU.length; i++) hazeU[i].value.set(fog.color.r, fog.color.g, fog.color.b).multiplyScalar(1.06 - 0.06 * P.night);
 
     // wet ground: darker and glossier (water fills the micro-roughness)
@@ -683,10 +724,10 @@ export function createWeather(ctx, { environment } = {}) {
     overDome.visible = !!overOn; overU.uA.value = Math.min(1, P.over * 1.6);
     const breakK = mode === 'rainbow' ? Math.min(1, tMode / 4) : 0;
     overU.uBreak.value = lerp(overU.uBreak.value, breakK, k);
-    overU.uI.value = 0.9 * (0.4 + 0.45 * overU.uBreak.value) * lerp(EXPO, 1, indoor); overU.uFlash.value = f;
+    overU.uI.value = 0.9 * (0.4 + 0.45 * overU.uBreak.value) * lerp(P.expo, 1, indoor); overU.uFlash.value = f;
     nightDome.visible = P.night > 0.004; nightU.uA.value = P.night;
     bowDome.visible = P.bow > 0.004 && lightDir.y < 0.74; bowU.uA.value = P.bow * Math.min(1, P.sun * baseSun / 3) * (1 - 0.6 * P.rain);
-    flare.mesh.visible = P.flare > 0.01 && lightDir.y > -0.05; flare.uni.uA.value = 0.55 * P.flare * (1 - P.night) * (mode === 'rainbow' ? overU.uBreak.value : 1);
+    flare.mesh.visible = P.flare > 0.01 && lightDir.y > -0.05; flare.uni.uA.value = 0.55 * P.flare * (1 - P.night) * (mode === 'rainbow' ? overU.uBreak.value : 1); flare.uni.uGold.value = P.gold;
     // night extras
     const nv = P.night > 0.004;
     moon.mesh.visible = nv; moon.uni.uA.value = P.night;
@@ -720,7 +761,7 @@ export function createWeather(ctx, { environment } = {}) {
   function dispose() {
     scene.remove(group);
     for (const d of disposables) if (d && d.dispose) d.dispose();
-    aimSun('base');
+    aimSun('base'); scene.background = baseBackground;
     if (sun) { sun.intensity = baseSun; sun.visible = true; sun.color.copy(baseSunColor); }
     scene.environment = sunnyEnvTex; scene.environmentIntensity = baseEnv; scene.backgroundIntensity = baseBg;
     if (fog) { fog.color.copy(baseFogColor); fog.density = baseFogDens; }
