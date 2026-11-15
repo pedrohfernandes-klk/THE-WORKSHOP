@@ -761,8 +761,8 @@ export function build(ctx) {
       tsk: ['Tsk.'],
     },
     pt: {
-      run: ['Olha a pressa!', 'Devagar, que isto não é a maratona!', 'Onde é o incêndio, pá?'],
-      scream: ['AI MÃE!', 'Foge!', 'Olha o carro!', 'Socorro! …Ah, és tu.'],
+      run: ['Olha a pressa!', 'Devagar, que isto não é a maratona!', 'Onde é o incêndio, pá?', 'Calma, bro!'],
+      scream: ['Ó bro, calma!', 'AI MÃE!', 'Foge!', 'Olha o carro!', 'Socorro! …Ah, és tu.'],
       jump: ['Exibicionista.', 'Ó pá, que salto.', 'Queres uma medalha?', 'No meu tempo saltava-se mais alto.'],
       sit: ['Senta-te, senta-te. Isso é que é vida.', 'Já cá estava primeiro, mas senta-te.'],
       sun: ['Que rico solinho!', 'Este sol até dá vontade de não fazer nada.'],
@@ -891,10 +891,10 @@ export function build(ctx) {
     },
     mano: {
       talk: ['Mano, pagas tu? Não? Tenho MB Way.', 'Tudo por MB Way, mano. Tudo.', 'O meu avô tinha cheques. Eu tenho MB Way.', 'Mano, a vida é simples: MB Way.'],
-      run: ['Mano, corre! Eu pago por MB Way!'], jump: ['Bué alto, mano!'], sit: ['Senta-te, mano. Eu pago. MB Way.'],
+      run: ['Mano, corre! Eu pago por MB Way!', 'Calma, bro!', 'Calma aí, bro!'], scream: ['Ó bro, calma!', 'Calma aí, bro!'], jump: ['Bué alto, mano!'], sit: ['Senta-te, mano. Eu pago. MB Way.'],
       sun: ['Calor, mano. Gelado? Tenho MB Way.'], storm: ['Chuva, mano! Guarda-chuva por MB Way?'], night: ['Mano, à noite o MB Way até brilha.'], rainbow: ['Arco-íris, mano! Faço-lhe MB Way!'],
-      again: ['Outra vez, mano? Tenho MB Way na mesma.'], ignored: ['Mano?! Mano… tenho MB Way…'], ouch: ['Ó mano!', 'Mano?!', 'Calma, mano!'],
-      ouch2: ['Mano! Outra vez?! Isso pagas!'], ouch3: ['Anda cá, mano! Ó seu #%&@!'], up: ['Mano… isso não se faz.', 'Faço-te MB Way do estalo, mano.', 'Tenho MB Way. E tenho memória.'],
+      again: ['Outra vez, mano? Tenho MB Way na mesma.'], ignored: ['Mano?! Mano… tenho MB Way…'], ouch: ['Ó mano!', 'Mano?!', 'Calma, bro!', 'Calma aí, bro!', 'Ó bro, calma!'],
+      ouch2: ['Mano! Outra vez?! Isso pagas!'], ouch3: ['Anda cá, mano! Ó seu #%&@!', 'Mano! MANO! Ó seu #%&@!', 'Agora pagas, mano! Raios te partam!'], up: ['Mano… isso não se faz.', 'Faço-te MB Way do estalo, mano.', 'Tenho MB Way. E tenho memória.'],
       smug: ['MB Way de estalada, mano. Já foi.'], ha: ['Hahaha, mano! Levou!', 'Hehehe! Levou!'],
     },
   };

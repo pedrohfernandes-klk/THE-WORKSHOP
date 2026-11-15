@@ -35,19 +35,21 @@ const LAMP_WAKE = 48, LAMP_SLEEP = 54;
 // ~0.253 per unit of intensity, so 8 puts it at ~2.0 (still ≥ 1.8 through the hum and the 0.9 stutter phase).
 const NEON_GLOW = 8;
 
+// Leo (final pass): vending.js owns the joke machine by the arcade door and cat.js owns the ginger
+// cat, so this module's fortune machine (3) and sleeping cat (7) are built but never placed.
+const KEEP_FORTUNE = false, KEEP_SLEEPING_CAT = false;
+// Short enough for the 2.4 s toast; the world speaks Portuguese.
 const PHONE_VOICES = [
-  'Hello? Is this the museum? I\'d like to report a painting looking at me.',
-  'Hi, it\'s the moon. Could you tell the tide I\'ll be a little late tonight?',
-  'Sorry, wrong number. Unless you\'re a lighthouse? No? Carry on, then.',
-  'This is your umbrella. I\'m fine. I\'m at a café. Please don\'t look for me.',
-  'Good afternoon, this is the pigeon union. We formally object to the statues.',
-  'Hello, it\'s you, from tomorrow. Bring a jumper. That\'s all. Bye.',
-  'Hi! I\'m calling from inside a seashell. It\'s lovely here. Can you hear the sea?',
-  'This is the cloud shaped like a rabbit. I\'m becoming a teapot. Look up, quick.',
-  'Shhh. It\'s the library. We\'re calling to say nothing at all.',
-  'Are you the one who keeps not touching the art? Thank you. Keep it up.',
-  'Hello? This is the paper plane over the roof. Is it rude to land?',
-  'We have received your wish. It is being processed. Please keep wishing.',
+  'Está? Há um quadro a olhar para mim.',
+  'É a lua. Avisem a maré: atraso-me.',
+  'Engano. Não é um farol, pois não?',
+  'É o seu guarda-chuva. Fugi. Não me procure.',
+  'Sindicato dos pombos: queremos mais estátuas.',
+  'Sou tu, de amanhã. Leva casaco.',
+  'Daqui a biblioteca. Shhh.',
+  'O seu desejo está em processamento.',
+  'A nuvem-coelho virou bule. Olhe já!',
+  'Avião de papel. Posso aterrar no terraço?',
 ];
 const FORTUNES = [                           // [text, Portuguese?]
   ['You will find something you weren\'t looking for. Possibly a sock.'],
@@ -898,6 +900,20 @@ export function build(ctx) {
     pickables.push(seatTaken);
   }
 
+  if (!KEEP_FORTUNE) {
+    group.remove(vend);
+    pickables.splice(pickables.indexOf(vend), 1);
+    const ci = colliders.findIndex((c) => c.minX === VEND.x - 0.38 && c.minZ === VEND.z - 0.47);
+    if (ci >= 0) colliders.splice(ci, 1);
+  }
+  if (!KEEP_SLEEPING_CAT) {
+    for (const o of group.children.filter((c) => c === cat || c.name === 'oddities-cat-seat')) {
+      group.remove(o);
+      const pi = pickables.indexOf(o);
+      if (pi >= 0) pickables.splice(pi, 1);
+    }
+  }
+
   // ============================================= 8. the lamp at the edge of the world ==
   let lampGlassMat, lampGlow;
   {
@@ -1000,7 +1016,7 @@ export function build(ctx) {
     }
 
     // 3 · the machine's tube stutters now and then; the card slides out
-    if (!calm) {
+    if (!calm && KEEP_FORTUNE) {
       st.vendNext -= dt;
       if (st.vendNext <= 0) { st.vendStutter = 0.45; st.vendNext = 14 + Math.random() * 14; }
       if (st.vendStutter > 0) { st.vendStutter -= dt; vendFront.emissiveIntensity = Math.sin(st.vendStutter * 40) > 0 ? 0.15 : 0.75; }
@@ -1034,7 +1050,7 @@ export function build(ctx) {
     if (!calm) placePlane();
 
     // 7 · the cat breathes; a "z" drifts up when someone is near enough to see it
-    if (!calm) {
+    if (!calm && KEEP_SLEEPING_CAT) {
       const b = Math.sin(t * 1.85);
       catBody.scale.set(1 + 0.018 * b, 1 + 0.035 * b, 1 + 0.012 * b);
       catHead.position.y = HEAD_Y + 0.003 * b;

@@ -365,7 +365,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb * (1.0 - 0.35 * gnRim), gnClay, gnChip);
   for (const x of [28.35, 63.65]) for (const z of [26.725, 31.275]) perch(x, 2.2, z, 'ledge');   // gate pier caps
   perch(53.0, 0.005, 26.85, 'ground'); perch(59.0, 0.005, 31.15, 'ground');                      // beside pergola posts
   perch(23.78, 0.6, 25.3, 'ledge'); perch(23.78, 0.6, 32.7, 'ledge');                            // plaza's low east wall
-  perch(24.17, 1.83, 26.65, 'ledge'); perch(24.17, 1.83, 31.35, 'ledge');                        // plaza's east gate piers
+  perch(24.17, 1.83, 31.35, 'ledge');   // plaza's east gate pier (the other pier belongs to the critic cat)
 
   // ==================================================================== state ==
   const frustum = new THREE.Frustum(), pv = new THREE.Matrix4(), sphere = new THREE.Sphere();

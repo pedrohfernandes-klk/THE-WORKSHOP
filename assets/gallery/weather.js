@@ -111,7 +111,7 @@ export function createWeather(ctx, { environment } = {}) {
     night:   { sun: 0, env: 0.11, bg: 0, fogK: 1.15, rain: 0, bow: 0, night: 1, over: 0, flare: 0, moonL: 1, wet: 0.45, glow: 1, expo: 1, gold: 0 },
   };
   let mode = 'golden', tgt = T.golden, tgtFog = FOGC.golden, tMode = 0, time = 0, indoor = 0, indoorTgt = 0;
-  let consOn = true;
+  let consOn = false;   // real sky first: no diagram lines unless asked (setConstellations)
   Object.assign(P, T.golden); fogColor.copy(FOGC.golden);
 
   // ---- published state -----------------------------------------------------

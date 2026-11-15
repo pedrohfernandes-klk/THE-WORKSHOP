@@ -79,9 +79,20 @@ const VERBS = [
   [/^use$/i, 'Use'],
   [/^open$/i, 'Open'],
 ];
+// One language per visitor: the interface speaks the browser's (English or pt-PT);
+// the world itself (signs, radio, people) speaks Portuguese. Leo, final pass.
+const PT_SAY = new Map(Object.entries({
+  take: 'Apanhar', look: 'Olhar', read: 'Ler', sit: 'Sentar', up: 'Subir', down: 'Descer', call: 'Chamar',
+  watch: 'Ver', slap: 'Chapada', talk: 'Falar', use: 'Usar', open: 'Abrir', play: 'Jogar', throw: 'Atirar',
+  'look around': 'olhar', walk: 'andar', run: 'correr', jump: 'saltar', 'or hold to walk': 'ou mantém para andar',
+  'releases the mouse': 'solta o rato', seated: 'Sentado', 'or space to stand up': 'ou Espaço para levantar',
+  'the floor to stand': 'o chão para levantar', 'click to play': 'Clica para jogar',
+  click: 'Clique', tap: 'Toque', drag: 'Arrasta', space: 'Espaço', mouse: 'Rato',
+}));
+const say = (s) => (PT && PT_SAY.get(String(s).trim().toLowerCase())) || s;
 function verbFor(label) {
-  for (const [re, verb] of VERBS) if (re.test(label)) return verb;
-  return /^[\p{L}-]{1,10}$/u.test(label) ? label : 'Open';
+  for (const [re, verb] of VERBS) if (re.test(label)) return say(verb);
+  return say(/^[\p{L}-]{1,10}$/u.test(label) ? label : 'Open');
 }
 function isKeySegment(seg) { return KEY.test(seg.trim()); }
 
@@ -327,9 +338,9 @@ export function createUI(handlers = {}) {
   // ---------- prompt: [KEY] VERB under the crosshair, teaching strip, or CLICK TO PLAY ----------
   function keyParts(box, seg) {
     const m = KEY.exec(seg.trim());
-    if (!m) { box.append(el('span', null, seg.trim())); return; }
-    box.append(el('kbd', null, m[1].replace(/\s+/g, '')));
-    if (m[2]) box.append(el('span', null, m[2]));
+    if (!m) { box.append(el('span', null, say(seg.trim()))); return; }
+    box.append(el('kbd', null, say(m[1].replace(/\s+/g, ''))));
+    if (m[2]) box.append(el('span', null, say(m[2])));
   }
   function segments(box, text) {
     text.split(/\s+·\s+/).forEach((seg, i) => {
@@ -346,15 +357,15 @@ export function createUI(handlers = {}) {
       hintEl.dataset.mode = 'cap';
       const rest = pre[2];
       if (rest.split(/\s+·\s+/).some(isKeySegment)) segments(box, rest);
-      else { box.append(el('kbd', null, pre[1]), el('span', null, verbFor(rest))); }
+      else { box.append(el('kbd', null, say(pre[1])), el('span', null, verbFor(rest))); }
       if (verbFor(rest) !== rest) box.append(el('span', 'sr-only', ` (${rest})`));
     } else if (/^click to play\b/i.test(text)) {
       hintEl.dataset.mode = 'centre';
-      box.append(el('span', null, text.split(/\s+·\s+/)[0]));
+      box.append(el('span', null, say(text.split(/\s+·\s+/)[0])));
     } else if (!/·/.test(text) && VERBS.some(([re]) => re.test(text))) {
       // Hovering a thing with a free mouse: the same grammar, at the foot of the screen.
       hintEl.dataset.mode = 'strip';
-      box.append(el('kbd', null, coarse() ? 'Tap' : 'Click'), el('span', null, verbFor(text)));
+      box.append(el('kbd', null, say(coarse() ? 'Tap' : 'Click')), el('span', null, verbFor(text)));
       box.append(el('span', 'sr-only', ` (${text})`));
     } else {
       hintEl.dataset.mode = 'strip';

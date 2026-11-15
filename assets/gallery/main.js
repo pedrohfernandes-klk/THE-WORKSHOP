@@ -1155,8 +1155,15 @@ document.addEventListener('visibilitychange', () => {
 canvas.addEventListener('webglcontextlost', (event) => {
   event.preventDefault();
   running = false;
-  ui.toast('Graphics hiccup. Reloading…', 4000);
-  setTimeout(() => location.reload(), 1500);
+  // At most two automatic reloads in a row (the second at low quality); a weak phone that keeps
+  // losing the context gets the fallback instead of a reload loop. Two calm minutes reset the count.
+  const url = new URL(location.href);
+  const tries = (performance.now() > 120000 ? 0 : (parseInt(url.searchParams.get('ctxlost') || '0', 10) || 0)) + 1;
+  if (tries > 2) { showFallback('The graphics card keeps stopping on this device.'); return; }
+  url.searchParams.set('ctxlost', String(tries));
+  if (tries === 2) url.searchParams.set('quality', 'low');
+  ui.toast('Graphics hiccup. Reloading…');
+  setTimeout(() => location.replace(url.href), 1500);
 });
 
 applySize();
