@@ -128,16 +128,16 @@ export function build(ctx) {
     }
     for (let i = 0; i < cracks; i++) {
       let x = r() * w, y = r() * h, a = r() * TAU;
-      pen(g, '58,42,28', 0.25 + r() * 0.3, 0.6 + r() * 0.9);
+      pen(g, '58,42,28', 0.1 + r() * 0.16, 0.5 + r() * 0.5);
       g.beginPath(); g.moveTo(x, y);
-      const n = 12 + (r() * 30 | 0);
-      for (let k = 0; k < n; k++) { a += (r() - 0.5) * 1.1; const s = 3 + r() * 9; x += Math.cos(a) * s; y += Math.sin(a) * s; g.lineTo(x, y); }
+      const n = 8 + (r() * 18 | 0);
+      for (let k = 0; k < n; k++) { a += (r() - 0.5) * 1.1; const s = 2 + r() * 6; x += Math.cos(a) * s; y += Math.sin(a) * s; g.lineTo(x, y); }
       g.stroke();
     }
   }
   // Alpha mask (an opaque canvas, white = plaster still on the wall): a soft irregular patch whose
   // edge breaks into chips, a few stray islands beyond it, optional losses inside and a cut() hook.
-  function mask(w, h, r, { margin = 22, blur = 12, flakes = 70, inner = 0, islands = 14, cut } = {}) {
+  function mask(w, h, r, { margin = 22, blur = 12, flakes = 70, deep = 2.4, inner = 0, islands = 14, cut } = {}) {
     const { c, g } = canvas(w, h);
     const n = noise(r);
     g.fillStyle = '#000'; g.fillRect(0, 0, w, h);
@@ -155,7 +155,7 @@ export function build(ctx) {
     const poly = (q) => { g.beginPath(); q.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); g.fill(); };
     g.fillStyle = '#000';
     for (let i = 0; i < flakes; i++) {                   // chips bitten out of the edge
-      const p = pts[(r() * N) | 0], dep = margin * (0.2 + Math.pow(r(), 2) * 2.4);
+      const p = pts[(r() * N) | 0], dep = margin * (0.2 + Math.pow(r(), 2) * deep);
       const q = chip(p[0] + p[2] * dep, p[1] + p[3] * dep, 3 + r() * 14); chips.push(q); poly(q);
     }
     for (let i = 0; i < inner; i++) {                    // scattered losses
@@ -447,6 +447,7 @@ export function build(ctx) {
     const parts = [[legL, -0.05], [mir(legL), 0.07], [torso, 0.035], [armL, null], [mir(armL), null]];
     for (const [pts, shadeX] of parts) {
       const path = spline(M(pts), true);
+      if (pts === torso) { g.fillStyle = 'rgba(230,218,194,0.86)'; g.fill(path); }
       g.fillStyle = rgba(BISTRE, 0.1); g.fill(path);
       const box = [cx - 0.55 * S, top, cx + 0.55 * S, top + S];
       if (shadeX != null) hatchIn(g, r, path, box, 3.2, SEPIA, 0.36, 0.85, Math.PI / 4, (q) => q.rect(cx + shadeX * S, top, S, S));
@@ -531,8 +532,9 @@ export function build(ctx) {
       for (let i = 40; i >= 0; i--) { const u = i / 40, [x, y] = riv(u), wd = 2 + u * u * 56; q.lineTo(x + wd, y); }
       q.closePath();
     }, 'rgb(186,198,200)', 3);
-    softFill(g, ridge(hz + 96, 42, 0.02, 201, y1 + 20), 'rgb(92,82,54)', 3);
-    const fg = g.createLinearGradient(0, hz + 60, 0, y1); fg.addColorStop(0, 'rgba(70,58,38,0)'); fg.addColorStop(1, 'rgba(60,48,30,0.7)');
+    softFill(g, ridge(hz + 96, 42, 0.02, 201, y1 + 20), 'rgb(118,104,64)', 3);
+    for (let i = 0; i < 26; i++) { const cx = x0 + r() * (x1 - x0), cy = hz + 100 + r() * (y1 - hz - 110); softFill(g, (q) => q.ellipse(cx, cy, 20 + r() * 50, 4 + r() * 8, 0, 0, TAU), r() < 0.5 ? 'rgba(150,136,84,0.5)' : 'rgba(84,90,52,0.45)', 6); }
+    const fg = g.createLinearGradient(0, hz + 60, 0, y1); fg.addColorStop(0, 'rgba(70,58,38,0)'); fg.addColorStop(1, 'rgba(60,48,30,0.5)');
     g.fillStyle = fg; g.fillRect(x0, hz + 60, x1 - x0, y1 - hz - 60);
     for (let i = 0; i < 7; i++) {                        // rocks, lit from the upper left
       const rx = x0 + 20 + r() * (x1 - x0 - 40), ry = y1 - 12 - r() * 60, s = 10 + r() * 22;
@@ -553,7 +555,7 @@ export function build(ctx) {
     pen(g, '236,222,190', 0.6, 2); g.strokeRect(B + 2, B + 2, w - 2 * B - 4, h - 2 * B - 4);
     for (let i = 0; i < 900; i++) { g.fillStyle = `rgba(228,214,184,${0.25 + r() * 0.5})`; const s = 0.8 + r() * 3; g.fillRect(r() * w, r() * h, s, s); }  // abraded pigment
     for (let i = 0; i < 6; i++) { const cx = r() * w, cy = r() * h; softFill(g, (q) => q.ellipse(cx, cy, 30 + r() * 60, 20 + r() * 40, 0, 0, TAU), 'rgba(238,232,218,0.22)', 20); }  // salt bloom
-    age(g, w, h, r, { damp: 0.34, streaks: 36, cracks: 12, foxing: 24 });
+    age(g, w, h, r, { damp: 0.34, streaks: 36, cracks: 7, foxing: 24 });
   }
   // the ruins wall's broken crest (ruins.js wall(-47.5, -26, 7.5), seed 1337): the fresco stays below it
   const CREST = [[-47.5, 2.647], [-47.031, 2.923], [-46.562, 3.104], [-45.625, 2.614], [-44.687, 2.721], [-43.75, 2.107], [-42.812, 1.39]];
@@ -581,7 +583,7 @@ export function build(ctx) {
     horse(g, r, 600, 214, 126, 'trot');
     script(g, r, 1000, 48, 190, 5, 13);
     pen(g, SANG, 0.55, 1.1);                             // footfalls of the trot: hoof prints in diagonal pairs
-    for (let i = 0; i < 4; i++) for (const s of [0, 1]) { const x = 830 + i * 40 + s * 18, y = 160 + s * 26; arc(g, r, x, y, 6, Math.PI * 0.15, Math.PI * 1.85, 0.3); }
+    for (let i = 0; i < 4; i++) for (const s of [0, 1]) { const x = 830 + i * 40 + s * 18, y = 160 + s * 26; g.fillStyle = rgba(SANG, 0.35); g.beginPath(); g.ellipse(x, y, 7, 4.5, 0.2, 0, TAU); g.fill(); g.stroke(); }
     horse(g, r, 1100, 208, 116, 'gallop');
     pen(g, SANG, 0.45, 1); g.setLineDash([5, 5]);
     curve(g, r, (t) => [1100 + 116 * (1.0 + 0.32 * Math.cos(t)), 208 - 116 * (0.22 + 0.14 * Math.sin(t))], 0, TAU, 40, 0.5);
@@ -645,17 +647,17 @@ export function build(ctx) {
     return gq;
   }
   const HALF = Math.PI / 2;
-  mural({ id: 'voo', w: 1024, h: 512, seed: 1452, paint: paintVoo, maskOpt: { margin: 24, blur: 14, flakes: 80, islands: 16 },
+  mural({ id: 'voo', w: 1024, h: 512, seed: 1452, paint: paintVoo, maskOpt: { margin: 24, blur: 14, flakes: 46, deep: 1.3, islands: 16 },
     geo: new THREE.PlaneGeometry(9.6, 4.8), pos: [-6.92, 3.3, 6.5], ry: -HALF,
     caption: 'Estudo de máquina voadora — o ar também tem peso.' });
-  mural({ id: 'homem', w: 1024, h: 512, seed: 1519, paint: paintHomem, maskOpt: { margin: 24, blur: 14, flakes: 80, islands: 16 },
+  mural({ id: 'homem', w: 1024, h: 512, seed: 1519, paint: paintHomem, maskOpt: { margin: 24, blur: 14, flakes: 46, deep: 1.3, islands: 16 },
     geo: new THREE.PlaneGeometry(9.6, 4.8), pos: [6.92, 3.3, 6.5], ry: HALF,
     caption: 'O corpo medido no círculo e no quadrado — e a luz que pousa nas esferas.' });
   mural({ id: 'paisagem', w: 720, h: 512, seed: 1503, paint: paintPaisagem,
     maskOpt: { margin: 18, blur: 7, flakes: 110, inner: 34, islands: 12, cut: cutCrest(720, 512) },
     geo: new THREE.PlaneGeometry(PAI.x1 - PAI.x0, PAI.y1 - PAI.y0), pos: [(PAI.x0 + PAI.x1) / 2, (PAI.y0 + PAI.y1) / 2, -25.83], ry: 0,
     caption: 'Paisagem a fresco — ao longe, o ar pinta os montes de azul.' });
-  mural({ id: 'predela', w: 2048, h: 256, seed: 1490, paint: paintFrieze, folded: true, maskOpt: { margin: 20, blur: 10, flakes: 120, islands: 20 },
+  mural({ id: 'predela', w: 2048, h: 256, seed: 1490, paint: paintFrieze, folded: true, maskOpt: { margin: 20, blur: 10, flakes: 80, deep: 1.6, islands: 20 },
     geo: foldedPlane(12.7, 1.5), pos: [-56.98, -1.3, 30], ry: HALF,
     caption: 'Estudos de água e de cavalos — tudo o que corre desenha a sua curva.' });
 

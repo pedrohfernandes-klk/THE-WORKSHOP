@@ -7,7 +7,7 @@
 //   the snake slithers round (no apples beside it). Flat light only: no colliders, no regions.
 // Idle: a dim attract demo plays itself; now and then it scrolls "PISA PARA JOGAR".
 // Play: step on and the snake leaves the far corner and steers for YOUR cell, a little slower
-//   than walking (1.4 → 1.6 m/s; walking is 2.0), looking a little ahead as you score. Walk over
+//   than walking (1.3 → 1.5 m/s; walking is 2.0), looking a little ahead as you score. Walk over
 //   5 apples before its head reaches you → "GANHASTE!" + fanfare; caught → "APANHADO!" + a sad
 //   trombone. Step off and the round pauses; 6 s later the snake gives up. Reduced motion: no
 //   marquees (a still pixel face instead), nothing blinks.
@@ -31,7 +31,7 @@ export const PILLAR = 3 * COLS + 12;               // the lamp post's cell
 const BX = 0.2, BZN = 0.44, BZS = 0.25;            // plane margins (m): frame, + score pips on the north
 const SCROLL = 11;                                 // marquee speed, cells per second
 const DEMO_TICK = 0.42;
-export const tickOf = (score) => 0.36 - 0.014 * score;   // s per cell: 1.39 → 1.64 m/s
+export const tickOf = (score) => 0.38 - 0.013 * score;   // s per cell: 1.32 → 1.52 m/s
 
 // cells the snake may not enter, and cells apples avoid (the pillar and its neighbours)
 const WALL = new Uint8Array(N), NOAPPLE = new Uint8Array(N);
@@ -544,7 +544,7 @@ export function build(ctx) {
         const T = tickOf(G.score);
         if (!over && acc >= T) {
           acc = Math.min(acc - T, T);
-          const lead = 0.1 * G.score / CELL;      // it learns to cut you off as you score
+          const lead = 0.05 * G.score / CELL;     // it learns to cut you off as you score
           const li = vx * lead, lj = vz * lead;
           const ev = snakeStep(G, fi - 0.5 + (li > 3 ? 3 : li < -3 ? -3 : li), fj - 0.5 + (lj > 3 ? 3 : lj < -3 ? -3 : lj), vc);
           const h = G.body[G.head], hi = h % COLS, hj = (h / COLS) | 0, di = hi - ii, dj = hj - jj;

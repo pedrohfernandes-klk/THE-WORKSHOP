@@ -113,17 +113,17 @@ export function build(ctx) {
     const g = trophyCanvas.getContext('2d');
     const r = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
     const GOLD = '#f6c343', GOLD_SH = '#c98d17', GOLD_HI = '#fff2a8';
-    r(8, 2, 16, 8, GOLD); r(9, 10, 14, 3, GOLD); r(11, 13, 10, 2, GOLD); r(13, 15, 6, 1, GOLD);
-    r(8, 2, 16, 1, GOLD_HI); r(9, 3, 2, 8, GOLD_HI); r(21, 3, 2, 10, GOLD_SH); r(13, 15, 6, 1, GOLD_SH);
-    r(4, 4, 4, 2, GOLD); r(4, 6, 2, 4, GOLD); r(4, 10, 5, 2, GOLD);          // handles
-    r(24, 4, 4, 2, GOLD); r(26, 6, 2, 4, GOLD_SH); r(23, 10, 5, 2, GOLD_SH);
-    r(14, 16, 4, 4, GOLD); r(17, 16, 1, 4, GOLD_SH);                          // stem
-    r(11, 20, 10, 2, GOLD); r(11, 20, 10, 1, GOLD_HI); r(10, 22, 12, 1, GOLD_SH);
-    r(13, 4, 6, 7, '#2f5fe0'); r(14, 4, 4, 2, METAL); r(14, 7, 4, 3, LABEL);  // floppy emblem
-    r(9, 23, 14, 7, '#6b3f22'); r(9, 29, 14, 1, '#4a2a15'); r(12, 24, 8, 5, '#e9d9a6');
-    const D = '#3b2a0e';                                                       // "12" in a 3×5 font
-    r(14, 24, 1, 5, D); r(13, 25, 1, 1, D);
-    r(16, 24, 2, 1, D); r(18, 25, 1, 1, D); r(17, 26, 1, 1, D); r(16, 27, 1, 1, D); r(16, 28, 3, 1, D);
+    r(8, 1, 16, 8, GOLD); r(9, 9, 14, 3, GOLD); r(11, 12, 10, 2, GOLD); r(13, 14, 6, 1, GOLD_SH);   // cup
+    r(8, 1, 16, 1, GOLD_HI); r(9, 2, 2, 8, GOLD_HI); r(21, 2, 2, 10, GOLD_SH);
+    r(4, 3, 4, 2, GOLD); r(4, 5, 2, 4, GOLD); r(4, 9, 5, 2, GOLD);                                 // handles
+    r(24, 3, 4, 2, GOLD); r(26, 5, 2, 4, GOLD_SH); r(23, 9, 5, 2, GOLD_SH);
+    r(13, 3, 6, 7, '#2f5fe0'); r(14, 3, 4, 2, METAL); r(14, 6, 4, 3, LABEL);                       // floppy emblem
+    r(14, 15, 4, 4, GOLD); r(17, 15, 1, 4, GOLD_SH);                                                // stem
+    r(11, 19, 10, 2, GOLD); r(11, 19, 10, 1, GOLD_HI); r(10, 21, 12, 1, GOLD_SH);                   // foot
+    r(8, 22, 16, 9, '#6b3f22'); r(8, 30, 16, 1, '#4a2a15'); r(10, 23, 12, 7, '#e9d9a6');            // plinth + plate
+    const D = '#3b2a0e';                                                                            // "12", 3×5 pixel font
+    r(13, 24, 1, 5, D); r(12, 25, 1, 1, D); r(12, 28, 3, 1, D);
+    r(17, 24, 3, 1, D); r(19, 25, 1, 1, D); r(17, 26, 3, 1, D); r(17, 27, 1, 1, D); r(17, 28, 3, 1, D);
     // one-pixel dark outline around everything opaque
     const img = g.getImageData(0, 0, 32, 32), a = img.data, src = new Uint8Array(32 * 32);
     for (let i = 0; i < 1024; i++) src[i] = a[i * 4 + 3] > 0 ? 1 : 0;
@@ -294,7 +294,7 @@ export function build(ctx) {
   const TROPHY = 3.6;
   const trophy = new THREE.Mesh(new THREE.PlaneGeometry(TROPHY, TROPHY), new THREE.MeshBasicMaterial({
     map: trophyTex, transparent: true, alphaTest: 0.5, depthTest: false, depthWrite: false,
-    toneMapped: false, side: THREE.DoubleSide, fog: false,
+    toneMapped: false, fog: false,   // front side only: it is billboarded, and a double-sided transparent mesh costs two draws
   }));
   trophy.name = 'floppies-trophy';
   trophy.visible = false;
