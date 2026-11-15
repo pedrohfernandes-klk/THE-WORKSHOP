@@ -26,6 +26,12 @@ const ADDONS = [
   'shaders/CopyShader.js',
   'shaders/LuminosityHighPassShader.js',
   'shaders/OutputShader.js',
+  'postprocessing/GTAOPass.js',
+  'postprocessing/BokehPass.js',
+  'shaders/GTAOShader.js',
+  'shaders/PoissonDenoiseShader.js',
+  'shaders/BokehShader.js',
+  'math/SimplexNoise.js',
   'objects/Reflector.js',
   'environments/RoomEnvironment.js',
 ];

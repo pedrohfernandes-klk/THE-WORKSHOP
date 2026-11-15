@@ -245,3 +245,41 @@ UI {
 
 Renderer, render loop, gaze and visibility, the re-hang cycle, share links
 (`#show=<encodeShow>`), quality adaptation, and `window.__gallery` for tests.
+
+### 4.7 `props.js` — the furniture and details that make the hall real
+
+```js
+export function createProps(scene, { quality, reducedMotion }): Props
+Props {
+  colliders: { minX, maxX, minZ, maxZ }[]   // added to the walkable colliders
+  pickables: THREE.Object3D[]               // userData.prop = 'catalogue' for the lectern
+  setCatalogueCover({ title, palette })     // redraws the printed catalogue's cover
+  update(dt, camera)
+}
+```
+
+Few objects, each one impeccable and placed where a real museum would place
+it, never in front of a work or on the walking axis: a lectern near the
+entrance holding the printed exhibition catalogue (diegetic: clicking it opens
+*Your exhibition*; its cover shows the live title and palette), the
+attendant's chair in a far corner, the green exit sign over the door, a wall
+extinguisher by the door, ceiling sprinkler heads and smoke detectors, linear
+floor grilles along the long walls.
+
+### 4.8 `audio.js` — the sound of the room
+
+```js
+export function createAudio(): Audio
+Audio {
+  start(): Promise<void>     // call from a user gesture (Enter)
+  muted: boolean; setMuted(bool)
+  setMotion({ speed, moving })   // drives footsteps (cadence from speed)
+  lightsOn(i, count)         // a relay clunk + hum for the i-th spot switching on
+  reveal()                   // the soft cue when a re-hung work develops
+  update(dt)
+}
+```
+
+Entirely procedural (Web Audio, no files): a quiet room tone with the hall's
+long reverb, footsteps on polished concrete, the lights' relays at entry, a
+barely-there cue on reveal. Restrained: a museum, not a game soundtrack.

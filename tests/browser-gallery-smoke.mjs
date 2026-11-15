@@ -32,9 +32,20 @@ function watch(page) {
   return problems;
 }
 
+// page.waitForFunction polls through eval, which the page's CSP (rightly)
+// forbids; poll with plain evaluate calls instead, so the real CSP stays on.
+async function until(page, predicate, arg, { timeout = 30000, label = 'condition' } = {}) {
+  const deadline = Date.now() + timeout;
+  for (;;) {
+    try { if (await page.evaluate(predicate, arg)) return; } catch { /* page still loading */ }
+    if (Date.now() > deadline) fail(`Timed out waiting for ${label}`);
+    await new Promise(r => setTimeout(r, 200));
+  }
+}
+
 async function boot(page, url) {
   await page.goto(url, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => window.__gallery, null, { timeout: 30000 });
+  await until(page, () => !!window.__gallery, null, { label: 'the gallery to boot' });
   await page.evaluate(() => window.__gallery.ready);
 }
 
@@ -47,10 +58,9 @@ try {
   await boot(page, `${origin}/?test`);
   const enter = page.getByRole('button', { name: /enter/i }).first();
   await enter.waitFor({ state: 'visible', timeout: 30000 });
-  await page.waitForFunction(() => !document.querySelector('button[aria-disabled="true"], button:disabled') ||
-    [...document.querySelectorAll('button')].some(b => /enter/i.test(b.textContent) && !b.disabled && b.getAttribute('aria-disabled') !== 'true'), null, { timeout: 30000 });
+  await until(page, () => !document.getElementById('enter').disabled, null, { label: 'Enter to enable' });
   await enter.click();
-  await page.waitForFunction(() => window.__gallery.state.entered && window.__gallery.state.frames > 10, null, { timeout: 30000 });
+  await until(page, () => window.__gallery.state.entered && window.__gallery.state.frames > 10, null, { label: 'entry' });
   // Let the lights come up.
   await page.waitForTimeout(4000);
   results.pixels = await page.evaluate(() => window.__gallery.samplePixels());
@@ -64,9 +74,13 @@ try {
   const looked = await page.evaluate(async (slot) => {
     const g = window.__gallery;
     await g.lookAtSlot(slot);
+    // Let the visitor settle: looking is stillness, and software WebGL in CI
+    // draws only a few frames a second, so this takes longer than on a GPU.
+    const settleBy = performance.now() + 20000;
+    while (g.state.gazeWeight < 0.7 && performance.now() < settleBy) await new Promise(r => setTimeout(r, 200));
     const id = g.curator.hang[slot];
     const before = g.curator.seconds[id] || 0;
-    await new Promise(r => setTimeout(r, 2500));
+    await new Promise(r => setTimeout(r, 3000));
     return { id, gained: (g.curator.seconds[id] || 0) - before, gazeSlot: g.state.gazeSlot };
   }, lookSlot);
   results.gaze = looked;

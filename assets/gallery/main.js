@@ -13,6 +13,7 @@ import { createPost } from './post.js';
 import { loadWorkTexture } from './textures.js';
 import { createControls } from './controls.js';
 import { createUI, showFallback } from './ui.js';
+import { createAudio } from './audio.js';
 
 const params = new URLSearchParams(location.search);
 const TEST = params.has('test');
@@ -33,6 +34,7 @@ const LABEL_LINGER = 1.6;     // label stays this long after the gaze leaves (s)
 // Walking order used by Previous / Next in focus: left wall from the door to
 // the end, the hero, the right wall back, then the door wall.
 const TOUR = [6, 5, 4, 3, 2, 1, 0, 7, 8, 9, 10, 11, 12, 14, 13];
+const RELAYS = 7;             // banks of track spots heard switching on at entry
 
 // ------------------------------------------------------------- the visit --
 
@@ -90,12 +92,27 @@ const ui = createUI({
   onNext: () => stepFocus(+1),
   onPrev: () => stepFocus(-1),
   onLeaveFocus: () => leaveFocus(true),
+  onToggleSound: () => setSound(audio.muted),
   onResumeAttentive: () => {
     curator.setFixed(false);
     history.replaceState(null, '', location.pathname + location.search);
     enter();
   },
 });
+
+// ----------------------------------------------------------------- sound --
+
+const audio = createAudio();
+const SOUND_KEY = 'workshop.sound';
+function readSoundPreference() {
+  try { return localStorage.getItem(SOUND_KEY) !== 'off'; } catch { return true; }
+}
+function setSound(on) {
+  audio.setMuted(!on);
+  ui.setSound(on);
+  try { localStorage.setItem(SOUND_KEY, on ? 'on' : 'off'); } catch { /* private mode */ }
+}
+setSound(readSoundPreference());
 
 // ------------------------------------------------------------- renderer --
 
@@ -122,7 +139,7 @@ const ENTRY_POSITION = START.position.clone().add(new THREE.Vector3(0, 0, 2.4));
 camera.position.copy(ENTRY_POSITION);
 camera.lookAt(START.target);
 
-const room = createRoom(renderer, { quality });
+const room = createRoom(renderer, { quality, reducedMotion });
 const post = createPost(renderer, room.scene, camera, { quality });
 const controls = createControls(camera, canvas, {
   bounds: room.bounds,
@@ -179,12 +196,14 @@ let powerTween = null;
 
 async function enter() {
   if (state.entered) return;
+  // Audio must start inside the click itself, before any await.
+  audio.start().catch(() => {});
   await ready;
   state.entered = true;
   ui.hideEntry();
   const from = 0.06;
   const duration = reducedMotion ? 0.01 : 3.2;
-  powerTween = { t: 0, duration, from };
+  powerTween = { t: 0, duration, from, relays: 0 };
   controls.enabled = true;
   // Step over the threshold as the lights come on.
   controls.flyTo({ position: START.position, target: START.target, duration: reducedMotion ? 0.2 : 3.4 });
@@ -258,8 +277,13 @@ async function focusSlot(slot) {
   const work = byId.get(curator.hang[slot]);
   ui.setLabel(work, { seconds: curator.seconds[work.id] || 0, focused: true });
   state.labelSlot = slot;
-  const arrived = await controls.flyTo(viewpointFor(slot));
-  if (!arrived && state.focused === slot) leaveFocus(false);
+  const view = viewpointFor(slot);
+  state.flying = true;
+  const arrived = await controls.flyTo(view);
+  state.flying = false;
+  if (!arrived && state.focused === slot) { leaveFocus(false); return; }
+  // Soften the room behind the work once the visitor stands before it.
+  if (arrived && state.focused === slot) post.setFocus?.(view.position.distanceTo(room.workCenter(slot)));
 }
 
 function leaveFocus(stepBack) {
@@ -268,6 +292,7 @@ function leaveFocus(stepBack) {
   state.focused = -1;
   state.labelSlot = -1;
   ui.setLabel(null);
+  post.setFocus?.(null);
   if (stepBack) {
     tmpV.copy(camera.position).addScaledVector(SLOTS[slot].normal, 1.6);
     tmpV.y = 0;
@@ -341,6 +366,8 @@ function paletteOf(ids, seconds) {
 }
 
 function closeExhibition() {
+  if (!state.exhibitionOpen) return;
+  ui.closeExhibition();
   state.exhibitionOpen = false;
   if (state.entered) controls.enabled = true;
 }
@@ -376,6 +403,7 @@ function updateVisibility(now) {
       if (frustum.intersectsBox(box)) {
         state.pendingReveal.delete(i);
         room.reveal(i);
+        audio.reveal();
         state.revealedSwaps++;
         if (state.revealedSwaps === 1) {
           ui.toast('The room is re-hanging itself around what holds your gaze.');
@@ -503,7 +531,13 @@ function frame() {
   if (powerTween) {
     powerTween.t += dt;
     const k = Math.min(1, powerTween.t / powerTween.duration);
-    room.setPower(powerTween.from + (1 - powerTween.from) * k);
+    const power = powerTween.from + (1 - powerTween.from) * k;
+    room.setPower(power);
+    // The spots switch on from the door to the far wall; each bank's relay is heard.
+    while (powerTween.relays < RELAYS && power >= 0.08 + 0.72 * (powerTween.relays / (RELAYS - 1))) {
+      audio.lightsOn(powerTween.relays, RELAYS);
+      powerTween.relays++;
+    }
     if (k >= 1) powerTween = null;
   } else if (!state.entered && !reducedMotion) {
     // Before entry the hall breathes very slightly, so it reads as a place.
@@ -512,6 +546,8 @@ function frame() {
   }
 
   if (state.entered) controls.update(dt);
+  // Walking away from a work you approached ends the focus.
+  if (state.focused !== -1 && !state.flying && controls.speed > 0.45) leaveFocus(false);
 
   if (!state.exhibitionOpen) {
     updateVisibility(now);
@@ -526,6 +562,8 @@ function frame() {
     if (paletteClock > 1) { paletteClock = 0; ui.setPalette(curator.palette(6)); }
   }
 
+  audio.setMotion({ speed: Math.min(controls.speed, 3.2), moving: state.entered && controls.speed > 0.25 });
+  audio.update(dt);
   room.update(dt, camera);
   // Behind an opaque overlay the room does not need to be redrawn every frame.
   if (!state.exhibitionOpen || state.frames % 8 === 0) post.render(dt);

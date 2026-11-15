@@ -31,7 +31,7 @@ const SHARED_SUB = 'Hung by one visitor’s attention';
 const OWN_SUB = 'Hung by your attention';
 
 function subtitleFor(summary) {
-  return `${summary.shared ? SHARED_SUB : OWN_SUB} · THE WORKSHOP${summary.dateText ? ' · ' + summary.dateText : ''}`;
+  return `${summary.shared ? SHARED_SUB : OWN_SUB} · THE WORKSHOP${summary.dateText ? ' · ' + String(summary.dateText).replace(/ /g, '\u00a0') : ''}`;
 }
 
 export function showFallback(message) {
@@ -370,9 +370,17 @@ export function createUI(handlers = {}) {
 
   paintProgress();
 
+  const soundBtn = $('sound-btn');
+  if (soundBtn) soundBtn.addEventListener('click', () => handlers.onToggleSound?.());
+  function setSound(on) {
+    if (!soundBtn) return;
+    soundBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    soundBtn.setAttribute('aria-label', on ? 'Sound on — mute' : 'Sound off — unmute');
+  }
+
   return {
     showEntry, setProgress, hideEntry, setLabel, setPalette, hint, toast,
-    openExhibition, closeExhibition, renderPoster,
+    openExhibition, closeExhibition, renderPoster, setSound,
   };
 }
 
