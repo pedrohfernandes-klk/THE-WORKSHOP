@@ -2,6 +2,7 @@
 // assets/gallery/spaces/ (docs/gallery/BRIEF.md §6.2), merged into one walkable
 // world with one list of regions, colliders and things to click.
 import * as THREE from 'three';
+import { createBatcher } from './batch.js';
 
 // Order matters only for what appears first while loading.
 export const SPACES = [
@@ -9,6 +10,8 @@ export const SPACES = [
   'trees', 'garden', 'grass', 'flowers', 'fountain', 'pergola', 'sculptures', 'amphitheatre',
   'studio', 'arcade', 'terrace', 'cinema', 'lift', 'school', 'birds',
   'metro', 'skyliner', 'aviation', 'npcs', 'ruins',
+  // The indie touches: real objects with a pixel soul, each found rather than announced.
+  'murals', 'floppies', 'vending', 'cat', 'radio', 'ghost', 'floorsnake', 'photobooth', 'gnome', 'oddities', 'duck',
 ];
 
 // Dense vegetation is drawn by the main camera but skipped by reflections and
@@ -44,29 +47,64 @@ export function areaAt(x, y, z) {
   return null;
 }
 
+// The campus waits for the hall: its modules are fetched only after the page's
+// own load (capped), a few at a time, with the main thread handed back between
+// module builds so the visitor can walk in the hall while the campus builds.
+const LOAD_CAP_MS = 10000;
+const IN_FLIGHT = 3;
+// Flip to true once ?batch has been checked against ?nobatch (draw calls, screenshots, clicks).
+const BATCH_BY_DEFAULT = false;
+
+function afterPageLoad(capMs = LOAD_CAP_MS) {
+  if (typeof document === 'undefined' || typeof addEventListener !== 'function' || document.readyState === 'complete') return Promise.resolve();
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, capMs);
+    addEventListener('load', () => { clearTimeout(timer); resolve(); }, { once: true });
+  });
+}
+
+function yieldToMain() {
+  return new Promise((resolve) => {
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(() => resolve(), { timeout: 120 });
+    else if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => resolve());
+    else setTimeout(resolve, 0);
+  });
+}
+
 /**
  * createWorld(ctx, { hallColliders, onProgress }) → world
  * ctx: { THREE, renderer, scene, M, quality, reducedMotion, audio, ui }
  */
 export async function createWorld(ctx, { hallColliders = [], onProgress } = {}) {
-  const modules = new Map();
-  let done = 0;
-  await Promise.all(SPACES.map(async (name) => {
-    try {
-      const mod = await import(`./spaces/${name}.js`);
-      const out = await mod.build(ctx);
-      if (out && out.group) {
-        out.group.name = out.group.name || name;
-        ctx.scene.add(out.group);
-        if (FOLIAGE.has(name)) out.group.traverse((o) => o.layers.set(1));
+  const built = new Array(SPACES.length);
+  let done = 0, next = 0;
+  await afterPageLoad();
+  // A few workers take the modules in SPACES order (what appears first while loading).
+  async function worker() {
+    while (next < SPACES.length) {
+      const i = next++;
+      const name = SPACES[i];
+      try {
+        const mod = await import(`./spaces/${name}.js`);
+        await yieldToMain();
+        const out = await mod.build(ctx);
+        if (out && out.group) {
+          out.group.name = out.group.name || name;
+          ctx.scene.add(out.group);
+          if (FOLIAGE.has(name)) out.group.traverse((o) => o.layers.set(1));
+        }
+        built[i] = out || {};
+      } catch (err) {
+        console.warn(`[world] ${name} skipped:`, err);
       }
-      modules.set(name, out || {});
-    } catch (err) {
-      console.warn(`[world] ${name} skipped:`, err);
+      done++;
+      onProgress?.(done / SPACES.length);
+      await yieldToMain();
     }
-    done++;
-    onProgress?.(done / SPACES.length);
-  }));
+  }
+  await Promise.all(Array.from({ length: Math.min(IN_FLIGHT, SPACES.length) }, worker));
+  const modules = new Map();
+  for (let i = 0; i < SPACES.length; i++) if (built[i]) modules.set(SPACES[i], built[i]);
 
   const staticRegions = [...HALL_REGIONS];
   const staticColliders = hallColliders.map((c) => ({ minY: 0, maxY: 2.6, ...c }));
@@ -133,8 +171,23 @@ export async function createWorld(ctx, { hallColliders = [], onProgress } = {}) 
 
   const groups = Object.fromEntries([...modules].map(([n, o]) => [n, o.group]).filter(([, g]) => g));
 
+  // Static batching (batch.js): once the campus has run a few seconds, merge
+  // the meshes that provably never move into a few large ones per module and
+  // ~30 m cell. OFF by default until verified in a browser: ?batch turns it on,
+  // ?nobatch always leaves the world exactly as built.
+  const query = typeof location !== 'undefined' ? new URLSearchParams(location.search) : null;
+  const noBatch = !query || query.has('nobatch') || !(BATCH_BY_DEFAULT || query.has('batch'));
+  let batcher = noBatch ? null : createBatcher({
+    scene: ctx.scene, modules, pickables,
+    onDone: (stats) => { world.batchStats = stats; refreshShadows(); },
+  });
+
   function update(dt, frame) {
     syncDynamic();
+    if (batcher) {
+      try { batcher.tick(); } catch (err) { console.warn('[world] batching failed', err); }
+      if (batcher.stats.done) batcher = null;
+    }
     for (const out of modules.values()) {
       if (out.update) {
         try { out.update(dt, frame); } catch (err) { console.warn('[world] update failed', err); out.update = null; }
@@ -142,5 +195,7 @@ export async function createWorld(ctx, { hallColliders = [], onProgress } = {}) 
     }
   }
 
-  return { modules, groups, regions, colliders, pickables, lift, pick, actionFor, update, refreshShadows };
+  const world = { modules, groups, regions, colliders, pickables, lift, pick, actionFor, update, refreshShadows, batchStats: null };
+  if (noBatch) world.batchStats = { disabled: true, before: 0, after: 0, merged: 0, skipped: 0 };
+  return world;
 }

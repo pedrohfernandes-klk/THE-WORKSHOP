@@ -17,6 +17,7 @@ export function build(ctx) {
   const low = ctx.quality === 'low';
   const group = new THREE.Group(); group.name = 'arcade';
   const colliders = [], pickables = [];
+  const seats = [];   // places to sit (sit contract): { x, y (seat top), z, facing: [fx, fz] }, world metres
   const tmpM = new THREE.Matrix4(), tmpE = new THREE.Euler(), tmpQ = new THREE.Quaternion(), tmpV = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1);
 
   // ---------- geometry bins (merged per material) ----------
@@ -291,6 +292,21 @@ export function build(ctx) {
   add('steelIn', tex(box(8.0, 0.06, 0.45, 17, 0.44, 39.1))); for (const x of [13.2, 17, 20.8]) add('steelIn', tex(box(0.05, 0.42, 0.4, x, 0.21, 39.1)));
   add('leather', tex(box(7.9, 0.1, 0.42, 17, 0.5, 39.1)));
   colliders.push({ minX: 13, maxX: 21, minZ: 38.8, maxZ: 39.4, minY: 0, maxY: 0.8 });
+  // Sitting (sit contract): the backless bench seats 13 along its 7.9 m leather cushion (centres
+  // 0.6 m apart, centred on x = 17; cushion top 0.5 + 0.1 / 2 at z = 39.1), every place facing
+  // into the arcade (+z), toward the island's screens. One invisible pick proxy
+  // (material.visible = false) a little larger than steel frame + cushion carries them all.
+  {
+    const BX = 17, BZ = 39.1, TOP = 0.5 + 0.1 / 2, LEN = 7.9, PLACE = 0.6;
+    const n = Math.floor(LEN / PLACE + 1e-9);
+    const benchSeats = [];
+    for (let k = 0; k < n; k++) benchSeats.push({ x: BX + (k - (n - 1) / 2) * PLACE, y: TOP, z: BZ, facing: [0, 1] });
+    const pm = new THREE.Mesh(new THREE.BoxGeometry(8.04, TOP + 0.03, 0.49), new THREE.MeshBasicMaterial({ visible: false }));
+    pm.position.set(BX, (TOP + 0.03) / 2, BZ); pm.name = 'bench-sit-pick';
+    pm.userData.action = { type: 'sit', seats: benchSeats };
+    group.add(pm); pickables.push(pm);
+    seats.push(...benchSeats);
+  }
   // pinball table facing west: backbox against the east wall
   const PX = 21.9, PZ = 44.0, PY = 0.8;
   add('body', xf(new THREE.BoxGeometry(1.35, 0.22, 0.56), PX + 0.05, PY + 0.02, PZ)); add('body', xf(new THREE.BoxGeometry(0.5, 0.5, 0.52), PX + 0.52, PY + 0.6, PZ));
@@ -376,6 +392,7 @@ export function build(ctx) {
   const cx0 = 17, cz0 = 44;
   return {
     group, regions, colliders, pickables,
+    seats,   // every place to sit in the arcade (sit contract), world metres
     update(dt, frame) {
       t += dt; const cam = frame && frame.camera;
       if (!ctx.reducedMotion) {

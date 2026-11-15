@@ -195,6 +195,22 @@ export function build(ctx) {
     }
   }
 
+  // ---------- utility access covers / gullies: cast-iron plates in steel frames, 2-5 mm proud ----------
+  {
+    const steel = M.get('steel', { roughness: 0.45 });
+    const iron = M.get('steel', { color: 0x37393c, roughness: 0.72 });
+    const cov = [], rim = [];
+    for (const [x, z, w, d] of [[-7.75, 19.5, 0.6, 0.6], [7.75, 19.5, 0.6, 0.6], [-8.2, 41.6, 0.6, 0.6], [8.2, 41.6, 0.6, 0.6],
+      [-21.7, 33.6, 0.45, 0.45], [21.7, 33.6, 0.45, 0.45], [-7.2, 49.6, 0.9, 0.6], [7.2, 49.6, 0.9, 0.6]]) {
+      const a = x - w / 2, b = x + w / 2, c = z - d / 2, e = z + d / 2, f = 0.022;
+      cov.push(box(iron, a + f, b - f, -0.02, 0.0025, c + f, e - f));
+      rim.push(box(steel, a, b, -0.02, 0.002, c, c + f), box(steel, a, b, -0.02, 0.002, e - f, e),
+        box(steel, a, a + f, -0.02, 0.002, c + f, e - f), box(steel, b - f, b, -0.02, 0.002, c + f, e - f));
+    }
+    group.add(shadowOn(new THREE.Mesh(mergeGeometries(cov), iron), false));
+    group.add(shadowOn(new THREE.Mesh(mergeGeometries(rim), steel), false));
+  }
+
   // ---------- gravel beds under the allées ----------
   {
     const gravel = M.get('gravel', { tile: 1.3, color: 0x8e98a3 });

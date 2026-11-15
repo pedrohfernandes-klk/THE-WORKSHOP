@@ -1,7 +1,12 @@
 // ui.js — the interface layer of THE WORKSHOP. DOM only, no THREE.
 // All markup and CSS live in index.html; this module wires it up.
+// House style (LEO canon): Bungee for titles and places, Space Grotesk for
+// sentences, Silkscreen for keys, prompts, toasts and counters; ink, paper,
+// tangerine, sun, sea, signal and night.
 
 const $ = (id) => document.getElementById(id);
+const LANG = (navigator.languages && navigator.languages[0]) || navigator.language || '';
+const PT = /^pt\b/i.test(LANG);
 
 export function formatDuration(s) {
   const t = Math.max(0, Math.floor(Number.isFinite(s) ? s : 0));
@@ -27,12 +32,69 @@ function el(tag, cls, text) {
   return n;
 }
 
-const SHARED_SUB = 'Hung by one visitor’s attention';
-const OWN_SUB = 'Hung by your attention';
+// Every word the title screen may say (LEO canon §4).
+const WORDS = PT
+  ? { line: 'Muda quando não estás a olhar.', enter: 'Entrar', tap: 'Entrar', ready: 'Pronto.' }
+  : { line: 'It changes when you look away.', enter: 'Press Enter', tap: 'Tap to enter', ready: 'Ready.' };
+const SHARED_LINE = 'Hung by one visitor’s gaze.';
+
+const SHARED_SUB = 'Hung by one visitor’s gaze';
+const OWN_SUB = 'Hung by your gaze';
 
 function subtitleFor(summary) {
-  return `${summary.shared ? SHARED_SUB : OWN_SUB} · THE WORKSHOP${summary.dateText ? ' · ' + String(summary.dateText).replace(/ /g, '\u00a0') : ''}`;
+  return `${summary.shared ? SHARED_SUB : OWN_SUB}${summary.dateText ? ' · ' + String(summary.dateText).replace(/ /g, ' ') : ''}`;
 }
+
+// Letters for the drop-in; words stay whole so a long title wraps cleanly.
+function letters(text, start = 0) {
+  const frag = document.createDocumentFragment();
+  let i = start;
+  for (const part of String(text).split(/(\s+)/)) {
+    if (!part) continue;
+    if (/^\s+$/.test(part)) { frag.appendChild(document.createTextNode(' ')); continue; }
+    const w = el('span', 'w');
+    for (const ch of part) {
+      const c = el('span', 'ch', ch);
+      c.style.setProperty('--i', String(Math.min(i++, 26)));
+      w.appendChild(c);
+    }
+    frag.appendChild(w);
+  }
+  return { frag, next: i };
+}
+
+// ---------- prompts: one grammar, `[KEY] VERB` ----------
+const KEY = /^(WASD|Shift|Space|Esc|Click|Tap|Drag|Mouse|[1-9]\s*[–-]\s*[1-9]|[EFGT])\b[:\s]*(?:to\s+)?(.*)$/i;
+const VERBS = [
+  [/paper ball/i, 'Take'],
+  [/approach|the work\b/i, 'Look'],
+  [/catalogue|exhibition/i, 'Read'],
+  [/^sit\b|seat/i, 'Sit'],
+  [/^up\b/i, 'Up'],
+  [/^down\b/i, 'Down'],
+  [/lift/i, 'Call'],
+  [/screen|plays/i, 'Watch'],
+  [/slap/i, 'Slap'],
+  [/^talk\b/i, 'Talk'],
+  [/^use$/i, 'Use'],
+  [/^open$/i, 'Open'],
+];
+// One language per visitor: the interface speaks the browser's (English or pt-PT);
+// the world itself (signs, radio, people) speaks Portuguese. Leo, final pass.
+const PT_SAY = new Map(Object.entries({
+  take: 'Apanhar', look: 'Olhar', read: 'Ler', sit: 'Sentar', up: 'Subir', down: 'Descer', call: 'Chamar',
+  watch: 'Ver', slap: 'Chapada', talk: 'Falar', use: 'Usar', open: 'Abrir', play: 'Jogar', throw: 'Atirar',
+  'look around': 'olhar', walk: 'andar', run: 'correr', jump: 'saltar', 'or hold to walk': 'ou mantém para andar',
+  'releases the mouse': 'solta o rato', seated: 'Sentado', 'or space to stand up': 'ou Espaço para levantar',
+  'the floor to stand': 'o chão para levantar', 'click to play': 'Clica para jogar',
+  click: 'Clique', tap: 'Toque', drag: 'Arrasta', space: 'Espaço', mouse: 'Rato',
+}));
+const say = (s) => (PT && PT_SAY.get(String(s).trim().toLowerCase())) || s;
+function verbFor(label) {
+  for (const [re, verb] of VERBS) if (re.test(label)) return say(verb);
+  return say(/^[\p{L}-]{1,10}$/u.test(label) ? label : 'Open');
+}
+function isKeySegment(seg) { return KEY.test(seg.trim()); }
 
 export function showFallback(message) {
   const box = $('fallback');
@@ -49,7 +111,7 @@ export function showFallback(message) {
   if (link) link.focus({ preventScroll: true });
 }
 
-function fillStrip(node, palette, empty) {
+function fillStrip(node, palette) {
   const key = (palette || []).map((p) => p.hex + ':' + (+p.share).toFixed(3)).join('|');
   if (node.__key === key) return;
   node.__key = key;
@@ -75,62 +137,116 @@ export function createUI(handlers = {}) {
 
   const entry = $('entry'), hud = $('hud');
   const enterBtn = $('enter'), enterFill = $('enter-fill'), enterLabel = $('enter-label'), enterPct = $('enter-pct');
+  const enterStatus = $('enter-status');
   const label = $('label'), labelTitle = $('label-title'), labelMeta = $('label-meta'), labelTime = $('label-time');
   const labelExtra = $('label-extra'), labelNote = $('label-note'), labelCredit = $('label-credit');
-  const hintEl = $('hint'), toastEl = $('toast');
+  const hintEl = $('hint'), toastEl = $('toast'), placeEl = $('place');
   const exh = $('exhibition'), exhScroll = $('exh-scroll');
   const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const coarse = () => window.matchMedia('(pointer: coarse)').matches;
 
   // ---------- entry ----------
-  let progress = 0, ready = false, entryVisible = false;
+  if (PT) {
+    entry.lang = 'pt-PT';
+    for (const n of entry.querySelectorAll('[data-pt]')) n.textContent = n.dataset.pt;
+    // the one HUD word that is not a prompt: same language as the prompts
+    const exhT = document.querySelector('#exh-btn .t');
+    if (exhT) { exhT.replaceChildren(el('span', 'm-hide', 'A tua '), document.createTextNode('exposição')); $('exh-btn').setAttribute('aria-label', 'A tua exposição'); }
+  }
+  const BLOCKS = 10;
+  enterFill.replaceChildren(...Array.from({ length: BLOCKS }, () => el('i')));
+  const blocks = [...enterFill.children];
+
+  let progress = 0, ready = false, entryVisible = false, entering = false;
 
   function paintProgress() {
     const p = Math.max(0, Math.min(1, progress));
     ready = p >= 1;
     enterBtn.disabled = !ready;
-    enterFill.style.transform = `scaleX(${p})`;
+    enterBtn.classList.toggle('is-ready', ready);
+    const lit = Math.floor(p * BLOCKS + 1e-6);
+    blocks.forEach((b, i) => b.classList.toggle('on', i < lit));
     if (ready) {
-      enterLabel.textContent = 'Enter';
-      enterPct.textContent = '→';
-      enterPct.style.opacity = '1';
-      if (entryVisible && !enterBtn.__focused && !window.matchMedia('(pointer: coarse)').matches) {
+      const t = coarse() ? WORDS.tap : WORDS.enter;
+      if (enterLabel.textContent !== t) enterLabel.textContent = t;
+      enterPct.textContent = '';
+      enterBtn.setAttribute('aria-label', t);
+      enterBtn.removeAttribute('aria-busy');
+      if (entryVisible && enterStatus && !enterStatus.textContent) enterStatus.textContent = WORDS.ready;
+      if (entryVisible && !enterBtn.__focused && !coarse()) {
         enterBtn.__focused = true;
         if (!document.activeElement || document.activeElement === document.body) enterBtn.focus({ preventScroll: true });
       }
     } else {
-      enterLabel.textContent = 'Preparing the room';
-      enterPct.textContent = Math.round(p * 100) + '%';
+      const pct = Math.round(p * 100) + '%';
+      enterLabel.textContent = '';
+      enterPct.textContent = pct;
+      enterBtn.setAttribute('aria-label', `${PT ? 'Entrar' : 'Enter'} · ${pct}`);
+      enterBtn.setAttribute('aria-busy', 'true');
     }
   }
 
-  enterBtn.addEventListener('click', () => { if (ready) h.onEnter(); });
-  $('entry-resume').addEventListener('click', () => h.onResumeAttentive());
+  function go() {
+    if (!ready || entering || !entryVisible) return;
+    entering = true;
+    h.onEnter();
+  }
+  enterBtn.addEventListener('click', go);
+  // The blink stops once the visitor reaches for the button.
+  const calm = () => enterBtn.classList.add('is-calm');
+  enterBtn.addEventListener('pointerenter', calm);
+  // PRESS ENTER means it: Enter or Space anywhere on the title screen.
+  document.addEventListener('keydown', (e) => {
+    if (!entryVisible) return;
+    if (e.key === 'Tab') { calm(); return; }
+    if ((e.key !== 'Enter' && e.key !== ' ') || e.repeat || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+    const t = e.target;
+    if (t === enterBtn) return; // the button's own click does it
+    if (t instanceof Element && t !== document.body && t.closest('a,button,input,textarea,select,[contenteditable="true"]')) return;
+    if (!ready) return;
+    e.preventDefault();
+    go();
+  });
+  $('entry-resume').addEventListener('click', () => { if (!entering) { entering = true; h.onResumeAttentive(); } });
 
-  function showEntry({ mode = 'attentive', title, dateText } = {}) {
+  function showEntry({ mode = 'attentive', title } = {}) {
     const shared = mode === 'shared';
     const titleEl = $('entry-title');
     if (shared) {
-      titleEl.textContent = title || 'An exhibition';
-      titleEl.classList.toggle('is-long', true);
+      const name = title || 'An exhibition';
+      const big = el('span', 't-big');
+      big.setAttribute('aria-hidden', 'true');
+      big.appendChild(letters(name).frag);
+      titleEl.replaceChildren(big);
+      titleEl.setAttribute('aria-label', name);
+      titleEl.classList.add('is-long');
     } else {
-      const it = el('span', 'it', 'The');
-      titleEl.replaceChildren(it, document.createTextNode(' Workshop'));
+      const the = el('span', 't-the'), big = el('span', 't-big');
+      the.setAttribute('aria-hidden', 'true');
+      big.setAttribute('aria-hidden', 'true');
+      const a = letters('The');
+      the.appendChild(a.frag);
+      big.appendChild(letters('Workshop', a.next).frag);
+      titleEl.replaceChildren(the, big);
+      titleEl.setAttribute('aria-label', 'The Workshop');
       titleEl.classList.remove('is-long');
     }
-    $('entry-eyebrow').textContent = shared ? 'An exhibition hung by one visitor’s gaze' : 'A single room';
-    const date = $('entry-date');
-    date.hidden = !(shared && dateText);
-    date.textContent = dateText || '';
-    $('entry-lede').hidden = shared;
-    $('entry-sub').hidden = shared;
+    const lede = $('entry-lede');
+    lede.textContent = shared ? SHARED_LINE : WORDS.line;
+    if (shared && PT) lede.lang = 'en'; else lede.removeAttribute('lang');
     $('entry-resume').hidden = !shared;
+    const classic = $('entry-classic');
+    if (classic) classic.hidden = shared;
     entry.classList.remove('is-hidden');
     entry.removeAttribute('inert');
     entry.removeAttribute('aria-hidden');
     hud.classList.add('is-hidden');
     hud.setAttribute('inert', '');
     entryVisible = true;
+    entering = false;
     enterBtn.__focused = false;
+    enterBtn.classList.remove('is-calm');
+    if (enterStatus) enterStatus.textContent = '';
     paintProgress();
   }
 
@@ -186,7 +302,7 @@ export function createUI(handlers = {}) {
     if (whole !== curSeconds) {
       curSeconds = whole;
       if (whole >= 1) {
-        labelTime.replaceChildren(document.createTextNode('You have looked for '), el('b', null, formatDuration(whole)));
+        labelTime.replaceChildren(document.createTextNode('Looked'), el('b', null, formatDuration(whole)));
         labelTime.hidden = false;
       } else {
         labelTime.hidden = true;
@@ -208,26 +324,86 @@ export function createUI(handlers = {}) {
   function setPalette(palette) { fillStrip(strip, palette); }
   $('exh-btn').addEventListener('click', () => h.onOpenExhibition());
 
-  // ---------- hint & toast ----------
-  let hintTimer = 0;
+  // ---------- controls strip, behind the "?" key ----------
+  const keysBtn = $('keys-btn'), keys = $('keys');
+  function setKeys(open) {
+    if (!keysBtn || !keys) return;
+    keys.hidden = !open;
+    keysBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  keysBtn?.addEventListener('click', () => setKeys(keys.hidden));
+  addEventListener('keydown', (e) => {
+    if (e.key !== '?' || entryVisible || isOpen || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target instanceof Element && e.target.closest('input,textarea,[contenteditable="true"]')) return;
+    setKeys(keys.hidden);
+  });
+
+  // ---------- prompt: [KEY] VERB under the crosshair, teaching strip, or CLICK TO PLAY ----------
+  function keyParts(box, seg) {
+    const m = KEY.exec(seg.trim());
+    if (!m) { box.append(el('span', null, say(seg.trim()))); return; }
+    box.append(el('kbd', null, say(m[1].replace(/\s+/g, ''))));
+    if (m[2]) box.append(el('span', null, say(m[2])));
+  }
+  function segments(box, text) {
+    text.split(/\s+·\s+/).forEach((seg, i) => {
+      if (i) box.append(el('span', 'dot', '·'));
+      keyParts(box, seg);
+    });
+  }
   function hint(text) {
-    clearTimeout(hintTimer);
-    if (!text) {
-      hintEl.classList.remove('is-on');
-      return;
+    if (!text) { hintEl.classList.remove('is-on'); return; }
+    const box = el('span', 'in');
+    const pre = /^(E|Tap|Click)\s+·\s+(.+)$/.exec(text);
+    if (pre) {
+      // A target under the crosshair: `[E] TALK` (or both verbs when there are two).
+      hintEl.dataset.mode = 'cap';
+      const rest = pre[2];
+      if (rest.split(/\s+·\s+/).some(isKeySegment)) segments(box, rest);
+      else { box.append(el('kbd', null, say(pre[1])), el('span', null, verbFor(rest))); }
+      if (verbFor(rest) !== rest) box.append(el('span', 'sr-only', ` (${rest})`));
+    } else if (/^click to play\b/i.test(text)) {
+      hintEl.dataset.mode = 'centre';
+      box.append(el('span', null, say(text.split(/\s+·\s+/)[0])));
+    } else if (!/·/.test(text) && VERBS.some(([re]) => re.test(text))) {
+      // Hovering a thing with a free mouse: the same grammar, at the foot of the screen.
+      hintEl.dataset.mode = 'strip';
+      box.append(el('kbd', null, say(coarse() ? 'Tap' : 'Click')), el('span', null, verbFor(text)));
+      box.append(el('span', 'sr-only', ` (${text})`));
+    } else {
+      hintEl.dataset.mode = 'strip';
+      segments(box, text);
     }
-    hintEl.textContent = text;
-    // restart transition so a changed line fades in again
+    hintEl.replaceChildren(box);
     hintEl.classList.add('is-on');
   }
 
+  // ---------- toast: one plate, newest replaces, 2.4s ----------
   let toastTimer = 0;
-  function toast(text, ms = 5200) {
+  function toast(text, ms = 2400) {
     clearTimeout(toastTimer);
     if (!text) { toastEl.classList.remove('is-on'); return; }
+    if (PLACE.test(text)) { place(text); return; }
     toastEl.textContent = text;
     toastEl.classList.add('is-on');
-    toastTimer = setTimeout(() => toastEl.classList.remove('is-on'), ms);
+    toastTimer = setTimeout(() => toastEl.classList.remove('is-on'), Math.min(Number(ms) || 2400, 2400));
+  }
+
+  // ---------- area name: top-centre marquee; once per area per 30s ----------
+  // Arrivals still come in through toast(name); names shaped like the campus's
+  // places are routed here until main.js calls place() directly.
+  const PLACE = /^(?:The \p{Lu}[\p{L}’'-]+|Sala(?: de)? \p{Lu}[\p{L}’'-]+|Roof terrace|Studio|Arcade)$/u;
+  const placeSeen = new Map();
+  let placeTimer = 0;
+  function place(name) {
+    if (!name) { placeEl.classList.remove('is-on'); return; }
+    const now = performance.now();
+    if (placeSeen.has(name) && now - placeSeen.get(name) < 30000) return;
+    placeSeen.set(name, now);
+    clearTimeout(placeTimer);
+    placeEl.textContent = name;
+    placeEl.classList.add('is-on');
+    placeTimer = setTimeout(() => placeEl.classList.remove('is-on'), 150 + 1800);
   }
 
   // ---------- exhibition overlay ----------
@@ -242,7 +418,7 @@ export function createUI(handlers = {}) {
     exhPalette(summary.palette);
     const total = works.reduce((a, w) => a + Math.floor(w.seconds || 0), 0);
     $('exh-count').textContent = `${works.length} ${works.length === 1 ? 'work' : 'works'}`;
-    $('exh-total').textContent = total >= 1 ? `${summary.shared ? 'Looked at for' : 'You looked for'} ${formatDuration(total)}` : (summary.shared ? '' : 'Look a little longer to hang your own');
+    $('exh-total').textContent = total >= 1 ? `${formatDuration(total)} looked` : (summary.shared ? '' : 'Look longer');
 
     const list = $('exh-works');
     const frag = document.createDocumentFragment();
@@ -272,6 +448,7 @@ export function createUI(handlers = {}) {
 
     returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     isOpen = true;
+    setKeys(false);
     exh.classList.add('is-open');
     exh.setAttribute('aria-hidden', 'false');
     hud.setAttribute('inert', '');
@@ -285,7 +462,7 @@ export function createUI(handlers = {}) {
     fillStrip(band, palette);
     const items = (palette || []).filter((p) => p.share > 0);
     band.setAttribute('aria-label', items.length ? 'Palette of attention: ' + items.map((p) => p.hex).join(', ') : 'No palette yet');
-    $('exh-band-note').textContent = items.length ? '' : 'Still gathering';
+    $('exh-band-note').textContent = items.length ? '' : 'Gathering…';
   }
 
   function closeExhibition() {
@@ -338,7 +515,7 @@ export function createUI(handlers = {}) {
       linkInput.select();
       try { linkInput.setSelectionRange(0, link.length); ok = document.execCommand('copy'); } catch (e) { ok = false; }
     }
-    flashCopied(ok ? 'Copied' : 'Press Ctrl+C to copy');
+    flashCopied(ok ? 'Copied' : 'Press Ctrl+C');
   });
   linkInput.addEventListener('focus', () => linkInput.select());
 
@@ -346,7 +523,7 @@ export function createUI(handlers = {}) {
     if (!lastSummary) return;
     posterBtn.setAttribute('aria-busy', 'true');
     const prev = posterBtn.textContent;
-    posterBtn.textContent = 'Preparing…';
+    posterBtn.textContent = 'Drawing…';
     try {
       const blob = await renderPoster(lastSummary);
       const url = URL.createObjectURL(blob);
@@ -361,7 +538,7 @@ export function createUI(handlers = {}) {
       setTimeout(() => { posterBtn.textContent = prev; }, 2000);
     } catch (e) {
       console.error(e);
-      posterBtn.textContent = 'Could not make poster';
+      posterBtn.textContent = 'No poster';
       setTimeout(() => { posterBtn.textContent = prev; }, 2600);
     } finally {
       posterBtn.removeAttribute('aria-busy');
@@ -414,7 +591,7 @@ export function createUI(handlers = {}) {
     $('chooser-eyebrow').textContent = eyebrow;
     $('chooser-title').textContent = title;
     const make = (item, primary) => {
-      const b = el(primary ? 'button' : 'button');
+      const b = el('button');
       b.type = 'button';
       if (primary) { b.append(el('span', 't', item.label), el('span', 'd', item.detail || '')); }
       else b.textContent = item.label;
@@ -426,7 +603,7 @@ export function createUI(handlers = {}) {
       return b;
     };
     chooserList.replaceChildren(...items.map((it) => { const li = el('li'); li.append(make(it, true)); return li; }));
-    chooserSecondary.replaceChildren(...(secondary.length ? [el('span', '', 'Also:'), ...secondary.map((it) => make(it, false))] : []));
+    chooserSecondary.replaceChildren(...secondary.map((it) => make(it, false)));
     chooser.classList.add('is-on');
     chooser.setAttribute('aria-hidden', 'false');
     handlers.onOverlay?.(true);
@@ -445,20 +622,25 @@ export function createUI(handlers = {}) {
     if (e.key !== 'Escape') return;
     if (appBox.classList.contains('is-on')) { e.preventDefault(); closeApp(); }
     else if (chooser.classList.contains('is-on')) { e.preventDefault(); closeChooser(); }
+    else if (keys && !keys.hidden) setKeys(false);
   });
   const isOverlayOpen = () => appBox.classList.contains('is-on') || chooser.classList.contains('is-on');
 
   return {
-    showEntry, setProgress, hideEntry, setLabel, setPalette, hint, toast,
+    showEntry, setProgress, hideEntry, setLabel, setPalette, hint, toast, place,
     openExhibition, closeExhibition, renderPoster, setSound,
     openApp, closeApp, openChooser, closeChooser, isOverlayOpen,
   };
 }
 
 // ======================= poster =======================
-const PAPER = '#f4efe6', INK = '#15120e';
-const SERIF = '"Instrument Serif", Georgia, serif';
-const SANS = '"Instrument Sans", system-ui, sans-serif';
+// Printed in the house style: paper, ink, a tangerine misregistration under
+// the Bungee title, Silkscreen counters.
+const PAPER = '#fff3d6', INK = '#1a1c2c', TANGERINE = '#ef7d57';
+const INK_SOFT = 'rgba(26,28,44,.76)';
+const DISPLAY = '"Bungee", Impact, "Arial Black", sans-serif';
+const TEXT = '"Space Grotesk", system-ui, sans-serif';
+const HUD = '"Silkscreen", ui-monospace, monospace';
 
 async function loadImage(src) {
   const img = new Image();
@@ -516,10 +698,10 @@ function drawCover(ctx, img, x, y, w, h) {
 export async function renderPoster(summary) {
   const W = 1080, H = 1350, M = 90, CW = W - M * 2;
   await Promise.all([
-    document.fonts.load(`108px "Instrument Serif"`),
-    document.fonts.load(`italic 108px "Instrument Serif"`),
-    document.fonts.load(`400 24px "Instrument Sans"`),
-    document.fonts.load(`600 24px "Instrument Sans"`),
+    document.fonts.load(`400 96px "Bungee"`),
+    document.fonts.load(`400 24px "Silkscreen"`),
+    document.fonts.load(`500 24px "Space Grotesk"`),
+    document.fonts.load(`600 24px "Space Grotesk"`),
   ]).catch(() => {});
 
   const works = (summary.works || []).slice(0, 6);
@@ -536,42 +718,45 @@ export async function renderPoster(summary) {
   ctx.textBaseline = 'alphabetic';
 
   // eyebrow
-  ctx.fillStyle = '#9c3d33';
-  ctx.font = `600 18px ${SANS}`;
-  setSpacing(ctx, 3.4);
-  ctx.fillText('EXHIBITION', M, M + 14);
-  setSpacing(ctx, 0);
+  ctx.fillStyle = INK;
+  ctx.font = `400 24px ${HUD}`;
+  ctx.fillText('EXHIBITION', M, M + 18);
 
-  // title
-  let size = 128, lines;
-  const title = summary.title || 'Untitled';
-  for (; size >= 72; size -= 4) {
-    ctx.font = `400 ${size}px ${SERIF}`;
-    lines = wrapLines(ctx, title, CW, 3);
-    if (lines.length <= 2 || (lines.length === 3 && size <= 92)) {
-      if (lines.every((l) => ctx.measureText(l).width <= CW)) break;
+  // title: Bungee caps, shrinking to fit, with a tangerine offset print
+  let size = 112, lines;
+  const title = String(summary.title || 'Untitled').toUpperCase();
+  for (; size >= 56; size -= 4) {
+    ctx.font = `400 ${size}px ${DISPLAY}`;
+    lines = wrapLines(ctx, title, CW - size * 0.06, 3);
+    if (lines.length <= 2 || (lines.length === 3 && size <= 80)) {
+      if (lines.every((l) => ctx.measureText(l).width <= CW - size * 0.06)) break;
     }
   }
-  ctx.font = `400 ${size}px ${SERIF}`;
-  ctx.fillStyle = INK;
-  setSpacing(ctx, -size * 0.02);
-  const lh = size * 0.94;
-  let y = M + 14 + 40 + size * 0.78;
-  lines.forEach((l, i) => ctx.fillText(l, M - 3, y + i * lh));
-  setSpacing(ctx, 0);
+  ctx.font = `400 ${size}px ${DISPLAY}`;
+  const lh = size * 1.02;
+  let y = M + 18 + 44 + size * 0.8;
+  const off = Math.max(3, Math.round(size * 0.045));
+  lines.forEach((l, i) => {
+    ctx.fillStyle = TANGERINE;
+    ctx.fillText(l, M + off, y + i * lh + off);
+    ctx.fillStyle = INK;
+    ctx.fillText(l, M, y + i * lh);
+  });
   y += (lines.length - 1) * lh;
 
-  // date line
-  y += 52;
-  ctx.fillStyle = 'rgba(21,18,14,.72)';
-  ctx.font = `400 22px ${SANS}`;
+  // subtitle
+  y += 56;
+  ctx.fillStyle = INK_SOFT;
+  ctx.font = `500 24px ${TEXT}`;
   ctx.fillText(fitText(ctx, subtitleFor(summary), CW), M, y);
 
-  // palette band
-  y += 40;
+  // palette band, framed like the catalogue's
+  y += 34;
   const bandH = 48;
   const pal = (summary.palette || []).filter((p) => p.share > 0);
   if (pal.length) {
+    ctx.fillStyle = INK;
+    ctx.fillRect(M + 5, y + 5, CW, bandH);
     const tot = pal.reduce((a, p) => a + p.share, 0);
     let x = M;
     pal.forEach((p, i) => {
@@ -580,25 +765,29 @@ export async function renderPoster(summary) {
       ctx.fillRect(x, y, w, bandH);
       x += w;
     });
+    ctx.strokeStyle = INK; ctx.lineWidth = 3;
+    ctx.strokeRect(M + 1.5, y + 1.5, CW - 3, bandH - 3);
   } else {
-    ctx.fillStyle = 'rgba(21,18,14,.14)';
-    ctx.fillRect(M, y + bandH / 2, CW, 1);
+    ctx.fillStyle = 'rgba(26,28,44,.2)';
+    ctx.fillRect(M, y + bandH / 2, CW, 2);
   }
-  y += bandH + 36;
+  y += bandH + 40;
 
   // grid
-  const footTop = H - 176;
-  const cols = 3, gap = 24;
+  const footTop = H - 170;
+  const cols = 3, gap = 26;
   const rows = works.length > 3 ? 2 : 1;
   const cellW = (CW - gap * (cols - 1)) / cols;
-  const capH = 46;
-  const availH = footTop - 30 - y;
+  const capH = 48;
+  const availH = footTop - 34 - y;
   const cellH = Math.min(cellW * 1.25, (availH - gap * (rows - 1) - capH * rows) / rows);
   works.forEach((item, i) => {
     const col = i % cols, row = Math.floor(i / cols);
     const x = M + col * (cellW + gap);
     const yy = y + row * (cellH + capH + gap);
-    ctx.fillStyle = '#ebe4d7';
+    ctx.fillStyle = INK;
+    ctx.fillRect(x + 5, yy + 5, cellW, cellH);
+    ctx.fillStyle = '#efe2c4';
     ctx.fillRect(x, yy, cellW, cellH);
     if (imgs[i]) {
       ctx.save();
@@ -606,36 +795,38 @@ export async function renderPoster(summary) {
       drawCover(ctx, imgs[i], x, yy, cellW, cellH);
       ctx.restore();
     }
-    ctx.fillStyle = INK;
-    ctx.font = `400 22px ${SERIF}`;
+    ctx.strokeStyle = INK; ctx.lineWidth = 3;
+    ctx.strokeRect(x + 1.5, yy + 1.5, cellW - 3, cellH - 3);
     const sec = Math.floor(item.seconds || 0);
-    const tw = sec >= 1 ? (setSpacing(ctx, 0), ctx.measureText(formatDuration(sec)).width) : 0;
-    ctx.fillText(fitText(ctx, item.work.title || '', cellW - tw - 12), x, yy + cellH + 28);
+    ctx.font = `400 24px ${HUD}`;
+    const tw = sec >= 1 ? ctx.measureText(formatDuration(sec)).width : 0;
     if (sec >= 1) {
-      ctx.font = `500 15px ${SANS}`;
-      ctx.fillStyle = 'rgba(21,18,14,.72)';
+      ctx.fillStyle = INK;
       ctx.textAlign = 'right';
-      ctx.fillText(formatDuration(sec), x + cellW, yy + cellH + 28);
+      ctx.fillText(formatDuration(sec), Math.round(x + cellW), Math.round(yy + cellH + 32));
       ctx.textAlign = 'left';
     }
+    ctx.fillStyle = INK;
+    ctx.font = `600 21px ${TEXT}`;
+    ctx.fillText(fitText(ctx, item.work.title || '', cellW - tw - 14), x, yy + cellH + 32);
   });
 
   // footer
-  ctx.fillStyle = 'rgba(21,18,14,.2)';
-  ctx.fillRect(M, footTop, CW, 1);
   ctx.fillStyle = INK;
-  ctx.font = `600 17px ${SANS}`;
-  setSpacing(ctx, 3);
-  ctx.fillText('THE WORKSHOP · HrM', M, footTop + 52);
-  setSpacing(ctx, 0);
+  ctx.fillRect(M, footTop, CW, 3);
+  ctx.font = `400 32px ${DISPLAY}`;
+  ctx.fillStyle = TANGERINE;
+  ctx.fillText('THE WORKSHOP', M + 2, footTop + 62);
+  ctx.fillStyle = INK;
+  ctx.fillText('THE WORKSHOP', M, footTop + 60);
   if (summary.link) {
-    ctx.font = `400 15px ${SANS}`;
-    ctx.fillStyle = 'rgba(21,18,14,.68)';
-    const sigW = sig ? 96 : 0;
-    ctx.fillText(ellipsizeMiddle(ctx, summary.link.replace(/^https?:\/\//, ''), CW - sigW - 20), M, footTop + 88);
+    ctx.font = `500 18px ${TEXT}`;
+    ctx.fillStyle = INK_SOFT;
+    const sigW = sig ? 110 : 0;
+    ctx.fillText(ellipsizeMiddle(ctx, summary.link.replace(/^https?:\/\//, ''), CW - sigW - 20), M, footTop + 100);
   }
   if (sig) {
-    const sh = 52, sw = sh * sig.naturalWidth / sig.naturalHeight;
+    const sh = 56, sw = sh * sig.naturalWidth / sig.naturalHeight;
     const o = document.createElement('canvas');
     o.width = Math.ceil(sw * 2); o.height = Math.ceil(sh * 2);
     const oc = o.getContext('2d');
@@ -643,7 +834,7 @@ export async function renderPoster(summary) {
     oc.globalCompositeOperation = 'source-in';
     oc.fillStyle = INK;
     oc.fillRect(0, 0, o.width, o.height);
-    ctx.drawImage(o, M + CW - sw, footTop + 28, sw, sh);
+    ctx.drawImage(o, M + CW - sw, footTop + 26, sw, sh);
   }
 
   return await new Promise((resolve, reject) => {

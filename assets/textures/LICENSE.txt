@@ -3,3 +3,4 @@ and are released under CC0 1.0 (public domain): https://polyhaven.com/license
 Textures: painted_plaster_wall, concrete_floor_01, concrete_wall_008, rectangular_paving, gravel_floor, leafy_grass, forest_leaves_02, bark_platanus, large_sandstone_blocks, marble_01, oak_veneer_01, wood_floor_deck, oak_wood_planks, velour_velvet, brown_leather, dark_wood, metal_plate, aerial_grass_rock, terrazzo_tiles, fabric_pattern_07, white_sandstone_blocks_02
 Sky: kloofendal_48d_partly_cloudy_puresky (2k)
 Storm sky: kloofendal_overcast_puresky (2k)
+Derived here: <id>/*-512.webp, sky-1k.hdr, sky-overcast-1k.hdr (same licence)

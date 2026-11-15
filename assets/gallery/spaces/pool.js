@@ -130,10 +130,45 @@ export async function build(ctx) {
   water.receiveShadow = false;
   group.add(water);
 
+  // ---- sitting (sit contract) -------------------------------------------------
+  // People sit on the 0.4 m coping: on its centreline (0.2 m back from the outer
+  // edge their knees hang over), on its top (y TOP), facing OUTWARD — away from
+  // the water, toward the plaza. The long sides seat one person every STEP: the
+  // 14.4 m of centreline between the corner centres (z 23.8…38.2) holds 12 places
+  // a side (z 24.4…37.6, x ±3.7), looking ±x over the parterres. Each short end
+  // seats END_SEATS at the same pitch, centred on the plaza axis (x 0, ±1.2, ±2.4;
+  // z 23.8 looking −z at the hall door, z 38.2 looking +z down the plaza), which
+  // keeps the corners clear. One invisible pick proxy per side wraps that side's
+  // stone (top, outer face, the lip above the water) PM proud; the long sides own
+  // the corner squares, so the proxies tile the coping without overlapping and a
+  // click anywhere on it seats you at the nearest place of the side you clicked.
+  const STEP = 1.2, END_SEATS = 5, PM = 0.02, PH = TOP + PM;
+  const mm = (v) => Math.round(v * 1000) / 1000 || 0;
+  const seats = [], pickables = [];
+  const proxyMat = new THREE.MeshBasicMaterial({ visible: false });
+  function sitSide(name, own, minX, maxX, minZ, maxZ) {
+    const proxy = new THREE.Mesh(new THREE.BoxGeometry(maxX - minX, PH, maxZ - minZ), proxyMat);
+    proxy.name = name;
+    proxy.position.set((minX + maxX) / 2, PH / 2, (minZ + maxZ) / 2);
+    proxy.userData.action = { type: 'sit', seats: own };
+    group.add(proxy); pickables.push(proxy); seats.push(...own);
+  }
+  const along = (n, c) => Array.from({ length: n }, (_, i) => mm(c + (i - (n - 1) / 2) * STEP));
+  const sideZ = along(Math.floor((D + COPE) / STEP + 1e-9), cz), endX = along(END_SEATS, cx);
+  sitSide('pool-seats-east', sideZ.map((z) => ({ x: mm(X1 + COPE / 2), y: TOP, z, facing: [1, 0] })),
+    X1 - PM, X1 + COPE + PM, Z0 - COPE - PM, Z1 + COPE + PM);
+  sitSide('pool-seats-west', sideZ.map((z) => ({ x: mm(X0 - COPE / 2), y: TOP, z, facing: [-1, 0] })),
+    X0 - COPE - PM, X0 + PM, Z0 - COPE - PM, Z1 + COPE + PM);
+  sitSide('pool-seats-north', endX.map((x) => ({ x, y: TOP, z: mm(Z0 - COPE / 2), facing: [0, -1] })),
+    X0 + PM, X1 - PM, Z0 - COPE - PM, Z0 + PM);
+  sitSide('pool-seats-south', endX.map((x) => ({ x, y: TOP, z: mm(Z1 + COPE / 2), facing: [0, 1] })),
+    X0 + PM, X1 - PM, Z1 - PM, Z1 + COPE + PM);
+
   const colliders = [{ minX: -3.9, maxX: 3.9, minZ: 23.6, maxZ: 38.4, minY: 0, maxY: TOP }];
   let time = 0;
   return {
-    group, regions: [], colliders, pickables: [],
+    group, regions: [], colliders, pickables,
+    seats, // every place to sit on the coping: { x, y, z, facing: [fx, fz] }, world metres
     update(dt) {
       time += ctx.reducedMotion ? dt * 0.3 : dt;
       if (uniforms) uniforms.uTime.value = time;

@@ -299,6 +299,37 @@ export function build(ctx) {
   for (const m of [bw, bs]) { m.castShadow = true; m.receiveShadow = true; group.add(m); }
   mesh(merge(padGeos), M.get('paving', { tile: 1.2 }), { cast: false });
 
+  // ---- seats (sit contract) ------------------------------------------------------
+  // Three 0.6 m person-places per 1.8 m bench (local x −0.6, 0, 0.6) on the slat
+  // tops (slat centre 0.455 + half its 0.03 = 0.47), centred on the five-slat field
+  // (local z −0.195…0.275 → the middle slat, z = 0.04), looking out of the bench
+  // front (local +z) over its lawn — all through the bench's own instance transform.
+  // One invisible pick proxy per bench encloses slats, reclined back and steel frame
+  // (local x ±0.9, y 0…0.932, z −0.333…0.29) with ~2 cm to spare, so any ray that
+  // reaches the bench meets the proxy first.
+  const seats = [], pickables = [];
+  {
+    const SEAT_TOP = 0.455 + 0.03 / 2, SEAT_Z = -0.16 + 2 * 0.1;
+    const PROXY_Z0 = -0.35, PROXY_Z1 = 0.31, PROXY_H = 0.95;
+    const mm = (v) => Math.round(v * 1000) / 1000 || 0;      // drop sin/cos float noise (and −0)
+    const proxyGeo = new THREE.BoxGeometry(1.84, PROXY_H, PROXY_Z1 - PROXY_Z0).translate(0, PROXY_H / 2, (PROXY_Z0 + PROXY_Z1) / 2);
+    const proxyMat = new THREE.MeshBasicMaterial({ visible: false });
+    const B = new THREE.Matrix4(), p = new THREE.Vector3(), f = new THREE.Vector3();
+    for (const [x, z, a] of BENCHES) {
+      B.makeRotationY(a).setPosition(x, 0, z);               // = the bench's instance matrix
+      f.set(0, 0, 1).transformDirection(B);
+      const own = [-0.6, 0, 0.6].map((lx) => {
+        p.set(lx, SEAT_TOP, SEAT_Z).applyMatrix4(B);
+        return { x: mm(p.x), y: mm(p.y), z: mm(p.z), facing: [mm(f.x), mm(f.z)] };
+      });
+      const proxy = new THREE.Mesh(proxyGeo, proxyMat);
+      proxy.name = 'garden-bench-seat';
+      proxy.position.set(x, 0, z); proxy.rotation.y = a;
+      proxy.userData.action = { type: 'sit', seats: own };
+      group.add(proxy); pickables.push(proxy); seats.push(...own);
+    }
+  }
+
   // ---- walkable regions --------------------------------------------------------
   const regions = [
     { minX: X0 + HEDGE_T, maxX: X1 - HEDGE_T, minZ: Z0 + HEDGE_T, maxZ: Z1 - HEDGE_T, y: 0 },   // lawns, paths, crossing, strip
@@ -306,5 +337,5 @@ export function build(ctx) {
     { minX: 28, maxX: 65, minZ: 27.6, maxZ: 30.4, y: 0 },                                         // main path through the east gate
   ];
 
-  return { group, regions, colliders, pickables: [], update() {}, onPick() {} };
+  return { group, regions, colliders, pickables, seats, update() {}, onPick() {} };
 }

@@ -65,6 +65,7 @@ export function build(ctx) {
   const low = quality === 'low';
   const group = new THREE.Group(); group.name = 'metro';
   const regions = [], colliders = [];
+  const pickables = [], seats = [];   // sit contract: the station benches' pick proxies and person-places
   const T = { x: 0, z: 0, tx: 0, tz: 0 };
   const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
@@ -204,6 +205,24 @@ export function build(ctx) {
     const wood = M.get('oakPlanks');
     for (const z of [24.5, 33.5]) { box(0.5, 0.06, 1.8, wood, 82.0, 0.35 + 0.46, z, null); box(0.06, 0.45, 1.8, wood, 81.8, 0.35 + 0.7, z, null);
       box(0.4, 0.45, 0.06, graphite, 82.0, 0.35 + 0.22, z - 0.8, null); box(0.4, 0.45, 0.06, graphite, 82.0, 0.35 + 0.22, z + 0.8, null); }
+    // sit contract: three 0.6 m person-places per 1.8 m bench (z −0.6, 0, +0.6) on the
+    // seat top (centre 0.35 + 0.46 + half its 0.06 = 0.84), centred on the free seat
+    // depth between the backrest face (81.8 + 0.03) and the front edge (82.0 + 0.25)
+    // = 82.04, looking +x: away from the backrest, across the platform to the track.
+    // One invisible pick proxy per bench encloses seat, back and legs (x 81.75…82.25,
+    // y 0.345…1.275, z ±0.9) with a little to spare (clear of the canopy posts at
+    // x ≤ 81.65), so any ray that reaches the bench meets the proxy first.
+    const mm = (v) => Math.round(v * 1000) / 1000;
+    const seatTop = mm(0.35 + 0.46 + 0.06 / 2), seatX = mm((81.8 + 0.06 / 2 + 82.0 + 0.5 / 2) / 2);
+    const proxyGeo = new THREE.BoxGeometry(0.54, 0.96, 1.84), proxyMat = new THREE.MeshBasicMaterial({ visible: false });
+    for (const z of [24.5, 33.5]) {
+      const own = [-0.6, 0, 0.6].map((dz) => ({ x: seatX, y: seatTop, z: mm(z + dz), facing: [1, 0] }));
+      const proxy = new THREE.Mesh(proxyGeo, proxyMat);
+      proxy.name = 'station-bench-seat';
+      proxy.position.set(82.0, 0.82, z);                     // x 81.73…82.27, y 0.34…1.30, z ±0.92
+      proxy.userData.action = { type: 'sit', seats: own };
+      group.add(proxy); pickables.push(proxy); seats.push(...own);
+    }
   }
 
   // ---- the tram: 3 cars, local +z forward, origin at rail-head top ----
@@ -332,5 +351,5 @@ export function build(ctx) {
     for (let i = 0; i < glows.length; i++) { const g = glows[i]; if (g.isSprite) g.material.opacity = 0.45 + 0.4 * near; else g.intensity = 5 + 14 * near; }
   }
 
-  return { group, regions, colliders, pickables: [], update, onPick() {}, position };
+  return { group, regions, colliders, pickables, seats, update, onPick() {}, position };
 }

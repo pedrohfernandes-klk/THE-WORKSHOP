@@ -28,14 +28,23 @@ CC0 materials (Poly Haven) and a real HDR sky:
   luminous tunnel, a **Skyliner** cable car, aircraft, birds, and comic NPCs.
 - Big screens (cinema, amphitheatre) show SayWhat, No Worries, Português and
   Lente first; YouTube is a second option.
-- **Weather** (T, or the sun icon): radiant sun, storm, rainbow, and a starry
-  night with the real stars and constellations above Lisbon at the visitor's
-  own time.
+- **Weather** (T, or the sun icon): golden hour, radiant sun, storm, rainbow,
+  and a starry night with the real stars above Lisbon at the visitor's own time
+  (look up and the constellations draw themselves in).
+- **Indie touches**, found rather than announced: twelve lost floppy disks, a
+  giant rubber duck in the pool, an existential vending machine, a critic cat, a
+  pirate 8-bit radio on the terrace, an 8-bit ghost in the ruins, a snake game on
+  the plaza paving, a retro photo booth, a gnome that moves when you look away,
+  notebook murals in the manner of the Renaissance, and comic NPCs who talk,
+  bark, judge and slap back.
 
 **Play:** click to capture the mouse · WASD · Shift run · Space jump · E use /
 talk · click to slap an NPC · F (or right mouse) to throw a paper ball at a bin
-· 1–7 and G for gestures · Esc releases the mouse. On a phone: drag to look,
-tap to walk or use.
+· 1–7 and G for gestures, 8 and 9 for two cheeky ones (censored) · T weather ·
+Esc releases the mouse. On a phone: drag to look, tap or hold to walk, tap to
+use.
+
+The design canon (type, colour, light, sound, play) is `docs/gallery/CANON.md`.
 
 The previous museum — the fifteen-district campus around the Tower — is kept,
 unchanged, at `classic.html`.

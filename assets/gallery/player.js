@@ -1,9 +1,15 @@
 // First-person viewmodel hands with procedural gestures. Attached to the camera.
-// createPlayer(camera, { reducedMotion }) -> { group, gesture(name), busy, update(dt, {speed,jumping,turnRate}),
-//   cameraOffset:{y,roll}, onClap, dispose() }
+// createPlayer(camera, { reducedMotion, audio }) -> { group, gesture(name), busy, update(dt, {speed,jumping,turnRate,stepPhase}),
+//   cameraOffset:{y,roll}, onClap, onGestureStart(name), setAudio(audio), dispose() }
+// The two cheeky ones (manguito, pirete) are always allowed, but censored: a
+// chunky pixel mosaic covers the hand and a 1 kHz bip plays.
 import * as THREE from 'three';
 
-export const GESTURES = ['wave', 'thumbs', 'clap', 'point', 'shrug', 'dance', 'peace'];
+/** Friendly gestures (G picks among these). */
+export const FRIENDLY = ['wave', 'thumbs', 'clap', 'point', 'shrug', 'dance', 'peace'];
+/** Censored on screen. */
+export const CHEEKY = ['manguito', 'pirete'];
+export const GESTURES = [...FRIENDLY, ...CHEEKY];
 
 const DEPTH = 0.5;            // hands live ~0.5 m in front of the eye
 const RISE = 0.4, FALL = 0.45;
@@ -63,7 +69,80 @@ const G = {
     const w = Math.sin(clamp(t - 0.6, 0, 1) * Math.PI * 2) * 0.05;
     S(c.R, 0.14, -0.12 + w * 0.3, -0.02, -0.15, -0.35, 0.15 + w, 0.4, 0.8, 0, 0, 1, 1);
   } },
+  // A quick open-handed swipe right to left (main.js plays it for a slap).
+  slap: { dur: 0.6, rise: 0.08, fall: 0.2, f(t, c) {
+    const k = ease((t - 0.06) / 0.16);
+    S(c.R, 0.3 - 0.36 * k, -0.1 + 0.03 * Math.sin(k * Math.PI), -0.05, -0.15, -1.1, 0.5 - 0.9 * k, 0.3, 0.1, 0.05, 0.05, 0.05, 0.1);
+  } },
+  // Manguito (bras d'honneur): the right forearm swings up into a fist as the
+  // left hand slaps the inside of the elbow. Censored.
+  manguito: { dur: 2.3, censor: [0.12, -0.07, 0.15, 0.2, 0.34], f(t, c) {
+    const up = ease((t - 0.08) / 0.3);
+    const hit = Math.exp(-Math.max(0, t - 0.4) * 9) * (t > 0.4 ? 1 : 0);
+    S(c.R, 0.12, -0.5 + 0.43 * up + 0.025 * hit, -0.04, -0.25 * up, 0.35, 0.95 * (1 - up) - 0.08, 0.05, 0.75, 1, 1, 1, 1);
+    const sl = ease((t - 0.22) / 0.18);
+    S(c.L, -0.2 + 0.27 * sl, -0.42 + 0.1 * sl, -0.03, -0.25, -1.45, -0.55, 0.15, 0.1, 0.1, 0.1, 0.1, 0.15);
+  } },
+  // Pirete: the middle finger, palm to the visitor, with a little jab. Censored.
+  pirete: { dur: 2.0, censor: [0.11, -0.03, 0.11, 0.14, 0.22], f(t, c) {
+    const jab = Math.max(0, Math.sin(clamp((t - 0.45) / 0.5, 0, 1) * Math.PI * 2)) * 0.015;
+    S(c.R, 0.11, -0.11 + jab, -0.04, 0.12, Math.PI, -0.12, 0.05, 0.9, 1, 0, 1, 1);
+  } },
 };
+
+// ---- censor: a flickering pixel mosaic with a tiny CENSURADO band ----------
+const MOSAIC = ['#e2ae96', '#c98f78', '#f0c4ad', '#b07562', '#d9a08a', '#8f5b4b', '#f5d3c0', '#a86b58'];
+function createCensor(reducedMotion) {
+  if (typeof document === 'undefined' || !document.createElement) return null;
+  const cv = document.createElement('canvas');
+  cv.width = 48; cv.height = 60;
+  const g = cv.getContext && cv.getContext('2d');
+  if (!g) return null;
+  const tex = new THREE.CanvasTexture(cv);
+  tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false, fog: false, toneMapped: false });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1.25), mat);
+  mesh.renderOrder = 1000; mesh.frustumCulled = false; mesh.visible = false;
+  let clock = 0;
+  const draw = () => {
+    for (let y = 0; y < 6; y++) for (let x = 0; x < 6; x++) {
+      g.fillStyle = MOSAIC[(Math.random() * MOSAIC.length) | 0];
+      g.fillRect(x * 8, y * 8, 8, 8);
+    }
+    g.fillStyle = '#000'; g.fillRect(0, 48, 48, 12);
+    g.fillStyle = '#fff'; g.font = 'bold 7px monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('CENSURADO', 24, 54.5, 46);
+    tex.needsUpdate = true;
+  };
+  draw();
+  return {
+    mesh,
+    update(dt) {
+      if (reducedMotion || !mesh.visible) return;
+      clock += dt;
+      if (clock > 0.09) { clock = 0; draw(); }   // ~11 Hz shimmer, cheap (36 cells)
+    },
+    dispose() { mesh.geometry.dispose(); mat.dispose(); tex.dispose(); },
+  };
+}
+
+// The censor's bip: a 1 kHz sine for 0.25 s on the page's audio context.
+function bip(audio) {
+  const ac = audio && audio.context;
+  if (!ac || audio.muted || ac.state !== 'running') return;
+  try {
+    const t = ac.currentTime + 0.01;
+    const o = ac.createOscillator(), gn = ac.createGain();
+    o.type = 'sine'; o.frequency.value = 1000;
+    gn.gain.setValueAtTime(0, t);
+    gn.gain.linearRampToValueAtTime(0.12, t + 0.008);
+    gn.gain.setValueAtTime(0.12, t + 0.242);
+    gn.gain.linearRampToValueAtTime(0, t + 0.25);
+    o.connect(gn); gn.connect(ac.destination);
+    o.start(t); o.stop(t + 0.27);
+  } catch (e) { /* audio is optional */ }
+}
 
 function buildHand(skin, jacket, trim, geos) {
   const root = new THREE.Group();
@@ -101,8 +180,8 @@ function buildHand(skin, jacket, trim, geos) {
   return { root, fingers };
 }
 
-function applyHand(h, p) {
-  h.root.position.set(p[0], p[1], p[2]);
+function applyHand(h, p, xk) {
+  h.root.position.set(p[0] * xk, p[1], p[2]);
   h.root.rotation.set(p[3], p[4], p[5]);
   const f = h.fingers;
   const t = f[0].joints;
@@ -115,7 +194,7 @@ function applyHand(h, p) {
   }
 }
 
-export function createPlayer(camera, { reducedMotion = false } = {}) {
+export function createPlayer(camera, { reducedMotion = false, audio = null } = {}) {
   const group = new THREE.Group();
   group.position.set(0, 0, -DEPTH);
   group.renderOrder = 999;
@@ -143,24 +222,37 @@ export function createPlayer(camera, { reducedMotion = false } = {}) {
   const ctx = { t: 0, R: pR, L: pL, cam: { y: 0, roll: 0 }, state: { claps: 0 }, clap: null };
   const cameraOffset = { y: 0, roll: 0 };
 
-  let cur = null, time = 0;
+  const censor = createCensor(reducedMotion);
+  if (censor) group.add(censor.mesh);
+  let sound = audio;
+
+  let cur = null, curName = '', time = 0, bipped = false;
   let sN = 0, jumpK = 0, phase = 0, turn = 0;
 
   const player = {
-    group, cameraOffset, onClap: null,
+    group, cameraOffset, onClap: null, onGestureStart: null,
     get busy() { return cur !== null; },
+    get current() { return cur ? curName : null; },
+    setAudio(a) { sound = a || null; },
     gesture(name) {
-      if (cur || !G[name]) return false;
-      cur = G[name]; time = 0; ctx.state.claps = 0;
+      if (!G[name]) return false;
+      // The cheeky ones can always be made, even over a friendly one.
+      if (cur && !(CHEEKY.includes(name) && curName !== name)) return false;
+      cur = G[name]; curName = name; time = 0; ctx.state.claps = 0; bipped = false;
+      if (typeof player.onGestureStart === 'function') { try { player.onGestureStart(name); } catch (e) { /* listener's problem */ } }
       return true;
     },
-    update(dt, { speed = 0, jumping = false, turnRate = 0 } = {}) {
+    update(dt, { speed = 0, jumping = false, turnRate = 0, stepPhase } = {}) {
       dt = Math.min(dt, 0.1);
       const k = 1 - Math.exp(-dt * 8);
       sN += (clamp(speed / 5, 0, 1) - sN) * k;
       jumpK += ((jumping ? 1 : 0) - jumpK) * (1 - Math.exp(-dt * (jumping ? 14 : 6)));
       turn += (clamp(turnRate, -3, 3) - turn) * k;
-      phase += dt * (2 + speed * 1.4);
+      // Hands swing once per stride, in step with the footsteps (controls.stepPhase
+      // when given, else the same cadence from speed).
+      if (Number.isFinite(stepPhase)) phase = stepPhase * Math.PI;
+      else phase += dt * Math.PI * (speed > 0.05 ? clamp(1.9 + (Math.min(speed, 3.2) - 1.6) * 0.62, 1, 3.3) : 0.6);
+      const xk = clamp((camera.aspect || 1.6) / 1.6, 0.5, 1);   // narrow phone screens: hands closer in
 
       // rest poses (hidden low at the edges; tips peek in when walking)
       const lift = sN * 0.14 + jumpK * 0.07;
@@ -169,15 +261,16 @@ export function createPlayer(camera, { reducedMotion = false } = {}) {
       S(rR, 0.23 + sw * 0.012 * sN + dx, -0.64 + lift + sw2 * 0.015 * sN, 0, 0, 0, 0.35, 0.2, 0.3, 0.3, 0.3, 0.3, 0.3);
       S(rL, -0.23 - sw * 0.012 * sN + dx, -0.64 + lift + sw2 * 0.015 * sN, 0, 0, 0, -0.35, 0.2, 0.3, 0.3, 0.3, 0.3, 0.3);
 
-      let cy = 0, cr = 0, active = false;
+      let cy = 0, cr = 0, active = false, cens = null;
       if (cur) {
         time += dt;
-        if (time >= cur.dur) { cur = null; }
+        if (time >= cur.dur) { cur = null; curName = ''; }
         else {
           pR.set(rR); pL.set(rL);
           ctx.cam.y = 0; ctx.cam.roll = 0; ctx.clap = (n) => { if (player.onClap) player.onClap(n); };
           cur.f(time, ctx);
-          const e = Math.min(ease(time / RISE), ease((cur.dur - time) / FALL));
+          const e = Math.min(ease(time / (cur.rise || RISE)), ease((cur.dur - time) / (cur.fall || FALL)));
+          if (cur.censor && time >= cur.censor[4] && time < cur.dur - 0.06) cens = cur.censor;
           for (let i = 0; i < N; i++) {
             rR[i] += (pR[i] - rR[i]) * e;
             rL[i] += (pL[i] - rL[i]) * e;
@@ -188,10 +281,23 @@ export function createPlayer(camera, { reducedMotion = false } = {}) {
         }
       }
       cameraOffset.y = cy; cameraOffset.roll = cr;
-      applyHand(hR, rR); applyHand(hL, rL);
+      applyHand(hR, rR, xk); applyHand(hL, rL, xk);
+      if (censor) {
+        const m = censor.mesh;
+        m.visible = !!cens;
+        if (cens) {
+          if (!bipped) { bipped = true; bip(sound); }
+          // a hair in front of the hand, over the rude part; the tiniest jitter
+          const j = reducedMotion ? 0 : (Math.random() - 0.5) * 0.002;
+          m.position.set(cens[0] * xk + j, cens[1] + rR[1] + 0.11 + j, 0.06);
+          m.scale.set(cens[2], cens[3] / 1.25, 1);
+          censor.update(dt);
+        }
+      }
       group.visible = active || sN > 0.05 || jumpK > 0.02;
     },
     dispose() {
+      if (censor) censor.dispose();
       camera.remove(group);
       for (const g of geos) g.dispose();
       for (const m of mats) m.dispose();

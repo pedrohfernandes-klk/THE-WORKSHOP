@@ -10,6 +10,7 @@ import { WORKS } from './catalogue.js';
 import { createCurator, initialHang, encodeShow, decodeShow, titleFor } from './curator.js';
 import { createRoom, SLOTS, EYE_HEIGHT, START } from './room.js';
 import { createPost } from './post.js';
+import { createPerf, deviceProfile } from './perf.js';
 import { loadWorkTexture } from './textures.js';
 import { createControls } from './controls.js';
 import { createUI, showFallback } from './ui.js';
@@ -82,13 +83,22 @@ function isoDay(date) {
   return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}`;
 }
 
+// The tier is fixed for the visit (it selects geometry density and the texture
+// set at load); resolution and the expensive passes are the governor's
+// (perf.js), which adapts from there.
+//   high   1k maps: discrete GPUs, Apple silicon, strong desktops
+//   medium 512 px maps, same scene: typical laptops, incl. 4-core with integrated graphics
+//   low    lighter scene: phones, very low memory, software rendering
 function pickQuality() {
   const q = params.get('quality');
-  if (q === 'low' || q === 'high') return q;
+  if (q === 'low' || q === 'medium' || q === 'high') return q;
+  const d = deviceProfile(renderer);
   const coarse = matchMedia('(pointer: coarse)').matches;
   const small = Math.min(innerWidth, innerHeight) < 600;
-  const weak = (navigator.deviceMemory && navigator.deviceMemory < 4) || (navigator.hardwareConcurrency || 8) <= 4;
-  return (coarse && small) || weak ? 'low' : 'high';
+  if ((coarse && small) || d.phone || (d.mem && d.mem <= 2) || d.software) return 'low';
+  if (d.discrete || (!d.mobile && d.appleSilicon && d.cores >= 8)) return 'high';
+  if (!d.mobile && !d.integrated && d.cores >= 8 && (!d.mem || d.mem >= 8)) return 'high';
+  return 'medium';
 }
 
 const shared = readSharedShow();
@@ -159,8 +169,11 @@ try {
 }
 
 const quality = pickQuality();
-const maxRatio = quality === 'high' ? 1.75 : 1.25;
-let pixelRatio = Math.min(devicePixelRatio || 1, maxRatio);
+// Resolution and the expensive passes belong to the governor (perf.js): render
+// resolution between 0.6x and 1x of min(devicePixelRatio, 2), starting low on
+// weak machines and climbing while frames keep up. onChange is wired below.
+const perf = createPerf({ renderer, quality, debug: TEST });
+let pixelRatio = perf.pixelRatio;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.setPixelRatio(pixelRatio);
 renderer.setSize(innerWidth, innerHeight, false);
@@ -175,6 +188,9 @@ camera.lookAt(START.target);
 
 const room = createRoom(renderer, { quality, reducedMotion });
 const post = createPost(renderer, room.scene, camera, { quality });
+perf.attach(post);
+const mirrors = [];   // reflectors the governor resizes (the hall floor follows the drawing buffer in room.js)
+perf.onChange = () => { applySize(); };
 const coarsePointer = matchMedia('(pointer: coarse)').matches;
 const controls = createControls(camera, canvas, {
   bounds: room.bounds,
@@ -205,13 +221,28 @@ const worldReady = createWorld(ctx, {
   // hall floor from inside the hall, the pool from outdoors. Elsewhere it keeps
   // its last image (it is barely visible through a doorway), which roughly
   // halves the cost of every outdoor frame.
+  // Only for the visitor's own view: never inside an override pass (a
+  // normal/depth pass sets scene.overrideMaterial) or another camera's render
+  // (a mirror seen in a mirror): each would re-render the whole campus again.
+  // The governor (perf.js) may refresh mirrors every 2nd/3rd frame at its lower
+  // steps; a mirror that has been idle renders at once.
   const gate = (mesh, visible) => {
     if (!mesh || typeof mesh.onBeforeRender !== 'function') return;
     const render = mesh.onBeforeRender;
-    mesh.onBeforeRender = function (...args) { if (visible()) render.apply(this, args); };
+    let last = -1;
+    mesh.onBeforeRender = function (r, scene, cam, ...rest) {
+      if (cam !== camera || room.scene.overrideMaterial || !visible()) return;
+      if (last >= 0 && state.frames - last >= 0 && state.frames - last < perf.mirrorEvery) return;
+      last = state.frames;
+      render.call(this, r, scene, cam, ...rest);
+    };
   };
-  if (room.floor && room.floor.getRenderTarget) gate(room.floor, () => !state.entered || state.inHall);
-  w.groups.pool?.traverse((o) => { if (o.getRenderTarget) gate(o, () => !state.indoor); });
+  if (room.floor && room.floor.getRenderTarget) {
+    gate(room.floor, () => !state.entered || state.inHall);
+    room.floor.userData.scale = perf.mirrorScale; // read by room.js once it supports it
+  }
+  w.groups.pool?.traverse((o) => { if (o.getRenderTarget) { gate(o, () => !state.indoor); mirrors.push(o); } });
+  sizeMirrors();
   if (w.lift) {
     w.lift.onEvent = (name) => {
       if (name === 'chime') (audio.chime || audio.reveal)();
@@ -263,7 +294,7 @@ worldReady.then((w) => {
   if (!w) return;
   // Compile the campus's shaders off the main thread where the GPU allows.
   try { renderer.compileAsync?.(room.scene, camera).catch(() => {}); } catch (e) { /* optional */ }
-  if (state.entered) ui.toast('The doors are open — the campus awaits outside.', 3600);
+  if (state.entered) ui.toast('The doors are open.', 2400);
 });
 
 // ----------------------------------------------------------------- entry --
@@ -274,7 +305,7 @@ async function enter() {
   if (state.entered) return;
   // Audio must start inside the click itself, before any await.
   audio.start().catch(() => {});
-  music?.start().catch(() => {});
+  music?.start(audio.context, audio.musicBus).catch(() => {});
   await ready;
   state.entered = true;
   ui.hideEntry();
@@ -285,29 +316,40 @@ async function enter() {
   // Step over the threshold as the lights come on.
   controls.flyTo({ position: START.position, target: START.target, duration: reducedMotion ? 0.2 : 3.4 });
   const touch = matchMedia('(pointer: coarse)').matches;
+  // The intro owns the hint line until the visitor acts. The prompt updaters
+  // rewrite the line whenever their prompt changes, and state.prompt started
+  // undefined, so their first null wiped the intro: within 0.15 s on phones
+  // (centre prompt), on the first mouse move on desktop (hover prompt).
+  // Starting at null lets only a real prompt ("E · Sit") take the line.
+  state.prompt = null;
   ui.hint(touch
-    ? 'Drag to look · Tap the floor to walk · Tap a work to approach'
-    : 'Click to play · WASD · Shift run · Space jump · E use · F throw · 1–7 gestures');
+    ? 'Drag to look · Tap or hold to walk'
+    : 'Click to look around · WASD to walk · Shift to run');
 }
 
 controls.onFirstInput = () => {
-  setTimeout(() => ui.hint(null), 2600);
+  // Retire the intro, never a live prompt that has since taken the line.
+  setTimeout(() => { if (state.prompt === null) ui.hint(null); }, 3200);
 };
 
 // ----------------------------------------------------------- game layer --
 
 const crosshair = document.getElementById('crosshair');
 import('./player.js').then((m) => {
-  player = m.createPlayer(camera, { reducedMotion });
+  player = m.createPlayer(camera, { reducedMotion, audio });
+  // Every gesture, from any caller, is published for the world (NPCs react).
+  player.onGestureStart = (name) => { room.scene.userData.lastGesture = { name, time: performance.now() / 1000 }; };
   room.scene.add(camera);
   if (player.group && !player.group.parent) camera.add(player.group);
 }).catch(() => { /* gestures are optional */ });
 let sfx = null;
-// (movement sound effects module: wired in when it lands)
+// Eerie and wacky sound layer: zones (the ruin's heartbeat, the stage choir)
+// and one-shots that answer the visitor (boings, slide whistles, cushions).
+import('./sfx.js').then((m) => { sfx = m.createSfx(audio); }).catch(() => { /* optional */ });
 import('./music.js').then((m) => {
   music = m.createMusic();
   music.setMuted(audio.muted);
-  if (state.entered) music.start().catch(() => {});
+  if (state.entered) music.start(audio.context, audio.musicBus).catch(() => {});
 }).catch(() => { /* music is optional */ });
 
 // Paper-ball basketball: pick up crumpled paper (E / click), hold F or the
@@ -348,13 +390,14 @@ addEventListener('mouseup', (e) => { if (e.button === 2) releaseCharge(); });
 
 // Weather and time: sunny, storm, rainbow, a real starry night.
 let weather = null;
-const WEATHER_LABEL = { sunny: 'Radiant sun', storm: 'Storm', rainbow: 'Rainbow', night: 'Starry night' };
+// Each change is narrated as something happening in the world, with a hint at where to look.
+const WEATHER_LABEL = { golden: 'Golden hour', sunny: 'A new day', storm: 'A storm rolls in', rainbow: 'Rainbow · sun at your back', night: 'Night falls · look up' };
 function cycleWeather() {
   if (!weather) return;
   const i = weather.modes.indexOf(weather.mode);
   const next = weather.modes[(i + 1) % weather.modes.length];
   weather.set(next);
-  ui.toast(WEATHER_LABEL[next] || next, 2200);
+  ui.toast(WEATHER_LABEL[next] || next, 3200);
   const b = document.getElementById('weather-btn');
   if (b) b.dataset.mode = next;
 }
@@ -380,11 +423,14 @@ controls.onUse = () => {
   state.viaUse = true;   // E talks; a click slaps
   try { controls.onTap?.(innerWidth / 2, innerHeight / 2); } finally { state.viaUse = false; }
 };
-const GESTURE_KEYS = { Digit1: 'wave', Digit2: 'thumbs', Digit3: 'clap', Digit4: 'point', Digit5: 'shrug', Digit6: 'dance', Digit7: 'peace' };
+// 8 and 9 are the two cheeky ones (censored on screen): never picked by G.
+const GESTURE_KEYS = { Digit1: 'wave', Digit2: 'thumbs', Digit3: 'clap', Digit4: 'point', Digit5: 'shrug', Digit6: 'dance', Digit7: 'peace', Digit8: 'manguito', Digit9: 'pirete' };
 controls.onGesture = (code) => {
   if (!player) return;
   const list = ['wave', 'thumbs', 'clap', 'point', 'shrug', 'dance', 'peace'];
-  player.gesture(code === 'KeyG' ? list[Math.floor(Math.random() * list.length)] : GESTURE_KEYS[code]);
+  const name = code === 'KeyG' ? list[Math.floor(Math.random() * list.length)] : GESTURE_KEYS[code];
+  if (!name) return;
+  player.gesture(name);   // player.onGestureStart publishes it to the world
 };
 
 // With the mouse captured, the crosshair says what E / click will do.
@@ -394,8 +440,8 @@ function updateCentrePrompt(dt) {
   centreClock += dt;
   if (centreClock < 0.15) return;
   centreClock = 0;
-  const hit = pickAt(innerWidth / 2, innerHeight / 2);
-  const label = hit && hit.distance < 9 && isPickable(hit.object) ? labelFor(hit.object) : null;
+  const hit = pickAt(innerWidth / 2, innerHeight / 2, 9); // only hits under 9 m are used
+  const label = hit && hit.distance < 9 && isPickable(hit.object) && withinReach(hit) ? labelFor(hit.object) : null;
   crosshair.classList.toggle('is-target', !!label);
   const text = label ? `${coarsePointer ? 'Tap' : 'E'} · ${label}` : null;
   if (text !== state.prompt) { state.prompt = text; ui.hint(text); }
@@ -411,7 +457,7 @@ controls.onTap = (x, y) => {
   if (state.overlay) return;
   const hit = pickAt(x, y);
   if (!hit) return;
-  if (paper && isPaper(hit.object)) { if (paper.tryPickUp(hit.object)) ui.toast('Hold F (or right mouse) and release to throw', 2600); return; }
+  if (paper && isPaper(hit.object)) { if (paper.tryPickUp(hit.object)) ui.toast('Hold F, release to throw', 2400); return; }
   const slot = findSlot(hit.object);
   if (slot !== -1 && state.inHall) { focusSlot(slot); return; }
   if (isProp(hit.object, 'catalogue')) { openExhibition(); return; }
@@ -419,24 +465,26 @@ controls.onTap = (x, y) => {
   if (found) { leaveFocus(false); act(found, hit); return; }
   // Anything you can stand on: walk there (with the mouse captured you walk with WASD).
   if (controls.seated) { controls.standUp(); return; }
-  if (!controls.locked && hit.face && worldNormal(hit).y > 0.6) {
+  // A tap or a click on the floor walks there; E (use) never does.
+  if (!controls.locked && !state.viaUse && hit.face && worldNormal(hit).y > 0.6) {
     leaveFocus(false);
     controls.walkTo(hit.point);
   }
 };
 
 const tmpN = new THREE.Vector3();
+const tmpLook = new THREE.Vector3();
 const normalMatrix = new THREE.Matrix3();
 function worldNormal(hit) {
   normalMatrix.getNormalMatrix(hit.object.matrixWorld);
   return tmpN.copy(hit.face.normal).applyMatrix3(normalMatrix).normalize();
 }
 
-function pickAt(x, y) {
+function pickAt(x, y, far = 60) {
   ndc.set((x / innerWidth) * 2 - 1, -(y / innerHeight) * 2 + 1);
   raycaster.setFromCamera(ndc, camera);
   raycaster.layers.set(0);
-  raycaster.far = 60;
+  raycaster.far = far;
   const hits = raycaster.intersectObjects(room.scene.children, true);
   for (const hit of hits) {
     const o = hit.object;
@@ -469,8 +517,12 @@ function labelFor(o) {
   const found = world && world.actionFor(o);
   if (!found) return null;
   const { action, module } = found;
+  if (action.label) return action.label;            // a module can name its own action
   if (action.type === 'sit') return 'Sit';
   if (action.type === 'app') return action.title || 'Open';
+  const OWN = { floppies: 'Pick up the floppy', cat: 'Pet the cat', ghost: 'Buu?', photobooth: 'Take a photo',
+    radio: 'Radio on / off', vending: 'Buy something', duck: 'Squeeze the duck', gnome: 'Hm?', murals: 'Look closer', arraial: 'Ask for a song' };
+  if (OWN[module]) return OWN[module];
   if (module === 'lift') return /go-1/.test(action.id) ? 'Up · Cinema & terrace' : /go-0/.test(action.id) ? 'Down · The Hall' : 'Call the lift';
   if (module === 'cinema' || module === 'amphitheatre') return 'Choose what plays on this screen';
   if (module === 'npcs') return coarsePointer ? 'Talk' : 'Click: slap · E: talk';
@@ -488,16 +540,36 @@ function nearestSeat(seats, point) {
   }
   return best;
 }
+// Seats are within arm's reach, as in any first-person game: no gliding onto a
+// bench across the plaza.
+const SIT_REACH = 4.5;
+function withinReach(hit) {
+  const found = world && world.actionFor(hit.object);
+  return !(found && found.action.type === 'sit' && hit.distance > SIT_REACH);
+}
 function sitOn(seat) {
   if (!seat) return;
   controls.sit(seat);
   ui.hint(coarsePointer ? 'Seated · tap the floor to stand' : 'Seated · WASD or Space to stand up');
-  setTimeout(() => { if (controls.seated) ui.hint(null); }, 4000);
+  state.seatHint = true;
+  setTimeout(() => clearSeatHint(), 4000);
+}
+// The seated hint leaves when its moment is over: after 4 s, or as soon as the
+// visitor stands (the frame loop calls this), whichever comes first.
+function clearSeatHint() {
+  if (!state.seatHint) return;
+  state.seatHint = false;
+  ui.hint(null);
+  state.prompt = undefined;   // let the crosshair prompt post itself again
 }
 
 function act(found, hit) {
   const { action, module, object } = found;
-  if (action.type === 'sit') { sitOn(nearestSeat(action.seats, hit ? hit.point : object.getWorldPosition(new THREE.Vector3()))); return; }
+  if (action.type === 'sit') {
+    if (hit && hit.distance > SIT_REACH) { ui.toast('Get closer to sit', 1400); return; }
+    sitOn(nearestSeat(action.seats, hit ? hit.point : object.getWorldPosition(new THREE.Vector3())));
+    return;
+  }
   if (module === 'npcs') {
     const npcs = world.modules.get('npcs');
     // The main action: a slapstick slap with a click; E (or a tap on touch) to talk.
@@ -524,10 +596,15 @@ function act(found, hit) {
   world.pick(object);
 }
 
-// Desktop: the cursor and a quiet prompt say what a click will do.
+// Hover prompts say what a click will do, so they speak only where a click acts at
+// the cursor (pen, or no pointer lock). With a mouse, a click first captures the
+// pointer and the crosshair prompt speaks; while captured, clientX/Y stay frozen
+// where the click was, so picking there raced that prompt (flickering, wrong
+// labels) and raycast the whole campus every 110 ms.
 let hoverAt = 0;
+const clickCaptures = !coarsePointer && typeof canvas.requestPointerLock === 'function';
 canvas.addEventListener('pointermove', (e) => {
-  if (!state.entered || state.overlay || state.exhibitionOpen || e.buttons || e.pointerType === 'touch') return;
+  if (!state.entered || state.overlay || state.exhibitionOpen || e.buttons || e.pointerType === 'touch' || (e.pointerType === 'mouse' && clickCaptures)) return;
   const t = performance.now();
   if (t - hoverAt < 110) return;
   hoverAt = t;
@@ -572,6 +649,7 @@ function viewpointFor(slot) {
 }
 
 async function focusSlot(slot) {
+  const token = state.focusToken = (state.focusToken || 0) + 1;
   state.focused = slot;
   const work = byId.get(curator.hang[slot]);
   ui.setLabel(work, { seconds: curator.seconds[work.id] || 0, focused: true });
@@ -579,6 +657,8 @@ async function focusSlot(slot) {
   const view = viewpointFor(slot);
   state.flying = true;
   const arrived = await controls.flyTo(view);
+  // A newer approach (a double-click, Next pressed twice) took this flight over: it owns the focus now.
+  if (token !== state.focusToken) return;
   state.flying = false;
   if (!arrived && state.focused === slot) { leaveFocus(false); return; }
   // Soften the room behind the work once the visitor stands before it.
@@ -707,7 +787,7 @@ function updateVisibility(now) {
         audio.reveal();
         state.revealedSwaps++;
         if (state.revealedSwaps === 1) {
-          ui.toast('The room is re-hanging itself around what holds your gaze.');
+          ui.toast('Behind you, the walls change.');
         }
       }
     }
@@ -795,7 +875,7 @@ function updatePlace(pos, floor) {
   updateSoundscape(area, pos, floor, inLift);
   if (state.entered && name && name !== state.place) {
     state.place = name;
-    if (state.frames > 30) ui.toast(name, 2400);
+    if (state.frames > 30) (ui.place ? ui.place(name) : ui.toast(name, 2400));
   }
   if (!state.inHall && state.labelSlot !== -1 && state.focused === -1) { state.labelSlot = -1; ui.setLabel(null); }
 }
@@ -836,6 +916,7 @@ function updateSoundscape(area, pos, floor, inLift) {
     fountain: Math.hypot(pos.x - FOUNTAIN.x, pos.z - FOUNTAIN.z, (floor + 1.6) - FOUNTAIN.y),
     tram: tram ? Math.hypot(pos.x - tram.x, pos.z - tram.z) : 1e6,
     rain: mode === 'storm' ? (state.inHall || (area && area.name !== 'Roof terrace' && floor < 5 && /Hall|Cinema|Studio|Arcade|Sala/.test(area.name)) ? 0.35 : 1) : mode === 'rainbow' ? 0.15 : 0,
+    ruins: Math.hypot(pos.x + 49, pos.z + 33),   // the wind moans in the ruins at night
   });
 }
 
@@ -888,13 +969,17 @@ function prefetch() {
 
 const clock = new THREE.Clock();
 let paletteClock = 0;
-let slowFrames = 0;
-let fastFrames = 0;
 let running = true;
+let frameId = 0;
 
 function frame() {
   if (!running) return;
-  requestAnimationFrame(frame);
+  // One loop only: hiding the tab pauses the request frame() had already queued and
+  // showing it queues another, so both would run and each re-queue itself (one more
+  // full render per vsync after every tab switch). Cancelling the previous request
+  // folds any duplicate into this loop, whatever the browser's timer precision.
+  cancelAnimationFrame(frameId);
+  frameId = requestAnimationFrame(frame);
   try {
     step();
   } catch (err) {
@@ -931,10 +1016,11 @@ function step() {
   const floor = controls.floor;
   if (world) {
     world.lift?.setVisitor(pos.x, floor, pos.z);
-    world.update(dt, { camera, time: now, level: floor > 5 ? 1 : 0 });
+    world.update(dt, { camera, time: now, level: floor > 5 ? 1 : 0, weather: weather ? weather.mode : 'sunny' });
   }
   props.update?.(dt, camera);
   if (state.entered) updateCentrePrompt(dt);
+  if (state.seatHint && !controls.seated) clearSeatHint();
   const airborne = controls.airborne;
   const justJumped = airborne && !state.wasAirborne;
   const justLanded = !airborne && state.wasAirborne;
@@ -944,25 +1030,60 @@ function step() {
   // Visible speed: the view opens a little when running, like a camera
   // operator pulling back; it settles when you stop. Off with reduced motion.
   if (!reducedMotion) {
-    const run = THREE.MathUtils.clamp((controls.speed - 2.2) / 2.6, 0, 1);
-    const fovTarget = 52 + run * 7 + (airborne ? 1.5 : 0);
+    // Follows the run as it ramps in (controls.sprint), at most +6°, eased the
+    // same at any frame rate (exact exponential, ~0.3 s).
+    const run = THREE.MathUtils.clamp(Math.min((controls.speed - 2.2) / 2.6, controls.sprint ?? 1), 0, 1);
+    const fovTarget = 52 + run * 6 + (airborne ? 1 : 0);
     if (Math.abs(camera.fov - fovTarget) > 0.01) {
-      camera.fov += (fovTarget - camera.fov) * Math.min(1, dt * 3.5);
+      camera.fov += (fovTarget - camera.fov) * (1 - Math.exp(-dt * 3.5));
       camera.updateProjectionMatrix();
+    }
+  }
+  // Slapped back by an NPC (npcs.js publishes scene.userData.visitorHit): the
+  // head snaps aside and settles, with a thud. Applied after the controls have
+  // set this frame's orientation, so nothing accumulates.
+  const hitEv = room.scene.userData.visitorHit;
+  if (hitEv && hitEv.time !== state.lastHitTime) {
+    state.lastHitTime = hitEv.time;
+    const k = Number.isFinite(hitEv.strength) ? hitEv.strength : 0.6;
+    state.jolt = Math.min(1, (state.jolt || 0) + 0.45 + 0.55 * k);
+    state.joltSide = Math.sign(pos.x - (Number.isFinite(hitEv.x) ? hitEv.x : pos.x - 1)) || 1;
+    audio.land?.(0.8);
+  }
+  if (state.jolt > 0.002) {
+    state.jolt *= Math.exp(-dt * 6);
+    if (!reducedMotion) {
+      camera.rotateZ(state.joltSide * state.jolt * 0.09 * Math.cos(now * 38));
+      camera.rotateX(state.jolt * 0.035 * Math.sin(now * 29));
     }
   }
   // Eerie and wacky sound layer (optional module).
   sfx?.update(dt, { x: pos.x, y: floor, z: pos.z, area: state.place || null, speed: controls.speed, airborne, justJumped, justLanded, seated: controls.seated, indoor: !!state.indoor });
   if (player) {
-    player.update(dt, { speed: controls.speed, jumping: controls.airborne, turnRate: controls.turnRate });
+    player.update(dt, { speed: controls.speed, jumping: controls.airborne, turnRate: controls.turnRate, stepPhase: controls.stepPhase });
   }
-  if (music) music.setIntensity(Math.min(1, 0.25 + controls.speed / 5 + (state.inHall ? 0 : 0.25)));
+  // The score follows the place, the pace and the sky (hall calm, outdoors driving, ruins dark, storms minor).
+  if (music) {
+    if (music.setScene) music.setScene({ area: state.place, indoor: !!state.indoor, x: pos.x, z: pos.z, speed: controls.speed, airborne, weather: room.scene.userData.weather });
+    else music.setIntensity(Math.min(1, 0.25 + controls.speed / 5 + (state.inHall ? 0 : 0.25)));
+  }
   music?.update?.(dt);
   if (paper) {
     if (charging) { charge = Math.min(1, charge + dt * 0.9); paper.setPower?.(charge); }
     paper.update(dt);
   }
   weather?.update(dt, { camera, time: now, level: floor > 5 ? 1 : 0 });
+  // Look up on a clear night and the real constellations draw themselves in,
+  // faintly; look back down and the sky is left as it is.
+  if (weather && weather.setConstellations) {
+    camera.getWorldDirection(tmpLook);
+    weather.setConstellations(weather.mode === 'night' && !state.indoor && tmpLook.y > 0.5);
+  }
+  // The world's sound follows the sky: crickets and owls at night, gusts and rain in a storm.
+  audio.setWeather?.(room.scene.userData.weather || { mode: weather ? weather.mode : 'sunny' });
+  // What the visitor has done, for modules that keep score (newspaper, quests).
+  const stats = room.scene.userData.stats || (room.scene.userData.stats = {});
+  stats.slaps = state.slaps || 0; stats.score = state.score || 0; stats.place = state.place || null;
   // Indoors the sun cannot reach: fade its direct light out (no shader
   // recompile, no shadow-map artefacts on interior walls), back in outside.
   const sun = world && world.modules.get('environment')?.sun;
@@ -999,37 +1120,42 @@ function step() {
     if (paletteClock > 1) { paletteClock = 0; ui.setPalette(curator.palette(6)); }
   }
 
-  audio.setMotion({ speed: Math.min(controls.speed, 3.2), moving: state.entered && controls.speed > 0.25 });
+  audio.setMotion({ speed: Math.min(controls.speed, 3.2), moving: state.entered && controls.speed > 0.25, airborne: controls.airborne });
   audio.update(dt);
   room.update(dt, camera);
+  // Walking or turning: the depth of field fades out (it only serves stillness).
+  post.setMoving(controls.speed > 0.3 || !!state.flying || controls.turnRate > 0.6);
   // Behind an opaque overlay the room does not need to be redrawn every frame.
   if (!state.exhibitionOpen || state.frames % 8 === 0) post.render(dt);
-  adaptQuality(dt);
-}
-
-// Hold the frame rate by trading resolution, never by dropping the room's
-// materials mid-visit.
-function adaptQuality(dt) {
-  if (!state.entered) return;
-  if (dt > 1 / 38) { slowFrames++; fastFrames = 0; }
-  else if (dt < 1 / 58) { fastFrames++; slowFrames = Math.max(0, slowFrames - 1); }
-  if (slowFrames > 90 && pixelRatio > 0.85) {
-    pixelRatio = Math.max(0.85, pixelRatio - 0.2);
-    applySize();
-    slowFrames = 0;
-  } else if (fastFrames > 600 && pixelRatio < Math.min(devicePixelRatio || 1, maxRatio)) {
-    pixelRatio = Math.min(Math.min(devicePixelRatio || 1, maxRatio), pixelRatio + 0.15);
-    applySize();
-    fastFrames = 0;
-  }
+  // Hold the frame rate by trading resolution and passes, never by swapping the
+  // room's materials mid-visit (perf.js). It only listens once the campus is in.
+  perf.update(performance.now(), { active: state.entered && !!world && !state.exhibitionOpen && !state.overlay });
 }
 
 function applySize() {
+  pixelRatio = perf.pixelRatio;
   renderer.setPixelRatio(pixelRatio);
   renderer.setSize(innerWidth, innerHeight, false);
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   post.setSize(innerWidth, innerHeight);
+  sizeMirrors();
+}
+
+// The pool mirror: half the drawing buffer's long side (as pool.js builds it),
+// times the governor's mirror scale. The hall floor follows the drawing buffer
+// in room.js.
+const _mirrorDb = new THREE.Vector2();
+function sizeMirrors() {
+  if (room.floor && room.floor.userData) room.floor.userData.scale = perf.mirrorScale;
+  if (!mirrors.length) return;
+  renderer.getDrawingBufferSize(_mirrorDb);
+  const w = Math.max(256, Math.round(Math.min(2048, Math.max(_mirrorDb.x, _mirrorDb.y) * 0.5 * perf.mirrorScale)));
+  const h = Math.round(w * 0.56);
+  for (const m of mirrors) {
+    const rt = m.getRenderTarget();
+    if (rt.width !== w || rt.height !== h) rt.setSize(w, h);
+  }
 }
 
 addEventListener('resize', applySize);
@@ -1040,8 +1166,15 @@ document.addEventListener('visibilitychange', () => {
 canvas.addEventListener('webglcontextlost', (event) => {
   event.preventDefault();
   running = false;
-  ui.toast('The graphics card took a break. Reloading the room…', 4000);
-  setTimeout(() => location.reload(), 1500);
+  // At most two automatic reloads in a row (the second at low quality); a weak phone that keeps
+  // losing the context gets the fallback instead of a reload loop. Two calm minutes reset the count.
+  const url = new URL(location.href);
+  const tries = (performance.now() > 120000 ? 0 : (parseInt(url.searchParams.get('ctxlost') || '0', 10) || 0)) + 1;
+  if (tries > 2) { showFallback('The graphics card keeps stopping on this device.'); return; }
+  url.searchParams.set('ctxlost', String(tries));
+  if (tries === 2) url.searchParams.set('quality', 'low');
+  ui.toast('Graphics hiccup. Reloading…');
+  setTimeout(() => location.replace(url.href), 1500);
 });
 
 applySize();

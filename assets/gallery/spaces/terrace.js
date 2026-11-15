@@ -419,16 +419,24 @@ export function build(ctx) {
     for (let i = 0; i < n; i++) {
       own.push({ x: mm(cx + (i - (n - 1) / 2) * 0.6), y: mm(seatTop), z: mm(seatZ), facing: [0, 1] });
     }
-    // invisible pick proxy enclosing seat, reclined back and frames: x0…x0+w,
-    // deck to just above the backrest top (≈ Y + 0.925), back posts leaning to
-    // cz − d/2 − 0.111, rails to cz + d/2 — any ray reaching the bench meets it first.
-    const pz0 = cz - d / 2 - 0.125, pz1 = cz + d / 2 + 0.015, ph = 0.95;
-    const proxy = new THREE.Mesh(new THREE.BoxGeometry(w + 0.02, ph, pz1 - pz0), seatProxyMat);
-    proxy.name = 'terrace-bench-seat';
-    proxy.position.set(cx, Y + ph / 2, (pz0 + pz1) / 2);
-    proxy.userData.action = { type: 'sit', seats: own };
-    group.add(proxy);
-    pickables.push(proxy);
+    // two invisible pick proxies hugging the bench, one action: the seat block
+    // (deck to 3 cm over the slats, rail end to rail end) and a thin slab reclined
+    // with the back posts (rotX −0.18 about their centre) over back slats and posts.
+    // One box round the reclined back caught rays that pass over or under the
+    // backrest onto the seat 0.4–0.5 m early, seating the visitor a place aside.
+    const action = { type: 'sit', seats: own };
+    const sh = seatTop + 0.03 - Y;
+    const seatProxy = new THREE.Mesh(new THREE.BoxGeometry(w + 0.02, sh, d + 0.03), seatProxyMat);
+    seatProxy.position.set(cx, Y + sh / 2, cz);
+    const backProxy = new THREE.Mesh(new THREE.BoxGeometry(w + 0.02, 0.48, 0.08), seatProxyMat);
+    backProxy.position.set(cx, seatY + 0.25, cz - d / 2 - 0.05);
+    backProxy.rotation.x = -0.18;
+    for (const proxy of [seatProxy, backProxy]) {
+      proxy.name = 'terrace-bench-seat';
+      proxy.userData.action = action;
+      group.add(proxy);
+      pickables.push(proxy);
+    }
     seats.push(...own);
   }
   bench(-3.6, 16.35);

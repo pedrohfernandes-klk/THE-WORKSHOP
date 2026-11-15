@@ -680,10 +680,13 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
         .replace('#include <common>', '#include <common>\nuniform vec3 uAmbSky; uniform vec3 uAmbGround;')
         .replace(
           '#include <aomap_fragment>',
-          '#include <aomap_fragment>\n{ vec3 nW_ = inverseTransformDirection(normal, viewMatrix); reflectedLight.indirectDiffuse += material.diffuseColor * mix(uAmbGround, uAmbSky, nW_.y * 0.5 + 0.5); }',
+          // The hall is roofed: its daylight is the skylight term (uSky), never the
+          // campus sun/moon. Dropping direct light here keeps the static shadow
+          // map's coarse texels off the walls while the sun fades on entry.
+          '#include <aomap_fragment>\nreflectedLight.directDiffuse = vec3(0.0); reflectedLight.directSpecular = vec3(0.0);\n{ vec3 nW_ = inverseTransformDirection(normal, viewMatrix); reflectedLight.indirectDiffuse += material.diffuseColor * mix(uAmbGround, uAmbSky, nW_.y * 0.5 + 0.5); }',
         );
     };
-    m.customProgramCacheKey = () => `${prevKey}|amb`;
+    m.customProgramCacheKey = () => `${prevKey}|amb|nosun`;
     return m;
   }
   function unprep(m) {
@@ -1618,8 +1621,12 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
       powerDirty = true;
     }
   }
+  // Daylight through the skylight follows the weather (weather.js publishes
+  // scene.userData.weather): lamp-lit at night, dimmer under a storm deck. The
+  // works' spots and the lamp pools (uDay) are untouched.
+  let daylight = 1, shaftK = 1;
   function applyPower() {
-    const sky = 0.09 + 0.91 * smooth(0.0, 0.55, power);
+    const sky = (0.09 + 0.91 * smooth(0.0, 0.55, power)) * daylight;
     const day = 0.16 + 0.84 * smooth(0.0, 0.45, power);
     U.uSky.value = sky;
     U.uDay.value = day;
@@ -1627,7 +1634,7 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
     for (const m of envMats) m.envMapIntensity = m.userData.envBase * 0.22 * (0.15 + 0.85 * sky);
     const dm = scene.userData.diffuser.material;
     dm.color.setRGB(2.0 * sky, 1.97 * sky, 1.85 * sky);
-    volU.uShaft.value = smooth(0.15, 0.7, power);
+    volU.uShaft.value = smooth(0.15, 0.7, power) * shaftK;
     scene.userData.mullMat.emissiveIntensity = 0.5 * sky;
     for (const st of slotState) st.ramp = smooth(0, 1, clamp01((power - st.tOn) / 0.15));
   }
@@ -1665,6 +1672,15 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
     }
     if (!reduced) motionT += dt;
     volU.uT.value = motionT;
+    {
+      const w = scene.userData.weather;
+      const n = w ? w.nightK || 0 : 0, st = w ? w.stormK || 0 : 0;
+      // lightning flickers through the skylight
+      const dl = Math.max(0.14, 1 - 0.78 * n - 0.4 * st * (1 - n)) * (1 + 1.2 * (w ? w.flash || 0 : 0) * (1 - n));
+      if (Math.abs(dl - daylight) > 0.02 || (dl !== daylight && (dl === 1 || dl === 0.14))) {
+        daylight = dl; shaftK = (1 - n) * (1 - st); powerDirty = true;
+      }
+    }
     if (powerDirty) {
       applyPower();
       powerDirty = false;
@@ -1717,8 +1733,9 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
     // keep the floor reflection at half the drawing buffer
     if (high && (frame & 15) === 0) {
       renderer.getDrawingBufferSize(_dbs);
-      const w = Math.max(256, Math.round(_dbs.x * REFL_SCALE));
-      const h = Math.max(256, Math.round(_dbs.y * REFL_SCALE));
+      const k = REFL_SCALE * (floor.userData.scale || 1); // perf.js mirror scale
+      const w = Math.max(256, Math.round(_dbs.x * k));
+      const h = Math.max(256, Math.round(_dbs.y * k));
       if (w !== floor.userData.reflW || h !== floor.userData.reflH) {
         floor.getRenderTarget().setSize(w, h);
         floor.material.uniforms.uTexel.value.set(1 / w, 1 / h);
