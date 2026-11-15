@@ -19,6 +19,7 @@ import { createMaterials } from './materials.js';
 import { createWorld, areaAt } from './world.js';
 import { groundAt } from './collision.js';
 import { createProps } from './props.js';
+import { gateHallCampus } from './mirror-campus-gate.js';
 
 // Canvas roundRect arrived in Safari 16; NPC speech bubbles and the poster use it.
 if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
@@ -216,6 +217,7 @@ const worldReady = createWorld(ctx, {
   onProgress: (k) => { state.worldProgress = k; },
 }).then((w) => {
   world = w;
+  if (TEST) performance.mark('workshop:campus-built');
   controls.setWorld({ regions: w.regions, colliders: w.colliders });
   // A mirror only needs re-rendering from the side where it can be seen: the
   // hall floor from inside the hall, the pool from outdoors. Elsewhere it keeps
@@ -238,6 +240,7 @@ const worldReady = createWorld(ctx, {
     };
   };
   if (room.floor && room.floor.getRenderTarget) {
+    gateHallCampus({ THREE, floor: room.floor, camera, world: w, renderer });
     gate(room.floor, () => !state.entered || state.inHall);
     room.floor.userData.scale = perf.mirrorScale; // read by room.js once it supports it
   }
@@ -289,7 +292,10 @@ if (shared) {
 
 // Enter as soon as the hall's works hang: the rest of the campus streams in
 // behind the visitor, and the doors open to it the moment it is ready.
-const ready = hangInitial().then(() => { ui.setProgress(1); });
+const ready = hangInitial().then(() => {
+  ui.setProgress(1);
+  if (TEST) performance.mark('workshop:entry-ready');
+});
 worldReady.then((w) => {
   if (!w) return;
   // Compile the campus's shaders off the main thread where the GPU allows.

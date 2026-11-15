@@ -112,6 +112,7 @@ export function createPerf({ renderer, quality = 'high', onChange = null, debug 
   let emaAtDown = 0, ineffective = 0, pauseDownUntil = 0;
   let capMs = 0;             // detected display cap (e.g. a 30 Hz low-power mode), 0 = none
   const win = new Float32Array(90);
+  const sortedWindow = new Float32Array(90);
   let winN = 0;
   const history = [];        // recent level changes (for tests / notes)
 
@@ -134,13 +135,14 @@ export function createPerf({ renderer, quality = 'high', onChange = null, debug 
     next = Math.max(0, Math.min(LAST, next | 0));
     if (next === level) return false;
     const prev = level;
+    const observedEma = ema;
     level = next;
     lastChange = now;
     ignoreUntil = now + SETTLE_MS;  // resizes reallocate targets: no decisions while it re-settles
     slowFor = fastFor = 0;
     // Start the averages afresh: the old level's history must not push a second step.
     ema = Math.max(TARGET_MS, capMs); miss = 0;
-    history.push({ t: Math.round(now), from: prev, to: next, reason, ema: +ema.toFixed(1) });
+    history.push({ t: Math.round(now), from: prev, to: next, reason, ema: +observedEma.toFixed(1) });
     if (history.length > 24) history.shift();
     applyPost();
     const cb = gov.onChange || onChange;
@@ -154,7 +156,9 @@ export function createPerf({ renderer, quality = 'high', onChange = null, debug 
     win[winN++] = dt;
     if (winN < win.length) return;
     winN = 0;
-    const s = Array.from(win).sort((a, b) => a - b);
+    sortedWindow.set(win);
+    sortedWindow.sort();
+    const s = sortedWindow;
     const p10 = s[Math.floor(s.length * 0.1)], p90 = s[Math.floor(s.length * 0.9)];
     // Only the common 30 Hz cap: a GPU-bound rate that happens to be steady would
     // otherwise read as a cap at any interval.
