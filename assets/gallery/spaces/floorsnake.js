@@ -150,28 +150,29 @@ export function demoStep(g) {
 }
 
 // ---------------------------------------------------------------- pixels (pure) ---
-// The texture holds linear colour × 0.5 in rgb (the shader doubles it, so glows reach 2.0) and how
-// much of the paving the light covers in alpha. Colours: Sweetie-16, as the canon asks.
+// The texture holds linear colour × 0.5 in rgb (the shader doubles it) and how much of the paving
+// the light covers in alpha. Light stays ≤ ~1 over a well-covered base, so it reads saturated on
+// sunlit stone (no wash to white) and glows at night. Colours: Sweetie-16, as the canon asks.
 const lin = (v) => (v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
 const rgb = (hex, k) => [0, 8, 16].map((s) => Math.min(255, Math.round(lin(((hex >> (16 - s)) & 255) / 255) * k * 127.5)));
-const C_HEAD = rgb(0xa7f070, 1.9), C_NECK = rgb(0xa7f070, 1.35), C_TAIL = rgb(0x38b764, 1.5);
-const C_APPLE = rgb(0xb13e53, 2.5), C_WALL = rgb(0x566c86, 0.9);
-export const C_WIN = rgb(0xffcd75, 1.8), C_LOSE = rgb(0xef7d57, 1.9), C_INVITE = rgb(0x41a6f6, 1.3);
+const C_HEAD = rgb(0xa7f070, 1.1), C_NECK = rgb(0xa7f070, 0.85), C_TAIL = rgb(0x38b764, 1.35);
+const C_APPLE = rgb(0xb13e53, 1.9), C_WALL = rgb(0x566c86, 0.35);
+export const C_WIN = rgb(0xffcd75, 1.0), C_LOSE = rgb(0xef7d57, 1.1), C_INVITE = rgb(0x41a6f6, 0.9);
 
 function put(data, c, r, g, b, a) { const o = c << 2; data[o] = r; data[o + 1] = g; data[o + 2] = b; data[o + 3] = a; }
 
 export function paintGame(g, data) {
   data.fill(0);
-  put(data, PILLAR, C_WALL[0], C_WALL[1], C_WALL[2], 70);
-  if (g.apple >= 0) put(data, g.apple, C_APPLE[0], C_APPLE[1], C_APPLE[2], 170);
+  put(data, PILLAR, C_WALL[0], C_WALL[1], C_WALL[2], 140);
+  if (g.apple >= 0) put(data, g.apple, C_APPLE[0], C_APPLE[1], C_APPLE[2], 215);
   const L = g.len, span = Math.max(1, L - 2);
   for (let k = L - 1; k > 0; k--) {               // tail first, so nearer segments win overlaps
     const s = (k - 1) / span, u = 1 - s;           // 0 at the neck, 1 at the tail
     put(data, g.body[(g.head - k + N) % N],
-      (C_NECK[0] * u + C_TAIL[0] * s) | 0, (C_NECK[1] * u + C_TAIL[1] * s * 0.8) | 0, (C_NECK[2] * u + C_TAIL[2] * s) | 0,
-      (150 - 50 * s) | 0);
+      (C_NECK[0] * u + C_TAIL[0] * s) | 0, (C_NECK[1] * u + C_TAIL[1] * s) | 0, (C_NECK[2] * u + C_TAIL[2] * s) | 0,
+      (215 - 60 * s) | 0);
   }
-  if (L > 0) put(data, g.body[g.head], C_HEAD[0], C_HEAD[1], C_HEAD[2], 185);
+  if (L > 0) put(data, g.body[g.head], C_HEAD[0], C_HEAD[1], C_HEAD[2], 225);
 }
 
 // 3 × 5 pixel font (N is 4 wide so it can have its diagonal), plus two faces for reduced motion.
@@ -262,12 +263,12 @@ const FRAG = /* glsl */`
         shape = 1.0 - smoothstep(0.33 - aa, 0.33 + aa, length(l - vec2(0.0, 0.03)));
       }
       float line = (1.0 - smoothstep(0.0, aa * 1.5, 0.5 - e)) * clamp(1.6 - aa * 5.0, 0.0, 1.0);
-      col = vec3(0.053, 0.381, 0.922) * (0.07 * line + 0.012) + tx.rgb * 2.0 * shape;
+      col = vec3(0.053, 0.381, 0.922) * (0.045 * line + 0.01) + tx.rgb * 2.0 * shape;
       cover = tx.a * shape;
       if (uApple.z > 0.5 && c == uApple.xy) {                                   // its leaf
         vec2 lp = (l - vec2(0.13, -0.36)) * mat2(0.8, 0.6, -0.6, 0.8);
         float leaf = 1.0 - smoothstep(1.0 - aa * 8.0, 1.0, length(lp / vec2(0.13, 0.06)));
-        col = mix(col, vec3(0.08, 0.95, 0.25), leaf); cover = max(cover, leaf * 0.6);
+        col = mix(col, vec3(0.05, 0.62, 0.17), leaf); cover = max(cover, leaf * 0.75);
       }
       if (uHead.w > 0.5 && c == uHead.xy) {                                     // two eyes
         float a = uHead.z * 1.5707963;
@@ -278,21 +279,21 @@ const FRAG = /* glsl */`
       }
       if (uYou.z > 0.5 && c == uYou.xy) {                                       // you are here
         float ring = smoothstep(0.42 - aa, 0.42 + aa, e) * (1.0 - smoothstep(0.485 - aa, 0.485 + aa, e));
-        col += mix(vec3(0.26, 1.3, 1.4), vec3(1.7, 0.4, 0.18), uYou.w) * ring;
-        cover = max(cover, ring * 0.5);
+        col += mix(vec3(0.17, 0.86, 0.93), vec3(0.95, 0.23, 0.1), uYou.w) * ring;
+        cover = max(cover, ring * 0.7);
       }
     } else {
       float fr = 1.0 - smoothstep(0.035, 0.035 + aa, abs(outside - 0.2));      // projector frame
-      col = vec3(0.053, 0.381, 0.922) * 0.6 * fr;
-      cover = 0.2 * fr;
+      col = vec3(0.053, 0.381, 0.922) * 0.7 * fr;
+      cover = 0.35 * fr;
       if (g.y < 0.0 && q.x <= 0.0) {                                            // score pips (north)
         float u = (g.x - uSize.x * 0.5) / 0.8 + 2.5, k = floor(u);
         if (k >= 0.0 && k <= 4.0) {
           vec2 pd = abs(vec2((fract(u) - 0.5) * 0.8, q.y - 0.62));
           float pip = 1.0 - smoothstep(0.19 - aa, 0.19 + aa, max(pd.x, pd.y));
           bool lit = k < uState.y - 0.5;
-          col += (lit ? vec3(0.62, 1.4, 0.26) : vec3(0.09, 0.15, 0.24) * 0.6) * pip;
-          cover = max(cover, pip * (lit ? 0.6 : 0.15));
+          col += (lit ? vec3(0.39, 0.87, 0.16) : vec3(0.09, 0.15, 0.24) * 0.6) * pip;
+          cover = max(cover, pip * (lit ? 0.8 : 0.15));
         }
       }
     }
@@ -468,14 +469,14 @@ export function build(ctx) {
     const reduced = !!ctx.reducedMotion, face = faceOf(cam), p = cam.position;
     if (win) {
       danger = 0;
-      message('GANHASTE!', reduced ? SMILE : null, face, C_WIN, 200, 0.5);
+      message('GANHASTE!', reduced ? SMILE : null, face, C_WIN, 225, 0.5);
       sfx('win', cam, p.x, p.z);
       const tm = Math.round(roundT * 10) / 10, s = tm.toFixed(1).replace('.', ',');
       toast(best && tm < best ? `GANHASTE! Recorde: ${s} s` : `GANHASTE! 5 maçãs em ${s} s`);
       if (!best || tm < best) best = tm;
     } else {
       danger = 1;
-      message('APANHADO!', reduced ? FROWN : null, face, C_LOSE, 200, 0.7);
+      message('APANHADO!', reduced ? FROWN : null, face, C_LOSE, 225, 0.7);
       sfx('lose', cam, p.x, p.z);
       toast(G.score === 0 ? 'APANHADO! A cobra foi mais rápida.' : G.score === GOAL - 1 ? 'APANHADO! Por uma maçã…' : `APANHADO! ${G.score} de ${GOAL} maçãs.`);
     }
@@ -518,7 +519,7 @@ export function build(ctx) {
       else if (msgStr) { if (!runMessage(dt)) { attract = 30; show(); } }
       else {
         attract -= dt;
-        if (attract <= 0 && d2 < 196 && !ctx.reducedMotion) message('PISA PARA JOGAR', null, faceOf(cam), C_INVITE, 130, 0);
+        if (attract <= 0 && d2 < 196 && !ctx.reducedMotion) message('PISA PARA JOGAR', null, faceOf(cam), C_INVITE, 170, 0);
         acc += dt;
         const T = ctx.reducedMotion ? DEMO_TICK * 1.5 : DEMO_TICK;
         if (acc >= T) { acc = Math.min(acc - T, T); demoStep(G); show(); }

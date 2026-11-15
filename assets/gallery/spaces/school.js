@@ -545,7 +545,7 @@ export function build(ctx) {
     CY(steel, 0.025, 0.46, 0, 0, 0, L(1.05, 0.23, -2.3));
     // sit: the teacher looks at the class (+u, away from the backrest at 0.84). The shared 'seat' / 'back'
     // instance keys draw this chair with the students' parts (seat 0.42 x 0.04, back 0.025 x 0.22 x 0.4):
-    // seat top 0.48 + 0.02, back u 0.8275..0.8525, y 0.63..0.85; the proxy fits those (seat block 2.5-3 cm to
+    // seat top 0.48 + 0.02, back u 0.8275..0.8525, y 0.63..0.85; the proxy fits those (seat block 1-3 cm to
     // spare, backrest block 1 cm, as in Português where the chair stands before the whiteboard).
     A.sit(sitL(-0.235, 0.235, 0.44, 0, 0.53, -0.2325, -0.1875, 0.86), 1.05, -2.3, 0.48 + 0.02, 1, 'school-lente-chair-teacher');
     // wall photographs on the door wall and partition
