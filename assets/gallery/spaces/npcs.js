@@ -387,6 +387,8 @@ export function build(ctx) {
   })();
 
   const PESTERERS = { mano: 1, gordo: 1, walrus: 1, rooster: 1, bull: 1 };
+  const LAUGH = { bull: 3, goat: 0, pigeon: 1, horse: 0, cat: 3, pig: 2, walrus: 2, rooster: 4, tortoise: 3, raccoon: 4, forcado: 1, velho: 4, gordo: 2, mano: 1 };
+  const LAUGH_BUB = ['HAHAHA!', 'Hee hee hee!', 'Ha! Ha!', 'Hehehe…'];
   const E = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
   const FALL_A = [0.12, 0.35, 0.4, 0.5, 0.25], FALL_B = [0.5, 0.62, 0.6, 0.8, 0.7], FALL_C = [0.85, 0.88, 0.85, 1.0, 0.95], FALL_D = [4.2, 4.6, 4.4, 7.0, 4.6];
   const PEST_EN = ['Excuse me.', 'Excuse me. Just one question.', 'Just one question. One. Two.', 'HELLO?! I AM TALKING TO YOU!'];
@@ -492,7 +494,8 @@ export function build(ctx) {
       x: pts[0], z: pts[1], yaw: S.yaw !== undefined ? S.yaw : idx * 1.1, yawOff: 0, wait: 1 + idx * 0.7, ph: idx * 2, walk: 0,
       sillyCd: 4 + idx * 2.3, sillyT: -1, sillyDur: 1, sillyType: 0,
       talkT: 0, bubble: 0, near: false, mutterCd: 6, line: -1, seed: idx * 1.7,
-      fixed: !!S.fixed, baseY: S.seated ? -0.3 : 0, baseYaw: S.yaw || 0, pester: !!PESTERERS[S.name], pestT: 0, pestCd: 8 + idx * 2, pestLvl: 0, pestSay: 0, fallType: -1, fallDir: 1, thud: true,
+      fixed: !!S.fixed, baseY: S.seated ? -0.3 : 0, baseYaw: S.yaw || 0, laughT: 0, laughAt: 0, laughCd: 10 + idx * 3, laughText: '', pointT: 0, pointAt: null, laughType: LAUGH[S.name] || 0,
+      pester: !!PESTERERS[S.name], pestT: 0, pestCd: 8 + idx * 2, pestLvl: 0, pestSay: 0, fallType: -1, fallDir: 1, thud: true,
       stars, hat, hatReal, hatState: 0, hatT: 0, hvx: 0, hvy: 0, hvz: 0, hs: 0, slapSpin: false, slapTurns: 1, fat: S.fat || 1,
       goOn: false, gx: 0, gz: 0, gsp: 1, goT: -1, faceN: null, busy: false, gest: 0, kb: 0, reactCd: 0, armUp: 1.7, meant: true, monoCd: 25 + idx * 3, curText: '',
     };
@@ -656,6 +659,7 @@ export function build(ctx) {
       pcx = cam.x; pcy = cam.y; pcz = cam.z; havePrev = true;
     }
     director(dt);
+    clock += dt; cam0 = !!cam;
     for (let i = 0; i < npcs.length; i++) {
       const n = npcs[i], S = n.S;
       let dx = 0, dz = 0, d2 = 1e9;
@@ -663,6 +667,7 @@ export function build(ctx) {
       const vis = d2 < 90000;
       n.root.visible = vis;
       const near = d2 < 16;
+      n.near2 = d2 < 225;
       n.reactCd -= dt;
       // reactions to the visitor
       if (cam && n.reactCd <= 0 && d2 > 0.04) {
@@ -690,6 +695,7 @@ export function build(ctx) {
       if (near && d2 < 6.25 && !n.near && n.mutterCd <= 0 && n.talkT <= 0 && !n.busy) {
         n.line = (n.line + 1 + ((Math.random() * 3) | 0)) % S.lines.length;
         say(n, S.lines[n.line], false);
+        if (Math.random() < 0.3) n.laughAt = 1.4;
       }
       n.near = near;
       if (n.kb > 0 && d2 > 0.04) { const d = Math.sqrt(d2); n.x -= (dx / d) * 4 * n.kb * dt; n.z -= (dz / d) * 4 * n.kb * dt; n.kb -= dt * 2; }
@@ -766,6 +772,14 @@ export function build(ctx) {
           n.hatState = 0;
           if (n.hatReal) { n.head.add(n.hat); n.hat.position.set(0, 0, 0); n.hat.rotation.set(0, 0, 0); } else n.hat.visible = false;
         }
+      }
+      if (n.laughT > 0) n.laughT -= dt;
+      if (n.pointT > 0) { n.pointT -= dt; if (n.pointT <= 0) { if (n.faceN === n.pointAt) n.faceN = null; n.pointAt = null; } }
+      if (n.laughAt > 0) { n.laughAt -= dt; if (n.laughAt <= 0) { startLaugh(n, n.laughText); n.laughText = ''; } }
+      n.laughCd -= dt;
+      if (n.laughCd <= 0) {
+        if (near && n.talkT <= 0 && n.laughT <= 0 && n.sillyT < 0 && !n.busy) { startLaugh(n, LAUGH_BUB[(Math.random() * 4) | 0]); }
+        n.laughCd = 15 + Math.random() * 15;
       }
       if (!vis) continue;
 
@@ -900,12 +914,45 @@ export function build(ctx) {
       n.head.rotation.y = look + shake;
       n.head.rotation.x = Math.sin(ph * 2) * 0.05 * w + (n.talkT > 0 ? Math.sin(time * 14) * 0.06 : 0) - (n.talkT > 0 && n.armUp > 2 ? 0.35 : 0) - (S.proud ? 0.1 : 0);
       n.head.position.z = S.bob ? Math.sin(ph * 2) * 0.05 * w : 0;
+      {
+        const lau = n.laughT > 0 && !(n.sillyT >= 0 && n.sillyType === 4 && n.fallType >= 0);
+        const pnt = n.pointT > 0 && !(n.sillyT >= 0 && n.sillyType === 4 && n.fallType >= 0);
+        n.body.rotation.z = lau ? Math.sin(time * 34) * 0.045 : 0;
+        if (lau) {
+          n.body.rotation.x = 0.12; n.body.position.y += Math.abs(Math.sin(time * 17)) * 0.03;
+          n.head.rotation.x -= 0.45; n.head.rotation.y += Math.sin(time * 34) * 0.08;
+          n.arms[0].rotation.x = -0.35 + Math.sin(time * 14) * 0.5; n.arms[0].rotation.z = 0.15;
+          if (!pnt) { n.arms[1].rotation.x = -0.35 - Math.sin(time * 14) * 0.5; n.arms[1].rotation.z = -0.15; }
+        } else if (!S.proud) n.body.rotation.x = 0;
+        if (pnt) { n.arms[1].rotation.x = -1.55; n.arms[1].rotation.z = 0.12; }
+      }
     }
   }
 
   const IND_EN = ['How dare you.', 'I demand an apology. And my hat.', 'That was uncalled for. Also rude.', 'I was NOT ready for that.'];
   const IND_PT = ['Ó pá! Isso é maneira?', 'Eu ia dizer uma coisa e esqueci-me!', 'No meu tempo isto não se fazia.', 'Respeito, pá!'];
   const YELP = { bull: 'MOOO!', goat: 'MAAA!', pigeon: 'COO!', horse: 'NEIGH!', cat: 'MEOW!', pig: 'OINK!', walrus: 'AWRK!', rooster: 'COCK!', raccoon: 'EEK!', tortoise: 'Ai!', forcado: 'Tábueno!!', velho: 'Ai!', mano: 'Ó mano!', gordo: 'Ó pá!' };
+  let lastLaughSnd = -9, clock = 0;
+  function laughSound(type) {
+    if (!ac || clock - lastLaughSnd < 0.5) return;
+    lastLaughSnd = clock;
+    try {
+      const t = ac.currentTime + 0.02;
+      switch (type) {
+        case 0: for (let k = 0; k < 2; k++) { tone(t + k * 1.0, 'sawtooth', 0.4, [350, 750, 680], 0.13, 2200, 9, 25); tone(t + k * 1.0 + 0.45, 'sawtooth', 0.45, [320, 170, 150], 0.14, 1200, 7, 15); } break;
+        case 1: for (let k = 0; k < 9; k++) tone(t + k * 0.07, 'square', 0.05, [1300 + (k & 1) * 200, 1800], 0.05, 3200); break;
+        case 2: for (let k = 0; k < 4; k++) tone(t + k * 0.22, 'sawtooth', 0.16, [240, 110], 0.12, 900, 30, 40); break;
+        case 3: tone(t, 'sawtooth', 0.4, [300, 230], 0.14, 900, 6, 10); tone(t + 0.55, 'sawtooth', 0.4, [270, 200], 0.14, 900, 6, 10); tone(t + 1.1, 'sawtooth', 0.7, [240, 120], 0.14, 900, 6, 10); break;
+        default: for (let k = 0; k < 6; k++) tone(t + k * 0.11 + (k > 2 ? 0.12 : 0), 'triangle', 0.09, [600 + k * 50, 950 + k * 50], 0.12, 2500);
+      }
+    } catch (e) { /* none */ }
+  }
+  function startLaugh(n, text) {
+    n.laughT = 2.3;
+    if (text) say(n, text, false);
+    if (cam0 && n.near2) laughSound(n.laughType);
+  }
+  let cam0 = false;
   let slapN = 0;
   function thud() { if (ac) { try { tone(ac.currentTime + 0.01, 'sine', 0.2, [120, 40], 0.5, 300); } catch (e) { /* none */ } } }
   function slap(object) {
@@ -922,6 +969,14 @@ export function build(ctx) {
     say(n, YELP[n.S.name] || 'Ai!', false);
     slapSound(); noise(n.S.sound);
     if (!n.fixed && n.fallType < 0) n.kb = n.slapSpin ? 0.5 : 1.6;
+    for (let i = 0; i < npcs.length; i++) {
+      const m = npcs[i]; if (m === n) continue;
+      const ex = m.x - n.x, ez = m.z - n.z;
+      if (ex * ex + ez * ez < 144 && !(m.sillyT >= 0 && m.sillyType === 4)) {
+        m.laughAt = 0.5 + Math.random() * 1.0; m.laughText = m.S.pt ? 'HA! Levou!' : 'HAHAHA!';
+        m.pointT = 3.2; m.pointAt = n; if (!m.busy) m.faceN = n;
+      }
+    }
     if (n.hatState === 0) {
       const H = n.hat; group.add(H); H.visible = true; H.scale.set(1, 1, 1); H.rotation.set(0, 0, 0);
       H.position.set(n.x, n.baseY + 1.85, n.z);
@@ -943,6 +998,7 @@ export function build(ctx) {
       n.line = k;
       say(n, n.S.lines[k], true);
     }
+    if (Math.random() < 0.4) n.laughAt = 1.5;
     if (n.sillyT < 0 || n.sillyType !== 3) startSilly(n, (reduced || n.fixed) ? 2 : (n.line % 3), n.line % 3 === 0 && !reduced ? 0.9 : 0.8);
     n.sillyCd = 6 + Math.random() * 6;
   }
