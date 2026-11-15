@@ -88,6 +88,10 @@ const PT_SAY = new Map(Object.entries({
   'releases the mouse': 'solta o rato', seated: 'Sentado', 'or space to stand up': 'ou Espaço para levantar',
   'the floor to stand': 'o chão para levantar', 'click to play': 'Clica para jogar',
   click: 'Clique', tap: 'Toque', drag: 'Arrasta', space: 'Espaço', mouse: 'Rato',
+  // in-world notices (toasts)
+  'get closer': 'Chega-te mais perto', 'get closer to talk': 'Chega-te para falar',
+  'too far to slap': 'Longe demais para a chapada', 'get closer to sit': 'Chega-te para te sentares',
+  'the doors are open.': 'As portas estão abertas.', 'hold f, release to throw': 'Segura F e larga para atirar',
 }));
 const say = (s) => (PT && PT_SAY.get(String(s).trim().toLowerCase())) || s;
 function verbFor(label) {
@@ -384,7 +388,7 @@ export function createUI(handlers = {}) {
     clearTimeout(toastTimer);
     if (!text) { toastEl.classList.remove('is-on'); return; }
     if (PLACE.test(text)) { place(text); return; }
-    toastEl.textContent = text;
+    toastEl.textContent = say(text);
     toastEl.classList.add('is-on');
     toastTimer = setTimeout(() => toastEl.classList.remove('is-on'), Math.min(Number(ms) || 2400, 2400));
   }

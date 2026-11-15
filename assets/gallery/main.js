@@ -598,9 +598,15 @@ function nearestSeat(seats, point) {
 // Seats are within arm's reach, as in any first-person game: no gliding onto a
 // bench across the plaza.
 const SIT_REACH = 4.5;
+// A slap lands at arm's length, a chat at conversation distance: no slapping
+// people from across the plaza.
+const SLAP_REACH = 1.8, TALK_REACH = 3.5;
 function withinReach(hit) {
   const found = world && world.actionFor(hit.object);
-  return !(found && found.action.type === 'sit' && hit.distance > SIT_REACH);
+  if (!found) return true;
+  if (found.action.type === 'sit') return hit.distance <= SIT_REACH;
+  if (found.module === 'npcs') return hit.distance <= TALK_REACH;
+  return true;
 }
 function sitOn(seat) {
   if (!seat) return;
@@ -633,7 +639,9 @@ function act(found, hit) {
   if (module === 'npcs') {
     const npcs = world.modules.get('npcs');
     // The main action: a slapstick slap with a click; E (or a tap on touch) to talk.
+    if (hit && hit.distance > TALK_REACH) { ui.toast(state.viaUse ? 'Get closer to talk' : 'Get closer', 1200); return; }
     if (!state.viaUse && !coarsePointer && npcs && typeof npcs.slap === 'function') {
+      if (hit && hit.distance > SLAP_REACH) { ui.toast('Too far to slap', 1200); return; }
       npcs.slap(object);
       player?.gesture?.('slap') || player?.gesture?.('wave');
       state.slaps = (state.slaps || 0) + 1;
