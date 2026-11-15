@@ -575,7 +575,7 @@ function labelFor(o, hit) {
   if (action.label) return action.label;            // a module can name its own action
   if (action.type === 'sit') return 'Sit';
   if (action.type === 'app') return action.title || 'Open';
-  const OWN = { floppies: 'Pick up the floppy', cat: 'Pet the cat', ghost: 'Buu?', photobooth: 'Take a photo',
+  const OWN = { cat: 'Pet the cat', ghost: 'Buu?', photobooth: 'Take a photo',
     radio: 'Radio on / off', vending: 'Buy something', duck: 'Squeeze the duck', gnome: 'Hm?', murals: 'Look closer', arraial: 'Ask for a song' };
   if (OWN[module]) return OWN[module];
   if (module === 'lift') return /go-1/.test(action.id) ? 'Up · Cinema & terrace' : /go-0/.test(action.id) ? 'Down · The Hall' : 'Call the lift';
