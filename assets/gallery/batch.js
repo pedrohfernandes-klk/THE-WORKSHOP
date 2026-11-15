@@ -41,7 +41,7 @@ export const BATCH_MODULES = new Set([
 export const BATCH_DENY = new Set([
   'npcs', 'birds', 'aviation', 'skyliner', 'metro', 'lift', 'fountain', 'cinema', 'arcade', 'weather',
   'floppies', 'duck', 'vending', 'cat', 'radio', 'ghost', 'floorsnake', 'photobooth', 'gnome',
-  'murals', 'oddities',
+  'murals', 'oddities', 'arraial',
 ]);
 
 const CELL = 30;                  // metres per spatial cell

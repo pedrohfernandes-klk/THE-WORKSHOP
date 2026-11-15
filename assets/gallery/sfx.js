@@ -25,7 +25,7 @@ const MAX_VOICES = 8;            // one-shots + running beds, never more at once
 const XFADE = 3;                 // s for a place's sound to fade fully in or out
 const FREE_AFTER = 8;            // s of silence before a bed's nodes are released
 const BOING = [1, 1, 0, 1, 0];   // which outdoor jumps go boing: 3 in 5
-const LONG_AIR = 0.95;           // s of effective airtime for a slide whistle (a flat jump is 0.65)
+const LONG_AIR = 0.95;           // s of effective airtime for a slide whistle (a flat jump is ≈0.6)
 const GRAVITY = 13.5;            // controls.js: turns a floor drop into extra fall time
 
 // Linear levels before the bus, measured offline in Chromium's Web Audio at

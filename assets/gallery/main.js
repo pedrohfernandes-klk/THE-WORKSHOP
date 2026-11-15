@@ -10,7 +10,7 @@ import { WORKS } from './catalogue.js';
 import { createCurator, initialHang, encodeShow, decodeShow, titleFor } from './curator.js';
 import { createRoom, SLOTS, EYE_HEIGHT, START } from './room.js';
 import { createPost } from './post.js';
-import { createPerf } from './perf.js';
+import { createPerf, deviceProfile } from './perf.js';
 import { loadWorkTexture } from './textures.js';
 import { createControls } from './controls.js';
 import { createUI, showFallback } from './ui.js';
@@ -83,13 +83,22 @@ function isoDay(date) {
   return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}`;
 }
 
+// The tier is fixed for the visit (it selects geometry density and the texture
+// set at load); resolution and the expensive passes are the governor's
+// (perf.js), which adapts from there.
+//   high   1k maps: discrete GPUs, Apple silicon, strong desktops
+//   medium 512 px maps, same scene: typical laptops, incl. 4-core with integrated graphics
+//   low    lighter scene: phones, very low memory, software rendering
 function pickQuality() {
   const q = params.get('quality');
-  if (q === 'low' || q === 'high') return q;
+  if (q === 'low' || q === 'medium' || q === 'high') return q;
+  const d = deviceProfile(renderer);
   const coarse = matchMedia('(pointer: coarse)').matches;
   const small = Math.min(innerWidth, innerHeight) < 600;
-  const weak = (navigator.deviceMemory && navigator.deviceMemory < 4) || (navigator.hardwareConcurrency || 8) <= 4;
-  return (coarse && small) || weak ? 'low' : 'high';
+  if ((coarse && small) || d.phone || (d.mem && d.mem <= 2) || d.software) return 'low';
+  if (d.discrete || (!d.mobile && d.appleSilicon && d.cores >= 8)) return 'high';
+  if (!d.mobile && !d.integrated && d.cores >= 8 && (!d.mem || d.mem >= 8)) return 'high';
+  return 'medium';
 }
 
 const shared = readSharedShow();

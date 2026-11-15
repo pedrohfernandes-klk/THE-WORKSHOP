@@ -40,31 +40,45 @@ function gpuName(renderer) {
   } catch (e) { return ''; }
 }
 
-// Where to start: conservative on weak machines; the governor climbs when there
-// is headroom. Returns { level, reasons }.
-export function initialLevel({ renderer, quality = 'high', width = 1280, height = 800, base = 1 } = {}) {
+// What this device is, from what the browser tells (also used by main.js to
+// pick the quality tier, which selects geometry density and the texture set).
+export function deviceProfile(renderer) {
   const nav = typeof navigator !== 'undefined' ? navigator : {};
   const ua = nav.userAgent || '';
-  const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+  const mm = (q) => typeof matchMedia === 'function' && matchMedia(q).matches;
+  const coarse = mm('(pointer: coarse)');
   const mobile = /Android|iPhone|iPad|iPod|Mobile|Silk/i.test(ua) || (coarse && (nav.maxTouchPoints || 0) > 1);
-  const cores = nav.hardwareConcurrency || 4;
-  const mem = nav.deviceMemory;           // Chromium only, capped at 8
+  const w = typeof innerWidth === 'number' ? innerWidth : 1280, h = typeof innerHeight === 'number' ? innerHeight : 800;
+  const phone = mobile && Math.min(w, h) < 600;
   const gpu = renderer ? gpuName(renderer) : '';
-  const caps = (renderer && renderer.capabilities) || {};
-  const reasons = [];
-  if (/SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(gpu)) return { level: LAST, reasons: ['software renderer'], gpu };
+  const software = /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(gpu);
   const discrete = /NVIDIA|GeForce|RTX|GTX|Quadro|Radeon RX|Radeon Pro|Arc\(TM\) A|Arc A\d/i.test(gpu);
+  const appleSilicon = /Apple M\d/i.test(gpu);
   const integrated = !discrete && /Intel|UHD|Iris|HD Graphics|Mali|Adreno|PowerVR|Apple|Vivante|Tegra|Radeon\(TM\)|Vega \d|Graphics/i.test(gpu);
+  return {
+    gpu, software, discrete, integrated, appleSilicon, mobile, phone, coarse,
+    cores: nav.hardwareConcurrency || 4,
+    mem: nav.deviceMemory || 0,           // Chromium only, capped at 8; 0 = unknown
+    caps: (renderer && renderer.capabilities) || {},
+  };
+}
+
+// Where to start: conservative on weak machines; the governor climbs when there
+// is headroom. Returns { level, reasons, gpu }.
+export function initialLevel({ renderer, quality = 'high', width = 1280, height = 800, base = 1 } = {}) {
+  const d = deviceProfile(renderer);
+  const reasons = [];
+  if (d.software) return { level: LAST, reasons: ['software renderer'], gpu: d.gpu };
   let score = 1;                          // a strong desktop starts one step below the top
   if (quality === 'low') { score += 2; reasons.push('low quality'); }
-  if (mobile) { score += 1; reasons.push('mobile'); }
-  if (cores <= 4) { score += 1; reasons.push(`${cores} cores`); }
-  if (mem && mem <= 4) { score += 1; reasons.push(`${mem} GB`); }
-  if (integrated) { score += 1; reasons.push('integrated GPU'); }
-  if (discrete) { score -= 1; reasons.push('discrete GPU'); }
-  if ((caps.maxSamples || 4) < 4 || (caps.maxTextureSize || 8192) < 8192) { score += 1; reasons.push('small GPU limits'); }
+  if (d.mobile) { score += 1; reasons.push('mobile'); }
+  if (d.cores <= 4) { score += 1; reasons.push(`${d.cores} cores`); }
+  if (d.mem && d.mem <= 4) { score += 1; reasons.push(`${d.mem} GB`); }
+  if (d.integrated && !d.appleSilicon) { score += 1; reasons.push('integrated GPU'); }
+  if (d.discrete) { score -= 1; reasons.push('discrete GPU'); }
+  if ((d.caps.maxSamples || 4) < 4 || (d.caps.maxTextureSize || 8192) < 8192) { score += 1; reasons.push('small GPU limits'); }
   if (width * height * base * base > 3.7e6) { score += 1; reasons.push('large drawing buffer'); }
-  return { level: Math.max(0, Math.min(LAST, score)), reasons, gpu };
+  return { level: Math.max(0, Math.min(LAST, score)), reasons, gpu: d.gpu };
 }
 
 /**
