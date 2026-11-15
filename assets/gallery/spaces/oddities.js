@@ -31,6 +31,9 @@ const LAMP = { x: 0, z: 115 };
 // The nearest place a visitor can stand is ~44 m away (the school's back classrooms, whose south
 // windows look out over the meadow), so the lamp wakes inside 48 m: a literal 40 m would never fire.
 const LAMP_WAKE = 48, LAMP_SLEEP = 54;
+// post.js blooms above a scene-linear luminance of 1.6 (Rec.709 weights). The tube's emissive #ff2d95 gives
+// ~0.253 per unit of intensity, so 8 puts it at ~2.0 (still ≥ 1.8 through the hum and the 0.9 stutter phase).
+const NEON_GLOW = 8;
 
 const PHONE_VOICES = [
   'Hello? Is this the museum? I\'d like to report a painting looking at me.',
@@ -731,7 +734,7 @@ export function build(ctx) {
     const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
     const tube = new THREE.TubeGeometry(curve, low ? 48 : 96, 0.017, low ? 6 : 8, false);
     const dot = new THREE.TorusGeometry(0.026, 0.016, 8, 18); dot.translate(0.006, 0.24, 0);
-    neonMat = new THREE.MeshStandardMaterial({ color: 0xff7ab8, emissive: 0xff2d95, emissiveIntensity: 3.2, roughness: 0.3, metalness: 0 });
+    neonMat = new THREE.MeshStandardMaterial({ color: 0xff7ab8, emissive: 0xff2d95, emissiveIntensity: NEON_GLOW, roughness: 0.3, metalness: 0 });
     mesh(merge([tube, dot]), neonMat, N, { cast: true, recv: false });
     // black hardware: electrodes, raceway on the slab, rods and clips, transformer, a cable to a loose plug
     const hw = [];
@@ -882,6 +885,18 @@ export function build(ctx) {
       cat.add(zzz);
     }
   }
+  // The cat has taken the bench's first place (furniture.js seat (13, 0.45, 34.4), chosen as the seat nearest
+  // the click). An invisible box over that end of the bench — enclosing furniture's sit proxy there — catches
+  // the clicks first, so nobody is sat down on top of it; clicks past z 34.74 still pick the middle seat.
+  {
+    const seatTaken = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.78, 0.7), new THREE.MeshBasicMaterial({ visible: false }));
+    seatTaken.position.set(13.0, 0.39, 34.39);                      // x 12.70–13.30, y 0–0.78, z 34.04–34.74
+    seatTaken.castShadow = false; seatTaken.receiveShadow = false;
+    seatTaken.name = 'oddities-cat-seat';
+    seatTaken.userData.action = cat.userData.action;
+    group.add(seatTaken);
+    pickables.push(seatTaken);
+  }
 
   // ============================================= 8. the lamp at the edge of the world ==
   let lampGlassMat, lampGlow;
@@ -1011,7 +1026,7 @@ export function build(ctx) {
       if (st.neonNext <= 0) { st.neonStut = 0.4; st.neonNext = 4 + Math.random() * 8; }
       let k = 1 + 0.045 * Math.sin(t * 2.1) + 0.025 * Math.sin(t * 6.3 + 1);
       if (st.neonStut > 0) { st.neonStut -= dt; k *= Math.sin(st.neonStut * 48) > 0.25 ? 0.22 : 0.9; }
-      neonMat.emissiveIntensity = 3.2 * k;
+      neonMat.emissiveIntensity = NEON_GLOW * k;
       neonHalo.material.opacity = 0.5 * k;
     }
 

@@ -338,6 +338,8 @@ export function createPost(renderer, scene, camera, { quality = 'high' } = {}) {
     render(dt = 0.016) {
       if (!reduced) t += dt;
       grade.uniforms.uTime.value = t;
+      // Night lamps and windows bloom a little more; days stay crisp (art direction).
+      if (bloom) { const w = scene.userData.weather, n = (w && w.nightK) || 0; bloom.strength = 0.2 + 0.2 * n; bloom.threshold = 1.6 - 0.45 * n; }
       grade.uniforms.uExposure.value = renderer.toneMappingExposure;
       const prewarm = warm > 0;
       if (prewarm) warm--;

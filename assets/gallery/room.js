@@ -1733,8 +1733,9 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
     // keep the floor reflection at half the drawing buffer
     if (high && (frame & 15) === 0) {
       renderer.getDrawingBufferSize(_dbs);
-      const w = Math.max(256, Math.round(_dbs.x * REFL_SCALE));
-      const h = Math.max(256, Math.round(_dbs.y * REFL_SCALE));
+      const k = REFL_SCALE * (floor.userData.scale || 1); // perf.js mirror scale
+      const w = Math.max(256, Math.round(_dbs.x * k));
+      const h = Math.max(256, Math.round(_dbs.y * k));
       if (w !== floor.userData.reflW || h !== floor.userData.reflH) {
         floor.getRenderTarget().setSize(w, h);
         floor.material.uniforms.uTexel.value.set(1 / w, 1 / h);

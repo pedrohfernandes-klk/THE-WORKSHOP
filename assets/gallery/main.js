@@ -391,7 +391,7 @@ addEventListener('mouseup', (e) => { if (e.button === 2) releaseCharge(); });
 // Weather and time: sunny, storm, rainbow, a real starry night.
 let weather = null;
 // Each change is narrated as something happening in the world, with a hint at where to look.
-const WEATHER_LABEL = { sunny: 'A new day', storm: 'A storm rolls in', rainbow: 'Rainbow · sun at your back', night: 'Night falls · look up' };
+const WEATHER_LABEL = { golden: 'Golden hour', sunny: 'A new day', storm: 'A storm rolls in', rainbow: 'Rainbow · sun at your back', night: 'Night falls · look up' };
 function cycleWeather() {
   if (!weather) return;
   const i = weather.modes.indexOf(weather.mode);
@@ -440,7 +440,7 @@ function updateCentrePrompt(dt) {
   centreClock += dt;
   if (centreClock < 0.15) return;
   centreClock = 0;
-  const hit = pickAt(innerWidth / 2, innerHeight / 2);
+  const hit = pickAt(innerWidth / 2, innerHeight / 2, 9); // only hits under 9 m are used
   const label = hit && hit.distance < 9 && isPickable(hit.object) && withinReach(hit) ? labelFor(hit.object) : null;
   crosshair.classList.toggle('is-target', !!label);
   const text = label ? `${coarsePointer ? 'Tap' : 'E'} · ${label}` : null;
@@ -479,11 +479,11 @@ function worldNormal(hit) {
   return tmpN.copy(hit.face.normal).applyMatrix3(normalMatrix).normalize();
 }
 
-function pickAt(x, y) {
+function pickAt(x, y, far = 60) {
   ndc.set((x / innerWidth) * 2 - 1, -(y / innerHeight) * 2 + 1);
   raycaster.setFromCamera(ndc, camera);
   raycaster.layers.set(0);
-  raycaster.far = 60;
+  raycaster.far = far;
   const hits = raycaster.intersectObjects(room.scene.children, true);
   for (const hit of hits) {
     const o = hit.object;
@@ -1029,6 +1029,24 @@ function step() {
       camera.updateProjectionMatrix();
     }
   }
+  // Slapped back by an NPC (npcs.js publishes scene.userData.visitorHit): the
+  // head snaps aside and settles, with a thud. Applied after the controls have
+  // set this frame's orientation, so nothing accumulates.
+  const hitEv = room.scene.userData.visitorHit;
+  if (hitEv && hitEv.time !== state.lastHitTime) {
+    state.lastHitTime = hitEv.time;
+    const k = Number.isFinite(hitEv.strength) ? hitEv.strength : 0.6;
+    state.jolt = Math.min(1, (state.jolt || 0) + 0.45 + 0.55 * k);
+    state.joltSide = Math.sign(pos.x - (Number.isFinite(hitEv.x) ? hitEv.x : pos.x - 1)) || 1;
+    audio.land?.(0.8);
+  }
+  if (state.jolt > 0.002) {
+    state.jolt *= Math.exp(-dt * 6);
+    if (!reducedMotion) {
+      camera.rotateZ(state.joltSide * state.jolt * 0.09 * Math.cos(now * 38));
+      camera.rotateX(state.jolt * 0.035 * Math.sin(now * 29));
+    }
+  }
   // Eerie and wacky sound layer (optional module).
   sfx?.update(dt, { x: pos.x, y: floor, z: pos.z, area: state.place || null, speed: controls.speed, airborne, justJumped, justLanded, seated: controls.seated, indoor: !!state.indoor });
   if (player) {
@@ -1043,6 +1061,9 @@ function step() {
   weather?.update(dt, { camera, time: now, level: floor > 5 ? 1 : 0 });
   // The world's sound follows the sky: crickets and owls at night, gusts and rain in a storm.
   audio.setWeather?.(room.scene.userData.weather || { mode: weather ? weather.mode : 'sunny' });
+  // What the visitor has done, for modules that keep score (newspaper, quests).
+  const stats = room.scene.userData.stats || (room.scene.userData.stats = {});
+  stats.slaps = state.slaps || 0; stats.score = state.score || 0; stats.place = state.place || null;
   // Indoors the sun cannot reach: fade its direct light out (no shader
   // recompile, no shadow-map artefacts on interior walls), back in outside.
   const sun = world && world.modules.get('environment')?.sun;

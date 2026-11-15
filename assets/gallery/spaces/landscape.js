@@ -3,7 +3,7 @@
 // soft hills 15-40 m at 300-800 m, patchwork fields, hedgerow tree lines, custom aerial perspective.
 const X0 = -66, X1 = 68, Z0 = -48, Z1 = 84, FLAT_Y = -0.03;
 const HOLE = { x: -50, z: 30, r: 17 };
-const HAZE = [0.788, 0.824, 0.867]; // #c9d2dd (sRGB, mixed after colour-space conversion)
+const HAZE = [0.37, 0.39, 0.46]; // horizon haze, linear (mixed before the colour-space conversion)
 
 function hash2(ix, iz) {
   let h = Math.imul(ix, 374761393) ^ Math.imul(iz, 668265263);
@@ -44,7 +44,7 @@ export function heightAt(x, z) {
 
 function patchMaterial(mat, THREE, kind) {
   mat.onBeforeCompile = (sh) => {
-    sh.uniforms.uHaze = { value: new THREE.Vector3(...HAZE) };
+    sh.uniforms.uHaze = mat.userData.uHaze || (mat.userData.uHaze = { value: new THREE.Vector3(...HAZE) });
     sh.uniforms.uHole = { value: new THREE.Vector3(HOLE.x, HOLE.z, HOLE.r) };
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vWP;')

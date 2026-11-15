@@ -22,8 +22,9 @@ const BEAT = 60 / BPM, STEP = BEAT / 4, BAR = BEAT * 4;
 const LOOK = 0.2;     // s scheduled ahead of the audio clock (survives a 150 ms frame hitch)
 const CAP = 64;       // short-lived voices alive at once (drums, keys, bells, fx); persistent synths are extra
 const MASTER = 0.65;  // calibrated offline: score master ~ -16 LUFS outdoors at a walk, sample peaks < -1.5 dBFS
-const TRIM = 0.4;     // -8 dB seat in the game mix, after the score's own dynamics (footsteps and voices on top,
-                      // and under the effects limiter's knee when sharing its bus)
+const TRIM = 0.4;     // -8 dB seat in the game mix, after the score's own dynamics, used ONLY on the score's own
+                      // destination. Handed a bus (audio.musicBus already carries the audio director's -8 dB),
+                      // the score goes in at 0 dB so the trim is never applied twice.
 const ENTRY = 3.2;    // s after the click: the lights' relays land in the clear, then the score comes in
 
 const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
@@ -136,7 +137,7 @@ function pickNum(...xs) {
 
 export function createMusic(opts = {}) {
   const entry = Number.isFinite(opts.entry) ? opts.entry : ENTRY;
-  const trimLevel = Number.isFinite(opts.trim) ? opts.trim : TRIM;
+  const trimOpt = Number.isFinite(opts.trim) ? opts.trim : null;
   const solo = typeof opts.solo === 'string' ? opts.solo : '';   // dev harness: hear one layer
   let ctx = null, N = null, started = false, starting = null, muted = false, hidden = false, offline = false, shared = false;
   let timer = null, nextTime = 0, step = Math.max(0, (opts.bar | 0) * 16), lastTick = 0, mixClock = 0, made = 0, entryAt = 0;
@@ -190,10 +191,11 @@ export function createMusic(opts = {}) {
     { const n = 4096, cv = new Float32Array(n), k = 0.6, top = 0.86;
       for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1, a = Math.abs(x); cv[i] = Math.sign(x) * (a <= k ? a : k + (top - k) * Math.tanh((a - k) / (top - k))); }
       clip.curve = cv; clip.oversample = 'none'; } // sample peaks can never pass -1.5 dBFS
-    const duck = G(1), mute = G(muted ? 0 : 1), trim = G(trimLevel);
+    const toBus = !!(out && out.context === c);
+    const duck = G(1), mute = G(muted ? 0 : 1), trim = G(trimOpt ?? (toBus ? 1 : TRIM));
     sum.connect(hp); hp.connect(dip); dip.connect(air); air.connect(glue); glue.connect(level); level.connect(clip);
     clip.connect(duck); duck.connect(mute); mute.connect(trim);
-    trim.connect(out && out.context === c ? out : c.destination);
+    trim.connect(toBus ? out : c.destination);
 
     // kick-keyed sidechain: A = chords, pad and returns (soft pump), B = bass (deep and quick)
     const duckA = G(1), duckB = G(1); duckA.connect(sum); duckB.connect(sum);

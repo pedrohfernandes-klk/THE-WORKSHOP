@@ -114,7 +114,9 @@ export async function build(ctx) {
   sun.name = 'sun';
   sun.target = target;
   sun.castShadow = true;
-  sun.shadow.mapSize.set(4096, 4096);
+  // Phones (quality low): 2048² frees ~96 MB of GPU memory (mobile context loss).
+  const shadowSize = ctx.quality === 'low' ? 2048 : 4096;
+  sun.shadow.mapSize.set(shadowSize, shadowSize);
   sun.shadow.bias = -0.00025;
   sun.shadow.normalBias = 0.03;
   sun.shadow.radius = 2;

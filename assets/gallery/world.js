@@ -11,7 +11,7 @@ export const SPACES = [
   'studio', 'arcade', 'terrace', 'cinema', 'lift', 'school', 'birds',
   'metro', 'skyliner', 'aviation', 'npcs', 'ruins',
   // The indie touches: real objects with a pixel soul, each found rather than announced.
-  'murals', 'floppies', 'vending', 'cat', 'radio', 'ghost', 'floorsnake', 'photobooth', 'gnome', 'oddities',
+  'murals', 'floppies', 'vending', 'cat', 'radio', 'ghost', 'floorsnake', 'photobooth', 'gnome', 'oddities', 'duck',
 ];
 
 // Dense vegetation is drawn by the main camera but skipped by reflections and
@@ -52,6 +52,8 @@ export function areaAt(x, y, z) {
 // module builds so the visitor can walk in the hall while the campus builds.
 const LOAD_CAP_MS = 10000;
 const IN_FLIGHT = 3;
+// Flip to true once ?batch has been checked against ?nobatch (draw calls, screenshots, clicks).
+const BATCH_BY_DEFAULT = false;
 
 function afterPageLoad(capMs = LOAD_CAP_MS) {
   if (typeof document === 'undefined' || typeof addEventListener !== 'function' || document.readyState === 'complete') return Promise.resolve();
@@ -171,8 +173,10 @@ export async function createWorld(ctx, { hallColliders = [], onProgress } = {}) 
 
   // Static batching (batch.js): once the campus has run a few seconds, merge
   // the meshes that provably never move into a few large ones per module and
-  // ~30 m cell. ?nobatch in the URL leaves the world exactly as built.
-  const noBatch = typeof location !== 'undefined' && new URLSearchParams(location.search).has('nobatch');
+  // ~30 m cell. OFF by default until verified in a browser: ?batch turns it on,
+  // ?nobatch always leaves the world exactly as built.
+  const query = typeof location !== 'undefined' ? new URLSearchParams(location.search) : null;
+  const noBatch = !query || query.has('nobatch') || !(BATCH_BY_DEFAULT || query.has('batch'));
   let batcher = noBatch ? null : createBatcher({
     scene: ctx.scene, modules, pickables,
     onDone: (stats) => { world.batchStats = stats; refreshShadows(); },
