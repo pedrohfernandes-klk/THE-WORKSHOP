@@ -256,11 +256,14 @@ if (shared) {
   ui.showEntry({ mode: 'attentive' });
 }
 
-const ready = Promise.all([hangInitial(), worldReady]).then(() => {
-  // Compile every material once behind the entry screen, so the first steps
-  // into the room do not hitch on shader compilation.
-  try { renderer.compile(room.scene, camera); } catch (e) { /* optional */ }
-  ui.setProgress(1);
+// Enter as soon as the hall's works hang: the rest of the campus streams in
+// behind the visitor, and the doors open to it the moment it is ready.
+const ready = hangInitial().then(() => { ui.setProgress(1); });
+worldReady.then((w) => {
+  if (!w) return;
+  // Compile the campus's shaders off the main thread where the GPU allows.
+  try { renderer.compileAsync?.(room.scene, camera).catch(() => {}); } catch (e) { /* optional */ }
+  if (state.entered) ui.toast('The doors are open — the campus awaits outside.', 3600);
 });
 
 // ----------------------------------------------------------------- entry --

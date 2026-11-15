@@ -95,6 +95,8 @@ try {
   if (!(looked.gained > 0.2)) fail(`Looking at a work did not accrue attention: ${JSON.stringify(looked)}`);
 
   // ===== 2b. Every space of the campus is reachable on foot from the start =====
+  // (the campus streams in after the hall: wait for it)
+  await until(page, () => !!(window.__gallery.world && window.__gallery.world.regions.length > 20), null, { label: 'the campus to stream in' });
   results.walk = await page.evaluate(() => {
     const g = window.__gallery;
     const R = g.world.regions.slice();
