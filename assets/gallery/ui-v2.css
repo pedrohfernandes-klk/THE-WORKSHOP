@@ -1,0 +1,77 @@
+/* W5: load after index.html's current style. Existing IDs/classes and CANON tokens.
+   No imports, new fonts, images, blur filters or extra animated layers. */
+:root { --drop: 2px 3px 0 var(--night); }
+.plate { background: var(--ink); }
+:focus-visible { outline: 3px solid var(--sun); outline-offset: 4px; }
+.on-paper :focus-visible { outline-color: var(--ink); }
+
+/* One centre of attention, with an asymmetrical functional accent. */
+.entry-main { width: min(100%, 1120px); gap: 0; }
+.entry-lede { background: var(--ink); padding: 8px 14px; border-left: 4px solid var(--sun); text-shadow: none; }
+.entry-actions { width: min(100%, 360px); }
+.btn-enter { background: var(--ink); width: 100%; min-width: 0; min-height: 64px; border-color: var(--paper); box-shadow: 5px 5px 0 var(--tangerine); }
+.btn-enter::before { content: ''; flex: 0 0 10px; width: 10px; height: 10px; border: 2px solid var(--paper); }
+.btn-enter.is-ready::before { border-radius: 50%; border-color: var(--signal); background: var(--signal); }
+.btn-enter:disabled { color: var(--paper); opacity: 1; }
+.btn-enter .fill { gap: 3px; }
+.btn-enter .fill i { width: 10px; }
+.entry-more a, .btn-quiet { background: var(--ink); padding-inline: 12px; border-bottom: 2px solid var(--paper); text-shadow: none; }
+.entry-more a:hover, .btn-quiet:hover { color: var(--sun); border-color: var(--sun); }
+.entry-legend { background: var(--ink); padding: 12px 16px; border-top: 2px solid var(--paper); text-shadow: none; }
+
+/* Quiet control shelf; every touch target is at least 44px. */
+#wordmark { border-top: 3px solid var(--paper); gap: 4px; }
+#wordmark .sound { width: 44px; height: 44px; }
+#wordmark .sound:hover { background: var(--paper); color: var(--ink); }
+#keys { top: calc(var(--pad-t) + 68px); background: var(--ink); line-height: 1.25; }
+#keys li { min-height: 30px; }
+#place { width: fit-content; max-width: calc(100vw - var(--pad-l) - var(--pad-r)); margin-inline: auto; padding: 7px 14px; background: var(--ink); border-bottom: 3px solid var(--sun); text-shadow: none; }
+#label { border-left: 4px solid var(--sea); }
+.label-title { line-height: 1.35; }
+.label-meta, .label-time, .label-credit { color: var(--paper); }
+#exh-btn { border-top: 3px solid var(--tangerine); }
+#toast { background: var(--ink); border-left: 4px solid var(--signal); padding: 12px 16px; line-height: 1.4; }
+#hint .in { background: var(--ink); line-height: 1.25; }
+.btn-text, .btn-line, .btn-solid { min-width: 44px; min-height: 44px; }
+
+/* A printed catalogue, not a second noisy game screen. */
+.exh-page { max-width: 1180px; }
+.exh-title { text-shadow: none; }
+.exh-band { height: 16px; box-shadow: none; }
+.exh-card { border-radius: 0; }
+.exh-card .ph { box-shadow: 3px 3px 0 var(--ink); }
+
+@media (max-width: 759px) {
+  .entry-main { padding-block: 20px 14px; }
+  .entry-title .t-big { font-size: clamp(38px, calc((100vw - 40px) / 6.3), 100px); }
+  .entry-title.is-long .t-big { font-size: clamp(30px, 7.4vw, 70px); white-space: normal; }
+  .entry-lede { max-width: 29ch; font-size: 16px; }
+  .entry-actions { width: min(100%, 320px); }
+  .btn-enter { min-height: 60px; padding-inline: 14px; gap: 10px; }
+  .entry-legend { font-size: 16px; gap: 12px; justify-content: flex-start; }
+  #place { top: calc(var(--pad-t) + 76px); font-size: 24px; }
+  #keys { top: calc(var(--pad-t) + 72px); }
+  #label { max-height: 36dvh; }
+  #label[data-focused='true'] { max-height: 48dvh; }
+  #hud:has(#label:not(.is-empty)) #notices { bottom: auto; top: calc(var(--pad-t) + 132px); }
+  #hud:has(#label[data-focused='true']:not(.is-empty)) #notices { top: calc(var(--pad-t) + 132px); }
+  #exh-btn { max-width: 132px; }
+}
+@media (max-width: 520px) {
+  #wordmark .sig, #wordmark .rule { display: none; }
+  #wordmark { padding-left: 4px; }
+  #exh-btn .row { gap: 8px; }
+}
+@media (max-height: 560px) {
+  #entry { grid-template-rows: auto 1fr auto; }
+  .entry-main { padding-block: 10px; }
+  .entry-title .t-big { font-size: clamp(38px, 13vh, 90px); }
+  .entry-lede { margin-top: 14px; }
+  .entry-actions { margin-top: 14px; }
+  .entry-legend { padding-block: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .entry-title, .entry-title .ch, #entry, #hint, #place, #toast, #label { animation: none !important; transition: none !important; }
+  .btn-enter .lbl { animation: none !important; }
+  #entry.is-hidden .entry-title { transform: none; }
+}
