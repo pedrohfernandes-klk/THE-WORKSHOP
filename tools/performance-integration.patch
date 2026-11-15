@@ -1,6 +1,7 @@
+diff --git a/index.html b/index.html
 --- a/index.html
 +++ b/index.html
-@@ -185,7 +185,7 @@
+@@ -185,7 +185,7 @@ kbd{
  .btn-enter .fill i.on{background:var(--sun);box-shadow:none}
  .btn-enter .pct{font-size:16px;color:var(--sun);min-width:4ch;text-align:left}
  .btn-enter.is-ready .fill,.btn-enter.is-ready .pct{display:none}
@@ -9,556 +10,38 @@
  .btn-enter.is-ready:not(.is-calm) .lbl{animation:blink 1s steps(1,end) infinite}
  .btn-enter:hover .lbl{animation:none}
  
+diff --git a/assets/gallery/main.js b/assets/gallery/main.js
 --- a/assets/gallery/main.js
 +++ b/assets/gallery/main.js
-@@ -19,277 +19,283 @@
+@@ -19,6 +19,7 @@ import { createMaterials } from './materials.js';
  import { createWorld, areaAt } from './world.js';
  import { groundAt } from './collision.js';
  import { createProps } from './props.js';
--
--// Canvas roundRect arrived in Safari 16; NPC speech bubbles and the poster use it.
--if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
--  CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
--    const rr = Math.max(0, Math.min(typeof r === 'number' ? r : (Array.isArray(r) ? r[0] || 0 : 0), w / 2, h / 2));
--    this.moveTo(x + rr, y);
--    this.arcTo(x + w, y, x + w, y + h, rr); this.arcTo(x + w, y + h, x, y + h, rr);
--    this.arcTo(x, y + h, x, y, rr); this.arcTo(x, y, x + w, y, rr);
--    this.closePath();
--    return this;
--  };
--}
--
--const params = new URLSearchParams(location.search);
--const TEST = params.has('test');
--const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
--const byId = new Map(WORKS.map(w => [w.id, w]));
--const slotKinds = SLOTS.map(s => ({ index: s.index, id: s.id, kind: s.kind }));
--
--// ---------------------------------------------------------------- tuning --
--
--const GAZE_OUTER = Math.cos(THREE.MathUtils.degToRad(15)); // edge of the gaze cone
--const GAZE_INNER = Math.cos(THREE.MathUtils.degToRad(5));  // fully "looking at"
--const GAZE_NEAR = 7;          // full weight within this distance (m)
--const GAZE_FAR = 16;          // no weight beyond this distance
--const SAFE_AFTER = 1.2;       // a slot unseen this long may be re-hung (s)
--const REHANG_EVERY = 0.5;     // curator poll interval (s)
--const LABEL_AFTER = 0.35;     // dwell before the wall label appears (s)
--const LABEL_LINGER = 1.6;     // label stays this long after the gaze leaves (s)
--// Walking order used by Previous / Next in focus: left wall from the door to
--// the end, the hero, the right wall back, then the door wall.
--const TOUR = [6, 5, 4, 3, 2, 1, 0, 7, 8, 9, 10, 11, 12, 14, 13].filter((i) => i < SLOTS.length);
--const RELAYS = 7;             // banks of track spots heard switching on at entry
--
--const SCREEN_SITES = [
--  { label: 'SayWhat', detail: 'desert crossing', url: 'https://pedrohfernandes-klk.github.io/SayWhat/' },
--  { label: 'No Worries', detail: 'HrM', url: 'https://pedrohfernandes-klk.github.io/NO-WORRIES/' },
--  { label: 'Português', detail: 'EPI', url: 'https://pedrohfernandes-klk.github.io/pt/' },
--  { label: 'Lente', detail: 'EPI 2026/2027', url: 'https://pedrohfernandes-klk.github.io/lente/' },
--];
--const YOUTUBE = { label: 'YouTube (opens a new tab)', url: 'https://www.youtube.com/', newTab: true };
--
--// ------------------------------------------------------------- the visit --
--
--function readSharedShow() {
--  const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
--  const text = hash.get('show');
--  if (!text) return null;
--  const decoded = decodeShow(text, WORKS, SLOTS.length);
--  if (!decoded) return null;
--  const on = hash.get('on');
--  const date = on && /^\d{4}-\d{2}-\d{2}$/.test(on) ? new Date(`${on}T12:00:00`) : null;
--  return { ...decoded, date: date && !isNaN(date) ? date : null };
--}
--
--function formatDate(date) {
--  return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
--}
--
--function isoDay(date) {
--  const p = n => String(n).padStart(2, '0');
--  return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}`;
--}
--
--// The tier is fixed for the visit (it selects geometry density and the texture
--// set at load); resolution and the expensive passes are the governor's
--// (perf.js), which adapts from there.
--//   high   1k maps: discrete GPUs, Apple silicon, strong desktops
--//   medium 512 px maps, same scene: typical laptops, incl. 4-core with integrated graphics
--//   low    lighter scene: phones, very low memory, software rendering
--function pickQuality() {
--  const q = params.get('quality');
--  if (q === 'low' || q === 'medium' || q === 'high') return q;
--  const d = deviceProfile(renderer);
--  const coarse = matchMedia('(pointer: coarse)').matches;
--  const small = Math.min(innerWidth, innerHeight) < 600;
--  if ((coarse && small) || d.phone || (d.mem && d.mem <= 2) || d.software) return 'low';
--  if (d.discrete || (!d.mobile && d.appleSilicon && d.cores >= 8)) return 'high';
--  if (!d.mobile && !d.integrated && d.cores >= 8 && (!d.mem || d.mem >= 8)) return 'high';
--  return 'medium';
--}
--
--const shared = readSharedShow();
--const state = {
--  entered: false,
--  exhibitionOpen: false,
--  focused: -1,            // slot the visitor deliberately approached
--  gazeSlot: -1,           // slot currently held by the gaze
--  gazeWeight: 0,
--  labelSlot: -1,
--  labelSince: 0,
--  labelLastSeen: 0,
--  lastVisible: new Float64Array(SLOTS.length).fill(-1e9),
--  pendingReveal: new Set(),
--  revealedSwaps: 0,
--  swaps: [],
--  swapping: false,
--  frames: 0,
--};
--
--const ui = createUI({
--  onEnter: () => enter(),
--  onOpenExhibition: () => openExhibition(),
--  onCloseExhibition: () => closeExhibition(),
--  onNext: () => stepFocus(+1),
--  onPrev: () => stepFocus(-1),
--  onLeaveFocus: () => leaveFocus(true),
--  onToggleSound: () => setSound(audio.muted),
--  onOverlay: (open) => {
--    state.overlay = open;
--    if (open) controls.exitLock();
--    controls.enabled = !open && state.entered && !state.exhibitionOpen;
--  },
--  onResumeAttentive: () => {
--    curator.setFixed(false);
--    history.replaceState(null, '', location.pathname + location.search);
--    enter();
--  },
--});
--
--// ----------------------------------------------------------------- sound --
--
--const audio = createAudio();
--let music = null;     // optional procedural soundtrack (music.js)
--let player = null;    // optional first-person hands and gestures (player.js)
--const SOUND_KEY = 'workshop.sound';
--function readSoundPreference() {
--  try { return localStorage.getItem(SOUND_KEY) !== 'off'; } catch { return true; }
--}
--function setSound(on) {
--  audio.setMuted(!on);
--  music?.setMuted(!on);
--  ui.setSound(on);
--  try { localStorage.setItem(SOUND_KEY, on ? 'on' : 'off'); } catch { /* private mode */ }
--}
--setSound(readSoundPreference());
--
--// ------------------------------------------------------------- renderer --
--
--const canvas = document.getElementById('stage');
--let renderer;
--try {
--  renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
--  if (!renderer.capabilities.isWebGL2) throw new Error('WebGL2 unavailable');
--} catch (err) {
--  showFallback('This room needs WebGL 2, which this browser or device has switched off.');
--  throw err;
--}
--
--const quality = pickQuality();
--// Resolution and the expensive passes belong to the governor (perf.js): render
--// resolution between 0.6x and 1x of min(devicePixelRatio, 2), starting low on
--// weak machines and climbing while frames keep up. onChange is wired below.
--const perf = createPerf({ renderer, quality, debug: TEST });
--let pixelRatio = perf.pixelRatio;
--renderer.outputColorSpace = THREE.SRGBColorSpace;
--renderer.setPixelRatio(pixelRatio);
--renderer.setSize(innerWidth, innerHeight, false);
--
--// near 0.1 / far 3000: the landscape, aircraft and Skyliner are hundreds of metres
--// away, and a 24-bit depth buffer still resolves ~0.15 m at 500 m.
--const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.1, 3000);
--// The entry shot: a step outside the threshold, looking down the dim hall.
--const ENTRY_POSITION = START.position.clone().add(new THREE.Vector3(0, 0, 2.4));
--camera.position.copy(ENTRY_POSITION);
--camera.lookAt(START.target);
--
--const room = createRoom(renderer, { quality, reducedMotion });
--const post = createPost(renderer, room.scene, camera, { quality });
--perf.attach(post);
--const mirrors = [];   // reflectors the governor resizes (the hall floor follows the drawing buffer in room.js)
--perf.onChange = () => { applySize(); };
--const coarsePointer = matchMedia('(pointer: coarse)').matches;
--const controls = createControls(camera, canvas, {
--  bounds: room.bounds,
--  colliders: room.colliders,
--  eyeHeight: EYE_HEIGHT,
--  reducedMotion,
--  pointerLock: !coarsePointer,   // desktop plays like a game: click to capture the mouse
--});
--controls.enabled = false;
--controls.lookAt(START.target);
--
--// ----------------------------------------------------------- the campus --
--
--const M = createMaterials(renderer, { quality });
--const props = createProps(room.scene, { quality, reducedMotion });
--const ctx = {
--  THREE, renderer, scene: room.scene, M, quality, reducedMotion, audio,
--  ui: { openApp: (url, title) => ui.openApp(url, title), toast: (t) => ui.toast(t) },
--};
--let world = null;
--const worldReady = createWorld(ctx, {
--  hallColliders: [...(room.colliders || []), ...(props.colliders || [])],
--  onProgress: (k) => { state.worldProgress = k; },
--}).then((w) => {
--  world = w;
--  controls.setWorld({ regions: w.regions, colliders: w.colliders });
--  // A mirror only needs re-rendering from the side where it can be seen: the
--  // hall floor from inside the hall, the pool from outdoors. Elsewhere it keeps
--  // its last image (it is barely visible through a doorway), which roughly
--  // halves the cost of every outdoor frame.
--  // Only for the visitor's own view: never inside an override pass (a
--  // normal/depth pass sets scene.overrideMaterial) or another camera's render
--  // (a mirror seen in a mirror): each would re-render the whole campus again.
--  // The governor (perf.js) may refresh mirrors every 2nd/3rd frame at its lower
--  // steps; a mirror that has been idle renders at once.
--  const gate = (mesh, visible) => {
--    if (!mesh || typeof mesh.onBeforeRender !== 'function') return;
--    const render = mesh.onBeforeRender;
--    let last = -1;
--    mesh.onBeforeRender = function (r, scene, cam, ...rest) {
--      if (cam !== camera || room.scene.overrideMaterial || !visible()) return;
--      if (last >= 0 && state.frames - last >= 0 && state.frames - last < perf.mirrorEvery) return;
--      last = state.frames;
--      render.call(this, r, scene, cam, ...rest);
--    };
--  };
--  if (room.floor && room.floor.getRenderTarget) {
--    gate(room.floor, () => !state.entered || state.inHall);
--    room.floor.userData.scale = perf.mirrorScale; // read by room.js once it supports it
--  }
--  w.groups.pool?.traverse((o) => { if (o.getRenderTarget) { gate(o, () => !state.indoor); mirrors.push(o); } });
--  sizeMirrors();
--  if (w.lift) {
--    w.lift.onEvent = (name) => {
--      if (name === 'chime') (audio.chime || audio.reveal)();
--      else if (name === 'doors-open' || name === 'doors-close') audio.doors?.();
--    };
--  }
--  return w;
--}).catch((err) => { console.error('[world] failed', err); return null; });
--// Heavy foliage lives on layer 1 (skipped by reflections and clicks).
--camera.layers.enable(1);
--
--const hang = shared ? shared.hang : initialHang(WORKS, slotKinds, 1);
--const curator = createCurator({ works: WORKS, slots: slotKinds, hang, fixed: !!shared });
--
--room.setPower(0.06);
--
--// ------------------------------------------------------------ first hang --
--
--async function hangInitial() {
--  let done = 0;
--  ui.setProgress(0);
--  await Promise.all(hang.map(async (id, slot) => {
--    const work = byId.get(id);
--    try {
--      const texture = await loadWorkTexture(work, renderer);
--      room.hang(slot, work, texture, { develop: false });
--    } catch (err) {
--      console.warn(`Could not load ${work.src}`, err);
--    }
--    done++;
--    ui.setProgress(done / hang.length);
--  }));
--}
--
--if (shared) {
--  ui.showEntry({
--    mode: 'shared',
--    title: titleFor(shared.hang, WORKS, shared.seconds),
--    dateText: shared.date ? formatDate(shared.date) : undefined,
--  });
--} else {
--  ui.showEntry({ mode: 'attentive' });
--}
--
--// Enter as soon as the hall's works hang: the rest of the campus streams in
--// behind the visitor, and the doors open to it the moment it is ready.
--const ready = hangInitial().then(() => { ui.setProgress(1); });
 +import { gateHallCampus } from './mirror-campus-gate.js';
-+
-+// Canvas roundRect arrived in Safari 16; NPC speech bubbles and the poster use it.
-+if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
-+  CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
-+    const rr = Math.max(0, Math.min(typeof r === 'number' ? r : (Array.isArray(r) ? r[0] || 0 : 0), w / 2, h / 2));
-+    this.moveTo(x + rr, y);
-+    this.arcTo(x + w, y, x + w, y + h, rr); this.arcTo(x + w, y + h, x, y + h, rr);
-+    this.arcTo(x, y + h, x, y, rr); this.arcTo(x, y, x + w, y, rr);
-+    this.closePath();
-+    return this;
-+  };
-+}
-+
-+const params = new URLSearchParams(location.search);
-+const TEST = params.has('test');
-+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-+const byId = new Map(WORKS.map(w => [w.id, w]));
-+const slotKinds = SLOTS.map(s => ({ index: s.index, id: s.id, kind: s.kind }));
-+
-+// ---------------------------------------------------------------- tuning --
-+
-+const GAZE_OUTER = Math.cos(THREE.MathUtils.degToRad(15)); // edge of the gaze cone
-+const GAZE_INNER = Math.cos(THREE.MathUtils.degToRad(5));  // fully "looking at"
-+const GAZE_NEAR = 7;          // full weight within this distance (m)
-+const GAZE_FAR = 16;          // no weight beyond this distance
-+const SAFE_AFTER = 1.2;       // a slot unseen this long may be re-hung (s)
-+const REHANG_EVERY = 0.5;     // curator poll interval (s)
-+const LABEL_AFTER = 0.35;     // dwell before the wall label appears (s)
-+const LABEL_LINGER = 1.6;     // label stays this long after the gaze leaves (s)
-+// Walking order used by Previous / Next in focus: left wall from the door to
-+// the end, the hero, the right wall back, then the door wall.
-+const TOUR = [6, 5, 4, 3, 2, 1, 0, 7, 8, 9, 10, 11, 12, 14, 13].filter((i) => i < SLOTS.length);
-+const RELAYS = 7;             // banks of track spots heard switching on at entry
-+
-+const SCREEN_SITES = [
-+  { label: 'SayWhat', detail: 'desert crossing', url: 'https://pedrohfernandes-klk.github.io/SayWhat/' },
-+  { label: 'No Worries', detail: 'HrM', url: 'https://pedrohfernandes-klk.github.io/NO-WORRIES/' },
-+  { label: 'Português', detail: 'EPI', url: 'https://pedrohfernandes-klk.github.io/pt/' },
-+  { label: 'Lente', detail: 'EPI 2026/2027', url: 'https://pedrohfernandes-klk.github.io/lente/' },
-+];
-+const YOUTUBE = { label: 'YouTube (opens a new tab)', url: 'https://www.youtube.com/', newTab: true };
-+
-+// ------------------------------------------------------------- the visit --
-+
-+function readSharedShow() {
-+  const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
-+  const text = hash.get('show');
-+  if (!text) return null;
-+  const decoded = decodeShow(text, WORKS, SLOTS.length);
-+  if (!decoded) return null;
-+  const on = hash.get('on');
-+  const date = on && /^\d{4}-\d{2}-\d{2}$/.test(on) ? new Date(`${on}T12:00:00`) : null;
-+  return { ...decoded, date: date && !isNaN(date) ? date : null };
-+}
-+
-+function formatDate(date) {
-+  return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
-+}
-+
-+function isoDay(date) {
-+  const p = n => String(n).padStart(2, '0');
-+  return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}`;
-+}
-+
-+// The tier is fixed for the visit (it selects geometry density and the texture
-+// set at load); resolution and the expensive passes are the governor's
-+// (perf.js), which adapts from there.
-+//   high   1k maps: discrete GPUs, Apple silicon, strong desktops
-+//   medium 512 px maps, same scene: typical laptops, incl. 4-core with integrated graphics
-+//   low    lighter scene: phones, very low memory, software rendering
-+function pickQuality() {
-+  const q = params.get('quality');
-+  if (q === 'low' || q === 'medium' || q === 'high') return q;
-+  const d = deviceProfile(renderer);
-+  const coarse = matchMedia('(pointer: coarse)').matches;
-+  const small = Math.min(innerWidth, innerHeight) < 600;
-+  if ((coarse && small) || d.phone || (d.mem && d.mem <= 2) || d.software) return 'low';
-+  if (d.discrete || (!d.mobile && d.appleSilicon && d.cores >= 8)) return 'high';
-+  if (!d.mobile && !d.integrated && d.cores >= 8 && (!d.mem || d.mem >= 8)) return 'high';
-+  return 'medium';
-+}
-+
-+const shared = readSharedShow();
-+const state = {
-+  entered: false,
-+  exhibitionOpen: false,
-+  focused: -1,            // slot the visitor deliberately approached
-+  gazeSlot: -1,           // slot currently held by the gaze
-+  gazeWeight: 0,
-+  labelSlot: -1,
-+  labelSince: 0,
-+  labelLastSeen: 0,
-+  lastVisible: new Float64Array(SLOTS.length).fill(-1e9),
-+  pendingReveal: new Set(),
-+  revealedSwaps: 0,
-+  swaps: [],
-+  swapping: false,
-+  frames: 0,
-+};
-+
-+const ui = createUI({
-+  onEnter: () => enter(),
-+  onOpenExhibition: () => openExhibition(),
-+  onCloseExhibition: () => closeExhibition(),
-+  onNext: () => stepFocus(+1),
-+  onPrev: () => stepFocus(-1),
-+  onLeaveFocus: () => leaveFocus(true),
-+  onToggleSound: () => setSound(audio.muted),
-+  onOverlay: (open) => {
-+    state.overlay = open;
-+    if (open) controls.exitLock();
-+    controls.enabled = !open && state.entered && !state.exhibitionOpen;
-+  },
-+  onResumeAttentive: () => {
-+    curator.setFixed(false);
-+    history.replaceState(null, '', location.pathname + location.search);
-+    enter();
-+  },
-+});
-+
-+// ----------------------------------------------------------------- sound --
-+
-+const audio = createAudio();
-+let music = null;     // optional procedural soundtrack (music.js)
-+let player = null;    // optional first-person hands and gestures (player.js)
-+const SOUND_KEY = 'workshop.sound';
-+function readSoundPreference() {
-+  try { return localStorage.getItem(SOUND_KEY) !== 'off'; } catch { return true; }
-+}
-+function setSound(on) {
-+  audio.setMuted(!on);
-+  music?.setMuted(!on);
-+  ui.setSound(on);
-+  try { localStorage.setItem(SOUND_KEY, on ? 'on' : 'off'); } catch { /* private mode */ }
-+}
-+setSound(readSoundPreference());
-+
-+// ------------------------------------------------------------- renderer --
-+
-+const canvas = document.getElementById('stage');
-+let renderer;
-+try {
-+  renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-+  if (!renderer.capabilities.isWebGL2) throw new Error('WebGL2 unavailable');
-+} catch (err) {
-+  showFallback('This room needs WebGL 2, which this browser or device has switched off.');
-+  throw err;
-+}
-+
-+const quality = pickQuality();
-+// Resolution and the expensive passes belong to the governor (perf.js): render
-+// resolution between 0.6x and 1x of min(devicePixelRatio, 2), starting low on
-+// weak machines and climbing while frames keep up. onChange is wired below.
-+const perf = createPerf({ renderer, quality, debug: TEST });
-+let pixelRatio = perf.pixelRatio;
-+renderer.outputColorSpace = THREE.SRGBColorSpace;
-+renderer.setPixelRatio(pixelRatio);
-+renderer.setSize(innerWidth, innerHeight, false);
-+
-+// near 0.1 / far 3000: the landscape, aircraft and Skyliner are hundreds of metres
-+// away, and a 24-bit depth buffer still resolves ~0.15 m at 500 m.
-+const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.1, 3000);
-+// The entry shot: a step outside the threshold, looking down the dim hall.
-+const ENTRY_POSITION = START.position.clone().add(new THREE.Vector3(0, 0, 2.4));
-+camera.position.copy(ENTRY_POSITION);
-+camera.lookAt(START.target);
-+
-+const room = createRoom(renderer, { quality, reducedMotion });
-+const post = createPost(renderer, room.scene, camera, { quality });
-+perf.attach(post);
-+const mirrors = [];   // reflectors the governor resizes (the hall floor follows the drawing buffer in room.js)
-+perf.onChange = () => { applySize(); };
-+const coarsePointer = matchMedia('(pointer: coarse)').matches;
-+const controls = createControls(camera, canvas, {
-+  bounds: room.bounds,
-+  colliders: room.colliders,
-+  eyeHeight: EYE_HEIGHT,
-+  reducedMotion,
-+  pointerLock: !coarsePointer,   // desktop plays like a game: click to capture the mouse
-+});
-+controls.enabled = false;
-+controls.lookAt(START.target);
-+
-+// ----------------------------------------------------------- the campus --
-+
-+const M = createMaterials(renderer, { quality });
-+const props = createProps(room.scene, { quality, reducedMotion });
-+const ctx = {
-+  THREE, renderer, scene: room.scene, M, quality, reducedMotion, audio,
-+  ui: { openApp: (url, title) => ui.openApp(url, title), toast: (t) => ui.toast(t) },
-+};
-+let world = null;
-+const worldReady = createWorld(ctx, {
-+  hallColliders: [...(room.colliders || []), ...(props.colliders || [])],
-+  onProgress: (k) => { state.worldProgress = k; },
-+}).then((w) => {
-+  world = w;
+ 
+ // Canvas roundRect arrived in Safari 16; NPC speech bubbles and the poster use it.
+ if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
+@@ -216,6 +217,7 @@ const worldReady = createWorld(ctx, {
+   onProgress: (k) => { state.worldProgress = k; },
+ }).then((w) => {
+   world = w;
 +  if (TEST) performance.mark('workshop:campus-built');
-+  controls.setWorld({ regions: w.regions, colliders: w.colliders });
-+  // A mirror only needs re-rendering from the side where it can be seen: the
-+  // hall floor from inside the hall, the pool from outdoors. Elsewhere it keeps
-+  // its last image (it is barely visible through a doorway), which roughly
-+  // halves the cost of every outdoor frame.
-+  // Only for the visitor's own view: never inside an override pass (a
-+  // normal/depth pass sets scene.overrideMaterial) or another camera's render
-+  // (a mirror seen in a mirror): each would re-render the whole campus again.
-+  // The governor (perf.js) may refresh mirrors every 2nd/3rd frame at its lower
-+  // steps; a mirror that has been idle renders at once.
-+  const gate = (mesh, visible) => {
-+    if (!mesh || typeof mesh.onBeforeRender !== 'function') return;
-+    const render = mesh.onBeforeRender;
-+    let last = -1;
-+    mesh.onBeforeRender = function (r, scene, cam, ...rest) {
-+      if (cam !== camera || room.scene.overrideMaterial || !visible()) return;
-+      if (last >= 0 && state.frames - last >= 0 && state.frames - last < perf.mirrorEvery) return;
-+      last = state.frames;
-+      render.call(this, r, scene, cam, ...rest);
-+    };
-+  };
-+  if (room.floor && room.floor.getRenderTarget) {
+   controls.setWorld({ regions: w.regions, colliders: w.colliders });
+   // A mirror only needs re-rendering from the side where it can be seen: the
+   // hall floor from inside the hall, the pool from outdoors. Elsewhere it keeps
+@@ -238,6 +240,7 @@ const worldReady = createWorld(ctx, {
+     };
+   };
+   if (room.floor && room.floor.getRenderTarget) {
 +    gateHallCampus({ THREE, floor: room.floor, camera, world: w, renderer });
-+    gate(room.floor, () => !state.entered || state.inHall);
-+    room.floor.userData.scale = perf.mirrorScale; // read by room.js once it supports it
-+  }
-+  w.groups.pool?.traverse((o) => { if (o.getRenderTarget) { gate(o, () => !state.indoor); mirrors.push(o); } });
-+  sizeMirrors();
-+  if (w.lift) {
-+    w.lift.onEvent = (name) => {
-+      if (name === 'chime') (audio.chime || audio.reveal)();
-+      else if (name === 'doors-open' || name === 'doors-close') audio.doors?.();
-+    };
-+  }
-+  return w;
-+}).catch((err) => { console.error('[world] failed', err); return null; });
-+// Heavy foliage lives on layer 1 (skipped by reflections and clicks).
-+camera.layers.enable(1);
-+
-+const hang = shared ? shared.hang : initialHang(WORKS, slotKinds, 1);
-+const curator = createCurator({ works: WORKS, slots: slotKinds, hang, fixed: !!shared });
-+
-+room.setPower(0.06);
-+
-+// ------------------------------------------------------------ first hang --
-+
-+async function hangInitial() {
-+  let done = 0;
-+  ui.setProgress(0);
-+  await Promise.all(hang.map(async (id, slot) => {
-+    const work = byId.get(id);
-+    try {
-+      const texture = await loadWorkTexture(work, renderer);
-+      room.hang(slot, work, texture, { develop: false });
-+    } catch (err) {
-+      console.warn(`Could not load ${work.src}`, err);
-+    }
-+    done++;
-+    ui.setProgress(done / hang.length);
-+  }));
-+}
-+
-+if (shared) {
-+  ui.showEntry({
-+    mode: 'shared',
-+    title: titleFor(shared.hang, WORKS, shared.seconds),
-+    dateText: shared.date ? formatDate(shared.date) : undefined,
-+  });
-+} else {
-+  ui.showEntry({ mode: 'attentive' });
-+}
-+
-+// Enter as soon as the hall's works hang: the rest of the campus streams in
-+// behind the visitor, and the doors open to it the moment it is ready.
+     gate(room.floor, () => !state.entered || state.inHall);
+     room.floor.userData.scale = perf.mirrorScale; // read by room.js once it supports it
+   }
+@@ -289,7 +292,10 @@ if (shared) {
+ 
+ // Enter as soon as the hall's works hang: the rest of the campus streams in
+ // behind the visitor, and the doors open to it the moment it is ready.
+-const ready = hangInitial().then(() => { ui.setProgress(1); });
 +const ready = hangInitial().then(() => {
 +  ui.setProgress(1);
 +  if (TEST) performance.mark('workshop:entry-ready');
@@ -566,102 +49,42 @@
  worldReady.then((w) => {
    if (!w) return;
    // Compile the campus's shaders off the main thread where the GPU allows.
+diff --git a/assets/gallery/perf.js b/assets/gallery/perf.js
 --- a/assets/gallery/perf.js
 +++ b/assets/gallery/perf.js
-@@ -112,49 +112,53 @@
+@@ -112,6 +112,7 @@ export function createPerf({ renderer, quality = 'high', onChange = null, debug
    let emaAtDown = 0, ineffective = 0, pauseDownUntil = 0;
    let capMs = 0;             // detected display cap (e.g. a 30 Hz low-power mode), 0 = none
    const win = new Float32Array(90);
--  let winN = 0;
--  const history = [];        // recent level changes (for tests / notes)
--
--  if (typeof document !== 'undefined') {
--    document.addEventListener('visibilitychange', () => {
--      // rAF stops while hidden: the first interval back is a gap, not a cost
--      last = 0;
--      slowFor = fastFor = 0;
--      if (!document.hidden) ignoreUntil = performance.now() + SETTLE_MS;
--    });
--  }
--
--  function applyPost() {
--    if (!post || typeof post.setQuality !== 'function') return;
--    const L = LADDER[level];
--    post.setQuality({ ao: L.ao, bloomScale: L.bloom, dof: L.dof, samples: L.msaa });
--  }
--
--  function setLevel(next, reason = 'manual', now = performance.now()) {
--    next = Math.max(0, Math.min(LAST, next | 0));
--    if (next === level) return false;
--    const prev = level;
--    level = next;
--    lastChange = now;
--    ignoreUntil = now + SETTLE_MS;  // resizes reallocate targets: no decisions while it re-settles
--    slowFor = fastFor = 0;
--    // Start the averages afresh: the old level's history must not push a second step.
--    ema = Math.max(TARGET_MS, capMs); miss = 0;
--    history.push({ t: Math.round(now), from: prev, to: next, reason, ema: +ema.toFixed(1) });
--    if (history.length > 24) history.shift();
--    applyPost();
--    const cb = gov.onChange || onChange;
--    if (typeof cb === 'function') cb(gov, prev);
--    return true;
--  }
--
--  // Display cap: intervals tightly clustered well above 16.7 ms (iOS low-power,
--  // battery savers) cannot be helped by dropping quality.
--  function trackCap(dt) {
--    win[winN++] = dt;
--    if (winN < win.length) return;
--    winN = 0;
--    const s = Array.from(win).sort((a, b) => a - b);
 +  const sortedWindow = new Float32Array(90);
-+  let winN = 0;
-+  const history = [];        // recent level changes (for tests / notes)
-+
-+  if (typeof document !== 'undefined') {
-+    document.addEventListener('visibilitychange', () => {
-+      // rAF stops while hidden: the first interval back is a gap, not a cost
-+      last = 0;
-+      slowFor = fastFor = 0;
-+      if (!document.hidden) ignoreUntil = performance.now() + SETTLE_MS;
-+    });
-+  }
-+
-+  function applyPost() {
-+    if (!post || typeof post.setQuality !== 'function') return;
-+    const L = LADDER[level];
-+    post.setQuality({ ao: L.ao, bloomScale: L.bloom, dof: L.dof, samples: L.msaa });
-+  }
-+
-+  function setLevel(next, reason = 'manual', now = performance.now()) {
-+    next = Math.max(0, Math.min(LAST, next | 0));
-+    if (next === level) return false;
-+    const prev = level;
+   let winN = 0;
+   const history = [];        // recent level changes (for tests / notes)
+ 
+@@ -134,13 +135,14 @@ export function createPerf({ renderer, quality = 'high', onChange = null, debug
+     next = Math.max(0, Math.min(LAST, next | 0));
+     if (next === level) return false;
+     const prev = level;
 +    const observedEma = ema;
-+    level = next;
-+    lastChange = now;
-+    ignoreUntil = now + SETTLE_MS;  // resizes reallocate targets: no decisions while it re-settles
-+    slowFor = fastFor = 0;
-+    // Start the averages afresh: the old level's history must not push a second step.
-+    ema = Math.max(TARGET_MS, capMs); miss = 0;
+     level = next;
+     lastChange = now;
+     ignoreUntil = now + SETTLE_MS;  // resizes reallocate targets: no decisions while it re-settles
+     slowFor = fastFor = 0;
+     // Start the averages afresh: the old level's history must not push a second step.
+     ema = Math.max(TARGET_MS, capMs); miss = 0;
+-    history.push({ t: Math.round(now), from: prev, to: next, reason, ema: +ema.toFixed(1) });
 +    history.push({ t: Math.round(now), from: prev, to: next, reason, ema: +observedEma.toFixed(1) });
-+    if (history.length > 24) history.shift();
-+    applyPost();
-+    const cb = gov.onChange || onChange;
-+    if (typeof cb === 'function') cb(gov, prev);
-+    return true;
-+  }
-+
-+  // Display cap: intervals tightly clustered well above 16.7 ms (iOS low-power,
-+  // battery savers) cannot be helped by dropping quality.
-+  function trackCap(dt) {
-+    win[winN++] = dt;
-+    if (winN < win.length) return;
-+    winN = 0;
+     if (history.length > 24) history.shift();
+     applyPost();
+     const cb = gov.onChange || onChange;
+@@ -154,7 +156,9 @@ export function createPerf({ renderer, quality = 'high', onChange = null, debug
+     win[winN++] = dt;
+     if (winN < win.length) return;
+     winN = 0;
+-    const s = Array.from(win).sort((a, b) => a - b);
 +    sortedWindow.set(win);
 +    sortedWindow.sort();
 +    const s = sortedWindow;
      const p10 = s[Math.floor(s.length * 0.1)], p90 = s[Math.floor(s.length * 0.9)];
      // Only the common 30 Hz cap: a GPU-bound rate that happens to be steady would
      // otherwise read as a cap at any interval.
+
