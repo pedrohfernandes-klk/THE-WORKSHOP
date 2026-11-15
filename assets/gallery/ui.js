@@ -149,6 +149,9 @@ export function createUI(handlers = {}) {
   if (PT) {
     entry.lang = 'pt-PT';
     for (const n of entry.querySelectorAll('[data-pt]')) n.textContent = n.dataset.pt;
+    // the one HUD word that is not a prompt: same language as the prompts
+    const exhT = document.querySelector('#exh-btn .t');
+    if (exhT) { exhT.replaceChildren(el('span', 'm-hide', 'A tua '), document.createTextNode('exposição')); $('exh-btn').setAttribute('aria-label', 'A tua exposição'); }
   }
   const BLOCKS = 10;
   enterFill.replaceChildren(...Array.from({ length: BLOCKS }, () => el('i')));

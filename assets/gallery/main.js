@@ -305,7 +305,7 @@ async function enter() {
   if (state.entered) return;
   // Audio must start inside the click itself, before any await.
   audio.start().catch(() => {});
-  music?.start().catch(() => {});
+  music?.start(audio.context, audio.musicBus).catch(() => {});
   await ready;
   state.entered = true;
   ui.hideEntry();
@@ -349,7 +349,7 @@ import('./sfx.js').then((m) => { sfx = m.createSfx(audio); }).catch(() => { /* o
 import('./music.js').then((m) => {
   music = m.createMusic();
   music.setMuted(audio.muted);
-  if (state.entered) music.start().catch(() => {});
+  if (state.entered) music.start(audio.context, audio.musicBus).catch(() => {});
 }).catch(() => { /* music is optional */ });
 
 // Paper-ball basketball: pick up crumpled paper (E / click), hold F or the
@@ -1061,7 +1061,11 @@ function step() {
   if (player) {
     player.update(dt, { speed: controls.speed, jumping: controls.airborne, turnRate: controls.turnRate, stepPhase: controls.stepPhase });
   }
-  if (music) music.setIntensity(Math.min(1, 0.25 + controls.speed / 5 + (state.inHall ? 0 : 0.25)));
+  // The score follows the place, the pace and the sky (hall calm, outdoors driving, ruins dark, storms minor).
+  if (music) {
+    if (music.setScene) music.setScene({ area: state.place, indoor: !!state.indoor, x: pos.x, z: pos.z, speed: controls.speed, airborne, weather: room.scene.userData.weather });
+    else music.setIntensity(Math.min(1, 0.25 + controls.speed / 5 + (state.inHall ? 0 : 0.25)));
+  }
   music?.update?.(dt);
   if (paper) {
     if (charging) { charge = Math.min(1, charge + dt * 0.9); paper.setPower?.(charge); }

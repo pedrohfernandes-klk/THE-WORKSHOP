@@ -728,9 +728,9 @@ export function build(ctx) {
   // Every character: 12+ lines of their own, plus lines for the moment (the visitor running
   // past, jumping, sitting nearby, the weather, being ignored or talked to again, cheeky
   // gestures, slaps once or again and again). Missing keys fall back to their language.
-  const LEVOU_NPC = ['Já levaste na boca!', 'Já levaste na boca, já!', 'Ahah, já levaste na boca!', 'AHAHAHAHA!', 'AHAHAH! Já levaste na boca!'];
+  const LEVOU_NPC = ['Já levaste na boca!', 'Já levaste na boca, já!', 'Ahah, já levaste na boca!', 'AHAHAHAHA!', 'AHAHAH! Já levaste na boca!', 'LMFAO! Mas é o #%&@, ainda levas nessa fuça, irmão!'];
   const LEVOU_F = ['Já levaste na boca!', 'Já levaste na boca, já!', 'Ahah, já levaste na boca!'];
-  const LEVOU_VIS = ['Levaste na boca, boneco!', 'Levaste na boca, ó boneco!', 'Toma lá, boneco!', 'AHAHAHAHA!', 'AHAHAH! Já levaste na boca!', 'Já levaste na boca!'];
+  const LEVOU_VIS = ['Levaste na boca, boneco!', 'Levaste na boca, ó boneco!', 'Toma lá, boneco!', 'AHAHAHAHA!', 'AHAHAH! Já levaste na boca!', 'Já levaste na boca!', 'LMFAO! Mas é o #%&@, ainda levas nessa fuça, irmão!'];
   const DEF = {
     en: {
       run: ['No running on the campus!', 'Where is the fire?', 'Slow down. It is a gallery, not a race.'],
@@ -890,7 +890,7 @@ export function build(ctx) {
       murmur: ['Isso é que era bom… tsk.', 'Ai, ai, ai… onde é que isto vai parar…', 'Esta gente esquisita… isso é que era bom.'],
     },
     mano: {
-      talk: ['Mano, pagas tu? Não? Tenho MB Way.', 'Tudo por MB Way, mano. Tudo.', 'O meu avô tinha cheques. Eu tenho MB Way.', 'Mano, a vida é simples: MB Way.'],
+      talk: ['Mano, pagas tu? Não? Tenho MB Way.', 'Tudo por MB Way, mano. Tudo.', 'O meu avô tinha cheques. Eu tenho MB Way.', 'Mano, a vida é simples: MB Way.', 'Tens criptomoedas, bro?', 'Bro, tens criptomoedas? Eu aceito. E tenho MB Way.'],
       run: ['Mano, corre! Eu pago por MB Way!', 'Calma, bro!', 'Calma aí, bro!'], scream: ['Ó bro, calma!', 'Calma aí, bro!'], jump: ['Bué alto, mano!'], sit: ['Senta-te, mano. Eu pago. MB Way.'],
       sun: ['Calor, mano. Gelado? Tenho MB Way.'], storm: ['Chuva, mano! Guarda-chuva por MB Way?'], night: ['Mano, à noite o MB Way até brilha.'], rainbow: ['Arco-íris, mano! Faço-lhe MB Way!'],
       again: ['Outra vez, mano? Tenho MB Way na mesma.'], ignored: ['Mano?! Mano… tenho MB Way…'], ouch: ['Ó mano!', 'Mano?!', 'Calma, bro!', 'Calma aí, bro!', 'Ó bro, calma!'],
