@@ -1,0 +1,1424 @@
+{
+  "version": 1,
+  "base": "c8937e1bc3718e1f806338356b48576bf69ee7e8",
+  "coverage": {
+    "target": 0.8,
+    "measured": null,
+    "unit": "physical objects, not mesh parts",
+    "notes": [
+      "Counts on parts share physicalGroup; never add duplicated parts.",
+      "All unresolved and unlisted supported objects remain in denominator.",
+      "No claim of 80% is made before the integrator inventories instantiated world.",
+      "NPCs keep talk/slap; terrain and sky are traversal/background, not props. Windows/doors/railings are included.",
+      "Explicit module-wide contact fallback includes unnamed physical props and architecture. Ground-facing walk surfaces and owned native actions retain original behavior. It is not proof of a numerical physical-object coverage.",
+      "W5 replaces signage with wayfinding: absent signage module is not an active denominator. lightpools are non-pickable effects, not physical props; school orientation markers remain non-clickable."
+    ],
+    "unresolvedFamilies": [
+      "pergola plants (specific type refinement; generic contact where fallback applies)",
+      "garden planting beyond parterre (specific type refinement; generic contact where fallback applies)",
+      "school side/rear windows split (specific type refinement; generic contact where fallback applies)",
+      "studio windows (specific type refinement; generic contact where fallback applies)",
+      "metro/lift moving doors (specific type refinement; generic contact where fallback applies)",
+      "facade lamps and roof glazing (specific type refinement; generic contact where fallback applies)",
+      "terrace planters (specific type refinement; generic contact where fallback applies)",
+      "unnamed pavilion lamps (specific type refinement; generic contact where fallback applies)",
+      "new W5 wayfinding/lightpools (specific type refinement; generic contact where fallback applies)"
+    ]
+  },
+  "objects": [
+    {
+      "id": "plaza-benches",
+      "modulo": "furniture",
+      "tipo": "bench",
+      "nome": "plaza-bench-seat",
+      "count": 6,
+      "source": {
+        "path": "assets/gallery/spaces/furniture.js",
+        "line": 184,
+        "anchor": "proxy.name = 'plaza-bench-seat'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'bench'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "furniture-lampPole",
+      "modulo": "furniture",
+      "tipo": "lamp",
+      "nome": "furniture-lampPole",
+      "count": 8,
+      "source": {
+        "path": "assets/gallery/spaces/furniture.js",
+        "line": 133,
+        "anchor": "for (const e of parts.values())",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'lamp'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "physicalGroup": "8 lamps",
+      "motion": false
+    },
+    {
+      "id": "furniture-lampHead",
+      "modulo": "furniture",
+      "tipo": "lamp",
+      "nome": "furniture-lampHead",
+      "count": 8,
+      "source": {
+        "path": "assets/gallery/spaces/furniture.js",
+        "line": 133,
+        "anchor": "for (const e of parts.values())",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'lamp'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "physicalGroup": "8 lamps",
+      "motion": false
+    },
+    {
+      "id": "furniture-lampLens",
+      "modulo": "furniture",
+      "tipo": "lamp",
+      "nome": "furniture-lampLens",
+      "count": 8,
+      "source": {
+        "path": "assets/gallery/spaces/furniture.js",
+        "line": 133,
+        "anchor": "for (const e of parts.values())",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'lamp'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "physicalGroup": "8 lamps",
+      "motion": false
+    },
+    {
+      "id": "furniture-binBody",
+      "modulo": "furniture",
+      "tipo": "bin",
+      "nome": "furniture-binBody",
+      "count": 4,
+      "source": {
+        "path": "assets/gallery/spaces/furniture.js",
+        "line": 133,
+        "anchor": "for (const e of parts.values())",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'bin'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "physicalGroup": "4 bins",
+      "motion": false
+    },
+    {
+      "id": "furniture-binLid",
+      "modulo": "furniture",
+      "tipo": "bin",
+      "nome": "furniture-binLid",
+      "count": 4,
+      "source": {
+        "path": "assets/gallery/spaces/furniture.js",
+        "line": 133,
+        "anchor": "for (const e of parts.values())",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'bin'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "physicalGroup": "4 bins",
+      "motion": false
+    },
+    {
+      "id": "furniture-binFloor",
+      "modulo": "furniture",
+      "tipo": "bin",
+      "nome": "furniture-binFloor",
+      "count": 4,
+      "source": {
+        "path": "assets/gallery/spaces/furniture.js",
+        "line": 133,
+        "anchor": "for (const e of parts.values())",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'bin'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "physicalGroup": "4 bins",
+      "motion": false
+    },
+    {
+      "id": "furniture-hoop",
+      "modulo": "furniture",
+      "tipo": "bike",
+      "nome": "furniture-hoop",
+      "count": 5,
+      "source": {
+        "path": "assets/gallery/spaces/furniture.js",
+        "line": 133,
+        "anchor": "for (const e of parts.values())",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'bike'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "physicalGroup": "1 bike rack (not 5 bicycles)",
+      "motion": false
+    },
+    {
+      "id": "furniture-hoopLeg",
+      "modulo": "furniture",
+      "tipo": "bike",
+      "nome": "furniture-hoopLeg",
+      "count": 10,
+      "source": {
+        "path": "assets/gallery/spaces/furniture.js",
+        "line": 133,
+        "anchor": "for (const e of parts.values())",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'bike'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "physicalGroup": "1 bike rack (not 5 bicycles)",
+      "motion": false
+    },
+    {
+      "id": "furniture-bollard",
+      "modulo": "furniture",
+      "tipo": "bollard",
+      "nome": "furniture-bollard",
+      "count": 6,
+      "source": {
+        "path": "assets/gallery/spaces/furniture.js",
+        "line": 133,
+        "anchor": "for (const e of parts.values())",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'bollard'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "physicalGroup": "6 bollards",
+      "motion": false
+    },
+    {
+      "id": "furniture-bollardCap",
+      "modulo": "furniture",
+      "tipo": "bollard",
+      "nome": "furniture-bollardCap",
+      "count": 6,
+      "source": {
+        "path": "assets/gallery/spaces/furniture.js",
+        "line": 133,
+        "anchor": "for (const e of parts.values())",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'bollard'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "physicalGroup": "6 bollards",
+      "motion": false
+    },
+    {
+      "id": "campus-trees",
+      "modulo": "trees",
+      "tipo": "tree",
+      "prefix": "tree-bark-",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/trees.js",
+        "line": 429,
+        "anchor": "const bm = new THREE.InstancedMesh",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'tree'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "proxy": true,
+      "physicalGroup": "one trunk instance = one tree; leaf instances not counted again"
+    },
+    {
+      "id": "campus-signs",
+      "modulo": "signage",
+      "tipo": "sign",
+      "nome": "*",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/signage.js",
+        "line": 181,
+        "anchor": "function totem",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'sign'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "physicalGroup": "signs built by totem/lowSign/doorPlate; multiple mesh parts per sign"
+    },
+    {
+      "id": "formal-hedges",
+      "modulo": "parterre",
+      "tipo": "plant",
+      "nome": "parterreHedge",
+      "count": 2,
+      "source": {
+        "path": "assets/gallery/spaces/parterre.js",
+        "line": 150,
+        "anchor": "'parterreHedge'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'plant'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "physicalGroup": "2 beds, merged geometry; feedback at hit only"
+    },
+    {
+      "id": "formal-topiary",
+      "modulo": "parterre",
+      "tipo": "plant",
+      "nome": "parterreCone",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/parterre.js",
+        "line": 151,
+        "anchor": "'parterreCone'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'plant'. Nunca marcar o batch completo se mistura objetos."
+      }
+    },
+    {
+      "id": "garden-benches",
+      "modulo": "garden",
+      "tipo": "bench",
+      "nome": "garden-bench-seat",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/garden.js",
+        "line": 326,
+        "anchor": "proxy.name = 'garden-bench-seat'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'bench'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "arcade-bench",
+      "modulo": "arcade",
+      "tipo": "bench",
+      "nome": "bench-sit-pick",
+      "count": 1,
+      "source": {
+        "path": "assets/gallery/spaces/arcade.js",
+        "line": 305,
+        "anchor": "pm.name = 'bench-sit-pick'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'bench'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "arcade-cabinets",
+      "modulo": "arcade",
+      "tipo": "screen",
+      "prefix": "cabinet-",
+      "count": 12,
+      "source": {
+        "path": "assets/gallery/spaces/arcade.js",
+        "line": 221,
+        "anchor": "pm.name = 'cabinet-'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'screen'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "arcade-window",
+      "modulo": "arcade",
+      "tipo": "window",
+      "nome": "shopfront-glass",
+      "count": 1,
+      "source": {
+        "path": "assets/gallery/spaces/arcade.js",
+        "line": 259,
+        "anchor": "gl.name = 'shopfront-glass'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'window'. Nunca marcar o batch completo se mistura objetos."
+      }
+    },
+    {
+      "id": "arcade-door",
+      "modulo": "arcade",
+      "tipo": "door",
+      "root": "arcade-door",
+      "count": 1,
+      "source": {
+        "path": "assets/gallery/spaces/arcade.js",
+        "line": 268,
+        "anchor": "leaf.add(lg)",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'door'. Nunca marcar o batch completo se mistura objetos."
+      }
+    },
+    {
+      "id": "cinema-screen",
+      "modulo": "cinema",
+      "tipo": "screen",
+      "nome": "cinema-screen",
+      "count": 1,
+      "source": {
+        "path": "assets/gallery/spaces/cinema.js",
+        "line": 200,
+        "anchor": "screen.name = 'cinema-screen'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'screen'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "cinema-seats",
+      "modulo": "cinema",
+      "tipo": "bench",
+      "prefix": "cinema-seats-row",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/cinema.js",
+        "line": 323,
+        "anchor": "proxy.name = `cinema-seats-row",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'bench'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "amphitheatre-screen",
+      "modulo": "amphitheatre",
+      "tipo": "screen",
+      "nome": "screen",
+      "count": 1,
+      "source": {
+        "path": "assets/gallery/spaces/amphitheatre.js",
+        "line": 282,
+        "anchor": "screen.name = 'screen'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'screen'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "amphitheatre-seating",
+      "modulo": "amphitheatre",
+      "tipo": "bench",
+      "action": "sit",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/amphitheatre.js",
+        "line": 27,
+        "anchor": "type: 'sit'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'bench'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "amphitheatre-shrubs",
+      "modulo": "amphitheatre",
+      "tipo": "plant",
+      "nome": "shrubs",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/amphitheatre.js",
+        "line": 363,
+        "anchor": "shrubs.name = 'shrubs'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'plant'. Nunca marcar o batch completo se mistura objetos."
+      }
+    },
+    {
+      "id": "fountain-body",
+      "modulo": "fountain",
+      "tipo": "fountain",
+      "bounds": [
+        42.9,
+        49.1,
+        0.08,
+        4,
+        25.9,
+        32.1
+      ],
+      "count": 1,
+      "source": {
+        "path": "assets/gallery/spaces/fountain.js",
+        "line": 8,
+        "anchor": "const CX = 46, CZ = 29;",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'fountain'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "position": [
+        46,
+        0,
+        29
+      ]
+    },
+    {
+      "id": "fountain-seats",
+      "modulo": "fountain",
+      "tipo": "bench",
+      "nome": "fountain-coping-seats",
+      "count": 1,
+      "source": {
+        "path": "assets/gallery/spaces/fountain.js",
+        "line": 423,
+        "anchor": "proxy.name = 'fountain-coping-seats'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'bench'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "pool-seats",
+      "modulo": "pool",
+      "tipo": "bench",
+      "action": "sit",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/pool.js",
+        "line": 153,
+        "anchor": "type: 'sit'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'bench'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "school-seats",
+      "modulo": "school",
+      "tipo": "bench",
+      "action": "sit",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/school.js",
+        "line": 70,
+        "anchor": "function sitProxy",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'bench'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "school-apps",
+      "modulo": "school",
+      "tipo": "screen",
+      "action": "app",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/school.js",
+        "line": 534,
+        "anchor": "sc.userData.action =",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'screen'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "school-window--3.4",
+      "modulo": "school",
+      "tipo": "window",
+      "bounds": [
+        -5.01,
+        -1.7899999999999998,
+        0.19,
+        3.51,
+        56.17,
+        56.23
+      ],
+      "count": 1,
+      "source": {
+        "path": "assets/gallery/spaces/school.js",
+        "line": 168,
+        "anchor": "addPlane(glassBlockMat",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'window'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "position": [
+        -3.4,
+        1.85,
+        56.2
+      ],
+      "silent": true
+    },
+    {
+      "id": "school-window--10",
+      "modulo": "school",
+      "tipo": "window",
+      "bounds": [
+        -11.61,
+        -8.39,
+        0.19,
+        3.51,
+        56.17,
+        56.23
+      ],
+      "count": 1,
+      "source": {
+        "path": "assets/gallery/spaces/school.js",
+        "line": 168,
+        "anchor": "addPlane(glassBlockMat",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'window'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "position": [
+        -10,
+        1.85,
+        56.2
+      ],
+      "silent": true
+    },
+    {
+      "id": "school-window--16.6",
+      "modulo": "school",
+      "tipo": "window",
+      "bounds": [
+        -18.21,
+        -14.990000000000002,
+        0.19,
+        3.51,
+        56.17,
+        56.23
+      ],
+      "count": 1,
+      "source": {
+        "path": "assets/gallery/spaces/school.js",
+        "line": 168,
+        "anchor": "addPlane(glassBlockMat",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'window'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "position": [
+        -16.6,
+        1.85,
+        56.2
+      ],
+      "silent": true
+    },
+    {
+      "id": "school-window-3.4",
+      "modulo": "school",
+      "tipo": "window",
+      "bounds": [
+        1.7899999999999998,
+        5.01,
+        0.19,
+        3.51,
+        56.17,
+        56.23
+      ],
+      "count": 1,
+      "source": {
+        "path": "assets/gallery/spaces/school.js",
+        "line": 168,
+        "anchor": "addPlane(glassBlockMat",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'window'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "position": [
+        3.4,
+        1.85,
+        56.2
+      ],
+      "silent": true
+    },
+    {
+      "id": "school-window-10",
+      "modulo": "school",
+      "tipo": "window",
+      "bounds": [
+        8.39,
+        11.61,
+        0.19,
+        3.51,
+        56.17,
+        56.23
+      ],
+      "count": 1,
+      "source": {
+        "path": "assets/gallery/spaces/school.js",
+        "line": 168,
+        "anchor": "addPlane(glassBlockMat",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'window'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "position": [
+        10,
+        1.85,
+        56.2
+      ],
+      "silent": true
+    },
+    {
+      "id": "school-window-16.6",
+      "modulo": "school",
+      "tipo": "window",
+      "bounds": [
+        14.990000000000002,
+        18.21,
+        0.19,
+        3.51,
+        56.17,
+        56.23
+      ],
+      "count": 1,
+      "source": {
+        "path": "assets/gallery/spaces/school.js",
+        "line": 168,
+        "anchor": "addPlane(glassBlockMat",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'window'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "position": [
+        16.6,
+        1.85,
+        56.2
+      ],
+      "silent": true
+    },
+    {
+      "id": "school-entry-doors",
+      "modulo": "school",
+      "tipo": "door",
+      "bounds": [
+        -1.05,
+        1.05,
+        0,
+        2.6,
+        55.85,
+        56.65
+      ],
+      "count": 2,
+      "source": {
+        "path": "assets/gallery/spaces/school.js",
+        "line": 188,
+        "anchor": "const doorLeaf =",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'door'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "silent": true
+    },
+    {
+      "id": "school-rear-windows",
+      "modulo": "school",
+      "tipo": "window",
+      "bounds": [
+        -21,
+        21,
+        0.9,
+        3.2,
+        71.4,
+        71.8
+      ],
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/school.js",
+        "line": 258,
+        "anchor": "BX(glassMat, 1.5, 2.15",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'window'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "silent": true,
+      "note": "Volume covers window band; Claude must split physical windows before computing coverage."
+    },
+    {
+      "id": "terrace-benches",
+      "modulo": "terrace",
+      "tipo": "bench",
+      "nome": "terrace-bench-seat",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/terrace.js",
+        "line": 435,
+        "anchor": "proxy.name = 'terrace-bench-seat'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'bench'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "terrace-side-rail-west",
+      "modulo": "terrace",
+      "tipo": "railing",
+      "bounds": [
+        -6.86,
+        -6.65,
+        7.25,
+        8.35,
+        5.4,
+        17.4
+      ],
+      "count": 1,
+      "source": {
+        "path": "assets/gallery/spaces/terrace.js",
+        "line": 96,
+        "anchor": "const railY =",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'railing'. Nunca marcar o batch completo se mistura objetos."
+      }
+    },
+    {
+      "id": "terrace-side-rail-east",
+      "modulo": "terrace",
+      "tipo": "railing",
+      "bounds": [
+        6.65,
+        6.86,
+        7.25,
+        8.35,
+        5.4,
+        17.4
+      ],
+      "count": 1,
+      "source": {
+        "path": "assets/gallery/spaces/terrace.js",
+        "line": 96,
+        "anchor": "const railY =",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'railing'. Nunca marcar o batch completo se mistura objetos."
+      }
+    },
+    {
+      "id": "terrace-front-rail",
+      "modulo": "terrace",
+      "tipo": "railing",
+      "bounds": [
+        -6.86,
+        6.86,
+        7.25,
+        8.35,
+        17.15,
+        17.4
+      ],
+      "count": 1,
+      "source": {
+        "path": "assets/gallery/spaces/terrace.js",
+        "line": 96,
+        "anchor": "const railY =",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'railing'. Nunca marcar o batch completo se mistura objetos."
+      }
+    },
+    {
+      "id": "station-benches",
+      "modulo": "metro",
+      "tipo": "bench",
+      "nome": "station-bench-seat",
+      "count": 2,
+      "source": {
+        "path": "assets/gallery/spaces/metro.js",
+        "line": 221,
+        "anchor": "proxy.name = 'station-bench-seat'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'bench'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "station-signs",
+      "modulo": "metro",
+      "tipo": "sign",
+      "bounds": [
+        80.8,
+        85,
+        3.6,
+        4.6,
+        25.7,
+        32.3
+      ],
+      "count": 2,
+      "source": {
+        "path": "assets/gallery/spaces/metro.js",
+        "line": 198,
+        "anchor": "const fascia =",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'sign'. Nunca marcar o batch completo se mistura objetos."
+      }
+    },
+    {
+      "id": "train-doors",
+      "modulo": "metro",
+      "tipo": "door",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/metro.js",
+        "line": 230,
+        "anchor": "const doors =",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'door'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "unresolved",
+      "note": "Dynamic doors: keep owner animation. Requires exact door identity/proxy; not counted covered."
+    },
+    {
+      "id": "lift-doors",
+      "modulo": "lift",
+      "tipo": "door",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/lift.js",
+        "line": 76,
+        "anchor": "const doorH =",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'door'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "unresolved",
+      "note": "Moving doors: preserve safety and native controls; requires door proxy mapping."
+    },
+    {
+      "id": "ruin-car",
+      "modulo": "ruins",
+      "tipo": "car",
+      "root": "ruin-car",
+      "count": 1,
+      "source": {
+        "path": "assets/gallery/spaces/ruins.js",
+        "line": 180,
+        "anchor": "group.add(car);",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'car'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "motion": true
+    },
+    {
+      "id": "ruin-tree",
+      "modulo": "ruins",
+      "tipo": "tree",
+      "root": "ruin-tree",
+      "count": 1,
+      "source": {
+        "path": "assets/gallery/spaces/ruins.js",
+        "line": 211,
+        "anchor": "group.add(tree);",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'tree'. Nunca marcar o batch completo se mistura objetos."
+      }
+    },
+    {
+      "id": "ruin-lamp",
+      "modulo": "ruins",
+      "tipo": "lamp",
+      "root": "ruin-lamp",
+      "count": 1,
+      "source": {
+        "path": "assets/gallery/spaces/ruins.js",
+        "line": 238,
+        "anchor": "group.add(lamp);",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'lamp'. Nunca marcar o batch completo se mistura objetos."
+      }
+    },
+    {
+      "id": "ruin-sign",
+      "modulo": "ruins",
+      "tipo": "sign",
+      "root": "ruin-sign",
+      "count": 1,
+      "source": {
+        "path": "assets/gallery/spaces/ruins.js",
+        "line": 227,
+        "anchor": "pivot.rotation.z = -0.9;",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'sign'. Nunca marcar o batch completo se mistura objetos."
+      }
+    },
+    {
+      "id": "ruin-chairs",
+      "modulo": "ruins",
+      "tipo": "bench",
+      "prefix": "ruin-chair",
+      "count": 6,
+      "source": {
+        "path": "assets/gallery/spaces/ruins.js",
+        "line": 85,
+        "anchor": "group.add(c);",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'bench'. Nunca marcar o batch completo se mistura objetos."
+      }
+    },
+    {
+      "id": "ruin-fence",
+      "modulo": "ruins",
+      "tipo": "railing",
+      "bounds": [
+        -62.2,
+        -51.8,
+        0,
+        1.4,
+        -21.25,
+        -20.75
+      ],
+      "count": 1,
+      "source": {
+        "path": "assets/gallery/spaces/ruins.js",
+        "line": 213,
+        "anchor": "// ---------- fence + sign",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'railing'. Nunca marcar o batch completo se mistura objetos."
+      }
+    },
+    {
+      "id": "phone-kiosk",
+      "modulo": "oddities",
+      "tipo": "phone",
+      "root": "oddities-phone-kiosk",
+      "count": 1,
+      "source": {
+        "path": "assets/gallery/spaces/oddities.js",
+        "line": 351,
+        "anchor": "kiosk.name = 'oddities-phone-kiosk'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'phone'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "edge-lamp",
+      "modulo": "oddities",
+      "tipo": "lamp",
+      "root": "oddities-edge-lamp",
+      "count": 1,
+      "source": {
+        "path": "assets/gallery/spaces/oddities.js",
+        "line": 921,
+        "anchor": "L.name = 'oddities-edge-lamp'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'lamp'. Nunca marcar o batch completo se mistura objetos."
+      }
+    },
+    {
+      "id": "edge-sign",
+      "modulo": "oddities",
+      "tipo": "sign",
+      "root": "oddities-edge-sign",
+      "count": 1,
+      "source": {
+        "path": "assets/gallery/spaces/oddities.js",
+        "line": 949,
+        "anchor": "Sg.name = 'oddities-edge-sign'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'sign'. Nunca marcar o batch completo se mistura objetos."
+      }
+    },
+    {
+      "id": "studio-apps",
+      "modulo": "studio",
+      "tipo": "screen",
+      "action": "app",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/studio.js",
+        "line": 349,
+        "anchor": "consoleGroup.userData.action",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'screen'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "studio-door",
+      "modulo": "studio",
+      "tipo": "door",
+      "bounds": [
+        -12.6,
+        -10.8,
+        0,
+        2.8,
+        43.1,
+        45
+      ],
+      "count": 1,
+      "source": {
+        "path": "assets/gallery/spaces/studio.js",
+        "line": 157,
+        "anchor": "// door frame, threshold",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'door'. Nunca marcar o batch completo se mistura objetos."
+      }
+    },
+    {
+      "id": "studio-windows",
+      "modulo": "studio",
+      "tipo": "window",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/studio.js",
+        "line": 144,
+        "anchor": "mk(w, h, 0.02, glass",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'window'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "unresolved",
+      "note": "Separate window panes need source kind tags; no invented positions."
+    },
+    {
+      "id": "mercado-seats",
+      "modulo": "mercado",
+      "tipo": "bench",
+      "action": "sit",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/mercado.js",
+        "line": 127,
+        "anchor": "type: 'sit'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'bench'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "mercado-custom",
+      "modulo": "mercado",
+      "tipo": "object",
+      "action": "custom",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/mercado.js",
+        "line": 41,
+        "anchor": "type: 'custom'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'object'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "marginal-seats",
+      "modulo": "marginal",
+      "tipo": "bench",
+      "action": "sit",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/marginal.js",
+        "line": 72,
+        "anchor": "type: 'sit'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'bench'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "marginal-custom",
+      "modulo": "marginal",
+      "tipo": "object",
+      "action": "custom",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/marginal.js",
+        "line": 41,
+        "anchor": "type: 'custom'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'object'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "duck-native",
+      "modulo": "duck",
+      "tipo": "object",
+      "action": "custom",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/duck.js",
+        "line": 342,
+        "anchor": "type: 'custom'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'object'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "cat-native",
+      "modulo": "cat",
+      "tipo": "object",
+      "action": "custom",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/cat.js",
+        "line": 257,
+        "anchor": "type: 'custom'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'object'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "ghost-native",
+      "modulo": "ghost",
+      "tipo": "object",
+      "action": "custom",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/ghost.js",
+        "line": 180,
+        "anchor": "type: 'custom'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'object'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "photobooth-native",
+      "modulo": "photobooth",
+      "tipo": "object",
+      "action": "custom",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/photobooth.js",
+        "line": 269,
+        "anchor": "type: 'custom'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'object'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "radio-native",
+      "modulo": "radio",
+      "tipo": "object",
+      "action": "custom",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/radio.js",
+        "line": 210,
+        "anchor": "type: 'custom'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'object'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "vending-native",
+      "modulo": "vending",
+      "tipo": "object",
+      "action": "custom",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/vending.js",
+        "line": 114,
+        "anchor": "type: 'custom'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'object'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "gnome-native",
+      "modulo": "gnome",
+      "tipo": "object",
+      "action": "custom",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/gnome.js",
+        "line": 284,
+        "anchor": "type: 'custom'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'object'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "floppies-native",
+      "modulo": "floppies",
+      "tipo": "object",
+      "action": "custom",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/floppies.js",
+        "line": 183,
+        "anchor": "type: 'custom'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'object'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "murals-native",
+      "modulo": "murals",
+      "tipo": "object",
+      "action": "custom",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/murals.js",
+        "line": 635,
+        "anchor": "type: 'custom'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'object'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "arraial-native",
+      "modulo": "arraial",
+      "tipo": "object",
+      "action": "custom",
+      "count": null,
+      "source": {
+        "path": "assets/gallery/spaces/arraial.js",
+        "line": 374,
+        "anchor": "type: 'custom'",
+        "kindInstruction": "No objeto ou proxy correspondente: userData.kind = 'object'. Nunca marcar o batch completo se mistura objetos."
+      },
+      "status": "native"
+    },
+    {
+      "id": "wayfinding-native",
+      "modulo": "wayfinding",
+      "tipo": "sign",
+      "prefix": "wayfinding-",
+      "action": "custom",
+      "status": "native",
+      "source": {
+        "path": "assets/gallery/spaces/wayfinding.js",
+        "line": 72,
+        "anchor": "proxy.name = 'wayfinding-'",
+        "kindInstruction": "Native ORIENTAR action; no extra reaction."
+      },
+      "count": null
+    }
+  ],
+  "fallbacks": [
+    {
+      "id": "facade-unnamed-contact",
+      "modulo": "facade",
+      "nome": "all remaining unowned physical meshes",
+      "tipo": "object",
+      "motion": false,
+      "source": {
+        "path": "assets/gallery/spaces/facade.js",
+        "line": 1,
+        "anchor": "export function build",
+        "kindInstruction": "Prefer explicit userData.kind; fallback produces only local contact bubble + sound, never moves merged geometry."
+      }
+    },
+    {
+      "id": "plaza-unnamed-contact",
+      "modulo": "plaza",
+      "nome": "all remaining unowned physical meshes",
+      "tipo": "object",
+      "motion": false,
+      "source": {
+        "path": "assets/gallery/spaces/plaza.js",
+        "line": 1,
+        "anchor": "export function build",
+        "kindInstruction": "Prefer explicit userData.kind; fallback produces only local contact bubble + sound, never moves merged geometry."
+      }
+    },
+    {
+      "id": "parterre-unnamed-contact",
+      "modulo": "parterre",
+      "nome": "all remaining unowned physical meshes",
+      "tipo": "object",
+      "motion": false,
+      "source": {
+        "path": "assets/gallery/spaces/parterre.js",
+        "line": 1,
+        "anchor": "export function build",
+        "kindInstruction": "Prefer explicit userData.kind; fallback produces only local contact bubble + sound, never moves merged geometry."
+      }
+    },
+    {
+      "id": "furniture-unnamed-contact",
+      "modulo": "furniture",
+      "nome": "all remaining unowned physical meshes",
+      "tipo": "object",
+      "motion": false,
+      "source": {
+        "path": "assets/gallery/spaces/furniture.js",
+        "line": 1,
+        "anchor": "export function build",
+        "kindInstruction": "Prefer explicit userData.kind; fallback produces only local contact bubble + sound, never moves merged geometry."
+      }
+    },
+    {
+      "id": "garden-unnamed-contact",
+      "modulo": "garden",
+      "nome": "all remaining unowned physical meshes",
+      "tipo": "object",
+      "motion": false,
+      "source": {
+        "path": "assets/gallery/spaces/garden.js",
+        "line": 1,
+        "anchor": "export function build",
+        "kindInstruction": "Prefer explicit userData.kind; fallback produces only local contact bubble + sound, never moves merged geometry."
+      }
+    },
+    {
+      "id": "pergola-unnamed-contact",
+      "modulo": "pergola",
+      "nome": "all remaining unowned physical meshes",
+      "tipo": "object",
+      "motion": false,
+      "source": {
+        "path": "assets/gallery/spaces/pergola.js",
+        "line": 1,
+        "anchor": "export function build",
+        "kindInstruction": "Prefer explicit userData.kind; fallback produces only local contact bubble + sound, never moves merged geometry."
+      }
+    },
+    {
+      "id": "sculptures-unnamed-contact",
+      "modulo": "sculptures",
+      "nome": "all remaining unowned physical meshes",
+      "tipo": "object",
+      "motion": false,
+      "source": {
+        "path": "assets/gallery/spaces/sculptures.js",
+        "line": 1,
+        "anchor": "export function build",
+        "kindInstruction": "Prefer explicit userData.kind; fallback produces only local contact bubble + sound, never moves merged geometry."
+      }
+    },
+    {
+      "id": "amphitheatre-unnamed-contact",
+      "modulo": "amphitheatre",
+      "nome": "all remaining unowned physical meshes",
+      "tipo": "object",
+      "motion": false,
+      "source": {
+        "path": "assets/gallery/spaces/amphitheatre.js",
+        "line": 1,
+        "anchor": "export function build",
+        "kindInstruction": "Prefer explicit userData.kind; fallback produces only local contact bubble + sound, never moves merged geometry."
+      }
+    },
+    {
+      "id": "studio-unnamed-contact",
+      "modulo": "studio",
+      "nome": "all remaining unowned physical meshes",
+      "tipo": "object",
+      "motion": false,
+      "source": {
+        "path": "assets/gallery/spaces/studio.js",
+        "line": 1,
+        "anchor": "export function build",
+        "kindInstruction": "Prefer explicit userData.kind; fallback produces only local contact bubble + sound, never moves merged geometry."
+      }
+    },
+    {
+      "id": "arcade-unnamed-contact",
+      "modulo": "arcade",
+      "nome": "all remaining unowned physical meshes",
+      "tipo": "object",
+      "motion": false,
+      "source": {
+        "path": "assets/gallery/spaces/arcade.js",
+        "line": 1,
+        "anchor": "export function build",
+        "kindInstruction": "Prefer explicit userData.kind; fallback produces only local contact bubble + sound, never moves merged geometry."
+      }
+    },
+    {
+      "id": "terrace-unnamed-contact",
+      "modulo": "terrace",
+      "nome": "all remaining unowned physical meshes",
+      "tipo": "object",
+      "motion": false,
+      "source": {
+        "path": "assets/gallery/spaces/terrace.js",
+        "line": 1,
+        "anchor": "export function build",
+        "kindInstruction": "Prefer explicit userData.kind; fallback produces only local contact bubble + sound, never moves merged geometry."
+      }
+    },
+    {
+      "id": "cinema-unnamed-contact",
+      "modulo": "cinema",
+      "nome": "all remaining unowned physical meshes",
+      "tipo": "object",
+      "motion": false,
+      "source": {
+        "path": "assets/gallery/spaces/cinema.js",
+        "line": 1,
+        "anchor": "export function build",
+        "kindInstruction": "Prefer explicit userData.kind; fallback produces only local contact bubble + sound, never moves merged geometry."
+      }
+    },
+    {
+      "id": "lift-unnamed-contact",
+      "modulo": "lift",
+      "nome": "all remaining unowned physical meshes",
+      "tipo": "object",
+      "motion": false,
+      "source": {
+        "path": "assets/gallery/spaces/lift.js",
+        "line": 1,
+        "anchor": "export function build",
+        "kindInstruction": "Prefer explicit userData.kind; fallback produces only local contact bubble + sound, never moves merged geometry."
+      }
+    },
+    {
+      "id": "school-unnamed-contact",
+      "modulo": "school",
+      "nome": "all remaining unowned physical meshes",
+      "tipo": "object",
+      "motion": false,
+      "source": {
+        "path": "assets/gallery/spaces/school.js",
+        "line": 1,
+        "anchor": "export function build",
+        "kindInstruction": "Prefer explicit userData.kind; fallback produces only local contact bubble + sound, never moves merged geometry."
+      }
+    },
+    {
+      "id": "metro-unnamed-contact",
+      "modulo": "metro",
+      "nome": "all remaining unowned physical meshes",
+      "tipo": "object",
+      "motion": false,
+      "source": {
+        "path": "assets/gallery/spaces/metro.js",
+        "line": 1,
+        "anchor": "export function build",
+        "kindInstruction": "Prefer explicit userData.kind; fallback produces only local contact bubble + sound, never moves merged geometry."
+      }
+    },
+    {
+      "id": "ruins-unnamed-contact",
+      "modulo": "ruins",
+      "nome": "all remaining unowned physical meshes",
+      "tipo": "object",
+      "motion": false,
+      "source": {
+        "path": "assets/gallery/spaces/ruins.js",
+        "line": 1,
+        "anchor": "export function build",
+        "kindInstruction": "Prefer explicit userData.kind; fallback produces only local contact bubble + sound, never moves merged geometry."
+      }
+    },
+    {
+      "id": "mercado-unnamed-contact",
+      "modulo": "mercado",
+      "nome": "all remaining unowned physical meshes",
+      "tipo": "object",
+      "motion": false,
+      "source": {
+        "path": "assets/gallery/spaces/mercado.js",
+        "line": 1,
+        "anchor": "export function build",
+        "kindInstruction": "Prefer explicit userData.kind; fallback produces only local contact bubble + sound, never moves merged geometry."
+      }
+    },
+    {
+      "id": "marginal-unnamed-contact",
+      "modulo": "marginal",
+      "nome": "all remaining unowned physical meshes",
+      "tipo": "object",
+      "motion": false,
+      "source": {
+        "path": "assets/gallery/spaces/marginal.js",
+        "line": 1,
+        "anchor": "export function build",
+        "kindInstruction": "Prefer explicit userData.kind; fallback produces only local contact bubble + sound, never moves merged geometry."
+      }
+    }
+  ]
+}
