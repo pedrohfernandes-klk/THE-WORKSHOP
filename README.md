@@ -31,7 +31,7 @@ CC0 materials (Poly Haven) and a real HDR sky:
 - **Weather** (T, or the sun icon): golden hour, radiant sun, storm, rainbow,
   and a starry night with the real stars above Lisbon at the visitor's own time
   (look up and the constellations draw themselves in).
-- **Indie touches**, found rather than announced: twelve lost floppy disks, a
+- **Indie touches**, found rather than announced: a
   giant rubber duck in the pool, an existential vending machine, a critic cat, a
   pirate 8-bit radio on the terrace, an 8-bit ghost in the ruins, a snake game on
   the plaza paving, a retro photo booth, a gnome that moves when you look away,

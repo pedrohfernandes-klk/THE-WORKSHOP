@@ -11,7 +11,7 @@ export const SPACES = [
   'studio', 'arcade', 'terrace', 'cinema', 'lift', 'school', 'birds',
   'metro', 'skyliner', 'aviation', 'npcs', 'ruins',
   // The indie touches: real objects with a pixel soul, each found rather than announced.
-  'murals', 'floppies', 'vending', 'cat', 'radio', 'ghost', 'floorsnake', 'photobooth', 'gnome', 'oddities', 'duck',
+  'murals', 'vending', 'cat', 'radio', 'ghost', 'floorsnake', 'photobooth', 'gnome', 'oddities', 'duck',
   'mercado', 'marginal',
   'arraial', 'quests',
   'lightpools',
