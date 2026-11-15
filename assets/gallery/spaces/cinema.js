@@ -288,12 +288,19 @@ export function build(ctx) {
     // Sit place = the tipped cushion's top-centre: 0.515 above the tier, 1.6 cm
     // forward of the row line, in the middle of each 0.56 m chair.
     const SIT_Y = CUSH_Y + CUSH_H / 2 * Math.cos(CUSH_TIP), SIT_DZ = CUSH_DZ + CUSH_H / 2 * Math.sin(CUSH_TIP);
-    // Proxy (relative to the row line and tier top): x over the block plus its end
-    // arms (±3.5 cm) and 5 mm; y tier → backrest top (1.198) + 2 cm; z cushion front
-    // corner (−0.274) … backrest foot (+0.464) with ~2.5 cm spare, inside the tier
-    // (±0.525) so it never reaches the next riser or the aisles' walk regions.
-    const PX_W = SEAT_W * PER_BLOCK + 0.08, PX_H = 1.22, PX_Z0 = -0.30, PX_Z1 = 0.49;
-    const proxyG = new THREE.BoxGeometry(PX_W, PX_H, PX_Z1 - PX_Z0).translate(0, PX_H / 2, (PX_Z0 + PX_Z1) / 2);
+    // Proxy = the chairs' L-shaped silhouette (relative to the row line and tier top),
+    // x over the block plus its end arms (±3.5 cm) and 5 mm. Seat box: y tier → arm tops
+    // (0.645) + 2.5 cm, z cushion front corner (−0.274) … backrest foot (+0.464) with
+    // ~2.5 cm spare. Backrest box on top of it: z +0.211 … +0.464 → +0.19 … +0.49, y up
+    // to the backrest top (1.198) + 2 cm. It stays inside the tier (±0.525) and off the
+    // aisles' walk regions, and keeps the space above the cushions open: a seated eye
+    // (cushion + 0.78) is not hemmed in by its own row's proxy.
+    const PX_W = SEAT_W * PER_BLOCK + 0.08, PX_Z0 = -0.30, PX_Z1 = 0.49;
+    const PX_LOW = 0.67, PX_BZ = 0.19, PX_H = 1.22;
+    const proxyG = mergeGeometries([
+      new THREE.BoxGeometry(PX_W, PX_LOW, PX_Z1 - PX_Z0).translate(0, PX_LOW / 2, (PX_Z0 + PX_Z1) / 2),
+      new THREE.BoxGeometry(PX_W, PX_H - PX_LOW, PX_Z1 - PX_BZ).translate(0, (PX_LOW + PX_H) / 2, (PX_BZ + PX_Z1) / 2),
+    ]);
     const proxyM = new THREE.MeshBasicMaterial({ visible: false });   // material, never object, invisible
     const mm = v => Math.round(v * 1000) / 1000 || 0;                 // drop float noise (and −0)
     let si = 0, ai = 0;

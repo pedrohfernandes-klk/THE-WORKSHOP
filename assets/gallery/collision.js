@@ -102,17 +102,22 @@ export function regionHeight(r, x, z) {
   return r.y || 0;
 }
 
-/** Floor height at (x,z) reachable from `floor`, or null if not walkable. */
-export function groundAt(regions, x, z, floor, step = STEP) {
+/** The region a visitor at `floor` stands on at (x,z): the one nearest in height, within `step`. */
+export function regionAt(regions, x, z, floor, step = STEP) {
   let best = null, bestD = Infinity;
   for (let i = 0; i < regions.length; i++) {
     const r = regions[i];
     if (x < r.minX || x > r.maxX || z < r.minZ || z > r.maxZ) continue;
-    const h = regionHeight(r, x, z);
-    const d = Math.abs(h - floor);
-    if (d <= step && d < bestD) { bestD = d; best = h; }
+    const d = Math.abs(regionHeight(r, x, z) - floor);
+    if (d <= step && d < bestD) { bestD = d; best = r; }
   }
   return best;
+}
+
+/** Floor height at (x,z) reachable from `floor`, or null if not walkable. */
+export function groundAt(regions, x, z, floor, step = STEP) {
+  const r = regionAt(regions, x, z, floor, step);
+  return r === null ? null : regionHeight(r, x, z);
 }
 
 /** True when an AABB collider spans the body of a visitor standing at `floor`. */
@@ -122,10 +127,25 @@ export function colliderActive(c, floor) {
   return floor + 0.15 < maxY && floor + 1.8 > minY;
 }
 
+// Largest t in [0, 1] for which (x + t·dx, z + t·dz) still has a floor
+// reachable from `floor` (t = 0 must have one). Bisection to 1/256 of the step,
+// so the visitor comes to rest at the same place at 20 fps as at 144.
+function edgeFraction(regions, x, z, floor, dx, dz) {
+  if (regionAt(regions, x + dx, z + dz, floor) !== null) return 1;
+  let lo = 0, hi = 1;
+  for (let i = 0; i < 8; i++) {
+    const m = (lo + hi) * 0.5;
+    if (regionAt(regions, x + dx * m, z + dz * m, floor) !== null) lo = m; else hi = m;
+  }
+  return lo;
+}
+
 /**
  * Move by (dx,dz) through the world, sub-stepped, sliding along region edges
  * and colliders. `active` is a scratch array (reused, no allocation).
- * Writes { x, z, floor } into `out`.
+ * Writes { x, z, floor, step, region } into `out`: `step` is the sum of the
+ * floor's jumps on the way (stairs, kerbs: + up, - down), which a ramp or a
+ * moving lift never adds to, so the eye can smooth the one and follow the other.
  */
 export function moveInWorld(x, z, floor, dx, dz, radius, regions, colliders, active, out) {
   active.length = 0;
@@ -133,19 +153,46 @@ export function moveInWorld(x, z, floor, dx, dz, radius, regions, colliders, act
   const len = Math.sqrt(dx * dx + dz * dz);
   const steps = Math.min(MAX_STEPS, Math.max(1, Math.ceil(len / (radius * 0.5))));
   const sx = dx / steps, sz = dz / steps;
-  let cx = x, cz = z, cf = floor;
+  let cx = x, cz = z, cf = floor, jump = 0;
+  // The floor under the start may have moved since the last frame (the lift
+  // car): follow it continuously.
+  let reg = regionAt(regions, x, z, floor);
+  if (reg !== null) cf = regionHeight(reg, x, z);
   for (let i = 0; i < steps; i++) {
     let nx = cx + sx, nz = cz + sz;
-    let g = groundAt(regions, nx, nz, cf);
-    if (g === null) { nx = cx + sx; nz = cz; g = sx ? groundAt(regions, nx, nz, cf) : null; }
-    if (g === null) { nx = cx; nz = cz + sz; g = sz ? groundAt(regions, nx, nz, cf) : null; }
-    if (g === null) break;
+    let r = regionAt(regions, nx, nz, cf);
+    if (r === null) {
+      // At a floor edge: keep each axis's motion up to the edge (slide along it).
+      const tx = sx ? edgeFraction(regions, cx, cz, cf, sx, 0) : 0;
+      nx = cx + sx * tx;
+      const tz = sz ? edgeFraction(regions, nx, cz, cf, 0, sz) : 0;
+      nz = cz + sz * tz;
+      r = regionAt(regions, nx, nz, cf);
+      if (r === null) break;
+    }
+    const g = regionHeight(r, nx, nz);
     resolveCollision(nx, nz, radius, null, active, out);
-    const pg = groundAt(regions, out.x, out.z, g);
-    if (pg === null) break;
+    let r2 = regionAt(regions, out.x, out.z, g);
+    if (r2 === null) {
+      // A collider pushed the visitor off the floor: keep the push on one axis.
+      const ox = out.x, oz = out.z;
+      if ((r2 = regionAt(regions, ox, nz, g)) !== null) { out.x = ox; out.z = nz; }
+      else if ((r2 = regionAt(regions, nx, oz, g)) !== null) { out.x = nx; out.z = oz; }
+      else break;
+    }
+    const pg = regionHeight(r2, out.x, out.z);
+    if (r2 !== reg) {
+      if (reg === null) jump += pg - cf;
+      else {
+        const qx = out.x < reg.minX ? reg.minX : out.x > reg.maxX ? reg.maxX : out.x;
+        const qz = out.z < reg.minZ ? reg.minZ : out.z > reg.maxZ ? reg.maxZ : out.z;
+        jump += pg - regionHeight(reg, qx, qz);
+      }
+      reg = r2;
+    }
     cx = out.x; cz = out.z; cf = pg;
   }
-  out.x = cx; out.z = cz; out.floor = cf;
+  out.x = cx; out.z = cz; out.floor = cf; out.step = jump; out.region = reg;
   return out;
 }
 

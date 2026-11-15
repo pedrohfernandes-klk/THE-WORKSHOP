@@ -2,6 +2,7 @@
 // assets/gallery/spaces/ (docs/gallery/BRIEF.md §6.2), merged into one walkable
 // world with one list of regions, colliders and things to click.
 import * as THREE from 'three';
+import { createBatcher } from './batch.js';
 
 // Order matters only for what appears first while loading.
 export const SPACES = [
@@ -133,8 +134,21 @@ export async function createWorld(ctx, { hallColliders = [], onProgress } = {}) 
 
   const groups = Object.fromEntries([...modules].map(([n, o]) => [n, o.group]).filter(([, g]) => g));
 
+  // Static batching (batch.js): once the campus has run a few seconds, merge
+  // the meshes that provably never move into a few large ones per module and
+  // ~30 m cell. ?nobatch in the URL leaves the world exactly as built.
+  const noBatch = typeof location !== 'undefined' && new URLSearchParams(location.search).has('nobatch');
+  let batcher = noBatch ? null : createBatcher({
+    scene: ctx.scene, modules, pickables,
+    onDone: (stats) => { world.batchStats = stats; refreshShadows(); },
+  });
+
   function update(dt, frame) {
     syncDynamic();
+    if (batcher) {
+      try { batcher.tick(); } catch (err) { console.warn('[world] batching failed', err); }
+      if (batcher.stats.done) batcher = null;
+    }
     for (const out of modules.values()) {
       if (out.update) {
         try { out.update(dt, frame); } catch (err) { console.warn('[world] update failed', err); out.update = null; }
@@ -142,5 +156,7 @@ export async function createWorld(ctx, { hallColliders = [], onProgress } = {}) 
     }
   }
 
-  return { modules, groups, regions, colliders, pickables, lift, pick, actionFor, update, refreshShadows };
+  const world = { modules, groups, regions, colliders, pickables, lift, pick, actionFor, update, refreshShadows, batchStats: null };
+  if (noBatch) world.batchStats = { disabled: true, before: 0, after: 0, merged: 0, skipped: 0 };
+  return world;
 }

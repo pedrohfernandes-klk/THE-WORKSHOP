@@ -3,6 +3,12 @@
 //   weather.set('storm'); each frame: weather.update(dt, { camera, ... });
 // Extras: weather.setConstellations(bool), weather.setIndoor(bool) (hides rain),
 //   weather.refreshShadows() (sun intensity changes need no shadow refresh).
+// Publishes ctx.scene.userData.weather = { mode, night, storm, t, ...amounts }
+//   (night/storm: booleans for the target mode; t: 0..1 crossfade progress;
+//   nightK/stormK/rainK/bowK/wetK/flash: live 0..1 amounts) and dispatches a
+//   { type: 'weather' } event on the scene when the mode changes.
+// Materials may opt in to the night: material.userData.nightGlow = k (emissive x k
+//   at night, e.g. lit windows / street lamps); userData.wet = false opts out of rain.
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 
 const TEX = new URL('../textures/', import.meta.url);
@@ -21,8 +27,11 @@ const TAIL = `
 #include <tonemapping_fragment>
 #include <colorspace_fragment>
 `;
-const HSV = `
-vec3 hsv(vec3 c){ vec3 p = abs(fract(c.xxx + vec3(0.,2./3.,1./3.))*6.-3.); return c.z*mix(vec3(1.),clamp(p-1.,0.,1.),c.y); }`;
+const NOISE = `
+float h31(vec3 p){ p = fract(p*0.3183099+0.1); p *= 17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
+float vn(vec3 x){ vec3 i = floor(x), f = fract(x); f = f*f*(3.0-2.0*f);
+  return mix(mix(mix(h31(i),h31(i+vec3(1,0,0)),f.x), mix(h31(i+vec3(0,1,0)),h31(i+vec3(1,1,0)),f.x), f.y),
+             mix(mix(h31(i+vec3(0,0,1)),h31(i+vec3(1,0,1)),f.x), mix(h31(i+vec3(0,1,1)),h31(i+vec3(1,1,1)),f.x), f.y), f.z); }`;
 
 const BILL_VS = `
 uniform vec3 uDir, uRight, uUp; uniform float uSize; varying vec2 vUv;
@@ -31,6 +40,14 @@ void main(){
   vec3 d = uDir + (uRight*position.x + uUp*position.y)*uSize;
   gl_Position = (projectionMatrix * vec4(mat3(viewMatrix)*d*10.0, 1.0)).xyww;
 }`;
+
+// Outdoor radiance scale (sun, sky IBL, background, fog): an outdoor exposure of
+// ~0.92 x 0.78 = 0.72 puts a sunlit 18% grey near sRGB 0.55 and keeps light stone
+// out of the clip, while the lamp-lit hall keeps its calibrated 0.92.
+const EXPO = 0.78;
+// The sun disc is capped out of the IBL (environment.js): interiors that only see
+// the IBL (sun faded indoors) get its energy back while the visitor is inside.
+const INDOOR_ENV = 2.6;
 
 export function createWeather(ctx, { environment } = {}) {
   const { THREE, renderer, scene, reducedMotion } = ctx;
@@ -45,54 +62,92 @@ export function createWeather(ctx, { environment } = {}) {
 
   // ---- captured base state -------------------------------------------------
   const baseSun = sun ? sun.intensity : 2.6;
+  const baseSunColor = sun ? sun.color.clone() : new THREE.Color(0xfff0dc);
   const baseEnv = scene.environmentIntensity ?? 1;
   const baseBg = scene.backgroundIntensity ?? 0.9;
   const sunnyEnvTex = scene.environment;
+  const capped = !!(sunnyEnvTex && sunnyEnvTex.userData && sunnyEnvTex.userData.discCapped);
+  const indoorEnv = capped ? INDOOR_ENV : 1 / EXPO;
   const fog = scene.fog;
-  const baseFogColor = fog ? fog.color.clone() : new THREE.Color(0xc9d2dd);
+  const baseFogColor = fog ? fog.color.clone() : new THREE.Color(0xa3a9b8);
   const baseFogDens = fog ? fog.density : 0.0012;
   const sunDir = new THREE.Vector3(-0.5, 0.5, 0.7);
   if (environment && environment.sunDirection) sunDir.copy(environment.sunDirection);
   else if (sun) sunDir.copy(sun.position).sub(sun.target.position);
   sunDir.normalize();
+  // After the storm the sun breaks through low (a bow needs the sun below 42 deg):
+  // same azimuth as the photographed sun, 21 deg up, warmer.
+  const bowSunDir = new THREE.Vector3(sunDir.x, 0, sunDir.z);
+  if (bowSunDir.lengthSq() < 1e-6) bowSunDir.set(-0.5, 0, 0.8);
+  bowSunDir.normalize().multiplyScalar(Math.cos(21 * D2R)); bowSunDir.y = Math.sin(21 * D2R);
+  const lightDir = sunDir.clone(); // where the DirectionalLight currently points from
+  let sunAim = 'base';
 
   // ---- parameter blending --------------------------------------------------
   const P = {
-    sun: 1, env: 1, bg: 1, fogK: 1, rain: 0, bow: 0, night: 0, over: 0, flare: 1, moonL: 0, cons: 0,
+    sun: 1, env: 1, bg: 1, fogK: 1, rain: 0, bow: 0, night: 0, over: 0, flare: 1, moonL: 0, cons: 0, wet: 0, glow: 0,
   };
   const fogColor = baseFogColor.clone();
-  const FOGC = { sunny: baseFogColor, storm: new THREE.Color(0x3d4856), rainbow: baseFogColor.clone().lerp(new THREE.Color(0xb8c4d0), 0.4), night: new THREE.Color(0x04070d) };
+  const FOGC = {
+    sunny: baseFogColor,
+    storm: new THREE.Color(0x3a4452),
+    rainbow: baseFogColor.clone().lerp(new THREE.Color(0x8d97a4), 0.5),
+    night: new THREE.Color(0x070b14),
+  };
+  const SUNC = { sunny: baseSunColor, storm: new THREE.Color(0xc9d3e2), rainbow: new THREE.Color(0xffdcb0), night: baseSunColor };
   const T = {
-    sunny:   { sun: 1.1, env: 1, bg: 1, fogK: 1, rain: 0, bow: 0, night: 0, over: 0, flare: 1, moonL: 0 },
-    storm:   { sun: 0.15 / baseSun, env: 0.35, bg: 0.4, fogK: 2.6, rain: 1, bow: 0, night: 0, over: 1, flare: 0, moonL: 0 },
-    rainbow: { sun: 0.85, env: 0.9, bg: 0.85, fogK: 1.1, rain: 0.2, bow: 1, night: 0, over: 0, flare: 0.5, moonL: 0 },
-    night:   { sun: 0, env: 0.08, bg: 0, fogK: 1.2, rain: 0, bow: 0, night: 1, over: 0, flare: 0, moonL: 1 },
+    sunny:   { sun: 1.1, env: 1, bg: 1, fogK: 1, rain: 0, bow: 0, night: 0, over: 0, flare: 1, moonL: 0, wet: 0, glow: 0 },
+    storm:   { sun: 0.15 / baseSun, env: 0.42, bg: 0.4, fogK: 2.8, rain: 1, bow: 0, night: 0, over: 1, flare: 0, moonL: 0, wet: 1, glow: 0.35 },
+    rainbow: { sun: 0.9, env: 0.75, bg: 0.85, fogK: 1.25, rain: 0.2, bow: 1, night: 0, over: 1, flare: 0.8, moonL: 0, wet: 0.75, glow: 0 },
+    night:   { sun: 0, env: 0.11, bg: 0, fogK: 1.15, rain: 0, bow: 0, night: 1, over: 0, flare: 0, moonL: 1, wet: 0, glow: 1 },
   };
   let mode = 'sunny', tgt = T.sunny, tgtFog = FOGC.sunny, tMode = 0, time = 0, indoor = 0, indoorTgt = 0;
   let consOn = true;
 
+  // ---- published state -----------------------------------------------------
+  let W = null;
+  function publish() {
+    W = { mode, night: mode === 'night', storm: mode === 'storm', t: 0, nightK: P.night, stormK: P.over * (mode === 'rainbow' ? 0 : 1), rainK: P.rain, bowK: P.bow, wetK: P.wet, flash: 0 };
+    scene.userData.weather = W;
+    if (scene.dispatchEvent) scene.dispatchEvent({ type: 'weather', weather: W });
+  }
+  publish(); W.t = 1;
+
   // ---- sky domes (drawn at far plane, independent of camera.far) -------------
   const domeGeo = track(new THREE.SphereGeometry(1, 32, 16));
-  function dome(frag, uniforms, order, blending) {
-    const m = track(new THREE.ShaderMaterial({
+  function dome(frag, uniforms, order, extra) {
+    const m = track(new THREE.ShaderMaterial(Object.assign({
       vertexShader: DOME_VS, fragmentShader: frag, uniforms, transparent: true, depthWrite: false,
-      side: THREE.DoubleSide, blending: blending || THREE.NormalBlending, fog: false,
-    }));
+      side: THREE.DoubleSide, blending: THREE.NormalBlending, fog: false,
+    }, extra || {})));
     const mesh = new THREE.Mesh(domeGeo, m);
     mesh.frustumCulled = false; mesh.renderOrder = order; mesh.visible = false; mesh.name = 'weather-dome';
     group.add(mesh);
     return mesh;
   }
 
-  // overcast dome (equirect HDR, lazy)
+  // overcast dome (equirect HDR, lazy): storm and the clearing after it
   let overTex = null, overEnv = null, overLoading = false;
-  const overU = { uTex: { value: null }, uA: { value: 0 }, uI: { value: 0.35 } };
+  const flashDir = new THREE.Vector3(0, 0.3, 1);
+  const overU = {
+    uTex: { value: null }, uA: { value: 0 }, uI: { value: 0.35 }, uFlash: { value: 0 }, uFlashDir: { value: flashDir },
+    uSun: { value: bowSunDir }, uBreak: { value: 0 },
+  };
   const overDome = dome(`
-    uniform sampler2D uTex; uniform float uA, uI; varying vec3 vDir;
+    uniform sampler2D uTex; uniform float uA, uI, uFlash, uBreak; uniform vec3 uFlashDir, uSun; varying vec3 vDir;
     void main(){
       vec3 d = normalize(vDir);
       vec2 uv = vec2(atan(d.z, d.x)*0.15915494+0.5, asin(clamp(d.y,-1.,1.))*0.31830989+0.5);
-      vec3 c = texture2D(uTex, uv).rgb * uI;
+      vec3 c = texture2D(uTex, uv).rgb;
+      float lum = dot(c, vec3(0.2126,0.7152,0.0722));
+      // heavier, bruised storm deck: deepen the darks, keep the bright edges
+      c = mix(vec3(lum), c, 0.75) * mix(1.0, 0.55 + 0.6*smoothstep(0.15, 0.9, lum), 0.7) * uI;
+      // lightning lights the cloud from inside around the stroke
+      float fd = max(dot(d, uFlashDir), 0.0);
+      c += vec3(0.75,0.8,1.0) * uFlash * (pow(fd, 6.0)*3.0 + pow(fd, 40.0)*6.0) * smoothstep(-0.05, 0.12, d.y);
+      // after the storm: the deck breaks around a low sun (silver lining, warm hole)
+      float sd = max(dot(d, uSun), 0.0);
+      c += vec3(1.0,0.82,0.6) * uBreak * (pow(sd, 8.0)*1.4 + pow(sd, 90.0)*6.0);
       gl_FragColor = vec4(c, uA);` + TAIL + `}`, overU, -4);
   function loadOvercast() {
     if (overLoading) return; overLoading = true;
@@ -104,41 +159,110 @@ export function createWeather(ctx, { environment } = {}) {
     }).catch(() => { overLoading = false; });
   }
 
-  // night dome gradient
-  const nightU = { uA: { value: 0 } };
-  const nightDome = dome(`
-    uniform float uA; varying vec3 vDir;
+  // night dome: deep gradient, Lisbon's light dome on the horizon, airglow and the
+  // Milky Way placed by real galactic coordinates (rotates with the stars).
+  const celInv = new THREE.Matrix3();
+  const NGP = new THREE.Vector3(), GC = new THREE.Vector3(), GY = new THREE.Vector3();
+  {
+    const ev = (ra, dec, o) => { const a = ra * D2R, d = dec * D2R; o.set(Math.cos(d) * Math.cos(a), Math.cos(d) * Math.sin(a), Math.sin(d)); };
+    ev(192.85948, 27.12825, NGP); ev(266.40500, -28.93617, GC);
+    GC.addScaledVector(NGP, -GC.dot(NGP)).normalize();
+    GY.crossVectors(NGP, GC).normalize(); // l = 90 deg (Cygnus)
+  }
+  const nightU = { uA: { value: 0 }, uCel: { value: celInv }, uNGP: { value: NGP }, uGC: { value: GC }, uGY: { value: GY }, uMW: { value: 1 } };
+  const nightDome = dome(NOISE + `
+    uniform float uA, uMW; uniform mat3 uCel; uniform vec3 uNGP, uGC, uGY; varying vec3 vDir;
     void main(){
-      float h = clamp(vDir.y, -1., 1.);
-      vec3 hor = vec3(0.028,0.05,0.10), top = vec3(0.0015,0.003,0.012);
-      vec3 c = mix(hor, top, pow(clamp(h,0.,1.), 0.45));
-      c = mix(c, vec3(0.012,0.02,0.04), smoothstep(0.,-0.3,h));
+      vec3 d = normalize(vDir);
+      float h = clamp(d.y, -1., 1.);
+      vec3 hor = vec3(0.020,0.032,0.065), top = vec3(0.0012,0.0024,0.0085);
+      vec3 c = mix(hor, top, pow(clamp(h,0.,1.), 0.4));
+      // Lisbon's light dome: warm sodium/LED glow hugging the horizon, stronger to the east
+      float az = atan(d.z, d.x);
+      float city = exp(-max(h,0.)*14.0) * (0.55 + 0.45*max(cos(az - 0.6), 0.0));
+      c += vec3(0.055,0.032,0.016) * city;
+      // airglow: a faint green band ~12 deg up
+      c += vec3(0.0006,0.0022,0.0009) * exp(-pow((h-0.2)/0.08, 2.0));
+      c = mix(c, vec3(0.010,0.012,0.020), smoothstep(0.,-0.25,h));
+      // Milky Way
+      if (uMW > 0.0 && h > -0.08) {
+        vec3 e = uCel * d;
+        float b = degrees(asin(clamp(dot(e, uNGP), -1., 1.)));
+        float l = degrees(atan(dot(e, uGY), dot(e, uGC)));
+        float cen = exp(-l*l/(2.0*42.0*42.0));
+        float w = 5.5 + 9.0*cen;
+        float band = exp(-b*b/(2.0*w*w));
+        if (band > 0.004) {
+          float bulge = exp(-(l*l + b*b*2.6)/(2.0*13.0*13.0));
+          vec3 p = e*7.0;
+          float n = vn(p)*0.5 + vn(p*2.1+3.7)*0.3 + vn(p*4.3-1.3)*0.2;
+          float clump = vn(e*19.0)*0.6 + vn(e*41.0)*0.4;
+          // dust: the Great Rift (Cygnus..Sagittarius) and lanes along the plane
+          float riftC = 1.2 + 2.4*sin(l*0.045);
+          float rift = exp(-pow((b - riftC)/(1.3 + 1.8*cen), 2.0)) * smoothstep(110.0, 20.0, abs(l - 25.0));
+          float lanes = smoothstep(0.52, 0.78, vn(e*12.0 + 7.0)) * band;
+          float dust = clamp(rift*(0.55 + 0.6*n) + lanes*0.55, 0.0, 0.92);
+          float I = (band*(0.28 + 0.72*cen) + bulge*0.9) * (0.45 + 0.9*n) * (0.7 + 0.6*clump) * (1.0 - dust);
+          vec3 mw = mix(vec3(0.62,0.70,0.95), vec3(1.0,0.86,0.66), clamp(cen*0.7 + bulge*0.8, 0.0, 1.0));
+          // extinction toward the horizon
+          float ext = smoothstep(-0.02, 0.35, h);
+          c += mw * I * 0.075 * ext * uMW;
+        }
+      }
       gl_FragColor = vec4(c, uA);` + TAIL + `}`, nightU, -3);
 
-  // rainbow dome
+  // rainbow dome. Light added by the rain curtain (premultiplied: rgb added,
+  // alpha attenuates what is behind): primary at 40.6-42.4 deg (red outside),
+  // a brighter sky inside it with faint supernumeraries, Alexander's dark band,
+  // secondary at 50.4-53.6 deg with colours reversed. One sample per wavelength.
   const antiV = sunDir.clone().negate();
   const bowU = { uA: { value: 0 }, uAnti: { value: antiV } };
-  const bowDome = dome(HSV + `
+  const bowDome = dome(`
     uniform float uA; uniform vec3 uAnti; varying vec3 vDir;
+    vec3 spec(float w){ // w: 0 violet .. 1 red (Zucconi bump fit), linear RGB
+      vec3 x = vec3(3.54541723, 2.86670055, 2.29421995) * (w - vec3(0.69548916, 0.49416934, 0.28269708));
+      return max(1.0 - x*x - vec3(0.02312400, 0.15225300, 0.52607238), 0.0);
+    }
     void main(){
       vec3 d = normalize(vDir);
       float th = degrees(acos(clamp(dot(d, uAnti), -1., 1.)));
-      float prim = smoothstep(39.6,40.9,th)*(1.-smoothstep(41.9,42.7,th));
-      vec3 c1 = hsv(vec3((1.-clamp((th-40.4)/2.0,0.,1.))*0.78, 1., 1.));
-      float sec = smoothstep(49.4,50.6,th)*(1.-smoothstep(52.6,54.0,th));
-      vec3 c2 = hsv(vec3(clamp((th-50.2)/3.2,0.,1.)*0.78, 0.9, 1.));
-      float inner = smoothstep(30.,41.,th)*(1.-smoothstep(41.,42.5,th))*0.05;
-      float a1 = prim*0.5, a2 = sec*0.22;
-      float dark = smoothstep(42.6,44.5,th)*(1.-smoothstep(48.5,50.,th))*0.12;
-      float a = max(a1+a2+inner, dark);
-      vec3 rgb = (c1*a1 + c2*a2 + vec3(1.)*inner)/max(a1+a2+inner, 1e-4);
-      float f = smoothstep(-0.015,0.03,d.y);
-      gl_FragColor = vec4(rgb*1.3, a*uA*f);` + TAIL + `}`, bowU, -2);
+      if (th > 62.0) discard;
+      vec3 add = vec3(0.0);
+      float att = 0.0;
+      if (th < 45.0) {
+        for (int i = 0; i < 9; i++) {
+          float w = (float(i) + 0.5) / 9.0;
+          float x = th - mix(40.6, 42.35, w);            // >0: dark side (outside)
+          float p = x > 0.0 ? exp(-x*x/0.09) : 0.62*exp(x/0.9) + 0.38*exp(x/7.0);
+          p *= 1.0 + (x < 0.0 ? 0.35*cos(x*5.2)*exp(x/1.6) : 0.0); // supernumeraries
+          add += spec(w) * p;
+        }
+        add *= 0.62 / 9.0;
+      }
+      if (th > 48.0) {
+        vec3 s2 = vec3(0.0);
+        for (int i = 0; i < 7; i++) {
+          float w = (float(i) + 0.5) / 7.0;
+          float x = mix(53.6, 50.4, w) - th;             // >0: dark side (inside, toward the band)
+          float p = x > 0.0 ? exp(-x*x/0.16) : 0.6*exp(x/1.4) + 0.4*exp(x/9.0);
+          s2 += spec(w) * p;
+        }
+        add += s2 * (0.27 / 7.0);
+      }
+      // Alexander's band: no added light, and the curtain dims what is behind it
+      att = smoothstep(42.0, 43.2, th) * (1.0 - smoothstep(49.6, 50.8, th)) * 0.16;
+      // the curtain is a rain shaft, not a stencil: soft at the ground and up high
+      float f = smoothstep(-0.01, 0.05, d.y) * (1.0 - 0.35*smoothstep(0.35, 0.8, d.y));
+      gl_FragColor = vec4(add * f * uA, att * f * uA);` + TAIL + `}`, bowU, -2, {
+    blending: THREE.CustomBlending, blendEquation: THREE.AddEquation,
+    blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
+  });
 
   // ---- billboards: sun glow + moon ----------------------------------------
   const quad = track(new THREE.PlaneGeometry(2, 2));
+  const UPV = new THREE.Vector3(0, 1, 0);
   function basis(dir, r, u) {
-    r.crossVectors(dir, new THREE.Vector3(0, 1, 0)); if (r.lengthSq() < 1e-6) r.set(1, 0, 0);
+    r.crossVectors(dir, UPV); if (r.lengthSq() < 1e-6) r.set(1, 0, 0);
     r.normalize(); u.crossVectors(r, dir).normalize();
   }
   function billboard(frag, dir, size, extra, additive, order) {
@@ -152,14 +276,16 @@ export function createWeather(ctx, { environment } = {}) {
     group.add(mesh);
     return { mesh, uni };
   }
+  const flareDir = sunDir.clone();
   const flare = billboard(`
     uniform float uA; varying vec2 vUv;
     void main(){
       float r = length(vUv);
       float g = 0.55*exp(-r*5.5) + 0.25*exp(-r*1.8) + 0.9*exp(-r*r*500.);
-      gl_FragColor = vec4(vec3(1.,.86,.62)*g*uA, 1.);` + TAIL + `}`, sunDir, 0.7, null, true, -1);
+      gl_FragColor = vec4(vec3(1.,.86,.62)*g*uA, 1.);` + TAIL + `}`, flareDir, 0.7, null, true, -1);
   const moonDir = new THREE.Vector3(0.3, 0.6, -0.7).normalize();
   const sunW = sunDir.clone().negate();
+  let moonFrac = 0.5;
   const moon = billboard(`
     uniform float uA; uniform vec3 uDir, uRight, uUp, uSun; varying vec2 vUv;
     void main(){
@@ -169,8 +295,10 @@ export function createWeather(ctx, { environment } = {}) {
       vec3 n = vec3(q, z);
       vec3 s = vec3(dot(uSun,uRight), dot(uSun,uUp), dot(uSun,-uDir));
       float lit = smoothstep(-0.03,0.1,dot(n,s));
-      float mott = 0.88 + 0.12*sin(q.x*7.+1.)*sin(q.y*9.-.5)*sin(q.x*3.+q.y*5.);
-      vec3 col = vec3(0.86,0.88,0.93)*mott*(0.04+0.96*lit)*2.2;
+      // maria: darker basaltic patches, brighter highlands
+      float mott = 0.86 + 0.14*sin(q.x*7.+1.)*sin(q.y*9.-.5)*sin(q.x*3.+q.y*5.);
+      mott *= 1.0 - 0.22*smoothstep(0.25, 0.0, length(q - vec2(-0.25, 0.3))) - 0.18*smoothstep(0.3, 0.0, length(q - vec2(0.2, 0.05)));
+      vec3 col = vec3(0.92,0.92,0.95)*mott*(0.03+0.97*lit)*(0.75 + 0.25*z)*2.6;
       float halo = (exp(-r*8.)*0.35 + exp(-r*2.6)*0.07);
       vec3 rgb = mix(vec3(0.55,0.65,0.9), col, disc);
       float a = max(disc, halo) * uA * smoothstep(-0.08,0.1,uDir.y);
@@ -187,7 +315,7 @@ export function createWeather(ctx, { environment } = {}) {
       gl_Position = (projectionMatrix*vec4(mat3(viewMatrix)*vDir*10.0,1.0)).xyww; }`;
 
   function bvColor(bv, out) {
-    const a = [0.6, 0.75, 1.0], b = [1.0, 0.96, 0.88], c = [1.0, 0.68, 0.42];
+    const a = [0.55, 0.7, 1.0], b = [1.0, 0.96, 0.88], c = [1.0, 0.62, 0.34];
     const t = Math.max(-0.3, Math.min(1.8, bv));
     let k, x, y;
     if (t < 0.6) { k = (t + 0.3) / 0.9; x = a; y = b; } else { k = (t - 0.6) / 1.2; x = b; y = c; }
@@ -209,8 +337,10 @@ export function createWeather(ctx, { environment } = {}) {
         bvColor(Number.isFinite(bv) ? bv : 0.6, tmp);
         col[i * 3] = tmp[0]; col[i * 3 + 1] = tmp[1]; col[i * 3 + 2] = tmp[2];
         const m = Number.isFinite(mag) ? mag : 6;
-        size[i] = Math.max(1.0, Math.min(5.5, 1.4 + (6.5 - m) * 0.62));
-        br[i] = Math.max(0.22, Math.min(1.0, 0.3 + (6.5 - m) * 0.2));
+        size[i] = Math.max(1.0, Math.min(6.5, 1.3 + (6.5 - m) * 0.66));
+        // perceptual flux: faint stars stay visible, the brightest (Sirius, Vega,
+        // Arcturus...) push past the bloom threshold and glow
+        br[i] = Math.max(0.2, Math.min(2.6, 0.28 + 0.16 * (6.5 - m) + 0.06 * Math.pow(Math.max(0, 3.2 - m), 2)));
       }
       const g = track(new THREE.BufferGeometry());
       g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
@@ -225,8 +355,13 @@ export function createWeather(ctx, { environment } = {}) {
           void main(){
             celDir(position);
             float ph = dot(position, vec3(12.9898,78.233,37.719))*43758.5;
-            float tw = 1.0 - uTw*0.22*(0.5+0.5*sin(uT*(1.5+fract(ph)*3.0) + ph));
-            vC = aCol; vB = aBr*tw*smoothstep(-0.04,0.06,vDir.y);
+            // scintillation grows toward the horizon (more air)
+            float alt = max(vDir.y, 0.03);
+            float tw = 1.0 - uTw*(0.12 + 0.25*(1.0 - alt))*(0.5+0.5*sin(uT*(1.5+fract(ph)*3.0) + ph));
+            // atmospheric extinction: dimmer and redder low down
+            float ext = exp(-0.22*(1.0/alt - 1.0));
+            vC = aCol * mix(vec3(1.0, 0.72, 0.5), vec3(1.0), ext);
+            vB = aBr*tw*ext*smoothstep(-0.04,0.06,vDir.y);
             gl_PointSize = aSize*uPx*(0.9+0.1*tw);
           }`,
         fragmentShader: `
@@ -252,7 +387,7 @@ export function createWeather(ctx, { environment } = {}) {
         uniforms: consU, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
         vertexShader: CEL_VS + `void main(){ celDir(position); }`,
         fragmentShader: `uniform float uA; varying vec3 vDir;
-          void main(){ gl_FragColor = vec4(vec3(0.35,0.5,0.85)*0.22*uA*smoothstep(-0.04,0.06,vDir.y), 1.0);` + TAIL + `}`,
+          void main(){ gl_FragColor = vec4(vec3(0.35,0.5,0.85)*0.2*uA*smoothstep(0.0,0.12,vDir.y), 1.0);` + TAIL + `}`,
       }));
       consLines = new THREE.LineSegments(cg, cm); consLines.frustumCulled = false; consLines.renderOrder = -1; consLines.visible = false;
       celestial.add(consLines);
@@ -279,6 +414,7 @@ export function createWeather(ctx, { environment } = {}) {
       sp * ct, sp * st, -cp, 0,
       0, 0, 0, 1);
     celestial.matrixWorldNeedsUpdate = true;
+    celInv.setFromMatrix4(celestial.matrix).transpose(); // orthonormal: world -> equatorial
     // moon (low-precision series)
     const L = (218.316 + 13.176396 * D) * D2R, M = (134.963 + 13.064993 * D) * D2R, F = (93.272 + 13.22935 * D) * D2R;
     eclToEq(L + 6.289 * D2R * Math.sin(M), 5.128 * D2R * Math.sin(F), tmpV);
@@ -287,16 +423,76 @@ export function createWeather(ctx, { environment } = {}) {
     const g = (357.529 + 0.98560028 * D) * D2R, Ls = (280.459 + 0.98564736 * D + 1.915 * Math.sin(g) + 0.02 * Math.sin(2 * g)) * D2R;
     eclToEq(Ls, 0, tmpV);
     sunW.copy(tmpV).applyMatrix4(celestial.matrix).normalize();
+    moonFrac = 0.5 * (1 - moonDir.dot(sunW)); // illuminated fraction
     basis(moonDir, moon.uni.uRight.value, moon.uni.uUp.value);
     lastCel = time;
   }
   refreshCelestial();
 
-  // ---- lights ----------------------------------------------------------------
+  // ---- lights (always present: a light count change would recompile everything) ----
   const flashLight = new THREE.HemisphereLight(0xdfe8ff, 0x556677, 0); flashLight.name = 'lightning-fill';
-  const moonLight = new THREE.DirectionalLight(0x8fa8ff, 0); moonLight.name = 'moonlight';
+  const moonLight = new THREE.DirectionalLight(0x9fb4ff, 0); moonLight.name = 'moonlight';
   const moonTarget = new THREE.Object3D(); moonLight.target = moonTarget;
   group.add(flashLight, moonLight, moonTarget);
+
+  // ---- materials that react: wet ground, night lamps, the landscape's haze -----------
+  // Scanned once, lazily (first storm / night), never per frame.
+  let wetList = null, glowList = null, hazeU = [], hazeTries = 0, lastWet = -1, lastGlow = -1;
+  const _box = new THREE.Box3(), _size = new THREE.Vector3();
+  function scanWet() {
+    wetList = [];
+    const seen = new Set();
+    scene.traverse((o) => {
+      if (!o.isMesh || o.isInstancedMesh || !o.geometry) return;
+      const ms = Array.isArray(o.material) ? o.material : [o.material];
+      for (const m of ms) {
+        if (!m || !m.isMeshStandardMaterial || seen.has(m) || m.transparent || m.envMap || m.userData.wet === false) continue;
+        if (m.metalness > 0.5 || m.roughness < 0.2) continue;
+        if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+        _box.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld); _box.getSize(_size);
+        // ground-like: wide, flat, near the ground (paving, paths, terrain, lawns, steps)
+        if (!(m.userData.wet === true || (Math.max(_size.x, _size.z) > 5 && _size.y < 3.5 && _box.max.y < 6))) continue;
+        seen.add(m);
+        wetList.push({ m, r: m.roughness, c: m.color.clone() });
+      }
+    });
+  }
+  function scanGlow() {
+    glowList = [];
+    const seen = new Set();
+    scene.traverse((o) => {
+      if (!o.isMesh) return;
+      const ms = Array.isArray(o.material) ? o.material : [o.material];
+      for (const m of ms) {
+        if (!m || seen.has(m) || m.userData.nightGlow === false) continue;
+        const tag = typeof m.userData.nightGlow === 'number' ? m.userData.nightGlow : 0;
+        if (m.isMeshStandardMaterial && m.emissive) {
+          const e = m.emissive, warm = e.r > 0.5 && e.r >= e.b * 1.15;
+          if (tag || (warm && m.emissiveIntensity >= 1.5 && !m.transparent)) { seen.add(m); glowList.push({ m, k: tag || 1.6, base: m.emissiveIntensity, basic: false }); }
+        } else if (m.isMeshBasicMaterial && m.color && m.visible !== false && !m.map) {
+          const c = m.color, lum = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+          // warm lamp lenses / strips / downlights (not screens, not signs)
+          if (tag || (lum > 0.6 && c.r >= c.g && c.g >= c.b && c.r - c.b > 0.12 && m.toneMapped !== false && !m.transparent)) {
+            seen.add(m); glowList.push({ m, k: tag || 2.2, base: c.clone(), basic: true });
+          }
+        }
+      }
+    });
+  }
+  function findHaze() {
+    hazeTries++;
+    const found = [];
+    scene.traverse((o) => {
+      const m = o.material;
+      if (!m || Array.isArray(m) || !m.customProgramCacheKey) return;
+      let key = '';
+      try { key = String(m.customProgramCacheKey()); } catch (e) { return; }
+      if (key.indexOf('landscape') !== 0) return;
+      const u = (m.userData && m.userData.uHaze) || (renderer.properties && renderer.properties.get(m).uniforms && renderer.properties.get(m).uniforms.uHaze);
+      if (u && u.value && found.indexOf(u) < 0) found.push(u);
+    });
+    if (found.length) hazeU = found;
+  }
 
   // ---- rain ---------------------------------------------------------------------
   const N = low ? 4000 : 12000;
@@ -306,7 +502,7 @@ export function createWeather(ctx, { environment } = {}) {
     const seed = new Float32Array(N * 2 * 4), end = new Float32Array(N * 2), pos = new Float32Array(N * 2 * 3);
     for (let i = 0; i < N; i++) {
       const a = Math.random(), b = Math.random(), c = Math.random(), d = Math.random();
-      for (let k = 0; k < 2; k++) { const j = (i * 2 + k); seed.set([a, b, c, d], j * 4); end[j] = k; }
+      for (let k = 0; k < 2; k++) { const j = (i * 2 + k); seed[j * 4] = a; seed[j * 4 + 1] = b; seed[j * 4 + 2] = c; seed[j * 4 + 3] = d; end[j] = k; }
     }
     rainGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     rainGeo.setAttribute('aSeed', new THREE.BufferAttribute(seed, 4));
@@ -314,7 +510,8 @@ export function createWeather(ctx, { environment } = {}) {
   }
   const rainU = {
     uCam: { value: new THREE.Vector3() }, uShift: { value: new THREE.Vector3() }, uBox: { value: BOX },
-    uVel: { value: new THREE.Vector3(2.5, -9, 1.2) }, uAmt: { value: 0 }, uLen: { value: 0.045 },
+    uVel: { value: new THREE.Vector3(2.5, -9, 1.2) }, uAmt: { value: 0 }, uLen: { value: 0.05 },
+    uCol: { value: new THREE.Vector3(0.3, 0.34, 0.4) },
   };
   const rainMat = track(new THREE.ShaderMaterial({
     uniforms: rainU, transparent: true, depthWrite: false, fog: false,
@@ -323,58 +520,95 @@ export function createWeather(ctx, { environment } = {}) {
       uniform vec3 uCam, uShift, uBox, uVel; uniform float uAmt, uLen; varying float vA;
       void main(){
         vec3 rel = (fract(aSeed.xyz + uShift) - 0.5) * uBox;
-        vec3 w = uCam + rel - uVel * uLen * aEnd;
+        vec3 w = uCam + rel - uVel * uLen * (0.6 + 0.8*aSeed.w) * aEnd;
         float fade = 1.0 - smoothstep(0.55, 1.0, length(rel.xz)/(uBox.x*0.5));
         fade *= smoothstep(0.0, 1.5, length(rel));
-        vA = mix(0.55, 0.06, aEnd) * fade * step(aSeed.w, uAmt);
+        vA = mix(0.6, 0.04, aEnd) * fade * step(aSeed.w, uAmt);
         gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0);
       }`,
-    fragmentShader: `varying float vA; void main(){ gl_FragColor = vec4(vec3(0.72,0.8,0.92), vA);` + TAIL + `}`,
+    fragmentShader: `uniform vec3 uCol; varying float vA; void main(){ gl_FragColor = vec4(uCol, vA);` + TAIL + `}`,
   }));
   const rain = new THREE.LineSegments(rainGeo, rainMat); rain.frustumCulled = false; rain.renderOrder = 5; rain.visible = false; rain.name = 'rain';
   group.add(rain);
-  const offT = new THREE.Vector3();
   let rainT = 0;
 
   // ---- lightning ------------------------------------------------------------------
-  const BOLT_PTS = 18;
+  // main channel + two branches as one LineSegments; HDR colour so bloom thickens it
+  const BOLT_PTS = 18, BR_PTS = 7, SEGS = (BOLT_PTS - 1) + 2 * (BR_PTS - 1);
   const boltGeo = track(new THREE.BufferGeometry());
-  boltGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(BOLT_PTS * 3), 3));
-  const boltMat = track(new THREE.LineBasicMaterial({ color: 0xeaf0ff, transparent: true, opacity: 0, fog: false, depthWrite: false, blending: THREE.AdditiveBlending }));
-  const bolt = new THREE.Line(boltGeo, boltMat); bolt.frustumCulled = false; bolt.visible = false; bolt.renderOrder = 6;
+  boltGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SEGS * 2 * 3), 3));
+  const boltMat = track(new THREE.LineBasicMaterial({ color: 0xeaf0ff, transparent: true, opacity: 0, fog: false, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: true }));
+  boltMat.color.setRGB(3.2, 3.4, 4.0);
+  const bolt = new THREE.LineSegments(boltGeo, boltMat); bolt.frustumCulled = false; bolt.visible = false; bolt.renderOrder = 6;
   group.add(bolt);
-  let nextFlash = 5 + Math.random() * 6, flashT = -1, boltLife = 0;
+  let nextFlash = 5 + Math.random() * 6, flashT = -1, boltLife = 0, strokes = 3;
   const camPos = new THREE.Vector3();
+  const chan = new Float32Array(BOLT_PTS * 3);
   function strike() {
-    flashT = 0;
-    const az = Math.random() * Math.PI * 2, dist = 500 + Math.random() * 400;
+    flashT = 0; strokes = 2 + Math.floor(Math.random() * 3);
+    const az = Math.random() * Math.PI * 2;
+    // mostly distant rumbles, sometimes close enough to make you jump
+    const dist = Math.random() < 0.25 ? 260 + Math.random() * 200 : 550 + Math.random() * 650;
     const cx = camPos.x + Math.cos(az) * dist, cz = camPos.z + Math.sin(az) * dist;
-    const a = boltGeo.attributes.position.array;
     let x = cx, z = cz;
     for (let i = 0; i < BOLT_PTS; i++) {
       const t = i / (BOLT_PTS - 1);
-      a[i * 3] = x; a[i * 3 + 1] = 380 * (1 - t); a[i * 3 + 2] = z;
-      x += (Math.random() - 0.5) * 50 * (1 - t * 0.4); z += (Math.random() - 0.5) * 50 * (1 - t * 0.4);
+      chan[i * 3] = x; chan[i * 3 + 1] = 420 * (1 - t); chan[i * 3 + 2] = z;
+      x += (Math.random() - 0.5) * 55 * (1 - t * 0.4); z += (Math.random() - 0.5) * 55 * (1 - t * 0.4);
+    }
+    const a = boltGeo.attributes.position.array;
+    let o = 0;
+    for (let i = 0; i + 1 < BOLT_PTS; i++) { for (let k = 0; k < 6; k++) a[o + k] = chan[i * 3 + (k % 3)] ; a[o + 3] = chan[(i + 1) * 3]; a[o + 4] = chan[(i + 1) * 3 + 1]; a[o + 5] = chan[(i + 1) * 3 + 2]; o += 6; }
+    for (let b = 0; b < 2; b++) {
+      const s = 3 + Math.floor(Math.random() * 6);
+      let bx = chan[s * 3], by = chan[s * 3 + 1], bz = chan[s * 3 + 2];
+      const dx = (Math.random() - 0.5) * 70, dz = (Math.random() - 0.5) * 70;
+      for (let i = 0; i + 1 < BR_PTS; i++) {
+        a[o] = bx; a[o + 1] = by; a[o + 2] = bz;
+        bx += dx * (0.5 + Math.random()); by -= 18 + Math.random() * 22; bz += dz * (0.5 + Math.random());
+        a[o + 3] = bx; a[o + 4] = Math.max(0, by); a[o + 5] = bz; o += 6;
+      }
     }
     boltGeo.attributes.position.needsUpdate = true;
-    if (!reducedMotion) { boltLife = 0.15; bolt.visible = true; }
-    if (ctx.audio && typeof ctx.audio.thunder === 'function') ctx.audio.thunder((dist / 343) * (0.8 + Math.random() * 0.4));
+    flashDir.set(cx - camPos.x, 160, cz - camPos.z).normalize();
+    if (!reducedMotion) { boltLife = 0.32; bolt.visible = true; }
+    // sound travels at 343 m/s: the thunder arrives after the flash
+    if (ctx.audio && typeof ctx.audio.thunder === 'function') ctx.audio.thunder(dist / 343);
   }
   function flashValue() {
     if (flashT < 0) return 0;
     if (reducedMotion) return 0.12 * Math.exp(-flashT * 2.5);
-    return flashT > 0.7 ? 0 : Math.exp(-flashT * 7) * (0.55 + 0.45 * Math.abs(Math.sin(flashT * 38)));
+    // return strokes: 2-4 pulses within ~0.35 s, then the afterglow
+    let v = 0;
+    for (let i = 0; i < 4; i++) {
+      if (i >= strokes) break;
+      const t0 = i * 0.085 + (i > 1 ? 0.06 : 0), x = flashT - t0;
+      if (x >= 0) v = Math.max(v, Math.exp(-x * 16) * (1 - i * 0.18));
+    }
+    return flashT > 1.0 ? 0 : v + 0.12 * Math.exp(-flashT * 3);
   }
 
   // ---- mode switching ---------------------------------------------------------------
   function set(m) {
     if (!modes.includes(m) || m === mode) return;
     mode = m; tgt = T[m]; tgtFog = FOGC[m]; tMode = 0;
-    if (m === 'storm') { loadOvercast(); nextFlash = 2 + Math.random() * 4; }
+    if (m === 'storm' || m === 'rainbow') { loadOvercast(); if (!wetList) scanWet(); }
+    if (m === 'storm') nextFlash = 1.5 + Math.random() * 3;
     if (m === 'night') { loadSky(); refreshCelestial(); }
+    if (!glowList) scanGlow();
+    publish();
   }
 
   const lerp = (a, b, k) => a + (b - a) * k;
+  const sunCol = baseSunColor.clone();
+  function aimSun(which) {
+    if (sunAim === which) return;
+    sunAim = which;
+    lightDir.copy(which === 'bow' ? bowSunDir : sunDir);
+    flareDir.copy(lightDir); basis(flareDir, flare.uni.uRight.value, flare.uni.uUp.value);
+    antiV.copy(lightDir).negate();
+    if (environment && environment.setSunDirection) environment.setSunDirection(lightDir);
+  }
   function update(dt, frame) {
     if (dt > 0.25) dt = 0.25;
     time += dt; tMode += dt;
@@ -384,43 +618,84 @@ export function createWeather(ctx, { environment } = {}) {
     for (const key in P) {
       let target = tgt[key] === undefined ? P[key] : tgt[key];
       if (key === 'rain' && mode === 'rainbow') target = 0.22 * Math.exp(-tMode / 14);
+      if (key === 'wet' && mode === 'rainbow') target = 0.75 * Math.exp(-tMode / 60);
+      // the bow comes as the shower thins and the sun breaks through
+      if (key === 'bow' && mode === 'rainbow') target = sunAim === 'bow' ? 0.15 + 0.85 * Math.min(1, Math.max(0, (tMode - 2.5) / 5)) : 0;
       if (key === 'cons') target = (mode === 'night' && consOn) ? 1 : 0;
-      P[key] = lerp(P[key], target, k);
+      P[key] = lerp(P[key], target, key === 'wet' ? k * 0.35 : k);
     }
     fogColor.lerp(tgtFog, k);
+    if (W) { W.t = Math.min(1, tMode / 3); W.nightK = P.night; W.stormK = mode === 'rainbow' ? 0 : P.over; W.rainK = P.rain; W.bowK = P.bow; W.wetK = P.wet; }
+
+    // the low rainbow sun: re-aim (one shadow re-render) while the direct sun is dim
+    const sunAbs = baseSun * P.sun;
+    const wantAim = mode === 'rainbow' ? 'bow' : 'base';
+    if (wantAim !== sunAim && (sunAbs < 0.6 || tMode > 2.5)) aimSun(wantAim);
 
     // flash
     if (mode === 'storm') {
       nextFlash -= dt;
-      if (nextFlash <= 0) { strike(); nextFlash = 6 + Math.random() * 9; }
+      if (nextFlash <= 0) { strike(); nextFlash = 5 + Math.random() * 10; }
     }
     let f = 0;
     if (flashT >= 0) { flashT += dt; f = flashValue(); if (flashT > 1.2) flashT = -1; }
-    if (boltLife > 0) { boltLife -= dt; boltMat.opacity = Math.min(1, boltLife * 12) * (0.6 + 0.4 * Math.random()); if (boltLife <= 0) bolt.visible = false; }
+    if (boltLife > 0) { boltLife -= dt; boltMat.opacity = Math.min(1, boltLife * 10) * (0.55 + 0.45 * Math.random()) * Math.min(1, f * 3 + 0.2); if (boltLife <= 0) bolt.visible = false; }
+    if (W) W.flash = f;
 
-    // scene state
-    if (sun) { sun.intensity = baseSun * P.sun; sun.visible = P.sun > 0.002; }
-    scene.environmentIntensity = baseEnv * P.env + f * 0.6;
-    scene.backgroundIntensity = baseBg * P.bg;
+    // scene state (outdoor radiance x EXPO; interiors that only see the IBL get the disc back)
+    const env = lerp(EXPO, indoorEnv, indoor);
+    if (sun) {
+      sun.intensity = baseSun * P.sun * EXPO; sun.visible = P.sun > 0.002;
+      const ck = mode === 'storm' ? SUNC.storm : mode === 'rainbow' ? SUNC.rainbow : SUNC.sunny;
+      sunCol.lerp(ck, k); sun.color.copy(sunCol);
+    }
+    scene.environmentIntensity = baseEnv * P.env * env + f * 0.6;
+    scene.backgroundIntensity = baseBg * P.bg * lerp(EXPO, 1, indoor);
     const stormish = P.over > 0.5 && overEnv;
     scene.environment = stormish ? overEnv : sunnyEnvTex;
-    if (fog) { fog.color.copy(fogColor); fog.density = baseFogDens * P.fogK; }
+    if (fog) { fog.color.copy(fogColor).multiplyScalar(EXPO + (1 - EXPO) * P.night); fog.density = baseFogDens * P.fogK; }
     flashLight.intensity = f * 5.0;
+    // the landscape's own distance haze follows the fog (linear radiance, paler by day)
+    if (!hazeU.length && hazeTries < 20 && (time > hazeTries * 1.5)) findHaze();
+    if (fog) for (let i = 0; i < hazeU.length; i++) hazeU[i].value.set(fog.color.r, fog.color.g, fog.color.b).multiplyScalar(1.06 - 0.06 * P.night);
+
+    // wet ground: darker and glossier (water fills the micro-roughness)
+    if (wetList && Math.abs(P.wet - lastWet) > 0.002) {
+      lastWet = P.wet;
+      const w = P.wet;
+      for (let i = 0; i < wetList.length; i++) {
+        const e = wetList[i];
+        e.m.roughness = e.r * (1 - 0.62 * w) + 0.06 * w;
+        e.m.color.copy(e.c).multiplyScalar(1 - 0.32 * w);
+      }
+    }
+    // night lamps come up (a dark-adapted eye; bloom gives them their glow)
+    if (glowList && Math.abs(P.glow - lastGlow) > 0.002) {
+      lastGlow = P.glow;
+      for (let i = 0; i < glowList.length; i++) {
+        const e = glowList[i], g = 1 + (e.k - 1) * P.glow;
+        if (e.basic) e.m.color.copy(e.base).multiplyScalar(g); else e.m.emissiveIntensity = e.base * g;
+      }
+    }
 
     // domes
     const overOn = overTex && P.over > 0.004;
-    overDome.visible = !!overOn; overU.uA.value = Math.min(1, P.over * 1.6); overU.uI.value = 0.9 * (0.4 + f * 4.5);
+    overDome.visible = !!overOn; overU.uA.value = Math.min(1, P.over * 1.6);
+    const breakK = mode === 'rainbow' ? Math.min(1, tMode / 4) : 0;
+    overU.uBreak.value = lerp(overU.uBreak.value, breakK, k);
+    overU.uI.value = 0.9 * (0.4 + 0.45 * overU.uBreak.value) * lerp(EXPO, 1, indoor); overU.uFlash.value = f;
     nightDome.visible = P.night > 0.004; nightU.uA.value = P.night;
-    bowDome.visible = P.bow > 0.004; bowU.uA.value = P.bow;
-    flare.mesh.visible = P.flare > 0.01 && sunDir.y > -0.05; flare.uni.uA.value = 0.55 * P.flare * (1 - P.night);
+    bowDome.visible = P.bow > 0.004 && lightDir.y < 0.74; bowU.uA.value = P.bow * Math.min(1, P.sun * baseSun / 3) * (1 - 0.6 * P.rain);
+    flare.mesh.visible = P.flare > 0.01 && lightDir.y > -0.05; flare.uni.uA.value = 0.55 * P.flare * (1 - P.night) * (mode === 'rainbow' ? overU.uBreak.value : 1);
     // night extras
     const nv = P.night > 0.004;
     moon.mesh.visible = nv; moon.uni.uA.value = P.night;
     if (stars) { stars.visible = nv; starU.uA.value = P.night; starU.uT.value = time; }
     if (consLines) { consLines.visible = P.cons > 0.004; consU.uA.value = P.cons * P.night; }
     if (nv && time - lastCel > 30) refreshCelestial();
-    const mh = moonDir.y > 0.12;
-    moonLight.intensity = P.moonL * (mh ? 0.28 : 0.1);
+    const mh = moonDir.y > 0.1;
+    // moonlight follows the phase; with the moon down, a faint sky/city glow keeps the campus readable
+    moonLight.intensity = P.moonL * (mh ? 0.12 + 0.5 * moonFrac : 0.1);
     if (mh) moonLight.position.copy(moonDir).multiplyScalar(100); else moonLight.position.set(30, 80, 50);
 
     // rain
@@ -429,22 +704,28 @@ export function createWeather(ctx, { environment } = {}) {
     rain.visible = amt > 0.01;
     if (rain.visible) {
       const sp = reducedMotion ? 0.5 : 1, wind = mode === 'storm' ? 1.4 : 0.6;
-      rainU.uVel.value.set(2.8 * wind * sp, -9 * sp, 1.2 * wind * sp);
+      rainU.uVel.value.set(2.8 * wind * sp, -9.5 * sp, 1.2 * wind * sp);
       rainT += dt;
       const v = rainU.uVel.value;
       const fr = (x) => ((x % 1) + 1) % 1;
       rainU.uShift.value.set(fr(v.x * rainT / BOX.x - camPos.x / BOX.x), fr(v.y * rainT / BOX.y - camPos.y / BOX.y), fr(v.z * rainT / BOX.z - camPos.z / BOX.z));
       rainU.uCam.value.copy(camPos);
       rainU.uAmt.value = amt;
+      // streaks are refracted sky: about as bright as the ambient, blazing in a flash
+      const amb = 0.18 + 0.5 * P.env * (1 - P.over * 0.5);
+      rainU.uCol.value.set(0.62, 0.7, 0.82).multiplyScalar(amb + f * 2.5);
     }
   }
 
   function dispose() {
     scene.remove(group);
     for (const d of disposables) if (d && d.dispose) d.dispose();
-    if (sun) { sun.intensity = baseSun; sun.visible = true; }
+    aimSun('base');
+    if (sun) { sun.intensity = baseSun; sun.visible = true; sun.color.copy(baseSunColor); }
     scene.environment = sunnyEnvTex; scene.environmentIntensity = baseEnv; scene.backgroundIntensity = baseBg;
     if (fog) { fog.color.copy(baseFogColor); fog.density = baseFogDens; }
+    if (wetList) for (const e of wetList) { e.m.roughness = e.r; e.m.color.copy(e.c); }
+    if (glowList) for (const e of glowList) { if (e.basic) e.m.color.copy(e.base); else e.m.emissiveIntensity = e.base; }
   }
 
   return {

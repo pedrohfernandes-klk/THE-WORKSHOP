@@ -46,20 +46,20 @@ const PHONE_VOICES = [
   'Hello? This is the paper plane over the roof. Is it rude to land?',
   'We have received your wish. It is being processed. Please keep wishing.',
 ];
-const FORTUNES = [
-  'You will find something you weren\'t looking for. Possibly a sock.',
-  'A small door will open soon. Go through it slowly.',
-  'Today a bird will judge you. Kindly.',
-  'Your next good idea is hiding inside a boring afternoon.',
-  'The answer is yes. The question is still changing.',
-  'Someone is thinking of you right now. It\'s the cat. It isn\'t affectionate.',
-  'Look up. No — higher. There.',
-  'A question mark is glowing in the ruins. It wants company, not answers.',
-  'Out past the school, far in the meadow, a lamp is keeping a secret.',
-  'Hoje é um bom dia para começar coisas pequenas.',
-  'Vais encontrar o que perdeste no sítio onde já procuraste.',
-  'Quem espera sempre alcança — mas leva um livro.',
-  'A sorte protege os distraídos.',
+const FORTUNES = [                           // [text, Portuguese?]
+  ['You will find something you weren\'t looking for. Possibly a sock.'],
+  ['A small door will open soon. Go through it slowly.'],
+  ['Today a bird will judge you. Kindly.'],
+  ['Your next good idea is hiding inside a boring afternoon.'],
+  ['The answer is yes. The question is still changing.'],
+  ['Someone is thinking of you right now. It\'s the cat. It isn\'t affectionate.'],
+  ['Look up. No — higher. There.'],
+  ['A question mark is glowing in the ruins. It wants company, not answers.'],
+  ['Out past the school, far in the meadow, a lamp is keeping a secret.'],
+  ['Hoje é um bom dia para começar coisas pequenas.', true],
+  ['Vais encontrar o que perdeste no sítio onde já procuraste.', true],
+  ['Quem espera sempre alcança — mas leva um livro.', true],
+  ['A sorte protege os distraídos.', true],
 ];
 
 // ---------------------------------------------------------------- tiny utilities --
@@ -632,19 +632,19 @@ export function build(ctx) {
     const tx = 0.31 - 0.43;
     ds.push(box(0.46, 0.024, 0.07, tx, 0.452, 0.393), box(0.02, 0.27, 0.07, tx - 0.22, 0.32, 0.393), box(0.02, 0.27, 0.07, tx + 0.22, 0.32, 0.393));
     const flap = box(0.4, 0.2, 0.01, 0, 0, 0); flap.rotateX(-0.18); flap.translate(tx, 0.33, 0.378); ds.push(flap);
+    ds.push(box(0.42, 0.016, 0.075, tx, 0.198, 0.398));               // the lip the card lands on
     ds.push(box(0.94, 0.03, 0.78, 0, 1.855, 0.02));
     const dsGeo = merge(ds); M.boxUV(dsGeo);
     mesh(dsGeo, M.get('steel', { color: 0x5a5f61, tile: 0.45, roughness: 0.5 }), vend);
     // the card it hands you
-    const cc = makeCanvas(256, 168), cg = cc.getContext('2d'), CR = mulberry(99);
+    const cc = makeCanvas(256, 168), cg = cc.getContext('2d');
     cg.fillStyle = '#fbf3df'; cg.fillRect(0, 0, 256, 168);
     cg.strokeStyle = '#ff4fa0'; cg.lineWidth = 5; cg.strokeRect(10, 10, 236, 148);
     cg.textAlign = 'center'; cg.textBaseline = 'middle';
     cg.save(); cg.translate(128, 70); riso(cg, (q) => SYM[0](q, 34), '#ff4fa0', '#1f6fd1', 3, -2); cg.restore();
     riso(cg, (q) => { q.font = `900 22px ${HEAVY}`; q.fillText('YOUR FORTUNE', 128, 132); }, '#1f6fd1', '#ff4fa0', 2, 1);
-    void CR;
     card = mesh(new THREE.PlaneGeometry(0.1, 0.066), new THREE.MeshStandardMaterial({ map: tex(cc, 4), roughness: 0.8, side: THREE.DoubleSide }), vend, { cast: false });
-    card.position.set(tx, 0.27, 0.36); card.rotation.x = -1.15; card.visible = false;
+    card.position.set(tx, 0.24, 0.415); card.rotation.x = -1.2; card.visible = false;
   }
 
   // ======================================================= 4. the floating boulder ==
@@ -692,7 +692,7 @@ export function build(ctx) {
       M.boxUV(pg);
       pebbles = new THREE.InstancedMesh(pg, rockBase, pebbleSpec.length);
       pebbles.castShadow = false; pebbles.receiveShadow = false;
-      pebbles.frustumCulled = false;
+      pebbles.boundingSphere = new THREE.Sphere(new THREE.Vector3(BOULDER.x, BOULDER.y - 0.4, BOULDER.z), 2.2);
       group.add(pebbles);
     }
   }
@@ -797,6 +797,16 @@ export function build(ctx) {
       plane.rotation.set(0, Math.PI / 2, 0.06);
     }
   }
+  function placePlane(t) {
+    const om = 0.3, th = t * om;
+    const rr = 3.85 + 0.3 * Math.sin(t * 0.21), drr = 0.063 * Math.cos(t * 0.21);
+    const cth = Math.cos(th), sth = Math.sin(th);
+    const vx = drr * cth - rr * om * sth, vz = drr * sth + rr * om * cth;
+    const vy = 0.176 * Math.cos(t * 0.55) + 0.17 * Math.cos(t * 1.7 + 1.3);
+    plane.position.set(PLANE.x + rr * cth, PLANE.y + 0.32 * Math.sin(t * 0.55) + 0.1 * Math.sin(t * 1.7 + 1.3), PLANE.z + rr * sth);
+    plane.rotation.set(-Math.atan2(vy, Math.sqrt(vx * vx + vz * vz)), Math.atan2(vx, vz), 0.32 + 0.08 * Math.sin(t * 0.9));
+  }
+  if (!calm) placePlane(0);
 
   // ======================================================== 7. the sleeping cat ==
   const cat = new THREE.Group();
@@ -807,6 +817,7 @@ export function build(ctx) {
   group.add(cat);
   pickables.push(cat);
   let catBody, catHead, zzz = null, twitch = 0;
+  const HEAD_Y = 0.1;
   {
     const GINGER = new THREE.Color(0xdb843c), DARK = new THREE.Color(0xa6511c), CREAM = new THREE.Color(0xf4e0c4);
     const PINK = new THREE.Color(0xdb7d86), EYE = new THREE.Color(0x3a2416);
@@ -835,7 +846,7 @@ export function build(ctx) {
     const catMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.88, flatShading: true });
     catBody = mesh(merge(bodyParts, true), catMat, cat);
     // head on a neck pivot so it can flick an ear at you
-    catHead = new THREE.Group(); catHead.position.set(0.1, 0.085, 0.045); cat.add(catHead);
+    catHead = new THREE.Group(); catHead.position.set(0.115, HEAD_Y, 0.05); cat.add(catHead);
     const h = [0.045, 0.0, 0.025];
     const head = [colorBy(ellip(0.068, 0.058, 0.066, h[0], h[1], h[2]), (x, y, z, c) => {
       c.copy(GINGER);
@@ -879,7 +890,7 @@ export function build(ctx) {
     const iron = M.get('plaster', { color: 0x1f2a24, roughness: 0.5 });
     const parts = [];
     const cyl = (r0, r1, h, y, s = 14) => { const g = new THREE.CylinderGeometry(r0, r1, h, s); g.translate(0, y, 0); return g; };
-    parts.push(cyl(0.15, 0.2, 0.5, 0.1, 16), cyl(0.11, 0.13, 0.08, 0.38), cyl(0.055, 0.075, 3.0, 1.9), cyl(0.085, 0.07, 0.07, 3.43), cyl(0.12, 0.12, 0.025, 3.475, 4));
+    parts.push(cyl(0.15, 0.2, 0.5, 0.1, 16), cyl(0.11, 0.13, 0.08, 0.38), cyl(0.055, 0.075, 3.0, 1.9), cyl(0.085, 0.07, 0.07, 3.43), cyl(0.12, 0.12, 0.025, 3.475, 4).rotateY(Math.PI / 4));
     const LB = 3.49, LH = 0.36;                                       // lantern bottom and height
     for (let k = 0; k < 4; k++) {
       const a = Math.PI / 4 + k * Math.PI / 2, b = new THREE.Vector3(Math.cos(a) * 0.1, LB, Math.sin(a) * 0.1), t = new THREE.Vector3(Math.cos(a) * 0.135, LB + LH, Math.sin(a) * 0.135);
@@ -976,7 +987,7 @@ export function build(ctx) {
     if (cardT >= 0) {
       cardT += dt;
       const k = calm ? 1 : 1 - Math.pow(1 - Math.min(1, cardT / 0.5), 3);
-      card.position.z = 0.33 + 0.075 * k; card.position.y = 0.3 - 0.03 * k;
+      card.position.y = 0.33 - 0.09 * k; card.position.z = 0.4 + 0.015 * k;
       if (cardT > 7) { card.visible = false; cardT = -1; }
     }
 
@@ -998,21 +1009,13 @@ export function build(ctx) {
     }
 
     // 6 · lazy loops over the roof terrace, banking into the turn
-    if (!calm) {
-      const om = 0.3, th = t * om;
-      const rr = 3.85 + 0.3 * Math.sin(t * 0.21), drr = 0.063 * Math.cos(t * 0.21);
-      const cth = Math.cos(th), sth = Math.sin(th);
-      const vx = drr * cth - rr * om * sth, vz = drr * sth + rr * om * cth;
-      const vy = 0.176 * Math.cos(t * 0.55) + 0.17 * Math.cos(t * 1.7 + 1.3);
-      plane.position.set(PLANE.x + rr * cth, PLANE.y + 0.32 * Math.sin(t * 0.55) + 0.1 * Math.sin(t * 1.7 + 1.3), PLANE.z + rr * sth);
-      plane.rotation.set(-Math.atan2(vy, Math.sqrt(vx * vx + vz * vz)), Math.atan2(vx, vz), 0.32 + 0.08 * Math.sin(t * 0.9));
-    }
+    if (!calm) placePlane(t);
 
     // 7 · the cat breathes; a "z" drifts up when someone is near enough to see it
     if (!calm) {
       const b = Math.sin(t * 1.85);
       catBody.scale.set(1 + 0.018 * b, 1 + 0.035 * b, 1 + 0.012 * b);
-      catHead.position.y = 0.085 + 0.003 * b;
+      catHead.position.y = HEAD_Y + 0.003 * b;
       if (twitch > 0) { twitch = Math.max(0, twitch - dt); catHead.rotation.x = Math.sin(twitch * 30) * 0.08 * twitch; }
       if (zzz) {
         const near = cam && (cam.x - CAT.x) * (cam.x - CAT.x) + (cam.z - CAT.z) * (cam.z - CAT.z) < 18 * 18;
@@ -1048,11 +1051,10 @@ export function build(ctx) {
   function onPick(object) {
     const id = object && object.userData && object.userData.action && object.userData.action.id;
     if (id === 'odd-phone') {
-      if (ringT >= 0) ringT = RING + 1;                                 // answered: the next update hangs the bell up
+      if (ringT >= 0) { ringT = RING + 1; chimes = 2; }                 // answered: the next update hangs the bell up
       toast(`“${voices[voiceI++ % voices.length]}”`);
     } else if (id === 'odd-vending') {
-      const f = fortunes[fortuneI++ % fortunes.length];
-      const pt = /[ãçéêíóôõú]|Hoje|Quem|Vais|sorte/.test(f);
+      const [f, pt] = fortunes[fortuneI++ % fortunes.length];
       toast(`${pt ? 'A sua sorte' : 'Your fortune'}: “${f}”`);
       ctx.audio?.click?.();
       cardT = 0; card.visible = true;

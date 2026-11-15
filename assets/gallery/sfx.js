@@ -30,7 +30,7 @@ const GRAVITY = 13.5;            // controls.js: turns a floor drop into extra f
 
 // Linear levels before the bus (measured offline: see the note at the end).
 const LV = {
-  drone: 0.05, drip: 0.06, whisper: 0.5, creak: 0.55, choir: 0.24, whoosh: 0.3,
+  drone: 0.037, drip: 0.09, whisper: 0.4, creak: 0.62, choir: 0.12, whoosh: 0.28,
   boing: 0.1, slide: 0.08, pfff: 0.3, bird: 0.06,
 };
 
@@ -143,7 +143,8 @@ function dripLoop(ctx, rnd) {
 
 // ---------- beds ----------
 // A bed has a dry and an optional wet (echo) gain, both following the zone
-// weight; body() wires it and may return start offsets for its loops. If
+// weight; body() wires it and may return a Map of start offsets (seconds into
+// a loop buffer, or a start delay for an oscillator, which sets its phase). If
 // anything throws half-way, whatever was made is released again.
 function makeBed(E, withWet, body) {
   const nodes = [], srcs = [], k = kit(E.ctx, nodes, srcs);
@@ -152,7 +153,12 @@ function makeBed(E, withWet, body) {
     B.dry = k.gain(0); B.dry.connect(E.out);
     if (withWet) { B.wet = k.gain(0); B.wet.connect(E.echo); }
     const offsets = body(B, k) || null, t = E.ctx.currentTime;
-    for (const s of srcs) { const o = offsets && offsets.get(s); if (o !== undefined) s.start(t, o); else s.start(t); }
+    for (const s of srcs) {
+      const o = offsets && offsets.get(s);
+      if (o === undefined) s.start(t);
+      else if ('buffer' in s) s.start(t, o);
+      else s.start(t + o);
+    }
     return B;
   } catch (e) { release(B); throw e; }
 }
@@ -185,8 +191,8 @@ const buildRuin = (E, rnd) => makeBed(E, true, (B, k) => {
 // A2 E3 C4 B4 (Am add9, inside the music's A minor), two saws each, a few
 // cents apart so every note beats slowly; E5 joins on the stage.
 const CHOIR = [[110.0, 1.0], [164.81, 0.75], [261.63, 0.55], [493.88, 0.3]];
-const buildChoir = (E) => makeBed(E, true, (B, k) => {
-  const voices = k.gain(1), high = k.gain(0);
+const buildChoir = (E, rnd) => makeBed(E, true, (B, k) => {
+  const voices = k.gain(1), high = k.gain(0), phase = new Map();
   const vibA = k.osc('sine', 4.4), vibB = k.osc('sine', 5.3), vA = k.gain(6), vB = k.gain(6); // cents
   vibA.connect(vA); vibB.connect(vB);
   let i = 0;
@@ -196,6 +202,7 @@ const buildChoir = (E) => makeBed(E, true, (B, k) => {
       o.detune.value = det;
       ((i++) % 2 ? vA : vB).connect(o.detune);
       o.connect(g); g.connect(dest);
+      phase.set(o, rnd() / f);                 // random phases: no in-phase thump at the start
     }
   };
   for (const [f, a] of CHOIR) pair(f, a * 0.5, voices);
@@ -206,13 +213,14 @@ const buildChoir = (E) => makeBed(E, true, (B, k) => {
   const f1 = k.filter('bandpass', 430, 3.5), f2 = k.filter('bandpass', 950, 5), f2g = k.gain(0.7), body = k.gain(0.22);
   const vowel = k.osc('sine', 0.045), vowelD = k.gain(230);
   vowel.connect(vowelD); vowelD.connect(f2.frequency);
-  const breath = k.gain(0.75), br = k.osc('sine', 0.07), brD = k.gain(0.25);
+  const breath = k.gain(0.75), br = k.osc('sine', 0.07), brD = k.gain(0.12);
   br.connect(brD); brD.connect(breath.gain);
   voices.connect(lp); lp.connect(f1); lp.connect(f2); lp.connect(body);
   f1.connect(breath); f2.connect(f2g); f2g.connect(breath); body.connect(breath);
   const level = k.gain(LV.choir);
   breath.connect(level); level.connect(B.dry); level.connect(B.wet);
   B.lp = lp; B.high = high;
+  return phase;
 });
 
 // Air rushing past both ears: two decorrelated band-passed noises, gusting.
@@ -528,8 +536,9 @@ export function createSfx(audio) {
       send(C, 3, C.B.high.gain, st.stage, now, 0.4);
     }
     if (W.B) {
+      // the band rises with speed; constant-Q noise gets louder as it rises, so compensate
       const f = clamp(350 + 220 * (speed - 3), 300, 2400);
-      send(W, 0, W.B.dry.gain, W.w * LV.whoosh, now, 0.08);
+      send(W, 0, W.B.dry.gain, W.w * LV.whoosh * Math.sqrt(600 / f), now, 0.08);
       send(W, 1, W.B.bps[0].frequency, f, now, 0.15);
       send(W, 2, W.B.bps[1].frequency, f * 1.18, now, 0.15);
     }
@@ -589,9 +598,9 @@ export function createSfx(audio) {
       const ruinT = ruinDepth(x, y, z), bowlT = bowlDepth(x, y, z);
       const stageT = bowlT > 0.5 && onStage(x, y, z) ? 1 : 0;
       manage(beds.ruin, ruinT, 1 / XFADE, 1 / XFADE, dt, () => buildRuin(E, rnd));
-      manage(beds.choir, bowlT, 1 / XFADE, 1 / XFADE, dt, () => buildChoir(E));
+      manage(beds.choir, bowlT, 1 / XFADE, 1 / XFADE, dt, () => buildChoir(E, rnd));
       st.stage += clamp(stageT - st.stage, -dt / XFADE, dt / XFADE);
-      const windT = st.whooshOn ? Math.pow(clamp((speed - 3) / 3, 0, 1), 0.8) : 0;
+      const windT = st.whooshOn ? clamp((speed - 2.5) / 3.5, 0, 0.8) : 0;
       manage(beds.whoosh, windT, 1 / 0.8, 1 / 0.5, dt, () => buildWhoosh(E));
       st.pclock += dt;
       if (st.pclock >= 0.1) { st.pclock = 0; applyBeds(now, speed); }
