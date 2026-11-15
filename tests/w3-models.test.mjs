@@ -7,8 +7,8 @@ import { boxUV } from '../assets/gallery/materials.js';
 const cast=JSON.parse(fs.readFileSync(new URL('../assets/data/npc-cast.json',import.meta.url),'utf8'));
 const M={get:()=>new THREE.MeshStandardMaterial(),boxUV};
 
-test('W3 preserves fourteen legacy slots and offers twelve opt-in archetypes',()=>{
-  assert.equal(cast.characters.length,26);
+test('W3 preserves fourteen legacy slots and offers thirteen opt-in archetypes (Fabinhe joined with the comedy package)',()=>{
+  assert.equal(cast.characters.length,27);
   assert.equal(cast.characters.filter(c=>c.enabledByDefault).length,14);
   assert.equal(cast.maxActive,14);
   const situations='talk ignored slap1 slap2 slap3 bystander_laugh run_past jump sit_beside gesture_rude golden sunny storm rainbow night'.split(' ');

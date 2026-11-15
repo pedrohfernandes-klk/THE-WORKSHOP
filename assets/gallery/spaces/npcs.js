@@ -1,12 +1,32 @@
+import { reserveModuleVoice, finishModuleVoice } from '../audio-lease.js';
 // NPCs: six silly animal-headed people in suits who wander small loops around the
 // campus, face the visitor when close, and talk (speech bubble + synthesised noise)
 // when picked. Procedural low-poly-but-smooth models; no per-frame allocation.
 
+import { createNpcComedy } from '../npc-comedy.js';
 import { createNpcPersonalities } from '../npc-onlookers.js';
+import { createFabinhe } from '../fabinhe.js';
 import { buildCharacter, createLinePicker, createNpcEffects, mergeNpcProps } from '../npc-models.js';
 
 export async function build(ctx) {
   const { THREE, quality } = ctx;
+  // Private NPC bus: statues never suspend the ambient AudioContext.
+  const sourceAudio=ctx.audio;
+  let npcBus=null,npcContext=null,npcSpeechActive=false,npcSpeechPaused=false,statuesHeld=false,npcTime=0;
+  const npcFrame={camera:null,time:0,level:0,weather:null};
+  const npcAudio={
+    get context(){return sourceAudio?.context;},
+    get muted(){return !!sourceAudio?.muted||!!ctx.scene.userData.npcStatues;},
+    get bus(){const ac=sourceAudio?.context,bus=sourceAudio?.bus;if(!ac||!bus)return null;
+      if(npcContext!==ac){npcBus?.disconnect();npcContext=ac;npcBus=ac.createGain();npcBus.connect(bus);}
+      npcBus.gain.value=ctx.scene.userData.npcStatues?0:1;return npcBus;},
+    acquireVoice(options){return sourceAudio?.acquireVoice?.(options)||null;},
+    releaseVoice(token){sourceAudio?.releaseVoice?.(token);},
+    duck(seconds){sourceAudio?.duck?.(seconds);},
+    preparePunchline(){return sourceAudio?.preparePunchline?.()||0;}
+  };
+  ctx={...ctx,audio:npcAudio};
+
   let cast = [];
   try {
     const response = await fetch(new URL('../../data/npc-cast.json', import.meta.url));
@@ -437,24 +457,25 @@ export async function build(ctx) {
     if (typeof document === 'undefined') return null;
     const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
     const gr = g.createRadialGradient(32, 32, 2, 32, 32, 31);
-    gr.addColorStop(0, 'rgba(0,0,0,0.7)'); gr.addColorStop(0.55, 'rgba(0,0,0,0.35)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    gr.addColorStop(0, 'rgba(255,255,255,0.7)'); gr.addColorStop(0.55, 'rgba(255,255,255,0.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
     g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
     return new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, opacity: 0.75, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   })();
 
   // ---------- build the characters ----------
-  let personalities = null;
+  let personalities = null, comedy = null, fabinhe = null;
   const npcs = [];
   const pickables = [];
   const propSource = new THREE.Group();
   // A director may replace slots, never silently add another actor.
   const assignments = ctx.scene?.userData?.npcAssignments;
   const roster = SPECS.map((legacy, i) => {
-    const entry = Array.isArray(assignments) ? castById.get(assignments[i]) : null;
+    const entry = Array.isArray(assignments) ? castById.get(assignments[i]) : legacy.name === 'rooster' ? castById.get('fabinhe') : null;
     if (!entry || entry.legacy) return legacy;
     return { ...legacy, name: entry.id, head: entry.model.head, lines: entry.lines.talk,
       pt: true, phone: entry.model.clothing === 'influencer', proud: false, fixed: false,
-      seated: false, r: Math.max(0.7, legacy.r), speed: 0.65, props: null, extra: null };
+      seated: false, r: Math.max(0.7, legacy.r), speed: 0.65, props: null, extra: null,
+      ...(entry.id === 'fabinhe' ? { sound: 'tut', tie: null, braces: false, hoodie: false, stock: false, fat: 1 } : {}) };
   });
   roster.forEach((S, idx) => {
     const root = new THREE.Group(); root.name = 'npc-' + S.name; root.rotation.order = 'YXZ';
@@ -530,6 +551,15 @@ export async function build(ctx) {
   // Parked below the floor (inactive) until the visitor is near.
   const colliders = npcs.map((n) => (n.col = { minX: n.x - 0.3, maxX: n.x + 0.3, minZ: n.z - 0.3, maxZ: n.z + 0.3, minY: -51, maxY: -50 }));
   personalities = createNpcPersonalities(ctx, { npcs, castById, chooseLine, say });
+  comedy = createNpcComedy(ctx, { npcs, say, startLaugh, fall: dominoFall });
+  function dominoFall(n) {
+    if(n.fixed||n.S.seated||n.sillyT>=0||n.busy)return;
+    n.fallType=reduced?3:nextFall(n);n.fallDir=1;n.thud=false;n.whistled=false;n.whistleAt=0;n.impT=-1;n.rofl=false;
+    n.freezeT=0;n.slapSpin=false;n.slapTurns=1;n.sqT=.3;n.sillyCd=9;
+    startSilly(n,4,FALL_D[n.fallType]);
+  }
+  comedy.loadManifest(); // background: never delays the Enter button
+  fabinhe = createFabinhe(ctx, { npcs, say });
 
   // ---------- sound ----------
   // Web Audio is read lazily from ctx.audio (null until the visitor enters) and
@@ -558,6 +588,7 @@ export async function build(ctx) {
   }
   const lvl = (g) => Math.max(0.0002, g * vol);
   function tone(t0, type, dur, freqs, gain, lp, vibHz, vibDepth) {
+    const lease = reserveModuleVoice(ctx, 2, true, dur + .06, bus, t0); if (!lease) return; t0 = Math.max(t0, lease.startAt);
     const o = ac.createOscillator(), g = ac.createGain(), f = ac.createBiquadFilter();
     o.type = type; f.type = 'lowpass'; f.frequency.value = lp; f.Q.value = 2;
     const step = dur / (freqs.length - 1);
@@ -566,31 +597,33 @@ export async function build(ctx) {
     if (vibHz) {
       const l = ac.createOscillator(), lg = ac.createGain();
       l.frequency.value = vibHz; lg.gain.value = vibDepth; l.connect(lg); lg.connect(o.frequency);
-      l.start(t0); l.stop(t0 + dur + 0.05);
+      lease.track(l); l.start(t0); l.stop(t0 + dur + 0.05);
     }
     g.gain.setValueAtTime(0.0001, t0);
     g.gain.exponentialRampToValueAtTime(lvl(gain), t0 + Math.min(0.04, dur * 0.3));
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    o.connect(f); f.connect(g); g.connect(bus);
-    o.start(t0); o.stop(t0 + dur + 0.05);
+    o.connect(f); f.connect(g); g.connect(lease.gain);
+    lease.track(o); finishModuleVoice(lease, o); o.start(t0); o.stop(t0 + dur + 0.05);
   }
   function hiss(t0, dur, ftype, freq, q, gain, attack) {
+    const lease = reserveModuleVoice(ctx, 2, true, dur + .06, bus, t0); if (!lease) return; t0 = Math.max(t0, lease.startAt);
     buffers();
     const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
     s.buffer = whiteBuf; s.loop = true; f.type = ftype; f.frequency.value = freq; f.Q.value = q;
     g.gain.setValueAtTime(0.0001, t0);
     g.gain.exponentialRampToValueAtTime(lvl(gain), t0 + attack);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    s.connect(f); f.connect(g); g.connect(bus); s.start(t0); s.stop(t0 + dur + 0.05);
+    s.connect(f); f.connect(g); g.connect(lease.gain); lease.track(s); finishModuleVoice(lease, s); s.start(t0); s.stop(t0 + dur + 0.05);
   }
   // A crisp cartoon whack: a crack, a pitched "thwack" and the meat of it.
   function whack(n, big) {
     if (!audioOn(n)) return;
     try {
+      const lease = reserveModuleVoice(ctx, 3, true, .2, bus); if (!lease) return;
       buffers();
-      const t = ac.currentTime + 0.005, src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+      const t = Math.max(ac.currentTime + 0.005, lease.startAt), src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
       src.buffer = slapBuf; f.type = 'bandpass'; f.frequency.value = 2300 + Math.random() * 700; f.Q.value = 0.8; g.gain.value = 1.1 * vol;
-      src.connect(f); f.connect(g); g.connect(bus); src.start(t);
+      src.connect(f); f.connect(g); g.connect(lease.gain); lease.track(src); finishModuleVoice(lease, src); src.start(t);
       tone(t, 'triangle', 0.09, [1300 + Math.random() * 300, 320], 0.32, 4000);
       tone(t, 'sine', 0.16, [230, 60], 0.45, 500);
       if (big) tone(t + 0.02, 'square', 0.07, [760, 380], 0.08, 2600);
@@ -643,6 +676,7 @@ export async function build(ctx) {
       const base = BARK[n.S.name] || 420 + (n.seed * 97) % 200;
       let t = ac.currentTime + 0.02;
       for (let k = 0; k < 2; k++) {
+        const lease = reserveModuleVoice(ctx, 2, true, .22, bus, t); if (!lease) continue; t = Math.max(t, lease.startAt);
         const f0 = base * (0.9 + Math.random() * 0.2) * (k ? 0.93 : 1);
         const o = ac.createOscillator(), lp = ac.createBiquadFilter(), g = ac.createGain();
         o.type = 'sawtooth';
@@ -650,7 +684,7 @@ export async function build(ctx) {
         lp.type = 'lowpass'; lp.Q.value = 6;
         lp.frequency.setValueAtTime(2700, t); lp.frequency.exponentialRampToValueAtTime(650, t + 0.15);
         g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(lvl(0.3), t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.17);
-        o.connect(lp); lp.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.2);
+        o.connect(lp); lp.connect(g); g.connect(lease.gain); lease.track(o); finishModuleVoice(lease, o); o.start(t); o.stop(t + 0.2);
         hiss(t, 0.05, 'bandpass', 1300, 1.2, 0.16, 0.004);
         t += gap;
       }
@@ -875,27 +909,54 @@ export async function build(ctx) {
   for (let i = 0; i < npcs.length; i++) { const n = npcs[i], own = R[n.S.name]; n.talk = ONLY[n.S.name] ? own.talk : n.S.lines.concat((own && own.talk) || []); }
   const TROMBA = ["Ai, que tromba boa p'ra levar chapadões!", 'Olha-me esta tromba, a pedir chapadões!', "Que trombinha jeitosa p'ra um chapadão!"];
   DEF.pt.wind = DEF.pt.wind.concat(TROMBA);
-  // Three signature lines are also heard: a pt-PT voice only, rare, low, never overlapping.
+  // Only this NPC signature may use an available Portuguese voice, rarely.
   const SPOKEN = { 'Tá bueno!': 1, 'Já levaste na boca!': 1, "Ai, que tromba boa p'ra levar chapadões!": 1 };
-  let ptVoice = null, lastSpoke = -99;
+  let ptVoice = null, lastSpoke = -99, ownedSpeech = null;
+  function stopSignatureSpeech() {
+    if (!ownedSpeech) return;
+    const speech = ownedSpeech; ownedSpeech = null;
+    if (ctx.scene.userData.ttsOwner === speech) {
+      ctx.scene.userData.ttsOwner = null;
+      try { speech.synth.cancel(); } catch {}
+    }
+    speech.lease.release();
+  }
   function speakMaybe(n, text) {
-    if (!SPOKEN[text] || clock - lastSpoke < 25 || Math.random() > 0.4 || !n.near2) return;
+    if (!(comedy ? comedy.isSignature(n, text) : SPOKEN[text]) || clock - lastSpoke < 25 || Math.random() > 0.4 || !n.near2) return;
+    let speechLease = null;
     try {
       const ss = typeof speechSynthesis !== 'undefined' ? speechSynthesis : null;
-      if (!ss || ss.speaking || ss.pending || typeof SpeechSynthesisUtterance === 'undefined' || !audioOn(n)) return;
-      // pt-PT, then any Portuguese, then whatever voice exists (the mangled accent is part of the joke)
+      if (!ss || ss.speaking || ss.pending || ctx.scene.userData.ttsOwner || typeof SpeechSynthesisUtterance === 'undefined' || !audioOn(n)) return;
+      // Local voices only: pt-PT, another Portuguese voice, then a local fallback.
       let v = ptVoice;
       if (!v) {
-        const vs = ss.getVoices() || [];
+        const vs = (ss.getVoices() || []).filter(voice => voice.localService === true);
         let br = null;
         for (let i = 0; i < vs.length; i++) { const l = vs[i].lang || ''; if (/^pt[-_]PT/i.test(l)) { v = vs[i]; break; } if (!br && /^pt/i.test(l)) br = vs[i]; }
-        if (v || br) ptVoice = v = v || br; else v = vs[0] || null;
+        if (v || br) ptVoice = v = v || br; else v = null;
       }
       if (!v) return;
+      speechLease = reserveModuleVoice(ctx, 3, true, Math.max(2, Math.min(15, text.length * .16 + 1)), bus);
+      if (!speechLease) return;
       const u = new SpeechSynthesisUtterance(text);
+      const speech = { utterance: u, lease: speechLease, synth: ss };
+      ownedSpeech = speech; ctx.scene.userData.ttsOwner = speech;
+      const done = () => {
+        if (ownedSpeech === speech) ownedSpeech = null;
+        if (ctx.scene.userData.ttsOwner === speech) ctx.scene.userData.ttsOwner = null;
+        speechLease.release();
+      };
+      u.onend = done; u.onerror = done;
+      speechLease.onRelease = () => {
+        npcSpeechActive=false;npcSpeechPaused=false;
+        if (ctx.scene.userData.ttsOwner !== speech) return;
+        ctx.scene.userData.ttsOwner = null; if (ownedSpeech === speech) ownedSpeech = null;
+        try { ss.cancel(); } catch {}
+      };
       u.voice = v; u.lang = v.lang || 'pt-PT'; u.volume = 0.35; u.rate = 0.9 + (n.seed % 0.35); u.pitch = 0.7 + ((n.seed * 1.7) % 0.8);
+      u.onstart=()=>{npcSpeechActive=true;};u.onend=u.onerror=()=>{npcSpeechActive=false;npcSpeechPaused=false;done();};
       ss.speak(u); lastSpoke = clock;
-    } catch (e) { /* no voice */ }
+    } catch (e) { stopSignatureSpeech(); speechLease?.release(); /* no voice */ }
   }
   const BARK_TXT = 'Béu! Béu!';
   const BARK_MID = {
@@ -953,6 +1014,7 @@ export async function build(ctx) {
     return DEF[n.S.pt ? 'pt' : 'en'][key] || n.talk;
   }
   function line(n, key) {
+    if (comedy) return comedy.line(n, key);
     const entry = castById.get(n.S.name);
     if (entry && !entry.legacy) return chooseLine(entry, lineKeys[key] || key);
     const p = pool(n, key);
@@ -962,13 +1024,15 @@ export async function build(ctx) {
   function say(n, text, withSound, up) {
     if (ctx.scene.userData.questQuiet) return;
     if (typeof text !== 'string' || !text) return;
+    if (comedy && !comedy.allow(n, text)) return;
     n.curText = text; n.talkT = Math.min(5, Math.max(2.2, 1.4 + text.length * 0.06)); n.armUp = up || 1.7;
     if (n.near2) { const A = ctx.audio; if (A && typeof A.duck === 'function') { try { A.duck(n.talkT); } catch (e) { /* no score */ } } }
     personalities?.onEvent('speech', n);
     n.dirty = true; n.bubble = Math.min(n.bubble, 0.55); n.mutterCd = 14;
     if (withSound) noise(n);
-    if (text.indexOf('#%&@') >= 0) sfx(n, 'bip');              // bleeped, like the censored gestures
+    if (text.indexOf('#%&@') >= 0) { if (comedy) comedy.sound(n, 'bleep'); else sfx(n, 'bip'); }              // bleeped, like the censored gestures
     else speakMaybe(n, text);
+    return true;
   }
   function flush(n) { if (n.dirty) { drawBubble(n, n.curText); n.dirty = false; } }
   function startSilly(n, type, dur) { n.sillyType = type; n.sillyDur = dur; n.sillyT = 0; n.meant = false; }
@@ -1001,9 +1065,10 @@ export async function build(ctx) {
     if (best && best.judgeAt <= 0) best.judgeAt = delay;
   }
   function startLaugh(n, text, hyst) {
+    if (comedy && !comedy.allowLaugh(n)) return;
     n.laughT = hyst ? 2.8 : 2.3;
     if (text) say(n, text, false);
-    if (n.near2 && !personalities?.sound('laugh', n)) laughSound(n, hyst);
+    if (n.near2) { if (comedy) comedy.sound(n, 'laugh'); else if (!personalities?.sound('laugh', n)) laughSound(n, hyst); }
     if (LAUGHER[n.S.name] && !n.fixed && !reduced && n.sillyT < 0 && !n.busy && Math.random() < (hyst ? 0.2 : 0.12)) {
       // laughs so hard they fall over
       n.fallType = 0; n.fallDir = 1; n.thud = false; n.whistled = false; n.impT = -1; n.rofl = true; n.freezeT = 0;
@@ -1013,19 +1078,22 @@ export async function build(ctx) {
   // Somebody "levou na boca": everyone within 12 m bursts out laughing, each in their own silly
   // voice, the victim's friend first and loudest. vis: it was the visitor who got it.
   function hysterics(x, z, zone, victim, delay, vis) {
+    let queued = 0;
     const fr = victim ? FRIEND[victim.S.name] : null;
     for (let i = 0; i < npcs.length; i++) {
       const m = npcs[i];
-      if (m === victim || m.zone !== zone || (m.sillyT >= 0 && m.sillyType === 4) || m.windT > 0) continue;
+      if (m.combatHidden || m.combatControlled || m === victim || m.zone !== zone || (m.sillyT >= 0 && m.sillyType === 4) || m.windT > 0) continue;
       const ex = m.x - x, ez = m.z - z, q = ex * ex + ez * ez;
       if (q > 144) continue;
       const friend = fr === m.S.name;
       m.laughAt = delay + (friend ? 0.05 : 0.15 + Math.sqrt(q) * 0.04 + Math.random() * 0.3);
       m.laughText = friend && !ONLY[m.S.name] ? '#F' : vis ? '#V' : '#N';
       m.pointT = m.laughAt + 2.6; m.pointAt = victim; if (!m.busy && victim) m.faceN = victim;
+      if (++queued >= 3) break;
     }
   }
   function laughLine(n, code) {
+    if (comedy) return comedy.line(n, 'witness');
     const entry = castById.get(n.S.name);
     if (entry && !entry.legacy) return chooseLine(entry, 'bystander_laugh');
     if (code === '*') return line(n, 'ha');
@@ -1215,9 +1283,23 @@ export async function build(ctx) {
     try { console.warn('[npcs] ' + where + ' failed; further errors are silenced', err); } catch (e) { /* none */ }
   }
   // A throw would make the world drop this module's update for good: contain it here.
+  function setStatues(value){
+    if(statuesHeld===!!value)return;statuesHeld=!!value;
+    if(npcBus&&npcContext)npcBus.gain.setValueAtTime(value?0:1,npcContext.currentTime);
+    comedy?.setPaused?.(!!value);
+    try{if(typeof speechSynthesis!=='undefined'){
+      if(value&&npcSpeechActive&&speechSynthesis.speaking){speechSynthesis.pause();npcSpeechPaused=true;}
+      else if(!value&&npcSpeechPaused){if(ctx.scene.userData.questQuiet)speechSynthesis.cancel();else speechSynthesis.resume();npcSpeechPaused=false;}
+    }}catch{}
+  }
   function update(dt, frame) {
+    if (ctx.audio?.muted || ctx.scene.userData.questQuiet || ctx.scene.userData.npcStatues) stopSignatureSpeech();
     if (!frame?.camera) return;
-    try { personalities.before(dt, frame); step(dt, frame); personalities.after(dt, frame); effects.update(frame.camera, starMat.rotation); }
+    fabinhe.before(dt,frame);
+    npcFrame.camera=frame.camera;npcFrame.level=frame.level;npcFrame.weather=frame.weather;
+    if(ctx.scene.userData.npcStatues){setStatues(true);comedy.update(0,npcFrame);effects.update(frame.camera,starMat.rotation);return;}
+    setStatues(false);npcTime+=Math.min(.1,Math.max(0,dt));npcFrame.time=npcTime;
+    try { comedy.update(dt,npcFrame);personalities.before(dt,npcFrame);step(dt,npcFrame);personalities.after(dt,npcFrame);fabinhe.after(dt,npcFrame);comedy.after();effects.update(frame.camera,starMat.rotation); }
     catch (err) { warnOnce('update', err); }
   }
 
@@ -1232,7 +1314,7 @@ export async function build(ctx) {
     let rank = 0;
     for (let i = 0; i < npcs.length; i++) {
       const n = npcs[i];
-      if (n.zone !== camZone || n.d2 > 64 || n.gestAt > 0 || (n.sillyT >= 0 && n.sillyType === 4)) continue;
+      if (n.combatHidden || n.combatControlled || n.zone !== camZone || n.d2 > 64 || n.gestAt > 0 || (n.sillyT >= 0 && n.sillyType === 4)) continue;
       const d = Math.sqrt(n.d2) || 0.01, tx = (n.x - pcx) / d, tz = (n.z - pcz) / d;
       const atThem = cfx * tx + cfz * tz > 0.45;                        // done in their direction
       const sees = -(Math.sin(n.yaw) * tx + Math.cos(n.yaw) * tz) > 0.35;  // or they were looking
@@ -1286,12 +1368,14 @@ export async function build(ctx) {
       judgeCd -= dt;
       if (judgeCd <= 0) { judgeCd = 7 + Math.random() * 7; judge(0.01); }
     } else camZone = 9;
-    director(dt);
-    if (clock - lastSpoke < 8 || ctx.scene.userData.questQuiet) { try { const A = ctx.audio; if (A && (A.muted || ctx.scene.userData.questQuiet) && typeof speechSynthesis !== 'undefined' && speechSynthesis.speaking) speechSynthesis.cancel(); } catch (e) { /* none */ } }
+    if (!comedy) director(dt);
+    if (clock - lastSpoke < 8 || ctx.scene.userData.questQuiet) { try { const A = ctx.audio; if (A && (A.muted || ctx.scene.userData.questQuiet)) stopSignatureSpeech(); } catch (e) { /* none */ } }
     starMat.rotation = time * 5;
     let budget = 2;                                        // bubble redraws per frame
     for (let i = 0; i < npcs.length; i++) {
       const n = npcs[i], S = n.S;
+      if(n.combatHidden){n.root.visible=false;n.stars.visible=false;if(n.sprite)n.sprite.visible=false;if(n.blob)n.blob.visible=false;n.col.minY=-51;n.col.maxY=-50;continue;}
+      if(n.combatControlled){n.root.visible=true;if(n.sprite)n.sprite.visible=false;n.talkT=0;n.bubble=0;continue;}
       let dx = 0, dz = 0, d2 = 1e9;
       if (cam) { dx = cam.x - n.x; dz = cam.z - n.z; d2 = dx * dx + dz * dz; }
       n.d2 = d2;
@@ -1453,7 +1537,8 @@ export async function build(ctx) {
       // movement
       let moving = false, tyaw = n.yaw;
       if (n.goT > 0) { n.goT -= dt; if (n.goT <= 0) { n.goOn = false; n.goT = -1; } }
-      if (floor || n.windT > 0) {
+      if (n.fabinhePerforming) { moving = false; }
+      else if (floor || n.windT > 0) {
         if (n.windT > 0) tyaw = Math.atan2(dx, dz);
       } else if (n.goOn) {
         const ex = n.gx - n.x, ez = n.gz - n.z, ed = Math.sqrt(ex * ex + ez * ez);
@@ -1584,7 +1669,7 @@ export async function build(ctx) {
               else sfx(n, ft === 6 ? 'whistle' : ft === 1 ? 'whistleUp' : ft === 2 ? 'whirr' : ft === 4 ? 'skid' : '', IMPACT[ft] * n.sillyDur);
             }
             if (n.whistleAt > 0 && u >= n.whistleAt) { n.whistleAt = 0; sfx(n, 'whistle', (IMPACT[3] - 0.5) * n.sillyDur); }
-            if (u >= IMPACT[ft] && !n.thud) { n.thud = true; n.impT = n.sillyT; sfx(n, 'thud'); if (ft === 5 || ft === 0) sfx(n, 'boing'); n.sqT = 0.3; }
+            if (u >= IMPACT[ft] && !n.thud) { comedy?.notify('fall',n); n.thud = true; n.impT = n.sillyT; sfx(n, 'thud'); if (ft === 5 || ft === 0) sfx(n, 'boing'); n.sqT = 0.3; }
             if (ft === 0) { tilt = -1.6 * d; if (u > a && u < b) { legsUp = 1; tilt += Math.sin(u * 90) * 0.01; } }
             else if (ft === 1) {
               if (u < a) { const q = u / a; roll = -TAU * E(q) * n.fallDir; hop = Math.sin(E(q) * Math.PI) * 0.9; const v = 1.4 * 6 * q * (1 - q) / (a * n.sillyDur) * dt * n.fallDir; n.x += Math.cos(n.yaw) * v; n.z -= Math.sin(n.yaw) * v; }
@@ -1776,9 +1861,11 @@ export async function build(ctx) {
     n.lastFall = f;
     return f;
   }
-  function slap(object) { try { doSlap(findNpc(object)); } catch (err) { warnOnce('slap', err); } }
+  function slap(object) { if(ctx.scene.userData.npcStatues)return;try { doSlap(findNpc(object)); } catch (err) { warnOnce('slap', err); } }
   function doSlap(n) {
     if (!n) return;
+    comedy?.notify('slap', n);
+    fabinhe.onSlap(n);
     const S = n.S;
     n.seqStage = 0; n.gestAt = 0; n.windT = 0; n.judgeAt = 0;
     if (n.pestT > 0) endPest(n, null);
@@ -1829,9 +1916,10 @@ export async function build(ctx) {
     }
   }
 
-  function onPick(object) { try { talk(findNpc(object)); } catch (err) { warnOnce('talk', err); } }
+  function onPick(object) { if(ctx.scene.userData.npcStatues)return;try { talk(findNpc(object)); } catch (err) { warnOnce('talk', err); } }
   function talk(n) {
     if (!n) return;
+    if (fabinhe.onTalk(n)) return;
     const S = n.S;
     n.seqStage = 0; n.lingerT = 0;
     if (n.windT > 0) return;                                   // mid wind-up: no time for chat
@@ -1844,6 +1932,7 @@ export async function build(ctx) {
       return;
     }
     personalities.onEvent('talk', n);
+    comedy?.notify('talk', n);
     const again = clock - n.lastTalk < 25;
     n.lastTalk = clock;
     if (S.name === 'cat' && Math.random() < 0.25) {
@@ -1866,5 +1955,14 @@ export async function build(ctx) {
     n.sillyCd = 6 + Math.random() * 6;
   }
 
-  return { group, regions: [], colliders, pickables, update, onPick, slap, setNavigation: personalities.setNavigation };
+  function combatImpact(n,ko,move){
+    if(!n||ctx.scene.userData.npcStatues||ctx.scene.userData.questQuiet)return;
+    n.glare=0;n.escalate=false;n.pestCd=Math.max(60,n.pestCd);n.sillyCd=8;
+    if(move==='chapada'||move==='reves'||move==='sanduiche')fabinhe.onSlap(n);
+    if(ko)comedy?.defeat?.(n);
+    else if(move==='chapada'||move==='reves'||move==='sanduiche')comedy?.notify?.('slap',n);
+  }
+  return { group, regions: [], colliders, pickables, update, onPick, slap, fabinhe, setNavigation: personalities.setNavigation,
+    actors:npcs,combatActors:npcs,findActor:findNpc,combatImpact,setStatues,refreshEffects:(camera)=>effects.update(camera,starMat.rotation),get comedyMemory(){return comedy.memory;} };
+
 }
