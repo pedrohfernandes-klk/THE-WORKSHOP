@@ -468,6 +468,7 @@ export function createProps(scene, { quality = 'high', reducedMotion = false } =
 
   const colliders = [];
   const pickables = [];
+  const seats = []; // places to sit (sit contract): { x, y, z, facing: [fx, fz] }, world metres
   const disposables = [];
 
   /* ---- shared materials ---- */
@@ -687,6 +688,26 @@ export function createProps(scene, { quality = 'high', reducedMotion = false } =
     chair.add(s);
     root.add(chair);
     colliders.push(footprintAABB(CH.x, CH.z, CH.rotY, [[-0.23, 0.23, -0.26, 0.23]], 0.2));
+
+    // Sitting (sit contract): one place at the centre of the seat slab
+    // (chair-local z = 0.005, top y = SEAT_Y), facing where the chair faces —
+    // local +z, away from the raked back — rotated into world as footprintAABB
+    // does. An invisible pick proxy a little larger than the whole chair is hit
+    // before the oak, so a click anywhere on the chair sits the visitor down.
+    const SEAT_CZ = 0.005;
+    const cosY = Math.cos(CH.rotY), sinY = Math.sin(CH.rotY);
+    const chairSeat = { x: CH.x + SEAT_CZ * sinY, y: SEAT_Y, z: CH.z + SEAT_CZ * cosY, facing: [sinY, cosY] };
+    seats.push(chairSeat);
+    const proxy = new THREE.Mesh(
+      new THREE.BoxGeometry(0.48, 0.9, 0.5),
+      new THREE.MeshBasicMaterial({ visible: false })
+    );
+    proxy.position.set(0, 0.45, -0.02);
+    proxy.name = 'chair-sit-pick';
+    proxy.userData.action = { type: 'sit', seats: [chairSeat] };
+    chair.add(proxy);
+    disposables.push(proxy.geometry, proxy.material);
+    pickables.push(proxy);
   }
 
   /* ================================================================ */
@@ -935,6 +956,7 @@ export function createProps(scene, { quality = 'high', reducedMotion = false } =
   return {
     colliders,
     pickables,
+    seats,
     setCatalogueCover({ title, palette } = {}) {
       coverState = {
         title: title || coverState.title,

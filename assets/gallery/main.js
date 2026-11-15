@@ -299,6 +299,8 @@ import('./player.js').then((m) => {
   room.scene.add(camera);
   if (player.group && !player.group.parent) camera.add(player.group);
 }).catch(() => { /* gestures are optional */ });
+let sfx = null;
+import('./sfx.js').then((m) => { sfx = m.createSfx(audio); }).catch(() => { /* optional */ });
 import('./music.js').then((m) => {
   music = m.createMusic();
   music.setMuted(audio.muted);
@@ -931,9 +933,23 @@ function step() {
   props.update?.(dt, camera);
   if (state.entered) updateCentrePrompt(dt);
   const airborne = controls.airborne;
-  if (airborne && !state.wasAirborne) audio.jump?.();
-  if (!airborne && state.wasAirborne) audio.land?.(0.6);
+  const justJumped = airborne && !state.wasAirborne;
+  const justLanded = !airborne && state.wasAirborne;
+  if (justJumped) audio.jump?.();
+  if (justLanded) audio.land?.(0.6);
   state.wasAirborne = airborne;
+  // Visible speed: the view opens a little when running, like a camera
+  // operator pulling back; it settles when you stop. Off with reduced motion.
+  if (!reducedMotion) {
+    const run = THREE.MathUtils.clamp((controls.speed - 2.2) / 2.6, 0, 1);
+    const fovTarget = 52 + run * 7 + (airborne ? 1.5 : 0);
+    if (Math.abs(camera.fov - fovTarget) > 0.01) {
+      camera.fov += (fovTarget - camera.fov) * Math.min(1, dt * 3.5);
+      camera.updateProjectionMatrix();
+    }
+  }
+  // Eerie and wacky sound layer (optional module).
+  sfx?.update(dt, { x: pos.x, y: floor, z: pos.z, area: state.place || null, speed: controls.speed, airborne, justJumped, justLanded, seated: controls.seated, indoor: !!state.indoor });
   if (player) {
     player.update(dt, { speed: controls.speed, jumping: controls.airborne, turnRate: controls.turnRate });
   }
