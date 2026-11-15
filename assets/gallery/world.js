@@ -13,6 +13,7 @@ export const SPACES = [
   // The indie touches: real objects with a pixel soul, each found rather than announced.
   'murals', 'floppies', 'vending', 'cat', 'radio', 'ghost', 'floorsnake', 'photobooth', 'gnome', 'oddities', 'duck',
   'mercado', 'marginal',
+  'arraial', 'quests',
   'lightpools',
 ];
 
