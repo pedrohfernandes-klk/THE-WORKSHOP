@@ -208,5 +208,25 @@ export function build(ctx) {
   trees.name = 'treelines';
   group.add(trees);
 
+  // Every hover / centre-prompt / tap raycast walked all ~30k terrain triangles
+  // (~9k on low): its bounding sphere always contains the camera, so neither the
+  // sphere test nor raycaster.far prunes it. Inside the campus rectangle the
+  // terrain is exactly the plane y = FLAT_Y (outside it nothing is walkable or
+  // pickable within the 60 m pick range), so intersect that plane analytically,
+  // honouring the amphitheatre hole the shader discards. The triangle test
+  // ignored that hole, so an invisible plane blocked picks into the bowl from the rim.
+  const pickPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -FLAT_Y);
+  const pickHit = new THREE.Vector3();
+  terrain.raycast = (raycaster, intersects) => {
+    if (!raycaster.ray.intersectPlane(pickPlane, pickHit)) return;
+    if (pickHit.x < X0 || pickHit.x > X1 || pickHit.z < Z0 || pickHit.z > Z1) return;
+    if (Math.hypot(pickHit.x - HOLE.x, pickHit.z - HOLE.z) < HOLE.r) return;
+    const distance = raycaster.ray.origin.distanceTo(pickHit);
+    if (distance < raycaster.near || distance > raycaster.far) return;
+    intersects.push({ distance, point: pickHit.clone(), object: terrain, face: { a: 0, b: 1, c: 2, normal: new THREE.Vector3(0, 1, 0), materialIndex: 0 } });
+  };
+  // Tree lines stand 150 m+ out, always beyond the 60 m pick range: skip the
+  // per-instance matrix work (~900 instances) on every pick.
+  trees.raycast = () => {};
   return { group, regions: [], colliders: [], pickables: [], update() {}, onPick() {} };
 }

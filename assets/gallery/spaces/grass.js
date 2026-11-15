@@ -106,7 +106,10 @@ export function build(ctx) {
   };
   mat.customProgramCacheKey = () => 'grass-blades-v1';
   const blades = new THREE.Mesh(geo, mat);
-  blades.frustumCulled = true;   // the geometry's bounding sphere covers every lawn blades.castShadow = false; blades.receiveShadow = true; blades.name = 'grass-blades';
+  blades.frustumCulled = true;   // the geometry's bounding sphere covers every lawn
+  // These statements used to sit inside the comment above, so the blades never received the
+  // trees', pergola's or fountain's shadows and the lawn read fully sunlit under them.
+  blades.castShadow = false; blades.receiveShadow = true; blades.name = 'grass-blades';
   group.add(blades);
 
   // ---- ground-coloured base (grid of cells, same lawn mask) ----

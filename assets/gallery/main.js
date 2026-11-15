@@ -648,6 +648,7 @@ function viewpointFor(slot) {
 }
 
 async function focusSlot(slot) {
+  const token = state.focusToken = (state.focusToken || 0) + 1;
   state.focused = slot;
   const work = byId.get(curator.hang[slot]);
   ui.setLabel(work, { seconds: curator.seconds[work.id] || 0, focused: true });
@@ -655,6 +656,8 @@ async function focusSlot(slot) {
   const view = viewpointFor(slot);
   state.flying = true;
   const arrived = await controls.flyTo(view);
+  // A newer approach (a double-click, Next pressed twice) took this flight over: it owns the focus now.
+  if (token !== state.focusToken) return;
   state.flying = false;
   if (!arrived && state.focused === slot) { leaveFocus(false); return; }
   // Soften the room behind the work once the visitor stands before it.
@@ -966,10 +969,16 @@ function prefetch() {
 const clock = new THREE.Clock();
 let paletteClock = 0;
 let running = true;
+let frameId = 0;
 
 function frame() {
   if (!running) return;
-  requestAnimationFrame(frame);
+  // One loop only: hiding the tab pauses the request frame() had already queued and
+  // showing it queues another, so both would run and each re-queue itself (one more
+  // full render per vsync after every tab switch). Cancelling the previous request
+  // folds any duplicate into this loop, whatever the browser's timer precision.
+  cancelAnimationFrame(frameId);
+  frameId = requestAnimationFrame(frame);
   try {
     step();
   } catch (err) {

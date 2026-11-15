@@ -118,7 +118,10 @@ export async function build(ctx) {
   const shadowSize = ctx.quality === 'low' ? 2048 : 4096;
   sun.shadow.mapSize.set(shadowSize, shadowSize);
   sun.shadow.bias = -0.00025;
-  sun.shadow.normalBias = 0.03;
+  // A 2048² map (quality low) has texels twice as wide (~9 cm): grow the normal offset
+  // with them, or under the low golden-hour sun PCF-soft's 1-texel taps self-shadow
+  // flat ground (acne). Unchanged (0.03) at 4096².
+  sun.shadow.normalBias = 0.03 * (4096 / shadowSize);
   sun.shadow.radius = 2;
   group.add(sun, target);
 

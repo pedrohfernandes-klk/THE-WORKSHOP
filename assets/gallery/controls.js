@@ -361,6 +361,9 @@ export function createControls(camera, dom, opts = {}) {
 
   controls.flyTo = function flyTo({ position, target, duration } = {}) {
     endAuto(false);
+    // A deliberate flight (approaching a work, Next/Prev) leaves the seat: otherwise
+    // the seated branch snaps the visitor back onto the bench the frame it lands.
+    seat = null;
     const p = position || { x: px, y: py, z: pz };
     if (world) { tmp.x = p.x; tmp.z = p.z; }
     else resolveCollision(p.x, p.z, RADIUS, bounds, colliders, tmp);
