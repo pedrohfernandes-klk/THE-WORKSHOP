@@ -730,7 +730,7 @@ export function build(ctx) {
   // gestures, slaps once or again and again). Missing keys fall back to their language.
   const LEVOU_NPC = ['Já levaste na boca!', 'Já levaste na boca, já!', 'Ahah, já levaste na boca!', 'AHAHAHAHA!', 'AHAHAH! Já levaste na boca!', 'LMFAO! Mas é o #%&@, ainda levas nessa fuça, irmão!'];
   const LEVOU_F = ['Já levaste na boca!', 'Já levaste na boca, já!', 'Ahah, já levaste na boca!'];
-  const LEVOU_VIS = ['Levaste na boca, boneco!', 'Levaste na boca, ó boneco!', 'Toma lá, boneco!', 'AHAHAHAHA!', 'AHAHAH! Já levaste na boca!', 'Já levaste na boca!', 'LMFAO! Mas é o #%&@, ainda levas nessa fuça, irmão!'];
+  const LEVOU_VIS = ['Levas na boca, porko!', 'Levaste na boca, boneco!', 'Levaste na boca, ó boneco!', 'Toma lá, boneco!', 'AHAHAHAHA!', 'AHAHAH! Já levaste na boca!', 'Já levaste na boca!', 'LMFAO! Mas é o #%&@, ainda levas nessa fuça, irmão!'];
   const DEF = {
     en: {
       run: ['No running on the campus!', 'Where is the fire?', 'Slow down. It is a gallery, not a race.'],
@@ -776,7 +776,7 @@ export function build(ctx) {
       ouch3: ['Ó seu #%&@!', 'Raios te partam!', 'Ai o caraças! Agora é que é!'],
       up: ['Ó pá! Isso é maneira?', 'Eu ia dizer uma coisa e esqueci-me!', 'No meu tempo isto não se fazia.', 'Respeito, pá!', 'Vou fazer queixa… a alguém.', 'Chapada de amador!', 'Aprende a bater, ó mão de manteiga!', "Isso doeu-me na alma, ó cara d'urso!", 'Bate-me outra vez e faço queixinhas ao gnomo!'],
       rude: ['Ó malcriado!', 'Na minha terra isso dava estalada!', 'Que falta de educação, pá!', 'Ó palerma!', 'Olha-me este cromo!', 'Vai dar banho ao cão!', 'Ó seu #%&@!', 'Ó porco!', 'Ó estupidozinho!', 'Ó cara de papo!'],
-      smug: ['Toma lá, boneco!', 'Levaste na boca, boneco!', 'Já levaste na boca!'],
+      smug: ['Toma lá, boneco!', 'Levaste na boca, boneco!', 'Já levaste na boca!', 'Levas na boca, porko!'],
       miss: ['Fugiste, hã? Para a próxima!', 'Ai o caraças, falhei!'],
       tired: ['Pronto… pronto… já não tenho idade para isto.', 'Vai, vai… vai dar banho ao cão!'],
       floor: ['Agora não, estou no chão.', 'Deixa-me estar aqui um bocadinho.', 'O chão até está fresquinho.', 'Volta mais tarde, pá.'],
