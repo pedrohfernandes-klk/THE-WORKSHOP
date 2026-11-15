@@ -10,4 +10,6 @@ Cada zona usa **sete meshes materiais fundidos**; proxies de interação têm ma
 
 Integração: aplicar `tools/w1-integration.patch`, que acrescenta os módulos em `SPACES` e os nomes em `AREAS`; `main.js` já trata `sit`. W2: caixa em `(96,35)`, ação `mercado/nata`, aproximação livre `(96,37,2)`.
 
-Claude: executar sintaxe, suites, percurso a pé desde praça, cliques/assentos, três qualidades, noite/tempestade, movimento reduzido e contadores de renderização. Validar especialmente canal contra terreno e travessia do metro. Leo valida composição/som; argumentistas validam falas.
+Acabamento revisto: a água deixa de usar padrões de mármore, passa a dielétrico com ondulação de normais filtrada, rugosidade sensível à tempestade e reflexos do ambiente existente. Sem novo passe de reflexão, textura ou triângulo; movimento reduzido fixa a ondulação. Não há refração nem reflexo planar dos objetos próximos.
+
+Claude: executar sintaxe, suites, percurso a pé desde praça, cliques/assentos, três qualidades, noite/tempestade, movimento reduzido e contadores de renderização. Validar especialmente canal contra terreno, shader da água e travessia do metro. Leo valida composição/som; argumentistas validam falas.

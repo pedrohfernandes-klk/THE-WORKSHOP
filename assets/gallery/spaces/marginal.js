@@ -22,8 +22,12 @@ export function build(ctx) {
     M.get('marble', { color: 0x315e6c, roughness: 0.23 }).clone(),
   ];
   mats[5].emissive.set(0xffbd76); mats[5].emissiveIntensity = 0.04;
-  // Opaque PBR water is deliberately inexpensive: no reflection camera or transparency.
-  mats[6].metalness = 0.35;
+  // Dielectric canal surface: keep the library PBR base, not its stone pattern.
+  // Existing environment lighting supplies glints; no planar-reflection pass.
+  for (const key of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap']) mats[6][key] = null;
+  mats[6].metalness = 0;
+  mats[6].roughness = 0.16;
+  mats[6].envMapIntensity = 1.15;
   const parts = mats.map(() => []), colour = new THREE.Color();
   function add(k, g, x, y, z, tint = 0xffffff) {
     g.translate(x, y, z); M.boxUV(g);
@@ -112,12 +116,33 @@ export function build(ctx) {
   box(3, 0.9, 0.025, 2.2, 18, 0.26, 88.5, 0x405c63);
   for (const z of [87.9, 88.7]) box(1, 1.05, 0.06, 0.24, 18, 0.3, z);
   const wind = { value: 0 }, time = { value: 0 };
+  const waterTime = { value: 0 }, waterStorm = { value: 0 };
   mats[4].onBeforeCompile = shader => {
     shader.uniforms.quayWind = wind; shader.uniforms.quayTime = time;
     shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nuniform float quayWind, quayTime;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\ntransformed.y += quayWind * sin(position.x * 3.0 + quayTime * 5.0) * smoothstep(78.4,79.6,position.z);');
   };
   mats[4].customProgramCacheKey = () => 'marginal-wind-v1';
+  mats[6].onBeforeCompile = shader => {
+    shader.uniforms.quayWaterTime = waterTime;
+    shader.uniforms.quayWaterStorm = waterStorm;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec2 vQuayWater;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvQuayWater = (modelMatrix * vec4(position, 1.0)).xz;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec2 vQuayWater; uniform float quayWaterTime, quayWaterStorm;')
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+        // Two long ripples and a filtered capillary component. World-space
+        // slopes are rotated to view space before disturbing the PBR normal.
+        float wt = quayWaterTime;
+        float capillary = 1.0 - smoothstep(0.02, 0.12, max(fwidth(vQuayWater.x), fwidth(vQuayWater.y)));
+        float sx = 0.026 * cos(vQuayWater.x * 3.4 + vQuayWater.y * 1.3 - wt * 0.9)
+          + 0.009 * capillary * cos(vQuayWater.x * 19.0 + wt * 1.7);
+        float sz = 0.018 * cos(vQuayWater.y * 4.7 - vQuayWater.x * 0.8 + wt * 0.65)
+          + 0.007 * capillary * cos(vQuayWater.y * 23.0 - wt * 1.4);
+        normal = normalize(normal + mat3(viewMatrix) * vec3(-sx, 0.0, -sz) * (1.0 + quayWaterStorm * 1.5));`);
+  };
+  mats[6].customProgramCacheKey = () => 'marginal-water-v2';
   for (let k = 0; k < mats.length; k++) {
     mats[k].vertexColors = true;
     const geo = mergeGeometries(parts[k], false); for (const p of parts[k]) p.dispose();
@@ -137,6 +162,9 @@ export function build(ctx) {
     const night = weather ? Math.max(0, Math.min(1, weather.nightK ?? (weather.night || mode === 'night' ? 1 : 0))) : 0;
     const storm = weather ? Math.max(0, Math.min(1, weather.rainK ?? (weather.storm || mode === 'storm' ? 1 : 0))) : 0;
     time.value = clock; wind.value = ctx.reducedMotion ? 0 : storm * 0.07;
+    waterTime.value = ctx.reducedMotion ? 0 : clock;
+    waterStorm.value = storm;
+    mats[6].roughness = 0.16 + storm * 0.12;
     mats[5].emissiveIntensity = 0.04 + night * 2.3;
   }
   const lines = {
