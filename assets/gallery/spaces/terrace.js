@@ -385,6 +385,10 @@ export function build(ctx) {
   }
 
   // ---- benches facing the plaza (+z) ------------------------------------------------
+  const pickables = [];
+  const seats = [];                       // sit contract: every person-place on the terrace
+  const seatProxyMat = new THREE.MeshBasicMaterial({ visible: false });
+  const mm = (v) => Math.round(v * 1000) / 1000;
   function bench(cx, cz, w = 1.9) {
     const d = 0.55, seatY = Y + 0.44, x0 = cx - w / 2;
     // seat slats
@@ -405,6 +409,27 @@ export function build(ctx) {
     // under-bench light strip
     box(w - 0.4, 0.015, 0.03, cx, Y + 0.09, cz + d / 2 - 0.05, lightMat, { noUV: true, cast: false, receive: false });
     colliders.push({ minX: x0, maxX: x0 + w, minZ: cz - d / 2 - 0.1, maxZ: cz + d / 2, minY: Y, maxY: Y + 0.9 });
+    // seats: as many 0.6 m person-places as the length allows (1.9 m → 3), on
+    // the slat tops (slat centre seatY + half its 0.04), centred on the 5-slat
+    // field (= the middle slat, cz − 0.005), looking +z: away from the backrest,
+    // over the balustrade to the plaza.
+    const n = Math.floor(w / 0.6 + 1e-9);
+    const seatTop = seatY + 0.02, seatZ = cz - d / 2 + 0.05 + 2 * 0.11;
+    const own = [];
+    for (let i = 0; i < n; i++) {
+      own.push({ x: mm(cx + (i - (n - 1) / 2) * 0.6), y: mm(seatTop), z: mm(seatZ), facing: [0, 1] });
+    }
+    // invisible pick proxy enclosing seat, reclined back and frames: x0…x0+w,
+    // deck to just above the backrest top (≈ Y + 0.925), back posts leaning to
+    // cz − d/2 − 0.111, rails to cz + d/2 — any ray reaching the bench meets it first.
+    const pz0 = cz - d / 2 - 0.125, pz1 = cz + d / 2 + 0.015, ph = 0.95;
+    const proxy = new THREE.Mesh(new THREE.BoxGeometry(w + 0.02, ph, pz1 - pz0), seatProxyMat);
+    proxy.name = 'terrace-bench-seat';
+    proxy.position.set(cx, Y + ph / 2, (pz0 + pz1) / 2);
+    proxy.userData.action = { type: 'sit', seats: own };
+    group.add(proxy);
+    pickables.push(proxy);
+    seats.push(...own);
   }
   bench(-3.6, 16.35);
   bench(-1.3, 16.35);
@@ -423,7 +448,7 @@ export function build(ctx) {
   ];
   let t = 0;
   return {
-    group, regions, colliders, pickables: [],
+    group, regions, colliders, pickables, seats,
     update(dt) { t += dt; if (group._grass) group._grass.uTime.value = t; },
     onPick() {},
   };

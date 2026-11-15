@@ -969,6 +969,17 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
   });
   const blobGeo = new THREE.PlaneGeometry(1.15, 3.0);
   blobGeo.rotateX(-Math.PI / 2);
+  // Sitting (sit contract): each backless bench seats three a side, back to back,
+  // facing the long walls of art (±x). Places are 0.8 m apart along the 2.4 m
+  // slab, centred on each half of its 0.6 m depth (x = ±0.15), at the slab top
+  // (0.397 + 0.046 extrude + 0.007 bevel = 0.45). One invisible pick proxy,
+  // slightly larger than the whole bench so it is hit before the oak and steel,
+  // carries the bench's six places; the visitor sits on the one nearest the click.
+  const BENCH_SEAT_Y = 0.45;
+  const seats = [];
+  const seatProxies = [];
+  const seatProxyGeo = new THREE.BoxGeometry(0.64, 0.48, 2.44);
+  const seatProxyMat = new THREE.MeshBasicMaterial({ visible: false });
   for (const bz of [-5, 5]) {
     const seat = addMesh(seatGeo, benchOak);
     seat.position.z = bz;
@@ -978,6 +989,16 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
     blob.position.set(0, 0.004, bz);
     blob.renderOrder = 1;
     colliders.push({ minX: -0.3 - 0.3, maxX: 0.3 + 0.3, minZ: bz - 1.2 - 0.3, maxZ: bz + 1.2 + 0.3 });
+    const benchSeats = [];
+    for (const side of [-1, 1]) {
+      for (const dz of [-0.8, 0, 0.8]) benchSeats.push({ x: side * 0.15, y: BENCH_SEAT_Y, z: bz + dz, facing: [side, 0] });
+    }
+    const proxy = addMesh(seatProxyGeo, seatProxyMat);
+    proxy.position.set(0, 0.24, bz);
+    proxy.name = 'bench-sit-pick';
+    proxy.userData.action = { type: 'sit', seats: benchSeats };
+    seatProxies.push(proxy);
+    seats.push(...benchSeats);
   }
 
   // ---- floor ---------------------------------------------------------------
@@ -1118,7 +1139,7 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
   const linenMat = prep(new THREE.MeshStandardMaterial({ color: 0x1b1916, roughness: 0.96, metalness: 0 }));
   const blackFrameMat = prep(new THREE.MeshStandardMaterial({ color: 0x0a0a0b, roughness: 0.38, metalness: 0.25, envMapIntensity: 0.9 }));
 
-  const pickables = [];
+  const pickables = [...seatProxies]; // the benches' sit proxies; works join as they are hung
   const slotState = SLOTS.map((s) => {
     const zRef = s.position.z;
     const order = clamp01((HZ - zRef) / (HZ * 2));
@@ -1725,6 +1746,7 @@ export function createRoom(renderer, { quality = 'high', reducedMotion = false }
     colliders,
     floor,
     pickables,
+    seats, // every place to sit in the hall: { x, y, z, facing: [fx, fz] }, world metres
     hang,
     reveal,
     isDeveloping,

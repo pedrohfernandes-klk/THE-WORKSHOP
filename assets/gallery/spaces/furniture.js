@@ -150,11 +150,45 @@ export function build(ctx) {
     colliders.push({ minX: b.x - 0.08, maxX: b.x + 0.08, minZ: b.z - 0.08, maxZ: b.z + 0.08, minY: 0, maxY: 1.2 });
   }
 
+  // ---- Seats (sit contract): 3 person-places per bench, facing x = 0 --------
+  // Seat surface = slat tops: slat centre y 0.425 + half its 0.05 thickness.
+  // Places 0.6 m apart along the 1.8 m length (local x −0.6, 0, 0.6), centred
+  // on the slat field (local z = 0), looking out of the bench front (local +Z),
+  // all through the bench's own transform B. One invisible pick proxy per bench
+  // encloses slats, legs and rails (local 1.8 × 0.45 × 0.5), so any ray that
+  // reaches the bench meets the proxy first.
+  const seatTop = 0.425 + 0.05 / 2;
+  const mm = (v) => Math.round(v * 1000) / 1000;      // drop the ±π/2 float noise
+  const seats = [];
+  const pickables = [];
+  const proxyH = seatTop + 0.03;
+  const proxyGeo = new THREE.BoxGeometry(1.84, proxyH, 0.54);   // bench local frame
+  const proxyMat = new THREE.MeshBasicMaterial({ visible: false });
+  const sp = new THREE.Vector3(), front = new THREE.Vector3();
+  for (const b of benches) {
+    const B = T(b.x, 0, b.z, b.ry);
+    front.set(0, 0, 1).transformDirection(B);
+    const own = [];
+    for (const sx of [-0.6, 0, 0.6]) {
+      sp.set(sx, seatTop, 0).applyMatrix4(B);
+      own.push({ x: mm(sp.x), y: mm(sp.y), z: mm(sp.z), facing: [mm(front.x), mm(front.z)] });
+    }
+    const proxy = new THREE.Mesh(proxyGeo, proxyMat);
+    proxy.name = 'plaza-bench-seat';
+    proxy.position.set(b.x, proxyH / 2, b.z);
+    proxy.rotation.y = b.ry;
+    proxy.userData.action = { type: 'sit', seats: own };
+    group.add(proxy);
+    pickables.push(proxy);
+    seats.push(...own);
+  }
+
   return {
     group,
     regions: [],
     colliders,
-    pickables: [],
+    pickables,
+    seats,
     update() {},
   };
 }

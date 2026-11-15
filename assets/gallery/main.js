@@ -256,11 +256,14 @@ if (shared) {
   ui.showEntry({ mode: 'attentive' });
 }
 
-const ready = Promise.all([hangInitial(), worldReady]).then(() => {
-  // Compile every material once behind the entry screen, so the first steps
-  // into the room do not hitch on shader compilation.
-  try { renderer.compile(room.scene, camera); } catch (e) { /* optional */ }
-  ui.setProgress(1);
+// Enter as soon as the hall's works hang: the rest of the campus streams in
+// behind the visitor, and the doors open to it the moment it is ready.
+const ready = hangInitial().then(() => { ui.setProgress(1); });
+worldReady.then((w) => {
+  if (!w) return;
+  // Compile the campus's shaders off the main thread where the GPU allows.
+  try { renderer.compileAsync?.(room.scene, camera).catch(() => {}); } catch (e) { /* optional */ }
+  if (state.entered) ui.toast('The doors are open — the campus awaits outside.', 3600);
 });
 
 // ----------------------------------------------------------------- entry --
@@ -299,6 +302,8 @@ import('./player.js').then((m) => {
   room.scene.add(camera);
   if (player.group && !player.group.parent) camera.add(player.group);
 }).catch(() => { /* gestures are optional */ });
+let sfx = null;
+// (movement sound effects module: wired in when it lands)
 import('./music.js').then((m) => {
   music = m.createMusic();
   music.setMuted(audio.muted);
@@ -931,9 +936,23 @@ function step() {
   props.update?.(dt, camera);
   if (state.entered) updateCentrePrompt(dt);
   const airborne = controls.airborne;
-  if (airborne && !state.wasAirborne) audio.jump?.();
-  if (!airborne && state.wasAirborne) audio.land?.(0.6);
+  const justJumped = airborne && !state.wasAirborne;
+  const justLanded = !airborne && state.wasAirborne;
+  if (justJumped) audio.jump?.();
+  if (justLanded) audio.land?.(0.6);
   state.wasAirborne = airborne;
+  // Visible speed: the view opens a little when running, like a camera
+  // operator pulling back; it settles when you stop. Off with reduced motion.
+  if (!reducedMotion) {
+    const run = THREE.MathUtils.clamp((controls.speed - 2.2) / 2.6, 0, 1);
+    const fovTarget = 52 + run * 7 + (airborne ? 1.5 : 0);
+    if (Math.abs(camera.fov - fovTarget) > 0.01) {
+      camera.fov += (fovTarget - camera.fov) * Math.min(1, dt * 3.5);
+      camera.updateProjectionMatrix();
+    }
+  }
+  // Eerie and wacky sound layer (optional module).
+  sfx?.update(dt, { x: pos.x, y: floor, z: pos.z, area: state.place || null, speed: controls.speed, airborne, justJumped, justLanded, seated: controls.seated, indoor: !!state.indoor });
   if (player) {
     player.update(dt, { speed: controls.speed, jumping: controls.airborne, turnRate: controls.turnRate });
   }
