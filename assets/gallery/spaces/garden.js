@@ -306,13 +306,25 @@ export function build(ctx) {
   // front (local +z) over its lawn — all through the bench's own instance transform.
   // One invisible pick proxy per bench encloses slats, reclined back and steel frame
   // (local x ±0.9, y 0…0.932, z −0.333…0.29) with ~2 cm to spare, so any ray that
-  // reaches the bench meets the proxy first.
+  // reaches the bench meets the proxy first. It is shaped, not one box: a slab just
+  // over the slats (top 0.49), the back behind them (z ≤ −0.19) and, at |x| 0.75…0.83,
+  // the armrest bars and front-leg tops. The space above each seat stays open, so the
+  // gnome that gnome.js perches on the bench ends (local x ±0.6, z 0.04, feet on the
+  // slats, pick cylinder r 0.15 × 0.46) is still clicked before the bench is.
   const seats = [], pickables = [];
   {
     const SEAT_TOP = 0.455 + 0.03 / 2, SEAT_Z = -0.16 + 2 * 0.1;
     const PROXY_Z0 = -0.35, PROXY_Z1 = 0.31, PROXY_H = 0.95;
     const mm = (v) => Math.round(v * 1000) / 1000 || 0;      // drop sin/cos float noise (and −0)
-    const proxyGeo = new THREE.BoxGeometry(1.84, PROXY_H, PROXY_Z1 - PROXY_Z0).translate(0, PROXY_H / 2, (PROXY_Z0 + PROXY_Z1) / 2);
+    const pbox = (x0, x1, y0, y1, z0, z1) => new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0).translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+    const proxyGeo = merge([
+      pbox(-0.92, 0.92, 0, SEAT_TOP + 0.02, PROXY_Z0, PROXY_Z1),     // slats, runners, legs, feet
+      pbox(-0.92, 0.92, SEAT_TOP, PROXY_H, PROXY_Z0, -0.19),         // reclined back slats and posts
+      ...[[-0.83, -0.75], [0.75, 0.83]].flatMap(([x0, x1]) => [
+        pbox(x0, x1, 0.63, 0.7, -0.3, 0.3),                          // armrest (y 0.646…0.674, z ±0.28)
+        pbox(x0, x1, SEAT_TOP, 0.7, 0.17, 0.25),                     // front leg up to it (z 0.185…0.235)
+      ]),
+    ]);
     const proxyMat = new THREE.MeshBasicMaterial({ visible: false });
     const B = new THREE.Matrix4(), p = new THREE.Vector3(), f = new THREE.Vector3();
     for (const [x, z, a] of BENCHES) {
