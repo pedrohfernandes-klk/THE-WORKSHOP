@@ -1089,7 +1089,10 @@ function step() {
   const sun = world && world.modules.get('environment')?.sun;
   if (sun) {
     if (state.sunBase === undefined) state.sunBase = sun.intensity;
-    state.sunK = (state.sunK ?? 1) + ((state.indoor ? 0 : 1) - (state.sunK ?? 1)) * Math.min(1, dt * 4);
+    // Before entering, the camera stands in the hall: the sun must already be out
+    // there too (at a low golden-hour sun its shadow texels streak the hall walls).
+    const indoorNow = state.entered ? state.indoor : true;
+    state.sunK = (state.sunK ?? 1) + ((indoorNow ? 0 : 1) - (state.sunK ?? 1)) * Math.min(1, dt * 4);
     sun.intensity = (weather ? sun.intensity : state.sunBase) * state.sunK;
   }
   placeClock += dt;
