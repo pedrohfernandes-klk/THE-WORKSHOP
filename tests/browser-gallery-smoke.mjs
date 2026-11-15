@@ -43,9 +43,12 @@ async function until(page, predicate, arg, { timeout = 240000, label = 'conditio
   }
 }
 
-async function boot(page, url) {
+// full: wait for the whole campus (textures, every space). The shared-link and
+// phone checks only need the engine and the curator, which exist at once.
+async function boot(page, url, { full = true } = {}) {
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 240000 });
   await until(page, () => !!window.__gallery, null, { label: 'the gallery to boot' });
+  if (!full) return;
   await until(page, () => window.__gallery.state && document.getElementById('enter') && !document.getElementById('enter').disabled, null, { label: 'the campus to load' });
 }
 
@@ -185,7 +188,7 @@ try {
   const sharedPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   const sharedProblems = watch(sharedPage);
   const sharedUrl = link.replace(/^https?:\/\/[^/]+\/(?:index\.html)?/, `${origin}/?test&quality=low`);
-  await boot(sharedPage, sharedUrl);
+  await boot(sharedPage, sharedUrl, { full: false });
   const shared = await sharedPage.evaluate(() => ({ hang: window.__gallery.curator.hang.slice(), fixed: window.__gallery.curator.fixed }));
   results.shared = { fixed: shared.fixed, same: shared.hang.join() === exhibition.hang.join() };
   if (!shared.fixed) fail('A shared exhibition should open fixed');
@@ -196,7 +199,7 @@ try {
   // ===== 6. Phone width: no sideways scroll, entry reachable =====
   const phone = await browser.newPage({ viewport: { width: 375, height: 740 }, isMobile: true, hasTouch: true });
   const phoneProblems = watch(phone);
-  await boot(phone, `${origin}/?test&quality=low`);
+  await boot(phone, `${origin}/?test&quality=low`, { full: false });
   results.phone = await phone.evaluate(() => ({
     overflow: document.documentElement.scrollWidth - innerWidth,
     quality: window.__gallery.quality,
