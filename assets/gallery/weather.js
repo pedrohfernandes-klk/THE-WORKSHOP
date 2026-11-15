@@ -195,8 +195,9 @@ export function createWeather(ctx, { environment } = {}) {
       float city = exp(-max(h,0.)*14.0) * (0.55 + 0.45*max(cos(az - 0.6), 0.0));
       c += vec3(0.055,0.032,0.016) * city;
       // airglow: a faint green band ~12 deg up
-      c += vec3(0.0006,0.0022,0.0009) * exp(-pow((h-0.2)/0.08, 2.0));
-      c = mix(c, vec3(0.010,0.012,0.020), smoothstep(0.,-0.25,h));
+      float ag = (h - 0.2) / 0.08;
+      c += vec3(0.0006,0.0022,0.0009) * exp(-ag*ag);
+      c = mix(c, vec3(0.010,0.012,0.020), 1.0 - smoothstep(-0.25, 0.0, h));
       // Milky Way
       if (uMW > 0.0 && h > -0.08) {
         vec3 e = uCel * d;
@@ -212,7 +213,8 @@ export function createWeather(ctx, { environment } = {}) {
           float clump = vn(e*19.0)*0.6 + vn(e*41.0)*0.4;
           // dust: the Great Rift (Cygnus..Sagittarius) and lanes along the plane
           float riftC = 1.2 + 2.4*sin(l*0.045);
-          float rift = exp(-pow((b - riftC)/(1.3 + 1.8*cen), 2.0)) * smoothstep(110.0, 20.0, abs(l - 25.0));
+          float rq = (b - riftC) / (1.3 + 1.8*cen);
+          float rift = exp(-rq*rq) * (1.0 - smoothstep(20.0, 110.0, abs(l - 25.0)));
           float lanes = smoothstep(0.52, 0.78, vn(e*12.0 + 7.0)) * band;
           float dust = clamp(rift*(0.55 + 0.6*n) + lanes*0.55, 0.0, 0.92);
           float I = (band*(0.28 + 0.72*cen) + bulge*0.9) * (0.45 + 0.9*n) * (0.7 + 0.6*clump) * (1.0 - dust);
@@ -315,7 +317,7 @@ export function createWeather(ctx, { environment } = {}) {
       float lit = smoothstep(-0.03,0.1,dot(n,s));
       // maria: darker basaltic patches, brighter highlands
       float mott = 0.86 + 0.14*sin(q.x*7.+1.)*sin(q.y*9.-.5)*sin(q.x*3.+q.y*5.);
-      mott *= 1.0 - 0.22*smoothstep(0.25, 0.0, length(q - vec2(-0.25, 0.3))) - 0.18*smoothstep(0.3, 0.0, length(q - vec2(0.2, 0.05)));
+      mott *= 1.0 - 0.22*(1.0 - smoothstep(0.0, 0.25, length(q - vec2(-0.25, 0.3)))) - 0.18*(1.0 - smoothstep(0.0, 0.3, length(q - vec2(0.2, 0.05))));
       vec3 col = vec3(0.92,0.92,0.95)*mott*(0.03+0.97*lit)*(0.75 + 0.25*z)*2.6;
       float halo = (exp(-r*8.)*0.35 + exp(-r*2.6)*0.07);
       vec3 rgb = mix(vec3(0.55,0.65,0.9), col, disc);

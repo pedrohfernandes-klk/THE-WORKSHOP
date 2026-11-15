@@ -4,10 +4,10 @@
 // Mix: ONE AudioContext, ONE limiter. Everything sums into E.master (mute + level), then the limiter,
 // then a soft clip that never lets the sum cross 0 dBFS (the limiter's 3 ms attack lets transients by).
 //   effects, beds, weather, sfx.js, NPC voices -> E.master (audio.bus)
-//   the score -> E.musicIn: -8 dB trim AFTER music.js's comp + limiter (their automatic make-up gain adds
-//     ~+10 dB, so its 0.55 bus really nets ~+5 dB), a -3 dB dip at 2.2 kHz so the footstep band stays
-//     clear, and a duck (cinema, speech via audio.duck(), thunder) -> E.master.
-//     Join it with music.start(audio.musicContext): the real context whose `destination` is that bus.
+//   the score -> E.musicIn (its fader: trim, a -1.5 dB dip at 2.2 kHz for the footstep band, a duck for the
+//     cinema, speech via audio.duck(), thunder hits, and -2 dB after a few still seconds) -> E.master.
+//     Join it with music.start(audio.context, audio.musicBus) (or music.start(audio.musicContext) for a
+//     score that only takes a context: its `destination` is that bus).
 // Weather: audio.setWeather({ mode, night, storm }) every frame (scene.userData.weather); night brings
 // crickets, an owl, far dogs, the city, wind moaning in the ruins; a storm brings gusts, rain that
 // sounds like what it falls on, and thunder whose crack and delay follow the strike's distance.
@@ -17,11 +17,12 @@ const rand = (a, b) => a + Math.random() * (b - a);
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 
 const MIX = {
-  // music.js's comp + limiter level-normalise the score to ~-11 dBFS RMS at ANY intensity (measured);
-  // -15 dB puts it at ~-25 dBFS RMS, ~10 dB under a footstep's peak. At rest it dips 3 dB more.
-  musicTrim: 0.18,
-  musicDip: -3,     // dB at 2.2 kHz
-  duck: { cinema: 0.22, speech: 0.42, thunder: 0.5, rest: 0.3, night: 0.3 },
+  // Measured offline (OfflineAudioContext, outdoor walk): the old score hit -11 dBFS RMS at any intensity;
+  // today's music.js trims itself -8 dB, and this -8 dB seats it at ~-25.7 dBFS RMS (peaks ~-16),
+  // under footsteps peaking -16..-11 dBFS. The score's own night mix steps back, so no night dip here.
+  musicTrim: 0.4,
+  musicDip: -1.5,   // dB at 2.2 kHz (music.js has its own -2.5 dB voice-band pocket)
+  duck: { cinema: 0.22, speech: 0.42, thunder: 0.5, rest: 0.2, night: 0 },
   rain: 0.12,       // full storm rain outdoors: ~-30 dBFS RMS on stone
 };
 const MAX_VOICES = 32; // one-shot events alive at once (steps, breaths, calls, hits); garnish is dropped first
@@ -360,7 +361,7 @@ export function scheduleStep(E, t, { level = 1, pan = 0, soft = 1, pitch = 1, su
   if (S.grain) {
     play(take(E, 'gravel'), t, 0.2 * lv * (1 + 0.3 * gait), p * rand(0.94, 1.06));
   } else if (S.soft) {
-    play(take(E, 'grass'), t, 0.14 * lv * (1 + 0.4 * gait), p * rand(0.9, 1.1));
+    play(take(E, 'grass'), t, 0.11 * lv * (1 + 0.4 * gait), p * rand(0.9, 1.1));
   } else {
     burst(t, S.ha * lv * heelA, S.heel * v.f, v.q, 0.0015, S.hd);
     burst(tToe, S.ta * lv * toeA, S.toe * v.toe, v.q, 0.0015, S.hd * 0.8);
@@ -1141,7 +1142,7 @@ export function createAudio() {
         const mk = (t, soft) => {
           A.side = -A.side;
           const left = A.side < 0;  // the two feet are never quite the same
-          scheduleStep(A.E, t, { level: (0.85 + 0.25 * hurry) * (left ? 0.93 : 1), pan: A.side * rand(0.08, 0.2), soft, pitch: (1 + 0.03 * hurry) * (left ? 0.97 : 1), surface: A.surface, gait, wet, rustle: 0.03 + 0.06 * gait });
+          scheduleStep(A.E, t, { level: 1.25 * (0.85 + 0.25 * hurry) * (left ? 0.93 : 1), pan: A.side * rand(0.08, 0.2), soft, pitch: (1 + 0.03 * hurry) * (left ? 0.97 : 1), surface: A.surface, gait, wet, rustle: 0.03 + 0.06 * gait });
           if (gait > 0.3) scheduleSwish(A.E, t + period * 0.5, 0.035 * gait, A.side); // arm swing between strides
           A.lastStep = t; A.stepCount++;
         };

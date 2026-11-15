@@ -1059,7 +1059,7 @@ export function build(ctx) {
       n.mutterCd -= dt;
       if (near && d2 < 6.25 && !n.near && n.mutterCd <= 0 && n.talkT <= 0 && !n.busy && !down) {
         if (n.barker && Math.random() < 0.3) midBark(n);
-        else { n.line = (n.line + 1 + ((Math.random() * 3) | 0)) % S.lines.length; say(n, S.lines[n.line], false); }
+        else say(n, pickFrom(n, S.lines), false);
         if (Math.random() < 0.3) { n.laughAt = 1.4; n.laughText = ''; }
       }
       n.near = near;
@@ -1167,7 +1167,13 @@ export function build(ctx) {
       }
       if (n.laughT > 0) n.laughT -= dt;
       if (n.pointT > 0) { n.pointT -= dt; if (n.pointT <= 0) { if (n.faceN === n.pointAt) n.faceN = null; n.pointAt = null; } }
-      if (n.laughAt > 0) { n.laughAt -= dt; if (n.laughAt <= 0) { if (!down || n.rofl) startLaugh(n, n.laughText); n.laughText = ''; } }
+      if (n.laughAt > 0) {
+        n.laughAt -= dt;
+        if (n.laughAt <= 0) {
+          if (!down || n.rofl) startLaugh(n, n.laughText === '*' ? pickFrom(n, HA[S.name] || LAUGH_BUB) : n.laughText);
+          n.laughText = '';
+        }
+      }
       n.laughCd -= dt;
       if (n.laughCd <= 0) {
         if (near && n.talkT <= 0 && n.laughT <= 0 && n.sillyT < 0 && !n.busy) startLaugh(n, pickFrom(n, HA[S.name] || LAUGH_BUB));
@@ -1249,6 +1255,7 @@ export function build(ctx) {
         }
       }
       if (n.gest > 0) { n.gest -= dt; hop += Math.abs(Math.sin(time * 12)) * 0.08; shake += Math.sin(time * 25) * 0.3; }
+      if (floor && !n.fixed && !(n.busy && n.pestT <= 0)) keepOut(n);
 
       // pose
       n.walk += ((moving ? 1 : 0) - n.walk) * Math.min(1, dt * 8);
@@ -1407,7 +1414,7 @@ export function build(ctx) {
       const ex = m.x - n.x, ez = m.z - n.z, q = ex * ex + ez * ez;
       if (q < 144 && m.zone === n.zone && !(m.sillyT >= 0 && m.sillyType === 4)) {
         m.laughAt = impact + 0.12 + Math.sqrt(q) * 0.05 + Math.random() * 0.25;
-        m.laughText = pickFrom(m, HA[m.S.name] || LAUGH_BUB);
+        m.laughText = '*';
         m.pointT = m.laughAt + 2.6; m.pointAt = n; if (!m.busy) m.faceN = n;
       }
     }
@@ -1435,12 +1442,7 @@ export function build(ctx) {
     }
     if (n === GO && Math.random() < 0.5) say(n, pickFrom(n, DRAMA), true, 2.7);
     else if (n.barker && Math.random() < 0.35) midBark(n);
-    else {
-      let k = (Math.random() * S.lines.length) | 0;
-      if (k === n.line) k = (k + 1) % S.lines.length;
-      n.line = k;
-      say(n, S.lines[k], true);
-    }
+    else say(n, pickFrom(n, S.lines), true);
     flush(n);
     if (Math.random() < 0.4) { n.laughAt = 1.5; n.laughText = ''; }
     if (n.sillyT < 0) { const ty = (reduced || n.fixed) ? 2 : (Math.random() * 3) | 0; startSilly(n, ty, ty === 0 ? 0.9 : 0.8); }

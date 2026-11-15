@@ -188,7 +188,7 @@ export function build(ctx) {
     const x = ux * 0.058 * (1 - 0.6 * k * k) * (1 + 0.1 * Math.max(0, uy));
     const y = 0.185 + uy * 0.07 - 0.01 * k * k;
     let z = 0.046 + uz * 0.045 * (1 - 0.2 * k);
-    if (uz > -0.3) z = Math.max(z, front(x, y) + 0.003 + 0.01 * Math.max(0, uz));
+    if (uz > -0.35) z = Math.max(z, front(x, y) + 0.001 + 0.0125 * uz);   // monotonic in uz: no folds
     if (uz > 0) z += 0.0022 * lockOf(x, y) * uz;
     v.set(x, y, z);
   }), beardPaint);
@@ -198,7 +198,7 @@ export function build(ctx) {
     paint(body, m, beardPaint);
     paint(body, deform(prep(new THREE.SphereGeometry(1, 12, 9)), (v) => {
       const x = s * 0.038 + v.x * 0.013, y = 0.244 + v.y * 0.024;
-      v.set(x, y, Math.max(0.026 + v.z * 0.018, v.z > -0.2 ? front(x, y) + 0.004 * Math.max(0.2, v.z) : -1));
+      v.set(x, y, Math.max(0.026 + v.z * 0.018, v.z > -0.35 ? front(x, y) + 0.001 + 0.005 * v.z : -1));
     }), beardPaint);
   }
 
@@ -371,7 +371,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb * (1.0 - 0.35 * gnRim), gnClay, gnChip);
   const frustum = new THREE.Frustum(), pv = new THREE.Matrix4(), sphere = new THREE.Sphere();
   const spot = { x: 0, y: 0, z: 0 };
   let gx = 0, gy = 0, gz = 0, cur = 0;
-  let hidden = 0, seen = false, wait = 3, homing = false, far = true, shrugT = -1, clicks = 0;
+  let hidden = 0, seen = false, wait = 3, homing = false, far = true, shrugT = -1, clicks = 0, lastD2 = 25;
   let seed = 20261115;
   const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
 
@@ -509,6 +509,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb * (1.0 - 0.35 * gnRim), gnClay, gnChip);
       if (!cam) return;
       const cp = cam.position, dx = cp.x - gx, dz = cp.z - gz, d2 = dx * dx + dz * dz;
       if (d2 > FAR2) { far = true; return; }
+      lastD2 = d2;
       if (far) { far = false; face(cp); }                      // it was already looking your way
       if (shrugT >= 0) shrug(dt);
       sync(cam);
@@ -533,8 +534,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb * (1.0 - 0.35 * gnRim), gnClay, gnChip);
       homing = true; hidden = 0;
       if (!reduced) shrugT = 0;
       if (ctx.ui && ctx.ui.toast) ctx.ui.toast(LINES[(clicks - 1) % LINES.length]);
-      const cp = ctx.scene && ctx.scene.userData && ctx.scene.userData.camera;   // optional; distance unknown otherwise
-      voice(reduced ? 0.03 : 0.56, cp ? 1 : 0.9);
+      voice(reduced ? 0.03 : 0.56, 1 / (1 + Math.sqrt(lastD2) / 6));   // quieter from afar
     },
   };
 }

@@ -256,6 +256,7 @@ export function build(ctx) {
   const strip = new THREE.Mesh(stripGeo, stripMat);
   strip.position.set(0.52, 0.752, 0.4475);
   strip.visible = false;
+  strip.receiveShadow = true;
   booth.add(strip);
 
   // ---------- pick proxy + collider ----------
@@ -311,7 +312,8 @@ export function build(ctx) {
     } catch (e) { /* audio unavailable */ }
   }
   const beep = (last) => tone('square', last ? 1320 : 880, last ? 1320 : 880, 0.12, 0.08, 2600);
-  const shutter = () => { tone('sine', 2200, 5200, 0.22, 0.025, 8000); noise(0.05, 2600, 0.32, 0.18); tone('sine', 170, 55, 0.12, 0.22, 600, 0.19); };
+  // click + mirror clunk at the flash, then the flash capacitor's thin recharge whine
+  const shutter = () => { noise(0.05, 2600, 0.32); tone('sine', 170, 55, 0.12, 0.22, 600, 0.01); tone('sine', 2200, 5200, 0.55, 0.018, 8000, 0.06); };
   const motor = () => { tone('sawtooth', 92, 104, 1.5, 0.045, 520); noise(0.03, 3200, 0.12, 1.55); };
 
   // ---------- the white flash (a DOM veil, so it never touches the render) ----------
@@ -505,9 +507,9 @@ export function build(ctx) {
     t += dt;
     if (flashT >= 0 && (flashT += dt) > 0.16) { flashT = -1; lampsIdle(); gfxMat.color.setScalar(GLOW); }
     if (state === COUNT) {
-      while (beeps < 3 && t >= beeps * BEEP_GAP) { setPart(beeps, LAMP_ON); beep(false); beeps++; }
+      while (beeps < 3 && t >= beeps * BEEP_GAP) { setPart(beeps, LAMP_ON); beep(beeps === 2); beeps++; }
       if (t >= 3 * BEEP_GAP) {
-        beep(true); shutter();
+        shutter();
         if (!reduced) { flashScreen(); lampsFlash(); gfxMat.color.setScalar(GLOW * 2.2); }
         flashT = 0;
         state = SHOOT;                      // capture next frame, behind the veil
@@ -535,6 +537,7 @@ export function build(ctx) {
   function onPick() {
     if (state !== IDLE || cooldown > 0) return;
     state = COUNT; t = 0; beeps = 0;
+    flickerT = -1; gfxMat.color.setScalar(GLOW);
     lampsIdle();
     ctx.ui.toast('Enquadre a vista que quer guardar… 3 · 2 · 1');
   }

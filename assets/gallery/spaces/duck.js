@@ -69,7 +69,7 @@ function skin(dx, dy, dz, out) {
   x += dx * wav; y += dy * wav; z += dz * wav;
   if (y > BODY.cy) y = BODY.cy + (y - BODY.cy) * (1 - 0.15 * sstep(0.2, -1.0, z) * (1 - sstep(1.75, 2.0, y)));
   // tail: a sculptor's grab of the rear of the back, up and out into a narrowing point
-  const gx = x, gy = y - TAIL.y, gz = z - TAIL.z;
+  const gx = x, gy = y - TAIL.y, gz0 = z - TAIL.z, gz = gz0 > 0 ? gz0 * 1.8 : gz0; // tight toward the neck: keeps the dip in the back
   const g = Math.exp(-(gx * gx + gy * gy + gz * gz) / (TAIL.r * TAIL.r));
   y += TAIL.dy * g; z += TAIL.dz * g; x *= 1 - 0.45 * g;
   // wings: welded panels, puffed out on both flanks (the seam is drawn in the shader)
@@ -362,6 +362,7 @@ export function build(ctx) {
   const PICK = [
     [0, BODY.cy + 0.1, -0.05, BODY.ax, BODY.up * 0.9, (BODY.front + BODY.back) / 2],
     [HEAD.x, HEAD.y, HEAD.z + 0.08, HEAD.ax, HEAD.ay, HEAD.az + 0.1],
+    [BILL_UP.x, 1.95, BILL_UP.z + 0.05, 0.5, 0.2, 0.42],
   ];
   const inv = new THREE.Matrix4(), ray = new THREE.Ray(), hitP = new THREE.Vector3(), hitN = new THREE.Vector3();
   duck.raycast = function (raycaster, intersects) {

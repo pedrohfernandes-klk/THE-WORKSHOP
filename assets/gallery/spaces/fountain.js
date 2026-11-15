@@ -397,6 +397,34 @@ export function build(ctx) {
   // ---------- colliders ----------
   const colliders = [{ minX: 42.5, maxX: 49.5, minZ: 25.5, maxZ: 32.5, minY: 0, maxY: 0.5 }];
 
+  // ---------- sitting (sit contract) ----------
+  // Twelve person-places round the basin coping, one every 30 deg from due east
+  // (1.68 m apart), each on the middle of the flat top (r 2.98…3.42 in basinPts →
+  // r 3.2, y 0.50), facing straight out from the water: down the four garden paths
+  // and over the lawns between them. Seats are world coordinates (the group sits at
+  // CX, 0, CZ). One invisible ring-shaped pick proxy (a closed rectangular lathe)
+  // wraps the whole coping — top, outer moulding, inner lip — PM proud of the
+  // profile's extremes (r 2.78…3.50, y 0…0.50; its 48-gon chords stay ≥ 1.2 cm
+  // outside r 3.50), so a click anywhere on the stone seats you at the nearest place.
+  const seats = [], pickables = [];
+  {
+    const rs = basinPts.map((p) => p[0]), top = Math.max(...basinPts.map((p) => p[1]));
+    const flat = basinPts.filter((p) => p[1] === top).map((p) => p[0]);
+    const SEAT_R = (Math.min(...flat) + Math.max(...flat)) / 2, N_SEATS = 12, PM = 0.02;
+    const rIn = Math.min(...rs) - PM, rOut = Math.max(...rs) + PM, yTop = top + PM;
+    const mm = (v) => Math.round(v * 1000) / 1000 || 0;
+    for (let k = 0; k < N_SEATS; k++) {
+      const a = (k / N_SEATS) * Math.PI * 2, fx = Math.cos(a), fz = Math.sin(a);
+      seats.push({ x: mm(CX + SEAT_R * fx), y: mm(top), z: mm(CZ + SEAT_R * fz), facing: [mm(fx), mm(fz)] });
+    }
+    // profile ordered counter-clockwise in (r, y), so every face points out of the ring
+    const prof = [[rIn, 0], [rOut, 0], [rOut, yTop], [rIn, yTop], [rIn, 0]].map(([r, y]) => new THREE.Vector2(r, y));
+    const proxy = new THREE.Mesh(new THREE.LatheGeometry(prof, 48), new THREE.MeshBasicMaterial({ visible: false }));
+    proxy.name = 'fountain-coping-seats';
+    proxy.userData.action = { type: 'sit', seats: seats.slice() };
+    group.add(proxy); pickables.push(proxy);
+  }
+
   // ---------- update ----------
   let t = 0;
   const FROZEN = 3.7;
@@ -404,7 +432,8 @@ export function build(ctx) {
     group,
     regions: [],
     colliders,
-    pickables: [],
+    pickables,
+    seats, // every place to sit on the basin coping: { x, y, z, facing: [fx, fz] }, world metres
     position: new THREE.Vector3(46, 0.8, 29),
     update(dt, frame) {
       t += dt;

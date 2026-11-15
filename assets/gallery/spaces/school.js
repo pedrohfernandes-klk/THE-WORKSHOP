@@ -61,6 +61,12 @@ export function build(ctx) {
   const mm = v => Math.round(v * 1000) / 1000 || 0;   // drop float noise (and -0)
   // box in the chair's own frame: w along room u (the chair's depth), d along room lz, from y0 to y1
   const sitBox = (w, d, y0, y1) => new THREE.BoxGeometry(w, y1 - y0, d).translate(0, (y0 + y1) / 2, 0);
+  // L-shaped variant: seat block u0..u1 (y0..yS) + backrest block b0..b1 (yS..yB), u relative to the place;
+  // the space above the seat stays open, so sightlines over the chair (boards, screens) are not cut
+  const sitL = (u0, u1, d, y0, yS, b0, b1, yB) => mergeGeometries([
+    new THREE.BoxGeometry(u1 - u0, yS - y0, d).translate((u0 + u1) / 2, (y0 + yS) / 2, 0),
+    new THREE.BoxGeometry(b1 - b0, yB - yS, d).translate((b0 + b1) / 2, (yS + yB) / 2, 0),
+  ]);
   function sitProxy(geo, m, place, name) {
     const p = new THREE.Mesh(geo, sitMat);
     p.name = name; p.applyMatrix4(m);
@@ -537,10 +543,10 @@ export function build(ctx) {
     lid.userData.action = { type: 'app', url: 'https://pedrohfernandes-klk.github.io/lente/', title: 'Lente · EPI 2026/2027' }; pickables.push(lid);
     I('seat', new RoundedBoxGeometry(0.45, 0.05, 0.45, 2, 0.02), plasticGrey, L(1.05, 0.48, -2.3)); I('back', new RoundedBoxGeometry(0.04, 0.4, 0.42, 2, 0.015), plasticGrey, L(0.84, 0.74, -2.3));
     CY(steel, 0.025, 0.46, 0, 0, 0, L(1.05, 0.23, -2.3));
-    // sit: the teacher looks at the class (+u, away from the backrest at 0.84). Seat top 0.48 + 0.02: the
-    // shared 'seat' instance key draws this seat with the students' 0.04 m seat; the box also covers the
-    // declared 0.45 seat and 0.4 m backrest (top 0.94).
-    A.sit(sitBox(0.5, 0.49, 0, 0.97), 1.05, -2.3, 0.48 + 0.02, 1, 'school-lente-chair-teacher');
+    // sit: the teacher looks at the class (+u, away from the backrest at 0.84). The shared 'seat' / 'back'
+    // instance keys draw this chair with the students' parts (seat 0.42 x 0.04, back 0.025 x 0.22 x 0.4):
+    // seat top 0.48 + 0.02, back u 0.8275..0.8525, y 0.63..0.85; the proxy fits those with 2-3 cm to spare.
+    A.sit(sitL(-0.235, 0.235, 0.46, 0, 0.53, -0.245, -0.175, 0.88), 1.05, -2.3, 0.48 + 0.02, 1, 'school-lente-chair-teacher');
     // wall photographs on the door wall and partition
     hang(L(2.2, 1.8, -5.545, 0), 1.0, 0.73, photoTexs[0]); hang(L(4.0, 1.8, -5.545, 0), 1.0, 0.73, photoTexs[2]);
     hang(L(9.78, 1.7, -2.2, -PI / 2), 0.8, 1.1, photoTexsP[0]); hang(L(9.78, 1.7, 0.0, -PI / 2), 0.8, 1.1, photoTexsP[1]); hang(L(9.78, 1.7, 2.2, -PI / 2), 0.8, 1.1, photoTexsP[2]);
@@ -565,8 +571,10 @@ export function build(ctx) {
     aabb(0.0, 2.7, -4.3, 4.7, 0.15); colliders.pop(); // dais is walkable
     aabb(1.15, 2.05, -1.05, 0.65, 0.95, 0.0);
     I('seat', new RoundedBoxGeometry(0.45, 0.05, 0.45, 2, 0.02), plasticGrey, L(0.85, 0.65, -0.2)); I('back', new RoundedBoxGeometry(0.04, 0.4, 0.42, 2, 0.015), plasticGrey, L(0.63, 0.92, -0.2));
-    // sit: on the dais (top 0.15), looking at the class (+u); seat top 0.65 + 0.02 (drawn 0.04 thick, as in Lente)
-    B.sit(sitBox(0.5, 0.49, 0.15, 1.15), 0.85, -0.2, 0.65 + 0.02, 1, 'school-portugues-chair-teacher');
+    // sit: on the dais (top 0.15), looking at the class (+u); drawn with the students' parts as in Lente: seat
+    // top 0.65 + 0.02, back u 0.6175..0.6425, y 0.81..1.03. L-shaped so the whiteboard's low corner, seen over
+    // the seat, stays clickable.
+    B.sit(sitL(-0.235, 0.235, 0.46, 0.15, 0.70, -0.255, -0.185, 1.06), 0.85, -0.2, 0.65 + 0.02, 1, 'school-portugues-chair-teacher');
     BX(new THREE.MeshStandardMaterial({ color: 0xf0f0f0 }), 0.2, 0.01, 0.3, 0, 0, 0, L(1.55, 0.93, 0.2)); // papers
     // wall map of Portugal (door wall, world z = 60.5)
     BX(oakM, 1.5, 2.1, 0.03, 0, 0, 0, L(4.2, 1.7, 5.54));

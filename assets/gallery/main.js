@@ -429,7 +429,7 @@ function updateCentrePrompt(dt) {
   if (centreClock < 0.15) return;
   centreClock = 0;
   const hit = pickAt(innerWidth / 2, innerHeight / 2);
-  const label = hit && hit.distance < 9 && isPickable(hit.object) ? labelFor(hit.object) : null;
+  const label = hit && hit.distance < 9 && isPickable(hit.object) && withinReach(hit) ? labelFor(hit.object) : null;
   crosshair.classList.toggle('is-target', !!label);
   const text = label ? `${coarsePointer ? 'Tap' : 'E'} · ${label}` : null;
   if (text !== state.prompt) { state.prompt = text; ui.hint(text); }
@@ -453,7 +453,8 @@ controls.onTap = (x, y) => {
   if (found) { leaveFocus(false); act(found, hit); return; }
   // Anything you can stand on: walk there (with the mouse captured you walk with WASD).
   if (controls.seated) { controls.standUp(); return; }
-  if (!controls.locked && hit.face && worldNormal(hit).y > 0.6) {
+  // A tap or a click on the floor walks there; E (use) never does.
+  if (!controls.locked && !state.viaUse && hit.face && worldNormal(hit).y > 0.6) {
     leaveFocus(false);
     controls.walkTo(hit.point);
   }
@@ -522,16 +523,36 @@ function nearestSeat(seats, point) {
   }
   return best;
 }
+// Seats are within arm's reach, as in any first-person game: no gliding onto a
+// bench across the plaza.
+const SIT_REACH = 4.5;
+function withinReach(hit) {
+  const found = world && world.actionFor(hit.object);
+  return !(found && found.action.type === 'sit' && hit.distance > SIT_REACH);
+}
 function sitOn(seat) {
   if (!seat) return;
   controls.sit(seat);
   ui.hint(coarsePointer ? 'Seated · tap the floor to stand' : 'Seated · WASD or Space to stand up');
-  setTimeout(() => { if (controls.seated) ui.hint(null); }, 4000);
+  state.seatHint = true;
+  setTimeout(() => clearSeatHint(), 4000);
+}
+// The seated hint leaves when its moment is over: after 4 s, or as soon as the
+// visitor stands (the frame loop calls this), whichever comes first.
+function clearSeatHint() {
+  if (!state.seatHint) return;
+  state.seatHint = false;
+  ui.hint(null);
+  state.prompt = undefined;   // let the crosshair prompt post itself again
 }
 
 function act(found, hit) {
   const { action, module, object } = found;
-  if (action.type === 'sit') { sitOn(nearestSeat(action.seats, hit ? hit.point : object.getWorldPosition(new THREE.Vector3()))); return; }
+  if (action.type === 'sit') {
+    if (hit && hit.distance > SIT_REACH) { ui.toast('Get closer to sit', 1400); return; }
+    sitOn(nearestSeat(action.seats, hit ? hit.point : object.getWorldPosition(new THREE.Vector3())));
+    return;
+  }
   if (module === 'npcs') {
     const npcs = world.modules.get('npcs');
     // The main action: a slapstick slap with a click; E (or a tap on touch) to talk.
@@ -875,6 +896,7 @@ function updateSoundscape(area, pos, floor, inLift) {
     fountain: Math.hypot(pos.x - FOUNTAIN.x, pos.z - FOUNTAIN.z, (floor + 1.6) - FOUNTAIN.y),
     tram: tram ? Math.hypot(pos.x - tram.x, pos.z - tram.z) : 1e6,
     rain: mode === 'storm' ? (state.inHall || (area && area.name !== 'Roof terrace' && floor < 5 && /Hall|Cinema|Studio|Arcade|Sala/.test(area.name)) ? 0.35 : 1) : mode === 'rainbow' ? 0.15 : 0,
+    ruins: Math.hypot(pos.x + 49, pos.z + 33),   // the wind moans in the ruins at night
   });
 }
 
@@ -972,6 +994,7 @@ function step() {
   }
   props.update?.(dt, camera);
   if (state.entered) updateCentrePrompt(dt);
+  if (state.seatHint && !controls.seated) clearSeatHint();
   const airborne = controls.airborne;
   const justJumped = airborne && !state.wasAirborne;
   const justLanded = !airborne && state.wasAirborne;
@@ -1002,6 +1025,8 @@ function step() {
     paper.update(dt);
   }
   weather?.update(dt, { camera, time: now, level: floor > 5 ? 1 : 0 });
+  // The world's sound follows the sky: crickets and owls at night, gusts and rain in a storm.
+  audio.setWeather?.(room.scene.userData.weather || { mode: weather ? weather.mode : 'sunny' });
   // Indoors the sun cannot reach: fade its direct light out (no shader
   // recompile, no shadow-map artefacts on interior walls), back in outside.
   const sun = world && world.modules.get('environment')?.sun;
@@ -1038,7 +1063,7 @@ function step() {
     if (paletteClock > 1) { paletteClock = 0; ui.setPalette(curator.palette(6)); }
   }
 
-  audio.setMotion({ speed: Math.min(controls.speed, 3.2), moving: state.entered && controls.speed > 0.25 });
+  audio.setMotion({ speed: Math.min(controls.speed, 3.2), moving: state.entered && controls.speed > 0.25, airborne: controls.airborne });
   audio.update(dt);
   room.update(dt, camera);
   // Walking or turning: the depth of field fades out (it only serves stillness).
