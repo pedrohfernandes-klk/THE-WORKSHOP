@@ -158,7 +158,7 @@ export function build(ctx) {
   for (let k = 0; k < STR.length; k++) {
     const pts = [];
     for (let i = 0; i <= 16; i++) pts.push(strandAt(k, i / 16, new THREE.Vector3()));
-    metal.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.007, 3, false));
+    metal.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 20, 0.007, 3, false));
   }
   const metalMesh = new THREE.Mesh(mergeGeometries(metal.map((g) => { g.deleteAttribute('uv'); return M.boxUV(g); })), metalMat);
   metalMesh.castShadow = true; metalMesh.receiveShadow = true; group.add(metalMesh);
@@ -168,7 +168,7 @@ export function build(ctx) {
   const NB = low ? 12 : 18, NCOAL = 7;
   const bulbMat = new THREE.MeshStandardMaterial({ color: 0xfff1d6, roughness: 0.22, metalness: 0, emissive: 0xffc27a, emissiveIntensity: 0.15 });
   tintByColour(bulbMat);
-  const bulbGeo = new THREE.SphereGeometry(0.05, 10, 8).scale(1, 1.25, 1);
+  const bulbGeo = new THREE.SphereGeometry(0.05, 8, 6).scale(1, 1.25, 1);
   const bulbs = new THREE.InstancedMesh(bulbGeo, bulbMat, NB * 2 + NCOAL);
   const BULB_COL = [0xfff0c8, 0xffd27a, 0xff8a6a, 0xa7f070, 0x7cc4ff, 0xffcd75];
   const d = new THREE.Object3D();
@@ -215,11 +215,11 @@ export function build(ctx) {
     geo.setAttribute('skinWeight', new THREE.BufferAttribute(sw, 4));
     parts.push(geo);
   }
-  const S = (r, w = 14, h = 10) => new THREE.SphereGeometry(r, w, h);
-  const Cy = (rt, rb, h, s = 12) => new THREE.CylinderGeometry(rt, rb, h, s);
-  const Ca = (r, l) => new THREE.CapsuleGeometry(r, l, 3, 10);
+  const S = (r, w = 10, h = 7) => new THREE.SphereGeometry(r, w, h);
+  const Cy = (rt, rb, h, s = 10) => new THREE.CylinderGeometry(rt, rb, h, s);
+  const Ca = (r, l) => new THREE.CapsuleGeometry(r, l, 2, 8);
   const B = (w, h, dd) => new THREE.BoxGeometry(w, h, dd);
-  const To = (R, r, arc = Math.PI * 2) => new THREE.TorusGeometry(R, r, 6, 14, arc);
+  const To = (R, r, arc = Math.PI * 2) => new THREE.TorusGeometry(R, r, 4, 12, arc);
   const SKIN = 0xe9b08f;
 
   // Zé da Concertina: flat cap, curled moustache, mustard waistcoat, red accordion on his belly.
@@ -240,11 +240,11 @@ export function build(ctx) {
   cp(B(0.12, 0.34, 0.2), 0xb51f2e, zA, -0.17, 1.24, 0.42);
   cp(B(0.1, 0.26, 0.012), 0xd6d8dc, zA, -0.17, 1.24, 0.526);
   for (let i = 0; i < 5; i++) for (const zz of [0.37, 0.46]) cp(S(0.014, 6, 4), 0xf4efe6, zA, -0.235, 1.12 + i * 0.06, zz);
-  for (let i = 0; i < 8; i++) cp(B(0.0275, i % 2 ? 0.3 : 0.33, i % 2 ? 0.17 : 0.19), i % 2 ? 0xf2efe8 : 0x1f3d7a, zBell, 0.01375 + i * 0.0275 - 0.11 + 0.11, 1.24 - 1.24, 0.42 - 0.42);
+  for (let i = 0; i < 8; i++) cp(B(0.0275, i % 2 ? 0.3 : 0.33, i % 2 ? 0.17 : 0.19), i % 2 ? 0xf2efe8 : 0x1f3d7a, zBell, -0.11 + 0.01375 + i * 0.0275, 1.24, 0.42);
   cp(B(0.12, 0.34, 0.2), 0xb51f2e, zBass, 0.17, 1.24, 0.42);
   cp(B(0.1, 0.26, 0.012), 0xd6d8dc, zBass, 0.17, 1.24, 0.526);
   // head
-  cp(S(0.17, 18, 14), SKIN, zH, 0, 1.66, 0.02, 1, 1.08, 1);
+  cp(S(0.17, 14, 10), SKIN, zH, 0, 1.66, 0.02, 1, 1.08, 1);
   cp(S(0.046), 0xe39a7a, zH, 0, 1.65, 0.19, 1, 0.9, 1.2);
   for (const sx of [-1, 1]) {
     cp(S(0.04), SKIN, zH, sx * 0.17, 1.66, 0.0, 0.5, 1, 0.8);
@@ -263,13 +263,13 @@ export function build(ctx) {
   const rA = bone(0, 72.8, 0.42, 21.3), rH = bone(rA, 0, 1.47, 0.02), rArm = bone(rA, -0.22, 1.36, 0.02);
   OX = 72.8; OY = 0.42; OZ = 21.3;
   for (const x of [-0.08, 0.08]) { cp(Cy(0.05, 0.045, 0.38), 0xf3efe9, rA, x, 0.22, 0); cp(Ca(0.05, 0.1), 0x1a1a1a, rA, x, 0.05, 0.04, 1, 1, 1, Math.PI / 2); }
-  cp(Cy(0.2, 0.38, 0.62, 18), 0xd9454a, rA, 0, 0.66, 0);
+  cp(Cy(0.2, 0.38, 0.62, 14), 0xd9454a, rA, 0, 0.66, 0);
   cp(S(0.215), 0x26222c, rA, 0, 1.08, 0, 1.02, 0.8, 0.94);
   cp(S(0.22), 0xf6f0e4, rA, 0, 1.2, 0, 1, 1.2, 0.9);
   cp(S(0.24), 0xefb92f, rA, 0, 1.33, 0, 1.15, 0.5, 0.95);
-  cp(Cy(0.27, 0.27, 0.26, 20), 0x2457a8, rA, 0, 0.98, 0.32, 1, 1, 1, 0, 0, Math.PI / 2);
+  cp(Cy(0.27, 0.27, 0.26, 16), 0x2457a8, rA, 0, 0.98, 0.32, 1, 1, 1, 0, 0, Math.PI / 2);
   for (const sx of [-1, 1]) {
-    cp(Cy(0.262, 0.262, 0.01, 20), 0xefe3c6, rA, sx * 0.133, 0.98, 0.32, 1, 1, 1, 0, 0, Math.PI / 2);
+    cp(Cy(0.262, 0.262, 0.01, 16), 0xefe3c6, rA, sx * 0.133, 0.98, 0.32, 1, 1, 1, 0, 0, Math.PI / 2);
     cp(To(0.268, 0.018), 0xb3202a, rA, sx * 0.135, 0.98, 0.32, 1, 1, 1, 0, Math.PI / 2, 0);
   }
   for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; cp(B(0.27, 0.012, 0.012), 0xf2e6c8, rA, 0, 0.98 + Math.sin(a) * 0.272, 0.32 + Math.cos(a) * 0.272, 1, 1, 1, a, 0, 0.5); }
@@ -281,8 +281,8 @@ export function build(ctx) {
   cp(S(0.05), SKIN, rArm, -0.28, 1.02, 0.28);
   cp(Cy(0.012, 0.012, 0.3), 0x8a6a44, rArm, -0.23, 1.0, 0.31, 1, 1, 1, 0, 0, Math.PI / 2 - 0.25);
   cp(S(0.055), 0x3a2a2a, rArm, -0.16, 0.98, 0.32);
-  cp(S(0.16, 18, 14), 0xe7ad8c, rH, 0, 1.6, 0.02);
-  cp(S(0.168, 18, 14), 0x3a2418, rH, 0, 1.635, -0.025);
+  cp(S(0.16, 14, 10), 0xe7ad8c, rH, 0, 1.6, 0.02);
+  cp(S(0.168, 14, 10), 0x3a2418, rH, 0, 1.635, -0.025);
   cp(S(0.08), 0x3a2418, rH, 0, 1.79, -0.05);
   cp(S(0.045), 0xe0303a, rH, 0.08, 1.77, 0.0); cp(S(0.025), 0x2f8f3b, rH, 0.12, 1.75, 0.02, 1.6, 0.6, 1);
   for (const sx of [-1, 1]) {
@@ -305,9 +305,9 @@ export function build(ctx) {
       cp(Ca(0.05, 0.36), suit, a, sx * 0.24, 0.86, 0.02, 1, 1, 1, 0, 0, sx * 0.25);
       cp(S(0.06), 0xf4f1ea, a, sx * 0.3, 0.64, 0.04);
     }
-    cp(Cy(0.2, 0.3, 0.66, 16), suit, a, 0, 0.84, 0);
-    cp(Cy(0.305, 0.305, 0.05, 16), 0xffcd75, a, 0, 0.53, 0);
-    cp(S(0.46, 22, 16), face, h, 0, 1.62, 0, 1, k === 2 ? 1.22 : 1.1, 0.95);
+    cp(Cy(0.2, 0.3, 0.66, 12), suit, a, 0, 0.84, 0);
+    cp(Cy(0.305, 0.305, 0.05, 12), 0xffcd75, a, 0, 0.53, 0);
+    cp(S(0.46, 16, 12), face, h, 0, 1.62, 0, 1, k === 2 ? 1.22 : 1.1, 0.95);
     if (k === 0) {        // "O Bigodes": cross-eyed, bulb nose, tiny top hat
       cp(S(0.13), 0xe0806a, h, 0, 1.6, 0.44);
       for (const sx of [-1, 1]) {
@@ -327,7 +327,7 @@ export function build(ctx) {
       }
       cp(S(0.05), 0xe3a08a, h, 0, 1.6, 0.45);
       cp(To(0.11, 0.022, Math.PI), 0xc2262e, h, 0, 1.47, 0.39, 1, 1, 1, 0.2, 0, Math.PI);
-      cp(S(0.48, 22, 12), 0xf2c23b, h, 0, 1.86, -0.03, 1.02, 0.55, 1.0);
+      cp(S(0.48, 16, 9), 0xf2c23b, h, 0, 1.86, -0.03, 1.02, 0.55, 1.0);
       cp(S(0.09), 0xf2c23b, h, 0, 2.15, -0.12);
     } else {              // "O Sabichão": egg head, round glasses, gap tooth, beret
       for (const sx of [-1, 1]) {
@@ -517,6 +517,7 @@ export function build(ctx) {
   }
   function schedStep(t) {
     let T = TUNES[cur];
+    if (A.step > 0 && A.step % T.len === 0 && want === cur && !T.waltz) want = 1 - cur;   // alternate the two marchas
     if (A.step % T.len === 0 && want !== cur) { cur = want; T = TUNES[cur]; A.step = 0; }
     const s = A.step % T.len, inBar = s % T.bar, chord = T.chords[(s / T.bar) | 0];
     const mi = T.at[s];
