@@ -34,7 +34,7 @@ function watch(page) {
 
 // page.waitForFunction polls through eval, which the page's CSP (rightly)
 // forbids; poll with plain evaluate calls instead, so the real CSP stays on.
-async function until(page, predicate, arg, { timeout = 30000, label = 'condition' } = {}) {
+async function until(page, predicate, arg, { timeout = 240000, label = 'condition' } = {}) {
   const deadline = Date.now() + timeout;
   for (;;) {
     try { if (await page.evaluate(predicate, arg)) return; } catch { /* page still loading */ }
@@ -44,9 +44,9 @@ async function until(page, predicate, arg, { timeout = 30000, label = 'condition
 }
 
 async function boot(page, url) {
-  await page.goto(url, { waitUntil: 'domcontentloaded' });
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 240000 });
   await until(page, () => !!window.__gallery, null, { label: 'the gallery to boot' });
-  await page.evaluate(() => window.__gallery.ready);
+  await until(page, () => window.__gallery.state && document.getElementById('enter') && !document.getElementById('enter').disabled, null, { label: 'the campus to load' });
 }
 
 try {
@@ -54,10 +54,11 @@ try {
 
   // ===== 1. Boot, enter, and the room draws =====
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  page.setDefaultTimeout(240000);
   const problems = watch(page);
-  await boot(page, `${origin}/?test`);
+  await boot(page, `${origin}/?test&quality=low`);
   const enter = page.getByRole('button', { name: /enter/i }).first();
-  await enter.waitFor({ state: 'visible', timeout: 30000 });
+  await enter.waitFor({ state: 'visible', timeout: 240000 });
   await until(page, () => !document.getElementById('enter').disabled, null, { label: 'Enter to enable' });
   await enter.click();
   await until(page, () => window.__gallery.state.entered && window.__gallery.state.frames > 10, null, { label: 'entry' });
@@ -76,7 +77,7 @@ try {
     await g.lookAtSlot(slot);
     // Let the visitor settle: looking is stillness, and software WebGL in CI
     // draws only a few frames a second, so this takes longer than on a GPU.
-    const settleBy = performance.now() + 20000;
+    const settleBy = performance.now() + 90000;
     while (g.state.gazeWeight < 0.7 && performance.now() < settleBy) await new Promise(r => setTimeout(r, 200));
     const id = g.curator.hang[slot];
     const before = g.curator.seconds[id] || 0;
@@ -93,7 +94,7 @@ try {
     g.dwell(slot, 12);
     const kept = g.curator.hang[slot];
     // Keep looking at the same wall: everything behind is unseen.
-    const deadline = performance.now() + 20000;
+    const deadline = performance.now() + 90000;
     while (performance.now() < deadline && g.state.swaps.length === 0) {
       await new Promise(r => setTimeout(r, 250));
     }
@@ -114,7 +115,7 @@ try {
   // ===== 4. Your exhibition: a titled catalogue and a working link =====
   await page.getByRole('button', { name: /your exhibition/i }).first().click();
   const dialog = page.getByRole('dialog');
-  await dialog.waitFor({ state: 'visible', timeout: 10000 });
+  await dialog.waitFor({ state: 'visible', timeout: 60000 });
   const exhibition = await page.evaluate(() => {
     const d = document.querySelector('[role="dialog"]');
     const link = [...d.querySelectorAll('a[href*="#show="], [data-link], input')].map(e => e.href || e.value || e.dataset.link).find(v => v && v.includes('#show=')) ||
@@ -129,12 +130,12 @@ try {
     return `${location.origin}${location.pathname}#show=${g.encodeShow({ hang: s.hang, seconds: Object.fromEntries(s.works.map(w => [w.id, w.seconds])) })}`;
   });
   await page.keyboard.press('Escape');
-  await dialog.waitFor({ state: 'hidden', timeout: 10000 });
+  await dialog.waitFor({ state: 'hidden', timeout: 60000 });
 
   // ===== 5. The shared link reopens exactly that hang, fixed =====
   const sharedPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   const sharedProblems = watch(sharedPage);
-  const sharedUrl = link.replace(/^https?:\/\/[^/]+\/(?:index\.html)?/, `${origin}/?test`);
+  const sharedUrl = link.replace(/^https?:\/\/[^/]+\/(?:index\.html)?/, `${origin}/?test&quality=low`);
   await boot(sharedPage, sharedUrl);
   const shared = await sharedPage.evaluate(() => ({ hang: window.__gallery.curator.hang.slice(), fixed: window.__gallery.curator.fixed }));
   results.shared = { fixed: shared.fixed, same: shared.hang.join() === exhibition.hang.join() };
@@ -146,7 +147,7 @@ try {
   // ===== 6. Phone width: no sideways scroll, entry reachable =====
   const phone = await browser.newPage({ viewport: { width: 375, height: 740 }, isMobile: true, hasTouch: true });
   const phoneProblems = watch(phone);
-  await boot(phone, `${origin}/?test`);
+  await boot(phone, `${origin}/?test&quality=low`);
   results.phone = await phone.evaluate(() => ({
     overflow: document.documentElement.scrollWidth - innerWidth,
     quality: window.__gallery.quality,

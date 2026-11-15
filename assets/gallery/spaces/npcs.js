@@ -158,6 +158,7 @@ export function build(ctx) {
   const wood = std(0x8a6a44, 0.8), metalDark = std(0x222226, 0.5, 0.6);
   const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
   const cyl = (r, h) => new THREE.CylinderGeometry(r, r, h, 10);
+  const hatOf = (h) => { const H = new THREE.Group(); h.add(H); h.userData.hat = H; return H; };
 
   Object.assign(heads, {
     walrus(h, fur) {
@@ -170,7 +171,7 @@ export function build(ctx) {
       }
       add(h, sph(0.04), eyeBlack, 0, -0.01, 0.27);
       const m = add(h, cap(0.035, 0.22), std(0x5a4030, 0.95), 0, -0.07, 0.26); m.rotation.z = Math.PI / 2; m.scale.set(1, 1, 1.3);
-      const visor = add(h, box(0.28, 0.02, 0.14), std(0xffffff, 0.6), 0, 0.17, 0.2); visor.rotation.x = -0.1;
+      const visor = add(hatOf(h), box(0.28, 0.02, 0.14), std(0xffffff, 0.6), 0, 0.17, 0.2); visor.rotation.x = -0.1;
     },
     rooster(h, fur) {
       const f = std(fur, 0.65);
@@ -192,8 +193,9 @@ export function build(ctx) {
         add(h, sph(0.042), f, s * 0.075, 0.05, 0.125).scale.y = 0.6;
         const br = add(h, box(0.07, 0.025, 0.03), std(0xf0f0f0, 0.95), s * 0.075, 0.1, 0.14); br.rotation.z = -s * 0.35;
       }
-      add(h, cyl(0.17, 0.05), std(0x6b7078, 0.9), 0, 0.15, 0);
-      add(h, box(0.2, 0.02, 0.1), std(0x6b7078, 0.9), 0, 0.14, 0.17);
+      const HT = hatOf(h);
+      add(HT, cyl(0.17, 0.05), std(0x6b7078, 0.9), 0, 0.15, 0);
+      add(HT, box(0.2, 0.02, 0.1), std(0x6b7078, 0.9), 0, 0.14, 0.17);
       for (let k = 0; k < 2; k++) { const r = add(h, new THREE.TorusGeometry(0.1, 0.012, 6, 14), f, 0, -0.13 - k * 0.03, 0); r.rotation.x = Math.PI / 2; }
     },
     raccoon(h, fur) {
@@ -206,9 +208,54 @@ export function build(ctx) {
         eye(h, s * 0.065, 0.04, 0.15, 0.028);
         add(h, sph(0.06), f, s * 0.12, 0.14, -0.02).scale.set(1, 1, 0.5);
       }
-      add(h, sph(0.18), std(0xc9231a, 0.7), 0, 0.1, -0.01).scale.set(1, 0.6, 1);
-      add(h, box(0.12, 0.07, 0.012), std(0xf2f2f2, 0.7), 0, 0.12, 0.175);
-      add(h, box(0.22, 0.015, 0.12), std(0xc9231a, 0.7), 0, 0.09, 0.2).rotation.x = -0.1;
+      const HR = hatOf(h);
+      add(HR, sph(0.18), std(0xc9231a, 0.7), 0, 0.1, -0.01).scale.set(1, 0.6, 1);
+      add(HR, box(0.12, 0.07, 0.012), std(0xf2f2f2, 0.7), 0, 0.12, 0.175);
+      add(HR, box(0.22, 0.015, 0.12), std(0xc9231a, 0.7), 0, 0.09, 0.2).rotation.x = -0.1;
+    },
+    velho(h, fur) {
+      const skin = std(fur, 0.65), white = std(0xf2f2f0, 0.95);
+      add(h, sph(0.17), skin).scale.set(0.95, 1.1, 1);
+      add(h, sph(0.045), std(0xd99a82, 0.6), 0, -0.02, 0.17).scale.set(1, 1.3, 1.1);
+      for (const s of [-1, 1]) {
+        eye(h, s * 0.06, 0.04, 0.14, 0.028);
+        const br = add(h, box(0.08, 0.025, 0.025), white, s * 0.06, 0.085, 0.15); br.rotation.z = -s * 0.25;
+        add(h, sph(0.035), skin, s * 0.165, 0, -0.01).scale.set(0.5, 1.1, 0.8);
+        add(h, sph(0.05), white, s * 0.15, 0.03, -0.04);
+        const mu = add(h, cap(0.014, 0.08), white, s * 0.04, -0.075, 0.165); mu.rotation.z = Math.PI / 2 + s * 0.25;
+      }
+    },
+    mano(h, fur) {
+      const skin = std(fur, 0.6), dark = std(0x1a120d, 0.7);
+      add(h, sph(0.17), skin).scale.set(0.95, 1.08, 1);
+      add(h, sph(0.036), std(0xd99a82, 0.6), 0, -0.02, 0.17);
+      add(h, sph(0.17), dark, 0, 0.04, -0.06).scale.set(0.98, 0.9, 0.9);
+      for (const s of [-1, 1]) {
+        eye(h, s * 0.065, 0.045, 0.14, 0.033);
+        add(h, box(0.07, 0.016, 0.015), dark, s * 0.065, 0.09, 0.155).rotation.z = s * 0.2;
+        add(h, sph(0.035), skin, s * 0.165, 0, -0.01).scale.set(0.5, 1, 0.8);
+        const mu = add(h, cap(0.03, 0.1), dark, s * 0.06, -0.07, 0.17); mu.rotation.z = Math.PI / 2 + s * 0.45; mu.scale.z = 1.3;
+        add(h, sph(0.032), dark, s * 0.135, -0.055, 0.16);
+      }
+      add(h, cap(0.028, 0.08), dark, 0, -0.065, 0.185).rotation.z = Math.PI / 2;
+      const HC = hatOf(h), cc = std(0x1d3f8f, 0.8);
+      add(HC, sph(0.18), cc, 0, 0.1, 0).scale.set(1, 0.6, 1.02);
+      add(HC, box(0.2, 0.015, 0.1), cc, 0, 0.09, -0.19).rotation.x = 0.1;
+    },
+    chubby(h, fur) {
+      const skin = std(fur, 0.6), dark = std(0x16100c, 0.6);
+      add(h, sph(0.2), skin).scale.set(1.1, 1, 1.05);
+      add(h, sph(0.12), skin, 0, -0.14, 0.06);
+      add(h, sph(0.042), std(0xe08a7a, 0.55), 0, -0.02, 0.2);
+      for (const s of [-1, 1]) {
+        eye(h, s * 0.075, 0.05, 0.16, 0.028);
+        add(h, sph(0.06), std(0xf08a88, 0.6), s * 0.13, -0.05, 0.14).scale.z = 0.6;
+        add(h, sph(0.035), skin, s * 0.2, 0, -0.01).scale.set(0.5, 1, 0.8);
+        const mu = add(h, cap(0.02, 0.07), dark, s * 0.045, -0.085, 0.2); mu.rotation.z = Math.PI / 2 + s * 0.2;
+      }
+      const HB = hatOf(h);
+      const be = add(HB, sph(0.22), std(0x1d2a4a, 0.95), 0.02, 0.17, 0); be.scale.set(1.15, 0.32, 1.1); be.rotation.z = 0.15;
+      add(HB, cyl(0.012, 0.05), dark, 0.02, 0.25, 0);
     },
     forcado(h, fur) {
       const skin = std(fur, 0.6), dark = std(0x16100c, 0.6);
@@ -223,8 +270,9 @@ export function build(ctx) {
         add(h, sph(0.011), dark, s * 0.088, -0.062, 0.16);
       }
       add(h, box(0.05, 0.01, 0.01), std(0x8a2a2a, 0.5), 0, -0.115, 0.15);
-      add(h, cyl(0.16, 0.08), std(0x1e7a3a, 0.8), 0, 0.14, -0.005);
-      const piv = new THREE.Group(); piv.position.set(0, 0.17, 0); piv.rotation.z = -1.05; h.add(piv);
+      const HF = hatOf(h);
+      add(HF, cyl(0.16, 0.08), std(0x1e7a3a, 0.8), 0, 0.14, -0.005);
+      const piv = new THREE.Group(); piv.position.set(0, 0.17, 0); piv.rotation.z = -1.05; HF.add(piv);
       add(piv, new THREE.ConeGeometry(0.15, 0.5, SEG), std(0xc01818, 0.8), 0, 0.22, 0);
       add(piv, sph(0.035), std(0x1e7a3a, 0.8), 0, 0.48, 0);
     },
@@ -264,7 +312,7 @@ export function build(ctx) {
         for (const x of [-0.7, 0.7]) { add(b, box(0.06, 0.44, 0.4), metalDark, x, 0.22, 0); add(b, box(0.06, 0.4, 0.06), metalDark, x, 0.62, 0.23); }
       },
       extra(body) { const sh = add(body, sph(0.3), std(0x6b5a2c, 0.6), 0, 1.15, -0.27); sh.scale.set(0.95, 1.05, 0.75); },
-      lines: ['Comboios a voar? Isso não vai dar em nada.', 'Museus que se penduram sozinhos… no meu tempo os quadros sabiam estar quietos.', 'Ó da guarda! Um elevador de vidro!', 'Isto antigamente era tudo mato.', 'Esse espelho de água vai secar. Escrevam o que eu digo.', 'Cinema em cima de um museu? Vai tudo abaixo.', 'Telemóveis? No meu tempo tínhamos uma pedra e chegava.', 'Vai acabar mal. Já acabou mal. Vai acabar pior.'] },
+      lines: ['Comboios a voar? Isso não vai dar em nada.', 'Museus que se penduram sozinhos… no meu tempo os quadros sabiam estar quietos.', 'Ó da guarda! Um elevador de vidro!', 'Isto antigamente era tudo mato.', 'Esse espelho de água vai secar. Escrevam o que eu digo.', 'Cinema em cima de um museu? Vai tudo abaixo.', 'Telemóveis? No meu tempo tínhamos uma pedra e chegava.', 'Vai acabar mal. Já acabou mal. Vai acabar pior.', 'Se fosse no meu tempo é que era bom! Pá, esta gente se fosse…', 'Se fosse no meu tempo é que era bom! Pá, esta gente se fosse… pronto.'], pt: true },
     { name: 'raccoon', head: 'raccoon', fur: 0x8a8a8f, suit: suitPlaid, sleeve: suitPlaid, pants: std(0x3b5a8c, 0.9), shirt: 0xe8e8e8, tie: 0, shoe: 0x4a3520,
       home: [34, 38.3], r: 0, speed: 0, top: 1.85, sound: 'chitter', seated: true, fixed: true, yaw: -Math.PI / 2,
       props(g) {
@@ -282,7 +330,16 @@ export function build(ctx) {
       lines: ["I don't need a map. I got instincts and a cousin.", "This here fountain's been runnin' all day. Somebody pays for that!", "That barbecue ain't cold. It's... resting.", "I ain't lost. The road is.", 'Back in my day a bin was just a bin. Now it is a lifestyle.', 'I only buy things that are on sale and already mine.', 'Never trust a lawn that is too even.', 'This chair has seen things.'] },
     { name: 'forcado', head: 'forcado', fur: 0xeab596, suit: std(0x7a2430, 0.85), sleeve: std(0x7a2430, 0.85), pants: std(0xe0cfa0, 0.8), shirt: 0xffffff, tie: 0, sash: true, stock: true, shoe: 0x1a1208,
       home: [3, 21], r: 0, speed: 0, top: 2.05, sound: 'tut', fixed: true, proud: true, yaw: 0,
-      lines: ['Tá bueno.', 'Tábueno!', 'Tá bueno, tábueno…', 'Tá bueno!', 'Tábueno.', 'Tá bueno, tábueno!', 'Tá bueno?', 'Tábueno…'] },
+      ind: ['Tá bueno, tábueno…'], lines: ['Tá bueno.', 'Tábueno!', 'Tá bueno, tábueno…', 'Tá bueno!', 'Tábueno.', 'Tá bueno, tábueno!', 'Tá bueno?', 'Tábueno…'] },
+    { name: 'velho', head: 'velho', fur: 0xe2ae90, suit: std(0x6e6a64, 0.95), sleeve: std(0x6e6a64, 0.95), pants: std(0x3d3a36, 0.9), shirt: 0xf0eadb, tie: 0, shoe: 0x2a2018, pt: true,
+      home: [-21, 36], r: 1.4, speed: 0.5, top: 2.05, sound: 'grunt',
+      lines: ['Tá bonito, tá!', 'Tá bonito, tá…', 'Tá bonito! Tá, tá.', 'Tá bonito, tá?', 'Tá bonito, tá!!', 'Hm. Tá bonito, tá.', 'Tá bonito, tá! Tá lindo.', 'Tá bonito, tá… tá.'] },
+    { name: 'gordo', head: 'chubby', fur: 0xe8a98a, suit: std(0xf4f0e6, 0.8), sleeve: std(0xf4f0e6, 0.8), pants: std(0x4a4036, 0.9), shirt: 0xf4f0e6, tie: 0, braces: true, fat: 1.35, shoe: 0x2a1d12, pt: true,
+      home: [20, 36], r: 1.8, speed: 0.55, top: 2.1, sound: 'walrus',
+      lines: ['Isso é que era bom! Queriam era tudo metido num…', 'Isso é que era bom! Queriam era tudo metido…', 'Isso é que era bom! Queriam era…', 'Isso é que era bom! Queriam era tudo metido num… pá, deixa lá.', 'Isso é que era bom! Queriam era tudo num…', 'Isso é que era bom! Queriam…', 'Isso é que era bom! Queriam era tudo metido num… hm.', 'Isso é que era bom!…'] },
+    { name: 'mano', head: 'mano', fur: 0xdea383, suit: std(0x3a3f4c, 0.95), sleeve: std(0x3a3f4c, 0.95), pants: std(0x1c2230, 0.9), shirt: 0x3a3f4c, tie: 0, phone: true, hoodie: true, shoe: 0xf2f2f2,
+      home: [9.5, 44], r: 1.3, speed: 0.8, top: 2.05, sound: 'tut', ind: ['Ó mano! Tenho MB Way!'],
+      lines: ['Tenho MB Way, tenho MB Way!', 'Faço-te MB Way já, mano.', 'Divide-se a conta? Tenho MB Way.', 'Aceitas MB Way? Tenho MB Way.', 'Tenho MB Way, mano! Tenho!', 'Não tens dinheiro? Tenho MB Way.', 'MB Way. Já foi. Tenho MB Way.', 'Mano. Tenho MB Way.'] },
   ];
 
   // ---------- speech bubble ----------
@@ -315,6 +372,19 @@ export function build(ctx) {
     for (let i = 0; i < lines.length; i++) g.fillText(lines[i], BW / 2, y0 + i * lh);
     n.btex.needsUpdate = true;
   }
+
+  const starsTex = (() => {
+    if (typeof document === 'undefined') return null;
+    const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
+    g.fillStyle = '#ffd42a'; g.strokeStyle = '#a66a00'; g.lineWidth = 5;
+    for (let k = 0; k < 3; k++) {
+      const a = k * 2.094 - 1.57, cx = 128 + Math.cos(a) * 80, cy = 128 + Math.sin(a) * 80;
+      g.beginPath();
+      for (let i = 0; i < 10; i++) { const r = i & 1 ? 14 : 32, an = i * Math.PI / 5 - Math.PI / 2; g.lineTo(cx + Math.cos(an) * r, cy + Math.sin(an) * r); }
+      g.closePath(); g.fill(); g.stroke();
+    }
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  })();
 
   // ---------- build the characters ----------
   const npcs = [];
@@ -350,6 +420,8 @@ export function build(ctx) {
       for (const s of [-1, 1]) add(body, new THREE.BoxGeometry(0.05, 0.4, 0.02), refl, s * 0.13, 1.18, 0.205);
     }
     if (S.sash) { const sh = add(body, new THREE.TorusGeometry(0.225, 0.04, 8, SEG), std(0xc01818, 0.5), 0, 0.9, 0); sh.rotation.x = Math.PI / 2; sh.scale.set(1.02, 0.82, 1.2); }
+    if (S.hoodie) { const hd = add(body, new THREE.TorusGeometry(0.15, 0.05, 8, SEG), std(0x3a3f4c, 0.95), 0, 1.5, -0.02); hd.rotation.x = Math.PI / 2 - 0.3; add(body, box(0.3, 0.12, 0.02), std(0x2d313c, 0.95), 0, 1.0, 0.19); }
+    if (S.braces) for (const s of [-1, 1]) add(body, box(0.04, 0.62, 0.02), std(0x8a1c1c, 0.6), s * 0.1, 1.15, 0.19);
     if (S.pin) { add(body, sph(0.022), std(0xe9a23a, 0.3, 0.8), -0.15, 1.32, 0.2); add(body, sph(0.012), std(0xd01c28, 0.4), -0.15, 1.35, 0.2); }
     // arms
     const arms = [];
@@ -357,6 +429,7 @@ export function build(ctx) {
       const a = new THREE.Group(); a.position.set(s * 0.3, 1.38, 0); body.add(a);
       add(a, cap(0.062, 0.46), S.sleeve, 0, -0.3, 0);
       add(a, sph(0.075), furM, 0, -0.64, 0);
+      if (S.phone && s === 1) { const ph = add(a, box(0.07, 0.14, 0.012), std(0x0c0c10, 0.2, 0.5), 0, -0.68, 0.07); add(ph, box(0.06, 0.12, 0.002), std(0x6fd0ff, 0.2, 0, { emissive: 0x2a6a9a, emissiveIntensity: 0.8 }), 0, 0, 0.007); }
       if (S.stripe) add(a, new THREE.BoxGeometry(0.02, 0.5, 0.13), std(S.stripe, 0.6), s * 0.055, -0.3, 0);
       arms.push(a);
     }
@@ -373,6 +446,10 @@ export function build(ctx) {
     // head
     const head = new THREE.Group(); head.position.set(0, 1.74, 0); body.add(head);
     heads[S.head](head, S.fur);
+    let hat = head.userData.hat; const hatReal = !!hat;
+    if (!hat) { hat = new THREE.Group(); add(hat, cyl(0.15, 0.08), std(0x3a3a46, 0.8)); add(hat, box(0.2, 0.015, 0.1), std(0x3a3a46, 0.8), 0, -0.01, 0.14); hat.visible = false; group.add(hat); }
+    const stars = new THREE.Sprite(new THREE.SpriteMaterial({ map: starsTex, transparent: true, depthWrite: false }));
+    stars.scale.set(0.6, 0.6, 1); stars.position.set(0, S.top - 0.1, 0); stars.visible = false; stars.renderOrder = 9; root.add(stars);
     if (S.extra) S.extra(body);
     // tails / extras kept minimal: pig curly tail
     if (S.name === 'pig') {
@@ -408,7 +485,8 @@ export function build(ctx) {
       x: pts[0], z: pts[1], yaw: S.yaw !== undefined ? S.yaw : idx * 1.1, yawOff: 0, wait: 1 + idx * 0.7, ph: idx * 2, walk: 0,
       sillyCd: 4 + idx * 2.3, sillyT: -1, sillyDur: 1, sillyType: 0,
       talkT: 0, bubble: 0, near: false, mutterCd: 6, line: -1, seed: idx * 1.7,
-      fixed: !!S.fixed, baseY: S.seated ? -0.3 : 0, baseYaw: S.yaw || 0, goOn: false, gx: 0, gz: 0, gsp: 1, goT: -1, faceN: null, busy: false, gest: 0, kb: 0, reactCd: 0, armUp: 1.7, meant: true, monoCd: 25 + idx * 3, curText: '',
+      fixed: !!S.fixed, baseY: S.seated ? -0.3 : 0, baseYaw: S.yaw || 0, stars, hat, hatReal, hatState: 0, hatT: 0, hvx: 0, hvy: 0, hvz: 0, hs: 0, slapSpin: false, slapTurns: 1, fat: S.fat || 1,
+      goOn: false, gx: 0, gz: 0, gsp: 1, goT: -1, faceN: null, busy: false, gest: 0, kb: 0, reactCd: 0, armUp: 1.7, meant: true, monoCd: 25 + idx * 3, curText: '',
     };
     hit.userData.npc = n; root.userData.npc = n;
     npcs.push(n);
@@ -434,11 +512,29 @@ export function build(ctx) {
     o.connect(f); f.connect(g); g.connect(ac.destination);
     o.start(t0); o.stop(t0 + dur + 0.05);
   }
-  function noise(kind) {
+  function getAc() {
     if (!ac) {
       try { ac = (ctx.audio && ctx.audio.context) || new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { ac = null; }
     }
-    if (!ac) return;
+    return ac;
+  }
+  let nbuf = null;
+  function slapSound() {
+    if (!getAc()) return;
+    try {
+      if (ac.state === 'suspended') ac.resume();
+      if (!nbuf) {
+        const len = (ac.sampleRate * 0.1) | 0; nbuf = ac.createBuffer(1, len, ac.sampleRate);
+        const d = nbuf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+      }
+      const t = ac.currentTime + 0.01, src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+      src.buffer = nbuf; f.type = 'bandpass'; f.frequency.value = 1900; f.Q.value = 0.7; g.gain.value = 0.9;
+      src.connect(f); f.connect(g); g.connect(ac.destination); src.start(t);
+      tone(t, 'sine', 0.12, [180, 60], 0.35, 400);
+    } catch (e) { /* audio unavailable */ }
+  }
+  function noise(kind) {
+    if (!getAc()) return;
     try {
       if (ac.state === 'suspended') ac.resume();
       const t = ac.currentTime + 0.02;
@@ -621,6 +717,21 @@ export function build(ctx) {
         }
       } else n.wait = 3;
       n.yaw += wrapA(tyaw - n.yaw) * Math.min(1, dt * 5);
+      if (n.hatState === 1) {
+        n.hvy -= 9.8 * dt; const H = n.hat;
+        H.position.x += n.hvx * dt; H.position.y += n.hvy * dt; H.position.z += n.hvz * dt;
+        H.rotation.z += n.hs * dt; H.rotation.y += n.hs * 0.3 * dt;
+        if (H.position.y <= 0.04 && n.hvy < 0) {
+          H.position.y = 0.04; n.hvy *= -0.35; n.hvx *= 0.5; n.hvz *= 0.5; n.hs *= 0.5;
+          if (n.hvy < 0.8) { n.hatState = 2; n.hatT = 0; H.rotation.x = 0; H.rotation.z = 0.0; }
+        }
+      } else if (n.hatState === 2) {
+        n.hatT += dt;
+        if (n.hatT > 2.4) {
+          n.hatState = 0;
+          if (n.hatReal) { n.head.add(n.hat); n.hat.position.set(0, 0, 0); n.hat.rotation.set(0, 0, 0); } else n.hat.visible = false;
+        }
+      }
       if (!vis) continue;
 
       // silly animations
@@ -642,6 +753,12 @@ export function build(ctx) {
         else if (n.sillyType === 0) spin = (u * u * (3 - 2 * u)) * TAU;
         else if (n.sillyType === 1) { hop = Math.sin(u * Math.PI) * 0.45; squash = Math.sin(u * Math.PI * 2) * 0.04; }
         else if (n.sillyType === 2) shake = Math.sin(u * 34) * 0.6 * (1 - u);
+        else if (n.sillyType === 4) {
+          if (n.slapSpin) { const q = Math.min(1, u / 0.55); spin = q * q * (3 - 2 * q) * TAU * n.slapTurns; hop = Math.sin(q * Math.PI) * 0.2; }
+          else tilt = -0.4 * Math.sin(u * Math.PI * 3) * (1 - u);
+          shake = Math.sin(u * 40) * 0.5 * (1 - u);
+          if (u > 0.5 && !n.meant) { n.meant = true; const pool = n.S.ind || (n.S.pt ? IND_PT : IND_EN); say(n, pool[(Math.random() * pool.length) | 0], false); }
+        }
         else {
           // slapstick trip: stumble, face-plant, rise with dignity
           if (u < 0.18) tilt = (u / 0.18) * 1.45;
@@ -650,6 +767,9 @@ export function build(ctx) {
           if (u > 0.86 && !n.meant) { n.meant = true; say(n, 'I meant that.', false); }
         }
       }
+      { const st = n.sillyT >= 0 && n.sillyType === 4 && n.sillyT < n.sillyDur * 0.85;
+        if (n.stars.visible !== st) n.stars.visible = st;
+        if (st) n.stars.material.rotation = time * 6; }
       if (n.gest > 0) { n.gest -= dt; hop += Math.abs(Math.sin(time * 12)) * 0.08; shake += Math.sin(time * 25) * 0.3; }
 
       // bubble
@@ -673,7 +793,7 @@ export function build(ctx) {
       n.root.rotation.y = n.yaw + spin;
       n.root.rotation.x = tilt;
       n.body.position.y = Math.abs(sw) * 0.04 * w + breathe;
-      n.body.scale.set(1 + squash, 1 - squash, 1 + squash);
+      n.body.scale.set((1 + squash) * n.fat, 1 - squash, (1 + squash) * n.fat);
       const run = n.gsp > 2.5 && n.goOn ? 1.5 : 1;
       n.legs[0].rotation.x = sw * 0.6 * w * run - hop * 0.8;
       n.legs[1].rotation.x = -sw * 0.6 * w * run - hop * 0.8;
@@ -688,6 +808,9 @@ export function build(ctx) {
         n.arms[0].rotation.x = -2.2 + f; n.arms[1].rotation.x = -2.2 - f;
         n.arms[0].rotation.z = 0.5; n.arms[1].rotation.z = -0.5;
       }
+      if (S.phone && n.talkT <= 0 && n.gest <= 0) {
+        n.arms[1].rotation.x = -1.5 + Math.sin(time * 5 + n.seed) * 0.5; n.arms[1].rotation.z = 0.3 + Math.sin(time * 3.3) * 0.4;
+      }
       if (S.proud) {
         n.body.rotation.x = -0.08;
         if (n.talkT <= 0 && n.gest <= 0) {
@@ -701,6 +824,30 @@ export function build(ctx) {
       n.head.rotation.y = look + shake;
       n.head.rotation.x = Math.sin(ph * 2) * 0.05 * w + (n.talkT > 0 ? Math.sin(time * 14) * 0.06 : 0) - (n.talkT > 0 && n.armUp > 2 ? 0.35 : 0) - (S.proud ? 0.1 : 0);
       n.head.position.z = S.bob ? Math.sin(ph * 2) * 0.05 * w : 0;
+    }
+  }
+
+  const IND_EN = ['How dare you.', 'I demand an apology. And my hat.', 'That was uncalled for. Also rude.', 'I was NOT ready for that.'];
+  const IND_PT = ['Ó pá! Isso é maneira?', 'Eu ia dizer uma coisa e esqueci-me!', 'No meu tempo isto não se fazia.', 'Respeito, pá!'];
+  const YELP = { bull: 'MOOO!', goat: 'MAAA!', pigeon: 'COO!', horse: 'NEIGH!', cat: 'MEOW!', pig: 'OINK!', walrus: 'AWRK!', rooster: 'COCK!', raccoon: 'EEK!', tortoise: 'Ai!', forcado: 'Tábueno!!', velho: 'Ai!', mano: 'Ó mano!', gordo: 'Ó pá!' };
+  let slapN = 0;
+  function slap(object) {
+    let o = object, n = null;
+    while (o && !n) { n = o.userData && o.userData.npc; o = o.parent; }
+    if (!n) return;
+    n.slapSpin = !reduced && ((slapN++ & 1) === 0);
+    n.slapTurns = 1 + ((Math.random() * 2) | 0);
+    startSilly(n, 4, 2.8);
+    n.gest = 1.4; n.sillyCd = 9;
+    say(n, YELP[n.S.name] || 'Ai!', false);
+    slapSound(); noise(n.S.sound);
+    if (!n.fixed) n.kb = n.slapSpin ? 0.5 : 1.6;
+    if (n.hatState === 0) {
+      const H = n.hat; group.add(H); H.visible = true; H.scale.set(1, 1, 1); H.rotation.set(0, 0, 0);
+      H.position.set(n.x, n.baseY + 1.85, n.z);
+      let ax = n.x - pcx, az = n.z - pcz; const d = Math.sqrt(ax * ax + az * az) || 1;
+      n.hvx = (ax / d) * 2 + (Math.random() - 0.5) * 2.4; n.hvz = (az / d) * 2 + (Math.random() - 0.5) * 2.4;
+      n.hvy = 4 + Math.random() * 1.5; n.hs = (Math.random() - 0.5) * 22; n.hatState = 1;
     }
   }
 
@@ -720,5 +867,5 @@ export function build(ctx) {
     n.sillyCd = 6 + Math.random() * 6;
   }
 
-  return { group, regions: [], colliders: [], pickables, update, onPick };
+  return { group, regions: [], colliders: [], pickables, update, onPick, slap };
 }

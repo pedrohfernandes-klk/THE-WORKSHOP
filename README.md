@@ -15,6 +15,28 @@ attention, a downloadable poster, and a link. Opening the link walks anyone into
 exactly that hang. There is no backend: the exhibition lives entirely in the
 link.
 
+Around the hall stands a walkable, photoreal campus, built from photographed
+CC0 materials (Poly Haven) and a real HDR sky:
+
+- **The Hall** — the attentive gallery above, with a glass lift to the roof.
+- **The Cinema** and **roof terrace** (level 1) — the film on the big screen.
+- **Studio** (the mixing desk and sketch apps), **Arcade** (twelve playable
+  machines), the **EPI school** — its real façade, *Sala Lente* and *Sala de
+  Português* opening the Lente and Português sites, PCs running *Queda*.
+- **Plaza**, reflecting pool, parterres, **garden** (fountain, pergola, lawns),
+  sunken **amphitheatre**, an eerie **ruin**, a surface **metro** with a
+  luminous tunnel, a **Skyliner** cable car, aircraft, birds, and comic NPCs.
+- Big screens (cinema, amphitheatre) show SayWhat, No Worries, Português and
+  Lente first; YouTube is a second option.
+- **Weather** (T, or the sun icon): radiant sun, storm, rainbow, and a starry
+  night with the real stars and constellations above Lisbon at the visitor's
+  own time.
+
+**Play:** click to capture the mouse · WASD · Shift run · Space jump · E use /
+talk · click to slap an NPC · F (or right mouse) to throw a paper ball at a bin
+· 1–7 and G for gestures · Esc releases the mouse. On a phone: drag to look,
+tap to walk or use.
+
 The previous museum — the fifteen-district campus around the Tower — is kept,
 unchanged, at `classic.html`.
 
@@ -27,7 +49,11 @@ unchanged, at `classic.html`.
 | Room | `assets/gallery/room.js`, `post.js`, `textures.js` | The hall, its light, the reflective floor, frames, plaques, the "develop" reveal, post-processing. |
 | Visitor | `assets/gallery/controls.js`, `collision.js` | Walking, looking, approaching a work. |
 | Interface | `index.html`, `assets/gallery/ui.js` | Entry, wall labels, the exhibition catalogue and poster. |
-| Integration | `assets/gallery/main.js` | Gaze and visibility, the re-hang cycle, links, quality. |
+| Integration | `assets/gallery/main.js` | Gaze and visibility, the re-hang cycle, links, quality, the game layer. |
+| Campus | `assets/gallery/world.js`, `assets/gallery/spaces/*.js` | One module per space (BRIEF §6.2), merged into one walkable, multi-level world. |
+| Materials | `assets/gallery/materials.js`, `assets/textures/` | Photographed CC0 PBR materials and the HDR skies (`scripts/fetch-textures.py`). |
+| Sky & weather | `assets/gallery/weather.js`, `assets/data/sky.json` | Sun, storm, rainbow, real starry night (d3-celestial data, BSD-3). |
+| Play | `player.js`, `paperball.js`, `music.js`, `audio.js` | Hands and gestures, paper-ball baskets, the soundtrack, the sound of the world. |
 
 `docs/gallery/BRIEF.md` is the design brief and the contract between modules.
 
