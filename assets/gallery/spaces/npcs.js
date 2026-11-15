@@ -769,7 +769,7 @@ export function build(ctx) {
       storm: ['Ai, que vem aí chuva da grossa!', 'Eu bem disse que ia chover!'],
       night: ['Já é noite? Isto passa a correr.', 'A esta hora já devias estar em casa.'],
       rainbow: ['Olha, um arco-íris! Que bonito!', 'Arco-íris? Isso é para enganar os tolos.'],
-      again: ['Outra vez tu?', 'Ainda aqui andas?', 'Já te disse tudo o que sabia. Era pouco.'],
+      again: ['Outra vez tu?', 'Ainda aqui andas?', 'Já te disse tudo o que sabia. Era pouco.', 'Tens boa voz para escrever à máquina.'],
       ignored: ['Pronto, ninguém me liga.', 'Estava a falar contigo, pá!', 'Vai, vai. Vai pentear macacos!'],
       ouch: ['Ai!', 'Ui!', 'Ó pá!'],
       ouch2: ['Outra vez?!', 'Ó pá, outra vez?!', 'Mas isto é um vício?!'],
