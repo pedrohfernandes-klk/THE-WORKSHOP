@@ -343,7 +343,9 @@ import('./player.js').then((m) => {
   if (player.group && !player.group.parent) camera.add(player.group);
 }).catch(() => { /* gestures are optional */ });
 let sfx = null;
-// (movement sound effects module: wired in when it lands)
+// Eerie and wacky sound layer: zones (the ruin's heartbeat, the stage choir)
+// and one-shots that answer the visitor (boings, slide whistles, cushions).
+import('./sfx.js').then((m) => { sfx = m.createSfx(audio); }).catch(() => { /* optional */ });
 import('./music.js').then((m) => {
   music = m.createMusic();
   music.setMuted(audio.muted);
