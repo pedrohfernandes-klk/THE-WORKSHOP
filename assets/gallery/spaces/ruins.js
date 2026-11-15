@@ -177,7 +177,7 @@ export function build(ctx) {
   for (const [x, z] of [[1.4, 0.85], [1.4, -0.85], [-1.4, 0.85], [-1.4, -0.85]]) {
     const r = mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.12, 12), darkM); r.rotation.x = Math.PI / 2; r.position.set(x, 0.26, z * 1.02); car.add(r);
   }
-  group.add(car);
+  car.name = 'ruin-car'; car.userData.kind = 'car'; group.add(car);
   col(-46.4, -41.6, -24.6, -21, 0, 1.3);
 
   // ---------- chairs ----------
@@ -190,7 +190,7 @@ export function build(ctx) {
     for (const [lx, lz] of [[-.17, -.17], [.17, -.17], [-.17, .17], [.17, .17]]) { const l = mesh(chairG[2], chairM); l.position.set(lx, 0.22, lz); c.add(l); }
     c.position.set(x, 0, z); c.rotation.y = ry;
     if (tip) { c.rotation.z = Math.PI / 2; c.position.y = 0.22; }
-    group.add(c);
+    c.name = 'ruin-chair'; c.userData.kind = 'bench'; group.add(c);
   });
 
   // ---------- trolley (on its side) ----------
@@ -208,7 +208,7 @@ export function build(ctx) {
     const L = rr(1, 2.2), b = mesh(new THREE.CylinderGeometry(0.015, 0.07, L, 5), woodM), a = i * 2.4, ph = 0.8 + rnd() * 0.5;
     b.position.set(Math.cos(a) * L * 0.35, 2.4 + i * 0.25, Math.sin(a) * L * 0.35); b.rotation.set(Math.sin(a) * ph, 0, -Math.cos(a) * ph); tree.add(b);
   }
-  group.add(tree); col(-61.4, -60.6, -23.4, -22.6, 0, 4);
+  tree.name = 'ruin-tree'; tree.userData.kind = 'tree'; group.add(tree); col(-61.4, -60.6, -23.4, -22.6, 0, 4);
 
   // ---------- fence + sign ----------
   for (let x = -62; x <= -52; x += 1.6) {
@@ -224,6 +224,7 @@ export function build(ctx) {
   });
   const pivot = new THREE.Group(); pivot.position.set(-56.5, 1.15, -21.1);
   const sign = mesh(new THREE.BoxGeometry(0.7, 0.35, 0.02), new THREE.MeshStandardMaterial({ map: signTex, roughness: 0.8, metalness: 0.3 })); sign.position.set(-0.3, -0.18, 0); pivot.add(sign);
+  pivot.name = 'ruin-sign'; pivot.userData.kind = 'sign';
   pivot.rotation.z = -0.9; group.add(pivot);
 
   // ---------- lights: fluorescent + hanging lamp ----------
@@ -235,7 +236,7 @@ export function build(ctx) {
   const cord = mesh(new THREE.CylinderGeometry(0.01, 0.01, 1.2, 4), darkM, false); cord.position.y = -0.6; lamp.add(cord);
   const shade = mesh(new THREE.ConeGeometry(0.22, 0.2, 12, 1, true), rust); shade.material = rust.clone(); shade.material.side = THREE.DoubleSide; shade.position.y = -1.25; lamp.add(shade);
   const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshStandardMaterial({ color: 0x222222, emissive: 0x887755, emissiveIntensity: 0.6 })); bulb.position.y = -1.3; lamp.add(bulb);
-  group.add(lamp);
+  lamp.name = 'ruin-lamp'; lamp.userData.kind = 'lamp'; group.add(lamp);
   // roof-support dark stand-in so the interior reads cold: nothing else added
 
   // ---------- mist ----------

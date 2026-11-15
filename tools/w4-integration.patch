@@ -1,0 +1,222 @@
+diff --git a/assets/gallery/main.js b/assets/gallery/main.js
+index 6c8fc07..aba0bc9 100644
+--- a/assets/gallery/main.js
++++ b/assets/gallery/main.js
+@@ -19,6 +19,7 @@ import { createMaterials } from './materials.js';
+ import { createWorld, areaAt } from './world.js';
+ import { groundAt } from './collision.js';
+ import { createProps } from './props.js';
++import { createInteractions } from './interactions.js';
+ 
+ // Canvas roundRect arrived in Safari 16; NPC speech bubbles and the poster use it.
+ if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
+@@ -210,6 +211,18 @@ const ctx = {
+   THREE, renderer, scene: room.scene, M, quality, reducedMotion, audio,
+   ui: { openApp: (url, title) => ui.openApp(url, title), toast: (t) => ui.toast(t) },
+ };
++const interactions = createInteractions(ctx);
++const interactionFrame = { camera };
++const interactionAbort = new AbortController();
++const interactionTimer = setTimeout(() => interactionAbort.abort(), 8000);
++const interactionMap = fetch(new URL('../data/interactions.json', import.meta.url), { signal: interactionAbort.signal })
++  .then(r => { if (!r.ok) throw new Error('interaction map ' + r.status); return r.json(); })
++  .catch(err => { console.warn('[interactions]', err); return null; })
++  .finally(() => clearTimeout(interactionTimer));
++ctx.prepareInteractions = async (built) => {
++  const data = await interactionMap;
++  if (data) interactions.installMap(built, data);
++};
+ let world = null;
+ const worldReady = createWorld(ctx, {
+   hallColliders: [...(room.colliders || []), ...(props.colliders || [])],
+@@ -441,7 +454,7 @@ function updateCentrePrompt(dt) {
+   if (centreClock < 0.15) return;
+   centreClock = 0;
+   const hit = pickAt(innerWidth / 2, innerHeight / 2, 9); // only hits under 9 m are used
+-  const label = hit && hit.distance < 9 && isPickable(hit.object) && withinReach(hit) ? labelFor(hit.object) : null;
++  const label = hit && hit.distance < 9 && isPickable(hit.object) && withinReach(hit) ? labelFor(hit.object, hit) : null;
+   crosshair.classList.toggle('is-target', !!label);
+   const text = label ? `${coarsePointer ? 'Tap' : 'E'} · ${label}` : null;
+   if (text !== state.prompt) { state.prompt = text; ui.hint(text); }
+@@ -463,6 +476,7 @@ controls.onTap = (x, y) => {
+   if (isProp(hit.object, 'catalogue')) { openExhibition(); return; }
+   const found = world && world.actionFor(hit.object);
+   if (found) { leaveFocus(false); act(found, hit); return; }
++  if (!controls.seated && interactions.react(hit.object, hit)) return;
+   // Anything you can stand on: walk there (with the mouse captured you walk with WASD).
+   if (controls.seated) { controls.standUp(); return; }
+   // A tap or a click on the floor walks there; E (use) never does.
+@@ -499,7 +513,7 @@ function pickAt(x, y, far = 60) {
+ 
+ function isPickable(o) {
+   for (let p = o; p; p = p.parent) {
+-    if (p.userData && (p.userData.action || p.userData.prop || Number.isInteger(p.userData.slot))) return true;
++    if (p.userData && (p.userData.action || p.userData.interaction || p.userData.prop || Number.isInteger(p.userData.slot))) return true;
+   }
+   return false;
+ }
+@@ -509,13 +523,13 @@ function isProp(o, name) {
+   return false;
+ }
+ 
+-function labelFor(o) {
++function labelFor(o, hit) {
+   if (isPaper(o)) return 'Pick up the paper ball';
+   const slot = findSlot(o);
+   if (slot !== -1 && state.inHall) return 'Approach the work';
+   if (isProp(o, 'catalogue')) return 'Your exhibition catalogue';
+   const found = world && world.actionFor(o);
+-  if (!found) return null;
++  if (!found) return interactions.label(o, hit);
+   const { action, module } = found;
+   if (action.label) return action.label;            // a module can name its own action
+   if (action.type === 'sit') return 'Sit';
+@@ -582,6 +596,7 @@ function act(found, hit) {
+     world.pick(object);
+     return;
+   }
++  if (hit) interactions.react(hit.object, hit);
+   if (module === 'cinema' || module === 'amphitheatre') {
+     const secondary = [YOUTUBE];
+     if (module === 'cinema') secondary.unshift({ label: 'Film sound on/off', run: () => world.pick(object) });
+@@ -609,7 +624,7 @@ canvas.addEventListener('pointermove', (e) => {
+   if (t - hoverAt < 110) return;
+   hoverAt = t;
+   const hit = pickAt(e.clientX, e.clientY);
+-  const label = hit && isPickable(hit.object) ? labelFor(hit.object) : null;
++  const label = hit && isPickable(hit.object) ? labelFor(hit.object, hit) : null;
+   canvas.style.cursor = label ? 'pointer' : 'grab';
+   if (label !== state.prompt) { state.prompt = label; ui.hint(label); }
+ });
+@@ -1016,6 +1031,7 @@ function step() {
+   const floor = controls.floor;
+   if (world) {
+     world.lift?.setVisitor(pos.x, floor, pos.z);
++    interactions.beforeUpdate();
+     world.update(dt, { camera, time: now, level: floor > 5 ? 1 : 0, weather: weather ? weather.mode : 'sunny' });
+   }
+   props.update?.(dt, camera);
+@@ -1123,6 +1139,7 @@ function step() {
+   audio.setMotion({ speed: Math.min(controls.speed, 3.2), moving: state.entered && controls.speed > 0.25, airborne: controls.airborne });
+   audio.update(dt);
+   room.update(dt, camera);
++  interactions.update(dt, interactionFrame);
+   // Walking or turning: the depth of field fades out (it only serves stillness).
+   post.setMoving(controls.speed > 0.3 || !!state.flying || controls.turnRate > 0.6);
+   // Behind an opaque overlay the room does not need to be redrawn every frame.
+@@ -1187,7 +1204,7 @@ if (TEST) {
+     THREE, WORKS, SLOTS, state, curator, room, camera, controls, renderer, ready,
+     get quality() { return quality; },
+     get world() { return world; },
+-    props, ui, post,
++    props, ui, post, interactions,
+     get pixelRatio() { return pixelRatio; },
+     // Stand in front of a slot and look at it, as a visitor would.
+     async lookAtSlot(slot) {
+diff --git a/assets/gallery/world.js b/assets/gallery/world.js
+index 73b4d04..e60a5de 100644
+--- a/assets/gallery/world.js
++++ b/assets/gallery/world.js
+@@ -171,6 +171,13 @@ export async function createWorld(ctx, { hallColliders = [], onProgress } = {})
+ 
+   const groups = Object.fromEntries([...modules].map(([n, o]) => [n, o.group]).filter(([, g]) => g));
+ 
++  // Optional integration hook: tag reactions/proxies before the batcher samples.
++  // Entry does not await the world; the map fetch has its own bounded timeout.
++  if (typeof ctx.prepareInteractions === 'function') {
++    try { await ctx.prepareInteractions({ modules, groups }); }
++    catch (err) { console.warn('[interactions] preparation skipped', err); }
++  }
++
+   // Static batching (batch.js): once the campus has run a few seconds, merge
+   // the meshes that provably never move into a few large ones per module and
+   // ~30 m cell. OFF by default until verified in a browser: ?batch turns it on,
+diff --git a/assets/gallery/spaces/furniture.js b/assets/gallery/spaces/furniture.js
+index 8263822..7abc374 100644
+--- a/assets/gallery/spaces/furniture.js
++++ b/assets/gallery/spaces/furniture.js
+@@ -130,8 +130,10 @@ export function build(ctx) {
+   }
+ 
+   // ---- Instantiate one InstancedMesh per part kind --------------------------
+-  for (const e of parts.values()) {
++  for (const [key, e] of parts) {
+     const im = new THREE.InstancedMesh(e.geometry, e.material, e.mats.length);
++    im.name = 'furniture-' + key;
++    im.userData.kind = key.startsWith('lamp') ? 'lamp' : key.startsWith('bin') ? 'bin' : key.startsWith('hoop') ? 'bike' : key.startsWith('bollard') ? 'bollard' : 'bench';
+     for (let i = 0; i < e.mats.length; i++) im.setMatrixAt(i, e.mats[i]);
+     im.instanceMatrix.needsUpdate = true;
+     im.castShadow = true;
+diff --git a/assets/gallery/spaces/trees.js b/assets/gallery/spaces/trees.js
+index a2dc520..169f8de 100644
+--- a/assets/gallery/spaces/trees.js
++++ b/assets/gallery/spaces/trees.js
+@@ -427,6 +427,7 @@ export function build(ctx) {
+       const n = t.instances.length;
+       if (!n) continue;
+       const bm = new THREE.InstancedMesh(t.bark, barkMat(sp.bark), n);
++      bm.name = 'tree-bark-' + key; bm.userData.kind = 'tree';
+       const lm = leafMat(tex);
+       const lmesh = new THREE.InstancedMesh(t.leaf, lm.mat, n);
+       bm.customDepthMaterial = barkDepth; lmesh.customDepthMaterial = lm.depth;
+diff --git a/assets/gallery/spaces/ruins.js b/assets/gallery/spaces/ruins.js
+index 4615c7b..c5bfc17 100644
+--- a/assets/gallery/spaces/ruins.js
++++ b/assets/gallery/spaces/ruins.js
+@@ -177,7 +177,7 @@ export function build(ctx) {
+   for (const [x, z] of [[1.4, 0.85], [1.4, -0.85], [-1.4, 0.85], [-1.4, -0.85]]) {
+     const r = mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.12, 12), darkM); r.rotation.x = Math.PI / 2; r.position.set(x, 0.26, z * 1.02); car.add(r);
+   }
+-  group.add(car);
++  car.name = 'ruin-car'; car.userData.kind = 'car'; group.add(car);
+   col(-46.4, -41.6, -24.6, -21, 0, 1.3);
+ 
+   // ---------- chairs ----------
+@@ -190,7 +190,7 @@ export function build(ctx) {
+     for (const [lx, lz] of [[-.17, -.17], [.17, -.17], [-.17, .17], [.17, .17]]) { const l = mesh(chairG[2], chairM); l.position.set(lx, 0.22, lz); c.add(l); }
+     c.position.set(x, 0, z); c.rotation.y = ry;
+     if (tip) { c.rotation.z = Math.PI / 2; c.position.y = 0.22; }
+-    group.add(c);
++    c.name = 'ruin-chair'; c.userData.kind = 'bench'; group.add(c);
+   });
+ 
+   // ---------- trolley (on its side) ----------
+@@ -208,7 +208,7 @@ export function build(ctx) {
+     const L = rr(1, 2.2), b = mesh(new THREE.CylinderGeometry(0.015, 0.07, L, 5), woodM), a = i * 2.4, ph = 0.8 + rnd() * 0.5;
+     b.position.set(Math.cos(a) * L * 0.35, 2.4 + i * 0.25, Math.sin(a) * L * 0.35); b.rotation.set(Math.sin(a) * ph, 0, -Math.cos(a) * ph); tree.add(b);
+   }
+-  group.add(tree); col(-61.4, -60.6, -23.4, -22.6, 0, 4);
++  tree.name = 'ruin-tree'; tree.userData.kind = 'tree'; group.add(tree); col(-61.4, -60.6, -23.4, -22.6, 0, 4);
+ 
+   // ---------- fence + sign ----------
+   for (let x = -62; x <= -52; x += 1.6) {
+@@ -224,6 +224,7 @@ export function build(ctx) {
+   });
+   const pivot = new THREE.Group(); pivot.position.set(-56.5, 1.15, -21.1);
+   const sign = mesh(new THREE.BoxGeometry(0.7, 0.35, 0.02), new THREE.MeshStandardMaterial({ map: signTex, roughness: 0.8, metalness: 0.3 })); sign.position.set(-0.3, -0.18, 0); pivot.add(sign);
++  pivot.name = 'ruin-sign'; pivot.userData.kind = 'sign';
+   pivot.rotation.z = -0.9; group.add(pivot);
+ 
+   // ---------- lights: fluorescent + hanging lamp ----------
+@@ -235,7 +236,7 @@ export function build(ctx) {
+   const cord = mesh(new THREE.CylinderGeometry(0.01, 0.01, 1.2, 4), darkM, false); cord.position.y = -0.6; lamp.add(cord);
+   const shade = mesh(new THREE.ConeGeometry(0.22, 0.2, 12, 1, true), rust); shade.material = rust.clone(); shade.material.side = THREE.DoubleSide; shade.position.y = -1.25; lamp.add(shade);
+   const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshStandardMaterial({ color: 0x222222, emissive: 0x887755, emissiveIntensity: 0.6 })); bulb.position.y = -1.3; lamp.add(bulb);
+-  group.add(lamp);
++  lamp.name = 'ruin-lamp'; lamp.userData.kind = 'lamp'; group.add(lamp);
+   // roof-support dark stand-in so the interior reads cold: nothing else added
+ 
+   // ---------- mist ----------
+diff --git a/assets/gallery/spaces/arcade.js b/assets/gallery/spaces/arcade.js
+index bf8910f..9dac6bc 100644
+--- a/assets/gallery/spaces/arcade.js
++++ b/assets/gallery/spaces/arcade.js
+@@ -265,7 +265,7 @@ export function build(ctx) {
+   // leaf swung open 90 deg outward, hinged at dz0
+   const leaf = new THREE.Group(); leaf.position.set(X0 - 0.05, 0, dz0 - 0.08);
+   for (const [w, h, x, y] of [[DOOR_W - 0.05, 0.08, 0, 0.04], [DOOR_W - 0.05, 0.1, 0, DOOR_H - 0.2], [0.08, DOOR_H - 0.2, -(DOOR_W - 0.05) / 2, DOOR_H / 2 - 0.05], [0.08, DOOR_H - 0.2, (DOOR_W - 0.05) / 2, DOOR_H / 2 - 0.05]]) { const m = new THREE.Mesh(tex(box(w, h, 0.05, 0, 0, 0)), steelDark); m.position.set(x, y, 0); m.castShadow = true; leaf.add(m); }
+-  const lg = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W - 0.2, DOOR_H - 0.35, 0.012), glassMat); lg.position.set(0, DOOR_H / 2 - 0.05, 0); leaf.add(lg);
++  const lg = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W - 0.2, DOOR_H - 0.35, 0.012), glassMat); lg.position.set(0, DOOR_H / 2 - 0.05, 0); leaf.add(lg); leaf.name = 'arcade-door'; leaf.userData.kind = 'door';
+   const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.7, 8), steelIn); handle.position.set(DOOR_W / 2 - 0.12, 1.05, 0.05); leaf.add(handle);
+   const leafPivot = new THREE.Group(); leafPivot.position.set(X0 - 0.05, 0, dz0 - 0.08); leafPivot.rotation.y = Math.PI / 2; // leaf runs along -x
+   leaf.position.set(DOOR_W / 2 - 0.0, 0, 0); leafPivot.add(leaf); group.add(leafPivot);

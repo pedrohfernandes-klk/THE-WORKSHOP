@@ -427,6 +427,7 @@ export function build(ctx) {
       const n = t.instances.length;
       if (!n) continue;
       const bm = new THREE.InstancedMesh(t.bark, barkMat(sp.bark), n);
+      bm.name = 'tree-bark-' + key; bm.userData.kind = 'tree';
       const lm = leafMat(tex);
       const lmesh = new THREE.InstancedMesh(t.leaf, lm.mat, n);
       bm.customDepthMaterial = barkDepth; lmesh.customDepthMaterial = lm.depth;

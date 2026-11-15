@@ -20,6 +20,7 @@ import { createWorld, areaAt } from './world.js';
 import { groundAt } from './collision.js';
 import { createProps } from './props.js';
 import { gateHallCampus } from './mirror-campus-gate.js';
+import { createInteractions } from './interactions.js';
 
 // Canvas roundRect arrived in Safari 16; NPC speech bubbles and the poster use it.
 if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
@@ -210,6 +211,18 @@ const props = createProps(room.scene, { quality, reducedMotion });
 const ctx = {
   THREE, renderer, scene: room.scene, M, quality, reducedMotion, audio,
   ui: { openApp: (url, title) => ui.openApp(url, title), toast: (t) => ui.toast(t) },
+};
+const interactions = createInteractions(ctx);
+const interactionFrame = { camera };
+const interactionAbort = new AbortController();
+const interactionTimer = setTimeout(() => interactionAbort.abort(), 8000);
+const interactionMap = fetch(new URL('../data/interactions.json', import.meta.url), { signal: interactionAbort.signal })
+  .then(r => { if (!r.ok) throw new Error('interaction map ' + r.status); return r.json(); })
+  .catch(err => { console.warn('[interactions]', err); return null; })
+  .finally(() => clearTimeout(interactionTimer));
+ctx.prepareInteractions = async (built) => {
+  const data = await interactionMap;
+  if (data) interactions.installMap(built, data);
 };
 let world = null;
 const worldReady = createWorld(ctx, {
@@ -447,7 +460,7 @@ function updateCentrePrompt(dt) {
   if (centreClock < 0.15) return;
   centreClock = 0;
   const hit = pickAt(innerWidth / 2, innerHeight / 2, 9); // only hits under 9 m are used
-  const label = hit && hit.distance < 9 && isPickable(hit.object) && withinReach(hit) ? labelFor(hit.object) : null;
+  const label = hit && hit.distance < 9 && isPickable(hit.object) && withinReach(hit) ? labelFor(hit.object, hit) : null;
   crosshair.classList.toggle('is-target', !!label);
   const text = label ? `${coarsePointer ? 'Tap' : 'E'} · ${label}` : null;
   if (text !== state.prompt) { state.prompt = text; ui.hint(text); }
@@ -469,6 +482,7 @@ controls.onTap = (x, y) => {
   if (isProp(hit.object, 'catalogue')) { openExhibition(); return; }
   const found = world && world.actionFor(hit.object);
   if (found) { leaveFocus(false); act(found, hit); return; }
+  if (!controls.seated && interactions.react(hit.object, hit)) return;
   // Anything you can stand on: walk there (with the mouse captured you walk with WASD).
   if (controls.seated) { controls.standUp(); return; }
   // A tap or a click on the floor walks there; E (use) never does.
@@ -505,7 +519,7 @@ function pickAt(x, y, far = 60) {
 
 function isPickable(o) {
   for (let p = o; p; p = p.parent) {
-    if (p.userData && (p.userData.action || p.userData.prop || Number.isInteger(p.userData.slot))) return true;
+    if (p.userData && (p.userData.action || p.userData.interaction || p.userData.prop || Number.isInteger(p.userData.slot))) return true;
   }
   return false;
 }
@@ -515,13 +529,13 @@ function isProp(o, name) {
   return false;
 }
 
-function labelFor(o) {
+function labelFor(o, hit) {
   if (isPaper(o)) return 'Pick up the paper ball';
   const slot = findSlot(o);
   if (slot !== -1 && state.inHall) return 'Approach the work';
   if (isProp(o, 'catalogue')) return 'Your exhibition catalogue';
   const found = world && world.actionFor(o);
-  if (!found) return null;
+  if (!found) return interactions.label(o, hit);
   const { action, module } = found;
   if (action.label) return action.label;            // a module can name its own action
   if (action.type === 'sit') return 'Sit';
@@ -588,6 +602,7 @@ function act(found, hit) {
     world.pick(object);
     return;
   }
+  if (hit) interactions.react(hit.object, hit);
   if (module === 'cinema' || module === 'amphitheatre') {
     const secondary = [YOUTUBE];
     if (module === 'cinema') secondary.unshift({ label: 'Film sound on/off', run: () => world.pick(object) });
@@ -615,7 +630,7 @@ canvas.addEventListener('pointermove', (e) => {
   if (t - hoverAt < 110) return;
   hoverAt = t;
   const hit = pickAt(e.clientX, e.clientY);
-  const label = hit && isPickable(hit.object) ? labelFor(hit.object) : null;
+  const label = hit && isPickable(hit.object) ? labelFor(hit.object, hit) : null;
   canvas.style.cursor = label ? 'pointer' : 'grab';
   if (label !== state.prompt) { state.prompt = label; ui.hint(label); }
 });
@@ -1022,6 +1037,7 @@ function step() {
   const floor = controls.floor;
   if (world) {
     world.lift?.setVisitor(pos.x, floor, pos.z);
+    interactions.beforeUpdate();
     world.update(dt, { camera, time: now, level: floor > 5 ? 1 : 0, weather: weather ? weather.mode : 'sunny' });
   }
   props.update?.(dt, camera);
@@ -1132,6 +1148,7 @@ function step() {
   audio.setMotion({ speed: Math.min(controls.speed, 3.2), moving: state.entered && controls.speed > 0.25, airborne: controls.airborne });
   audio.update(dt);
   room.update(dt, camera);
+  interactions.update(dt, interactionFrame);
   // Walking or turning: the depth of field fades out (it only serves stillness).
   post.setMoving(controls.speed > 0.3 || !!state.flying || controls.turnRate > 0.6);
   // Behind an opaque overlay the room does not need to be redrawn every frame.
@@ -1196,7 +1213,7 @@ if (TEST) {
     THREE, WORKS, SLOTS, state, curator, room, camera, controls, renderer, ready,
     get quality() { return quality; },
     get world() { return world; },
-    props, ui, post,
+    props, ui, post, interactions,
     get pixelRatio() { return pixelRatio; },
     // Stand in front of a slot and look at it, as a visitor would.
     async lookAtSlot(slot) {
