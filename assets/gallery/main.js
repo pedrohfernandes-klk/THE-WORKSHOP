@@ -303,7 +303,7 @@ import('./player.js').then((m) => {
   if (player.group && !player.group.parent) camera.add(player.group);
 }).catch(() => { /* gestures are optional */ });
 let sfx = null;
-import('./sfx.js').then((m) => { sfx = m.createSfx(audio); }).catch(() => { /* optional */ });
+// (movement sound effects module: wired in when it lands)
 import('./music.js').then((m) => {
   music = m.createMusic();
   music.setMuted(audio.muted);
