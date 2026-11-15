@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile, stat } from 'node:fs/promises';
 import { allowlistedProjectionUrl, PROJECTION_IFRAME_SANDBOX } from '../assets/js/workshop-projection-policy.js';
 
-const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+const html = await readFile(new URL('../classic.html', import.meta.url), 'utf8');
 const loopSketchpad = await readFile(new URL('../assets/apps/loop-sketchpad.html', import.meta.url), 'utf8');
 
 test('branch-served Pages contains its runtime modules', async () => {

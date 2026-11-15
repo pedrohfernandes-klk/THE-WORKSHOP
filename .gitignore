@@ -8,3 +8,6 @@ Thumbs.db
 
 # Agent scratch, not project material
 .hermes/
+
+# Throwaway preview harnesses used while building the gallery
+_dev/

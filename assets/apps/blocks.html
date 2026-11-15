@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>QUEDA</title>
+<style>
+:root{
+  --u:28px;
+  --bg:#121316;
+  --panel:#1a1c21;
+  --panel2:#22252c;
+  --line:rgba(255,255,255,.07);
+  --text:#eceae4;
+  --muted:#7f8590;
+  --accent:#f2c14e;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="light"]){ color-scheme:dark; }
+}
+html,body{margin:0;height:100%;background:#121316;color:var(--text);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  overflow:hidden;-webkit-font-smoothing:antialiased}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:8px;padding:8px;box-sizing:border-box;outline:none;background:#121316;
+  user-select:none;-webkit-user-select:none;touch-action:manipulation}
+#stage{display:flex;align-items:flex-start;gap:calc(var(--u)*.6)}
+.col{display:flex;flex-direction:column;gap:calc(var(--u)*.45);width:calc(var(--u)*4.6)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:calc(var(--u)*.35);box-sizing:border-box}
+.brand{padding-top:calc(var(--u)*.5);padding-bottom:calc(var(--u)*.5)}
+.label{font-size:max(9px,calc(var(--u)*.36));letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);font-weight:600;margin-bottom:calc(var(--u)*.2)}
+.title{font-size:max(16px,calc(var(--u)*.8));font-weight:800;letter-spacing:.14em;white-space:nowrap}
+.sub{font-size:max(8px,calc(var(--u)*.3));color:var(--muted);letter-spacing:.06em;margin-top:3px}
+.stat{margin-bottom:calc(var(--u)*.4)}
+.stat:last-child{margin-bottom:0}
+.val{font-size:max(13px,calc(var(--u)*.8));font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+.help{font-size:max(9px,calc(var(--u)*.36));color:var(--muted);line-height:1.75}
+.help b{color:var(--text);font-weight:600;display:inline-block;min-width:3.4em}
+canvas{display:block}
+#boardWrap{position:relative;border:1px solid var(--line);border-radius:10px;background:#17191e;
+  box-shadow:0 24px 60px rgba(0,0,0,.5),inset 0 0 0 1px rgba(255,255,255,.03);overflow:hidden}
+.ov{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:rgba(12,13,16,.74);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+  cursor:pointer;text-align:center;padding:12px;box-sizing:border-box}
+.ov.hide{display:none}
+.ovh1{font-size:max(20px,calc(var(--u)*1.2));font-weight:800;letter-spacing:.22em;margin:0 0 .45em;padding-left:.22em}
+.ovp{margin:.35em 0;font-size:max(11px,calc(var(--u)*.45));color:var(--text)}
+.ovs{font-size:max(9px,calc(var(--u)*.34));color:var(--muted);margin-top:.9em;line-height:1.6}
+.btn{font:inherit;font-size:max(10px,calc(var(--u)*.38));color:var(--text);background:var(--panel2);
+  border:1px solid var(--line);border-radius:8px;padding:.6em .8em;cursor:pointer;width:100%;box-sizing:border-box}
+.btn:hover{border-color:rgba(255,255,255,.2)}
+#touch{display:none;gap:6px;width:min(100%,640px);box-sizing:border-box}
+#touch.on{display:flex}
+#touch button{flex:1 1 0;min-width:38px;height:48px;font:inherit;font-size:15px;font-weight:600;color:var(--text);
+  background:var(--panel2);border:1px solid var(--line);border-radius:10px;touch-action:none;
+  -webkit-tap-highlight-color:transparent;padding:0}
+#touch button:active{background:#2c3038}
+</style>
+</head>
+<body>
+<div id="app" tabindex="0">
+  <div id="stage">
+    <aside class="col">
+      <div class="panel brand">
+        <div class="title">QUEDA</div>
+        <div class="sub">falling blocks</div>
+      </div>
+      <div class="panel">
+        <div class="label">Hold</div>
+        <canvas id="holdCv"></canvas>
+      </div>
+      <div class="panel">
+        <div class="stat"><div class="label">Score</div><div class="val" id="score">0</div></div>
+        <div class="stat"><div class="label">Lines</div><div class="val" id="lines">0</div></div>
+        <div class="stat"><div class="label">Level</div><div class="val" id="level">1</div></div>
+        <div class="stat"><div class="label">Best</div><div class="val" id="best">0</div></div>
+      </div>
+    </aside>
+
+    <div id="boardWrap">
+      <canvas id="boardCv"></canvas>
+      <div class="ov" id="ov"><div>
+        <h1 class="ovh1" id="ovTitle">QUEDA</h1>
+        <p class="ovp" id="ovMsg">Press Enter or tap to start</p>
+        <p class="ovs" id="ovHint"></p>
+      </div></div>
+    </div>
+
+    <aside class="col">
+      <div class="panel">
+        <div class="label">Next</div>
+        <canvas id="n0"></canvas>
+        <canvas id="n1" style="margin-top:calc(var(--u)*.3)"></canvas>
+        <canvas id="n2" style="margin-top:calc(var(--u)*.3)"></canvas>
+      </div>
+      <div class="panel help" id="help">
+        <div><b>&larr; &rarr;</b> move</div>
+        <div><b>&darr;</b> soft drop</div>
+        <div><b>&uarr; / X</b> rotate</div>
+        <div><b>Z</b> rotate back</div>
+        <div><b>Space</b> hard drop</div>
+        <div><b>C</b> hold</div>
+        <div><b>P</b> pause</div>
+      </div>
+      <button class="btn" id="muteBtn" type="button">Sound on (M)</button>
+    </aside>
+  </div>
+
+  <div id="touch">
+    <button type="button" data-a="left">&larr;</button>
+    <button type="button" data-a="right">&rarr;</button>
+    <button type="button" data-a="down">&darr;</button>
+    <button type="button" data-a="rotccw">&#8634;</button>
+    <button type="button" data-a="rotcw">&#8635;</button>
+    <button type="button" data-a="hard">Drop</button>
+    <button type="button" data-a="hold">Hold</button>
+    <button type="button" data-a="pause">II</button>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- constants & data ---------- */
+const COLS = 10, ROWS = 20;
+const LOCK_MS = 500, MAX_RESETS = 15, CLEAR_MS = 260;
+const DAS = 160, ARR = 45, SOFT_MS = 40;
+const LINE_PTS = [0, 100, 300, 500, 800];
+
+const BASE = {
+  I: '#4fc3d0', O: '#f2c14e', T: '#a77ee0', S: '#6fd19b',
+  Z: '#ef7470', J: '#6490ec', L: '#f29a5c'
+};
+const SHAPES = {
+  I: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
+  O: [[1,1],[1,1]],
+  T: [[0,1,0],[1,1,1],[0,0,0]],
+  S: [[0,1,1],[1,1,0],[0,0,0]],
+  Z: [[1,1,0],[0,1,1],[0,0,0]],
+  J: [[1,0,0],[1,1,1],[0,0,0]],
+  L: [[0,0,1],[1,1,1],[0,0,0]]
+};
+const TYPES = Object.keys(SHAPES);
+
+function shade(hex, amt){
+  const n = parseInt(hex.slice(1), 16);
+  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(v =>
+    Math.round(amt >= 0 ? v + (255 - v) * amt : v * (1 + amt)));
+  return `rgb(${ch[0]},${ch[1]},${ch[2]})`;
+}
+const PAL = {};
+for (const t of TYPES) PAL[t] = { base: BASE[t], hi: shade(BASE[t], .38), lo: shade(BASE[t], -.42) };
+
+function rotCW(m){
+  const n = m.length, r = [];
+  for (let i = 0; i < n; i++){ r.push([]); for (let j = 0; j < n; j++) r[i][j] = m[n - 1 - j][i]; }
+  return r;
+}
+const ROT = {};
+for (const t of TYPES){
+  ROT[t] = [SHAPES[t]];
+  for (let i = 1; i < 4; i++) ROT[t][i] = rotCW(ROT[t][i - 1]);
+}
+
+// SRS wall kicks (offsets are x, y with y pointing UP)
+const KICK_JLSTZ = {
+  '0>1':[[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]], '1>0':[[0,0],[1,0],[1,-1],[0,2],[1,2]],
+  '1>2':[[0,0],[1,0],[1,-1],[0,2],[1,2]],     '2>1':[[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],
+  '2>3':[[0,0],[1,0],[1,1],[0,-2],[1,-2]],    '3>2':[[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],
+  '3>0':[[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],  '0>3':[[0,0],[1,0],[1,1],[0,-2],[1,-2]]
+};
+const KICK_I = {
+  '0>1':[[0,0],[-2,0],[1,0],[-2,-1],[1,2]],   '1>0':[[0,0],[2,0],[-1,0],[2,1],[-1,-2]],
+  '1>2':[[0,0],[-1,0],[2,0],[-1,2],[2,-1]],   '2>1':[[0,0],[1,0],[-2,0],[1,-2],[-2,1]],
+  '2>3':[[0,0],[2,0],[-1,0],[2,1],[-1,-2]],   '3>2':[[0,0],[-2,0],[1,0],[-2,-1],[1,2]],
+  '3>0':[[0,0],[1,0],[-2,0],[1,-2],[-2,1]],   '0>3':[[0,0],[-1,0],[2,0],[-1,2],[2,-1]]
+};
+function kicksFor(t, from, to){
+  if (t === 'O') return [[0,0]];
+  const tbl = t === 'I' ? KICK_I : KICK_JLSTZ;
+  return tbl[from + '>' + to] || [[0,0]];
+}
+
+const KEYMAP = {
+  ArrowLeft: 'left', ArrowRight: 'right', ArrowDown: 'down',
+  ArrowUp: 'rotcw', KeyX: 'rotcw', KeyZ: 'rotccw',
+  Space: 'hard', KeyC: 'hold', KeyP: 'pause', KeyM: 'mute'
+};
+
+/* ---------- DOM ---------- */
+const $ = id => document.getElementById(id);
+const root = document.documentElement;
+const app = $('app');
+const boardCv = $('boardCv'), bctx = boardCv.getContext('2d');
+const holdCv = $('holdCv'), hctx = holdCv.getContext('2d');
+const nextCvs = [$('n0'), $('n1'), $('n2')];
+const ovEl = $('ov'), ovTitle = $('ovTitle'), ovMsg = $('ovMsg'), ovHint = $('ovHint');
+const muteBtn = $('muteBtn');
+const touchBar = $('touch');
+const isTouch = matchMedia('(pointer: coarse)').matches || ('ontouchstart' in window);
+let DPR = 1, CELL = 24;
+
+/* ---------- storage (best-effort) ---------- */
+function loadNum(key){ try { return parseInt(localStorage.getItem(key), 10) || 0; } catch (e) { return 0; } }
+function saveVal(key, v){ try { localStorage.setItem(key, String(v)); } catch (e) {} }
+
+/* ---------- audio ---------- */
+let AC = null;
+let muted = false;
+try { muted = localStorage.getItem('queda-muted') === '1'; } catch (e) {}
+function ensureAudio(){
+  try {
+    if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    if (AC.state === 'suspended') AC.resume();
+  } catch (e) { AC = null; }
+}
+function tone(f, dur, o = {}){
+  if (muted || !AC || AC.state !== 'running') return;
+  const type = o.type || 'square', vol = o.vol ?? .05, t0 = AC.currentTime + (o.delay || 0);
+  const osc = AC.createOscillator(), g = AC.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(f, t0);
+  if (o.slide) osc.frequency.exponentialRampToValueAtTime(Math.max(20, f * o.slide), t0 + dur);
+  g.gain.setValueAtTime(vol, t0);
+  g.gain.exponentialRampToValueAtTime(.0001, t0 + dur);
+  osc.connect(g); g.connect(AC.destination);
+  osc.start(t0); osc.stop(t0 + dur + .03);
+}
+const SFX = {
+  move(){ tone(560, .03, { vol: .025 }); },
+  rotate(){ tone(640, .06, { type: 'triangle', vol: .05, slide: 1.4 }); },
+  lock(){ tone(180, .09, { type: 'sine', vol: .08, slide: .6 }); },
+  drop(){ tone(110, .2, { type: 'sine', vol: .2, slide: .35 }); },
+  clear(n){ const notes = [523, 659, 784, 1046]; for (let i = 0; i < Math.min(4, 1 + n); i++) tone(notes[i], .18, { type: 'triangle', vol: .07, delay: i * .06 }); },
+  over(){ [392, 330, 262, 196].forEach((f, i) => tone(f, .28, { type: 'sawtooth', vol: .045, delay: i * .18 })); },
+  start(){ tone(784, .08, { type: 'triangle', vol: .06 }); tone(1046, .12, { type: 'triangle', vol: .06, delay: .07 }); }
+};
+function setMuted(v){
+  muted = v; saveVal('queda-muted', v ? 1 : 0);
+  muteBtn.textContent = muted ? 'Sound off (M)' : 'Sound on (M)';
+}
+
+/* ---------- game state ---------- */
+let state = 'ready';            // ready | playing | paused | clearing | over
+let board, cur, hold, holdUsed, queue, score, lines, level, best;
+let fall = 0, lockT = 0, resets = 0, clearRows = [], clearT = 0;
+const held = { left: false, right: false, down: false };
+const das = { left: 0, right: 0, down: 0 };
+const rep = { left: 0, right: 0, down: 0 };
+
+function newBoard(){ return Array.from({ length: ROWS }, () => Array(COLS).fill(0)); }
+function refillBag(){
+  const bag = TYPES.slice();
+  for (let i = bag.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [bag[i], bag[j]] = [bag[j], bag[i]]; }
+  queue.push(...bag);
+}
+function ensureQueue(){ while (queue.length < 7) refillBag(); }
+function takeNext(){ ensureQueue(); const t = queue.shift(); ensureQueue(); return t; }
+
+function spawn(t){
+  cur = { t, r: 0, m: ROT[t][0], x: 3, y: 0 };
+  fall = 0; lockT = 0; resets = 0;
+  if (!valid(cur.m, cur.x, cur.y)) { gameOver(); }
+}
+function spawnNext(){ holdUsed = false; spawn(takeNext()); }
+
+function valid(m, x, y){
+  for (let r = 0; r < m.length; r++){
+    const row = m[r];
+    for (let c = 0; c < row.length; c++){
+      if (!row[c]) continue;
+      const bx = x + c, by = y + r;
+      if (bx < 0 || bx >= COLS || by >= ROWS) return false;
+      if (by >= 0 && board[by][bx]) return false;
+    }
+  }
+  return true;
+}
+function tryShift(dx, dy){
+  if (!cur || !valid(cur.m, cur.x + dx, cur.y + dy)) return false;
+  cur.x += dx; cur.y += dy; return true;
+}
+function onMoved(){
+  if (cur && !valid(cur.m, cur.x, cur.y + 1) && resets < MAX_RESETS){ lockT = 0; resets++; }
+}
+function move(dir){
+  if (state !== 'playing') return;
+  if (tryShift(dir, 0)){ SFX.move(); onMoved(); }
+}
+function softStep(){
+  if (state !== 'playing') return;
+  if (tryShift(0, 1)){ score += 1; fall = 0; }
+}
+function rotate(dir){
+  if (state !== 'playing' || !cur) return;
+  const from = cur.r, to = (from + (dir > 0 ? 1 : 3)) % 4, m = ROT[cur.t][to];
+  for (const [dx, dy] of kicksFor(cur.t, from, to)){
+    const nx = cur.x + dx, ny = cur.y - dy;
+    if (valid(m, nx, ny)){
+      cur.r = to; cur.m = m; cur.x = nx; cur.y = ny;
+      SFX.rotate(); onMoved(); return;
+    }
+  }
+}
+function hardDrop(){
+  if (state !== 'playing' || !cur) return;
+  let d = 0;
+  while (tryShift(0, 1)) d++;
+  score += d * 2;
+  SFX.drop();
+  lockPiece();
+}
+function holdPiece(){
+  if (state !== 'playing' || !cur || holdUsed) return;
+  const t = cur.t;
+  if (hold === null){ hold = t; spawnNext(); }
+  else { const h = hold; hold = t; spawn(h); }
+  holdUsed = true;
+  SFX.rotate();
+}
+function lockPiece(){
+  if (!cur) return;
+  for (let r = 0; r < cur.m.length; r++){
+    for (let c = 0; c < cur.m[r].length; c++){
+      if (!cur.m[r][c]) continue;
+      const by = cur.y + r, bx = cur.x + c;
+      if (by < 0){ cur = null; gameOver(); return; }
+      board[by][bx] = cur.t;
+    }
+  }
+  cur = null;
+  SFX.lock();
+  const full = [];
+  for (let r = 0; r < ROWS; r++) if (board[r].every(v => v)) full.push(r);
+  if (full.length){
+    const n = full.length;
+    score += LINE_PTS[n] * level;
+    lines += n;
+    level = Math.floor(lines / 10) + 1;
+    clearRows = full; clearT = 0;
+    SFX.clear(n);
+    setState('clearing');
+  } else {
+    spawnNext();
+  }
+}
+function finishClear(){
+  board = board.filter((_, r) => !clearRows.includes(r));
+  while (board.length < ROWS) board.unshift(Array(COLS).fill(0));
+  clearRows = [];
+  setState('playing');
+  spawnNext();
+}
+function gravityMs(){ return Math.max(55, 1000 * Math.pow(0.84, level - 1)); }
+
+function gameOver(){
+  cur = null;
+  if (score > best){ best = score; saveVal('queda-best', best); }
+  SFX.over();
+  setState('over');
+}
+function startGame(){
+  ensureAudio();
+  board = newBoard(); score = 0; lines = 0; level = 1;
+  hold = null; holdUsed = false; queue = []; ensureQueue();
+  held.left = held.right = held.down = false;
+  clearRows = [];
+  setState('playing');
+  SFX.start();
+  spawnNext();
+}
+function togglePause(){
+  if (state === 'playing'){ held.left = held.right = held.down = false; setState('paused'); }
+  else if (state === 'paused') setState('playing');
+}
+function setState(s){ state = s; syncOverlay(); }
+
+function syncOverlay(){
+  const show = state !== 'playing' && state !== 'clearing';
+  ovEl.classList.toggle('hide', !show);
+  if (!show) return;
+  if (state === 'ready'){
+    ovTitle.textContent = 'QUEDA';
+    ovMsg.textContent = 'Press Enter or tap to start';
+    ovHint.textContent = isTouch ? '' : 'Arrows move · Up / X rotate · Z rotate back · Space drop · C hold · P pause · M mute';
+  } else if (state === 'paused'){
+    ovTitle.textContent = 'PAUSED';
+    ovMsg.textContent = isTouch ? 'Tap to resume' : 'Press P or tap to resume';
+    ovHint.textContent = '';
+  } else if (state === 'over'){
+    ovTitle.textContent = 'GAME OVER';
+    ovMsg.textContent = 'Score ' + score + ' · ' + lines + ' lines';
+    ovHint.textContent = isTouch ? 'Tap to restart' : 'Press Enter or tap to restart';
+  }
+}
+
+function act(a){
+  switch (a){
+    case 'left': move(-1); break;
+    case 'right': move(1); break;
+    case 'down': softStep(); break;
+    case 'rotcw': rotate(1); break;
+    case 'rotccw': rotate(-1); break;
+    case 'hard': hardDrop(); break;
+    case "hold": holdPiece(); break;
+    case 'pause': togglePause(); break;
+    case 'mute': setMuted(!muted); break;
+  }
+}
+
+/* ---------- update ---------- */
+function repeatUpdate(dt){
+  for (const a of ['left', 'right']){
+    if (!held[a]) continue;
+    das[a] += dt;
+    if (das[a] >= DAS){
+      rep[a] += dt;
+      while (rep[a] >= ARR){ rep[a] -= ARR; move(a === 'left' ? -1 : 1); }
+    }
+  }
+  if (held.down){
+    rep.down += dt;
+    while (rep.down >= SOFT_MS){ rep.down -= SOFT_MS; softStep(); }
+  }
+}
+function update(dt){
+  if (state === 'clearing'){
+    clearT += dt;
+    if (clearT >= CLEAR_MS) finishClear();
+    return;
+  }
+  if (state !== 'playing' || !cur) return;
+  repeatUpdate(dt);
+  if (state !== 'playing' || !cur) return;
+
+  fall += dt;
+  const g = gravityMs();
+  while (fall >= g){
+    fall -= g;
+    if (!tryShift(0, 1)){ fall = 0; break; }
+  }
+  if (!valid(cur.m, cur.x, cur.y + 1)){
+    lockT += dt;
+    if (lockT >= LOCK_MS) lockPiece();
+  } else {
+    lockT = 0;
+  }
+}
+
+/* ---------- rendering ---------- */
+function drawBlock(c, x, y, s, p, a){
+  const g = s - 1, b = Math.max(2, Math.round(s * .16));
+  c.globalAlpha = a;
+  c.fillStyle = p.lo;   c.fillRect(x, y, g, g);
+  c.fillStyle = p.hi;   c.fillRect(x, y, g - b, g - b);
+  c.fillStyle = p.base; c.fillRect(x + b * .5, y + b * .5, g - b * 1.5, g - b * 1.5);
+  c.fillStyle = 'rgba(255,255,255,.13)';
+  c.fillRect(x + b * 1.1, y + b * 1.1, g - b * 2.2, g * .2);
+  c.globalAlpha = 1;
+}
+function ghostY(){
+  let gy = cur.y;
+  while (valid(cur.m, cur.x, gy + 1)) gy++;
+  return gy;
+}
+function drawBoard(){
+  const s = CELL, W = COLS * s, H = ROWS * s;
+  const c = bctx;
+  c.setTransform(DPR, 0, 0, DPR, 0, 0);
+  c.fillStyle = '#17191e'; c.fillRect(0, 0, W, H);
+  c.strokeStyle = 'rgba(255,255,255,.035)'; c.lineWidth = 1;
+  c.beginPath();
+  for (let x = 1; x < COLS; x++){ c.moveTo(x * s + .5, 0); c.lineTo(x * s + .5, H); }
+  for (let y = 1; y < ROWS; y++){ c.moveTo(0, y * s + .5); c.lineTo(W, y * s + .5); }
+  c.stroke();
+
+  if (board){
+    for (let r = 0; r < ROWS; r++){
+      for (let col = 0; col < COLS; col++){
+        const t = board[r][col];
+        if (t) drawBlock(c, col * s, r * s, s, PAL[t], 1);
+      }
+    }
+  }
+  if (cur && state === 'playing'){
+    const gy = ghostY();
+    if (gy !== cur.y){
+      for (let r = 0; r < cur.m.length; r++) for (let col = 0; col < cur.m[r].length; col++){
+        if (!cur.m[r][col]) continue;
+        const x = (cur.x + col) * s, y = (gy + r) * s, p = PAL[cur.t];
+        c.globalAlpha = .9; c.strokeStyle = p.base; c.lineWidth = 1.5;
+        c.strokeRect(x + 1.5, y + 1.5, s - 3, s - 3);
+        c.globalAlpha = .08; c.fillStyle = p.base; c.fillRect(x, y, s - 1, s - 1);
+        c.globalAlpha = 1;
+      }
+    }
+    for (let r = 0; r < cur.m.length; r++) for (let col = 0; col < cur.m[r].length; col++){
+      if (!cur.m[r][col]) continue;
+      const by = cur.y + r;
+      if (by < 0) continue;
+      drawBlock(c, (cur.x + col) * s, by * s, s, PAL[cur.t], 1);
+    }
+  }
+  if (state === 'clearing'){
+    const k = 1 - clearT / CLEAR_MS;
+    c.fillStyle = `rgba(255,255,255,${(0.25 + 0.6 * k).toFixed(3)})`;
+    for (const r of clearRows) c.fillRect(0, r * s, W, s);
+  }
+}
+function drawMini(cv, ctx, t, dim){
+  const w = cv._w, h = cv._h;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = 'rgba(255,255,255,.02)';
+  ctx.fillRect(0, 0, w, h);
+  if (!t) return;
+  const m = ROT[t][0];
+  let minR = 9, maxR = -1, minC = 9, maxC = -1;
+  for (let r = 0; r < m.length; r++) for (let c = 0; c < m[r].length; c++) if (m[r][c]){
+    minR = Math.min(minR, r); maxR = Math.max(maxR, r); minC = Math.min(minC, c); maxC = Math.max(maxC, c);
+  }
+  const bw = maxC - minC + 1, bh = maxR - minR + 1;
+  const cs = Math.min((w * .78) / bw, (h * .78) / bh);
+  const ox = (w - bw * cs) / 2, oy = (h - bh * cs) / 2;
+  for (let r = minR; r <= maxR; r++) for (let c = minC; c <= maxC; c++){
+    if (!m[r][c]) continue;
+    drawBlock(ctx, ox + (c - minC) * cs, oy + (r - minR) * cs, cs, PAL[t], dim ? .35 : 1);
+  }
+}
+function drawSide(){
+  drawMini(holdCv, hctx, hold, holdUsed);
+  if (!queue) return;
+  for (let i = 0; i < 3; i++){
+    const cv = nextCvs[i];
+    drawMini(cv, cv.getContext('2d'), queue[i], false);
+  }
+  $('score').textContent = score;
+  $('lines').textContent = lines;
+  $('level').textContent = level;
+  $('best').textContent = best;
+}
+function render(){
+  drawBoard();
+  drawSide();
+}
+
+/* ---------- layout ---------- */
+function sizeCanvas(cv, w, h){
+  w = Math.round(w); h = Math.round(h);
+  cv._w = w; cv._h = h;
+  cv.style.width = w + 'px'; cv.style.height = h + 'px';
+  cv.width = Math.round(w * DPR); cv.height = Math.round(h * DPR);
+}
+function layout(){
+  DPR = Math.max(1, window.devicePixelRatio || 1);
+  const touchH = isTouch ? 62 : 0;
+  const availH = innerHeight - 16 - touchH;
+  const availW = innerWidth - 16;
+  CELL = Math.max(8, Math.floor(Math.min(availH / ROWS, availW / 20.4)));
+  root.style.setProperty('--u', CELL + 'px');
+  sizeCanvas(boardCv, COLS * CELL, ROWS * CELL);
+  sizeCanvas(holdCv, CELL * 3.9, CELL * 3.1);
+  nextCvs.forEach(cv => sizeCanvas(cv, CELL * 3.9, CELL * 2.6));
+  touchBar.classList.toggle('on', isTouch);
+  if (isTouch) touchBar.style.width = Math.min(innerWidth - 16, 20.4 * CELL) + 'px';
+}
+
+/* ---------- input ---------- */
+function focusGame(){ try { app.focus({ preventScroll: true }); } catch (e) {} }
+
+addEventListener('keydown', e => {
+  if (e.code === 'Enter' || e.code === 'NumpadEnter'){
+    e.preventDefault();
+    if (state === 'ready' || state === 'over') startGame();
+    return;
+  }
+  const a = KEYMAP[e.code];
+  if (!a) return;
+  e.preventDefault();
+  if (e.repeat) return;
+  if (a === 'mute'){ setMuted(!muted); return; }
+  if (a === 'pause'){ togglePause(); return; }
+  if (state !== 'playing') return;
+  if (a === 'left' || a === 'right' || a === 'down'){
+    held[a] = true; das[a] = 0; rep[a] = 0;
+  }
+  act(a);
+});
+addEventListener('keyup', e => {
+  const a = KEYMAP[e.code];
+  if (a === 'left' || a === 'right' || a === 'down') held[a] = false;
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden){ held.left = held.right = held.down = false; if (state === 'playing') togglePause(); }
+});
+
+app.addEventListener('pointerdown', e => {
+  focusGame();
+  if (e.target.closest && e.target.closest('#touch')) return;
+  if (e.target === muteBtn) return;
+  if (state === 'ready' || state === 'over'){ ensureAudio(); startGame(); }
+  else if (state === 'paused'){ togglePause(); }
+});
+ovEl.addEventListener('pointerdown', e => {
+  e.stopPropagation();
+  ensureAudio();
+  if (state === 'ready' || state === 'over') startGame();
+  else if (state === 'paused') togglePause();
+});
+muteBtn.addEventListener('click', e => { e.stopPropagation(); ensureAudio(); setMuted(!muted); focusGame(); });
+
+touchBar.querySelectorAll('button').forEach(btn => {
+  const a = btn.dataset.a;
+  const release = () => { if (a === 'left' || a === 'right' || a === 'down') held[a] = false; };
+  btn.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    ensureAudio();
+    if (state === 'ready' || state === 'over'){ startGame(); return; }
+    if (a === 'pause'){ togglePause(); return; }
+    if (state !== 'playing') return;
+    if (a === 'left' || a === 'right' || a === 'down'){ held[a] = true; das[a] = 0; rep[a] = 0; }
+    act(a);
+  });
+  btn.addEventListener('pointerup', release);
+  btn.addEventListener('pointercancel', release);
+  btn.addEventListener('pointerleave', release);
+});
+
+addEventListener('resize', layout);
+
+/* ---------- boot ---------- */
+best = loadNum('queda-best');
+board = newBoard(); queue = []; ensureQueue();
+score = 0; lines = 0; level = 1; hold = null; holdUsed = false;
+setMuted(muted);
+layout();
+setState('ready');
+focusGame();
+
+let last = performance.now();
+function frame(now){
+  const dt = Math.min(100, now - last);
+  last = now;
+  update(dt);
+  render();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

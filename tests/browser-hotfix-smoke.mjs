@@ -6,11 +6,11 @@ import { startStaticServer } from '../scripts/static-server.mjs';
 // OS pick a free one, so parallel runs never collide.
 const { server, origin } = await startStaticServer(0);
 
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 const pageErrors = [];
 page.on('pageerror', error => pageErrors.push(error.message));
-await page.goto(`${origin}/index.html`, { waitUntil: 'domcontentloaded' });
+await page.goto(`${origin}/classic.html`, { waitUntil: 'domcontentloaded' });
 await page.waitForFunction(() => document.getElementById('posterEnter')?.disabled === false, null, { timeout: 30000 });
 // Research Desk: this formerly triggered recursive synchronisation on panel open/input.
 await page.evaluate(() => document.getElementById('researchPanel')?.classList.add('open'));

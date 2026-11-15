@@ -19,6 +19,7 @@ const TYPES = {
   '.css': 'text/css', '.json': 'application/json', '.webp': 'image/webp',
   '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml',
   '.mp4': 'video/mp4', '.webm': 'video/webm', '.ico': 'image/x-icon',
+  '.woff2': 'font/woff2', '.txt': 'text/plain',
 };
 
 export function createStaticServer(root = ROOT) {
@@ -28,8 +29,11 @@ export function createStaticServer(root = ROOT) {
       const file = join(root, path === '/' ? 'index.html' : path);
       if (!file.startsWith(root)) { res.writeHead(403).end(); return; }        // no path escapes
       const ext = file.slice(file.lastIndexOf('.'));
+      // Read before writing the head: a missing file must become a 404, not a
+      // 200 followed by a crash on the second writeHead.
+      const body = await readFile(file);
       res.writeHead(200, { 'content-type': TYPES[ext] || 'application/octet-stream' });
-      res.end(await readFile(file));
+      res.end(body);
     } catch { res.writeHead(404).end(); }
   });
 }
