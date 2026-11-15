@@ -23,7 +23,7 @@ export async function build(ctx) {
       const h2f = THREE.DataUtils.fromHalfFloat, f2h = THREE.DataUtils.toHalfFloat;
       // brightest texel = the sun (positive half floats order like uint16)
       let best = 0, bi = 0;
-      for (let p = 0, n = W * H; p < n; p++) { const x = d[p * 4 + 1]; if (x > best && x < 0x7c00) { best = x; bi = p; } }
+      for (let p = 0, n = W * H; p < n; p++) { const x = d[p * 4 + 1]; if (x > best && x <= 0x7c00) { best = x; bi = p; } }
       const i0 = bi % W, j0 = (bi / W) | 0;
       const cl = Math.max(0.15, Math.cos(Math.PI * (0.5 - (j0 + 0.5) / H)));
       const ppd = W / 360, R0 = 2.4, R1 = 5.5, RR = 6.5;
@@ -34,7 +34,9 @@ export async function build(ctx) {
       for (let j = j0a; j <= j0b; j++) for (let ii = -di; ii <= di; ii++) {
         const r = Math.hypot(ii * cl, j - j0) / ppd; if (r < R1 || r > RR) continue;
         const p = at(ii, j);
-        sr += Math.min(h2f(d[p]), 8); sg += Math.min(h2f(d[p + 1]), 8); sb += Math.min(h2f(d[p + 2]), 8); sn++;
+        const r0 = h2f(d[p]), g0 = h2f(d[p + 1]), b0 = h2f(d[p + 2]);
+        if (!(r0 >= 0 && g0 >= 0 && b0 >= 0)) continue; // skips NaN
+        sr += Math.min(r0, 8); sg += Math.min(g0, 8); sb += Math.min(b0, 8); sn++;
       }
       if (sn) {
         const ring = [sr / sn, sg / sn, sb / sn];
@@ -43,13 +45,13 @@ export async function build(ctx) {
           const t = Math.max(0, Math.min(1, (r - R0) / (R1 - R0))), s2 = t * t * (3 - 2 * t);
           const p = at(ii, j);
           for (let c = 0; c < 3; c++) {
-            const o = h2f(d[p + c]), a = ring[c];
+            const o0 = h2f(d[p + c]), o = Number.isFinite(o0) ? o0 : 65504, a = ring[c];
             d[p + c] = f2h(Math.max(0, Math.min(a + (o - a) * s2, a * (1 + 3 * s2))));
           }
         }
       }
       const cap = f2h(32); // safety: no stray texel may light the world unshadowed
-      for (let i = 0; i < d.length; i++) if (d[i] > cap && d[i] < 0x8000) d[i] = cap;
+      for (let i = 0; i < d.length; i++) if (d[i] > cap && d[i] < 0x8000) d[i] = cap; // incl. Inf/NaN
       const src = new THREE.DataTexture(d, W, H, bg.format, bg.type);
       src.mapping = THREE.EquirectangularReflectionMapping;
       src.colorSpace = bg.colorSpace;

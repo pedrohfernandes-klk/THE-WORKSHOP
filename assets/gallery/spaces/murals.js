@@ -444,12 +444,12 @@ export function build(ctx) {
     const armL = [[-0.11, 0.163], [-0.3, 0.168], [-0.44, 0.171], [-0.5, 0.175], [-0.5, 0.182], [-0.44, 0.19], [-0.3, 0.2], [-0.125, 0.226]];
     const legL = [[-0.105, 0.5], [-0.076, 0.74], [-0.073, 0.82], [-0.05, 0.955], [-0.088, 0.997], [-0.022, 1.0], [-0.025, 0.955], [-0.03, 0.84], [-0.032, 0.74], [-0.02, 0.6], [-0.004, 0.515]];
     const torso = [[-0.135, 0.178], [-0.12, 0.22], [-0.125, 0.27], [-0.095, 0.36], [-0.11, 0.45], [-0.1, 0.52], [0, 0.505], [0.1, 0.52], [0.11, 0.45], [0.095, 0.36], [0.125, 0.27], [0.12, 0.22], [0.135, 0.178], [0.026, 0.158], [-0.026, 0.158]];
-    const parts = [[legL, 0.03], [mir(legL), 0.09], [torso, 0.035], [armL, null], [mir(armL), null]];
+    const parts = [[legL, -0.05], [mir(legL), 0.07], [torso, 0.035], [armL, null], [mir(armL), null]];
     for (const [pts, shadeX] of parts) {
       const path = spline(M(pts), true);
       g.fillStyle = rgba(BISTRE, 0.1); g.fill(path);
       const box = [cx - 0.55 * S, top, cx + 0.55 * S, top + S];
-      if (shadeX != null) hatchIn(g, r, path, box, 3.2, SEPIA, 0.36, 0.85, Math.PI / 4, (q) => q.rect(cx + shadeX * S - (shadeX < 0.05 ? 0 : 0), top, S, S));
+      if (shadeX != null) hatchIn(g, r, path, box, 3.2, SEPIA, 0.36, 0.85, Math.PI / 4, (q) => q.rect(cx + shadeX * S, top, S, S));
       else hatchIn(g, r, path, box, 3, SEPIA, 0.3, 0.8, Math.PI / 4, (q) => q.rect(cx - S, top + 0.185 * S, 2 * S, S));
       pen(g, SEPIA, 0.85, 1.6); g.stroke(path);
       g.save(); g.translate(1.5, 1); pen(g, SEPIA, 0.22, 1); g.stroke(path); g.restore();
