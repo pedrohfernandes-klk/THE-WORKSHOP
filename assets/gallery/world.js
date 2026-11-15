@@ -31,7 +31,7 @@ export const AREAS = [
   { name: 'Arcade', minX: 11, maxX: 23, minZ: 38, maxZ: 50, minY: -1, maxY: 6 },
   { name: 'Sala Lente', minX: -22, maxX: -2, minZ: 56.3, maxZ: 72, minY: -1, maxY: 6, school: 'west' },
   { name: 'Sala de Português', minX: 2, maxX: 22, minZ: 56.3, maxZ: 72, minY: -1, maxY: 6, school: 'east' },
-  { name: 'EPI · Escola Profissional de Imagem', minX: -22, maxX: 22, minZ: 52.4, maxZ: 56.3, minY: -1, maxY: 6 },
+  { name: 'The School', minX: -22, maxX: 22, minZ: 52.4, maxZ: 56.3, minY: -1, maxY: 6 },
   { name: 'The Amphitheatre', minX: -68, maxX: -28, minZ: 12, maxZ: 48, minY: -6, maxY: 6 },
   { name: 'The Garden', minX: 24, maxX: 66, minZ: 12, maxZ: 52, minY: -1, maxY: 6 },
   { name: 'The Plaza', minX: -24, maxX: 24, minZ: 17.4, maxZ: 52.4, minY: -1, maxY: 6 },

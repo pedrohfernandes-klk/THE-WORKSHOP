@@ -170,13 +170,16 @@ export function build(ctx) {
   };
   doorLeaf(-0.95, -0.35); doorLeaf(0.95, 0.0);
   // wall-mounted details
-  const signTex = (txt) => canvasTex(256, 256, (g, w, h) => {
+  // Plain panels with an abstract mark (no names: the building stays unidentified).
+  const signTex = (variant) => canvasTex(256, 256, (g, w, h) => {
     g.fillStyle = '#f4f4f1'; g.fillRect(0, 0, w, h); g.strokeStyle = '#2a2b2d'; g.lineWidth = 6; g.strokeRect(12, 12, w - 24, h - 24);
-    g.fillStyle = '#111'; g.font = `600 78px ${SANS}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, w / 2, h / 2 + 2);
+    g.fillStyle = '#111'; g.strokeStyle = '#111'; g.lineWidth = 10; g.lineCap = 'round';
+    if (variant === 0) { g.beginPath(); g.arc(w * 0.42, h * 0.48, 30, 0, Math.PI * 2); g.stroke(); g.beginPath(); g.moveTo(w * 0.58, h * 0.66); g.lineTo(w * 0.74, h * 0.66); g.stroke(); }
+    else { for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(w * (0.36 + i * 0.14), h * 0.34); g.lineTo(w * (0.36 + i * 0.14), h * 0.66); g.stroke(); } }
   }, { text: true });
   const signMat = t => new THREE.MeshStandardMaterial({ map: t, roughness: 0.4 });
-  addPlane(signMat(signTex('etic_')), 0.75, 0.75, Tm(0.78, 3.15, 55.985, PI));
-  addPlane(signMat(signTex('epi')), 0.75, 0.75, Tm(0.0, 3.15, 55.985, PI));
+  addPlane(signMat(signTex(0)), 0.75, 0.75, Tm(0.78, 3.15, 55.985, PI));
+  addPlane(signMat(signTex(1)), 0.75, 0.75, Tm(0.0, 3.15, 55.985, PI));
   { const g = new THREE.SphereGeometry(0.09, 16, 8, 0, PI * 2, 0, PI / 2); g.rotateX(-PI / 2); g.translate(-1.0, 3.35, 56);
     const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0xc62222, roughness: 0.35 })); m.castShadow = true; group.add(m);
     CY(whiteSteel, 0.12, 0.03, -0.45, 3.4, 55.97, Tm(0, 0, 0, 0, PI / 2), 20); }
@@ -196,10 +199,18 @@ export function build(ctx) {
       for (const ch of txt) { const dy = (r2() - 0.5) * 7, rot = (r2() - 0.5) * 0.08; g.save(); g.translate(x, y + dy); g.rotate(rot); g.strokeText(ch, 0, 0); g.restore(); x += g.measureText(ch).width * 1.04 + (r2() - 0.5) * 3; }
       return x;
     };
-    let xe = hand('Have a minute?', 520, 132, 150); g.beginPath(); g.moveTo(520, 150); g.bezierCurveTo(900, 175, 1300, 140, xe, 160); g.stroke();
-    hand('Sit down, think it through, one more time,', xe + 120, 132, 150);
-    hand('scribble it out, cross it out, and start again — and again —', 700, 270, 150);
-    hand('Creatively, try something', 3300, 410, 165);
+    void hand; // the handwriting is abstracted: loops and strokes along the lines, no words
+    const scribble = (x0, x1, y, amp, seed) => {
+      sd = seed; g.lineWidth = 1.6; g.strokeStyle = 'rgba(141,138,132,0.6)'; g.lineJoin = 'round'; g.beginPath(); g.moveTo(x0, y);
+      for (let x = x0; x < x1; x += 6) {
+        const loop = r2() < 0.08;
+        if (loop) { const r = amp * (0.4 + r2() * 0.5); for (let a = 0; a < Math.PI * 2; a += 0.35) g.lineTo(x + Math.sin(a) * r * 0.6, y - r + Math.cos(a) * r); }
+        g.lineTo(x, y + Math.sin(x * 0.045 + seed) * amp * 0.35 + (r2() - 0.5) * amp * 0.25);
+      }
+      g.stroke();
+    };
+    scribble(520, 2600, 120, 46, 11); scribble(2800, 5400, 122, 44, 23);
+    scribble(700, 4300, 258, 48, 37); scribble(3300, 5600, 398, 52, 41);
   }, { text: true });
   const muralMat = new THREE.MeshStandardMaterial({ map: muralTex, transparent: true, roughness: 0.95, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
   addPlane(muralMat, 2 * (XE - 0.35), 3.3, Tm(0, 5.35, 55.992, PI));
@@ -328,7 +339,7 @@ export function build(ctx) {
     return canvasTex(1024, 640, (g, w, h) => {
       g.fillStyle = '#b98a5a'; g.fillRect(0, 0, w, h);
       for (let i = 0; i < 6000; i++) { g.fillStyle = `rgba(${rnd() < 0.5 ? '90,55,25' : '230,190,140'},0.18)`; g.fillRect(rnd() * w, rnd() * h, 2 + rnd() * 3, 2 + rnd() * 3); }
-      const titles = variant ? ['Open Day', 'Horários 2026/27', 'Bolsa de Estudo', 'Sala de Estudo'] : ['Fotografia', 'Exposição Final', 'Bem-vindos à EPI', 'Cursos'];
+      const titles = variant ? ['Open Day', 'Horários 2026/27', 'Bolsa de Estudo', 'Sala de Estudo'] : ['Fotografia', 'Exposição Final', 'Bem-vindos', 'Cursos'];
       const subs = variant ? ['12 de maio · entrada livre', 'turmas · salas · docentes', 'candidaturas até junho', 'biblioteca · 2.º piso'] : ['Imagem · Luz · Olhar', 'galeria da escola', 'ano letivo 2026/2027', 'Foto · Vídeo · Design'];
       const cols = ['#e9d35b', '#f4f1ea', '#6fa8c7', '#e98b73', '#a5d1a0', '#d9d0f0'];
       for (let i = 0; i < 4; i++) {
@@ -453,7 +464,7 @@ export function build(ctx) {
     for (let i = 0; i < 8; i++) { const a = i * PI / 4; g.beginPath(); g.moveTo(cx + Math.cos(a) * h * 0.07, cy + Math.sin(a) * h * 0.07); g.lineTo(cx + Math.cos(a + 0.5) * h * 0.42, cy + Math.sin(a + 0.5) * h * 0.42); g.stroke(); }
     g.fillStyle = '#f2ede2'; g.textBaseline = 'alphabetic'; g.font = `400 ${h * 0.34}px ${SERIF}`; g.fillText('Lente', w * 0.07, h * 0.52);
     g.font = `400 ${h * 0.09}px ${SERIF}`; g.fillStyle = '#c9d8e8'; g.fillText('Lente · EPI 2026/2027', w * 0.075, h * 0.68);
-    g.font = `500 ${h * 0.036}px ${SANS}`; g.fillStyle = 'rgba(220,230,240,0.7)'; g.fillText('ESCOLA PROFISSIONAL DE IMAGEM', w * 0.075, h * 0.9);
+
   };
   const lenteTex = canvasTex(1280, 720, lenteCard, { text: true });
   const lapTex = canvasTex(512, 320, lenteCard, { text: true });

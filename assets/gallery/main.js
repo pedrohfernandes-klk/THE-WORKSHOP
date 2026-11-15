@@ -783,7 +783,7 @@ function surfaceAt(area, pos, inLift) {
   const n = area ? area.name : '';
   if (n === 'The Hall') return 'concrete';
   if (n === 'The Cinema' || n === 'Roof terrace' || n === 'Studio' || n === 'Sala de Português') return 'wood';
-  if (n === 'Arcade' || n === 'Sala Lente' || n.startsWith('EPI') || n === 'The Plaza' || n === 'The Amphitheatre') return 'stone';
+  if (n === 'Arcade' || n === 'Sala Lente' || n === 'The School' || n === 'The Plaza' || n === 'The Amphitheatre') return 'stone';
   if (n === 'The Garden') {
     const onPath = Math.abs(pos.z - 29) < 1.6 || Math.abs(pos.x - 46) < 1.6 || Math.hypot(pos.x - 46, pos.z - 29) < 5.6;
     return onPath ? 'gravel' : 'grass';

@@ -21,8 +21,8 @@ CC0 materials (Poly Haven) and a real HDR sky:
 - **The Hall** — the attentive gallery above, with a glass lift to the roof.
 - **The Cinema** and **roof terrace** (level 1) — the film on the big screen.
 - **Studio** (the mixing desk and sketch apps), **Arcade** (twelve playable
-  machines), the **EPI school** — its real façade, *Sala Lente* and *Sala de
-  Português* opening the Lente and Português sites, PCs running *Queda*.
+  machines), a **school** — *Sala Lente* and *Sala de Português* opening the
+  Lente and Português sites, PCs running *Queda*.
 - **Plaza**, reflecting pool, parterres, **garden** (fountain, pergola, lawns),
   sunken **amphitheatre**, an eerie **ruin**, a surface **metro** with a
   luminous tunnel, a **Skyliner** cable car, aircraft, birds, and comic NPCs.
