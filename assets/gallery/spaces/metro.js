@@ -113,7 +113,7 @@ export function build(ctx) {
   sweep(0, L, 1, [rail(-0.7175), rail(0.7175)], steel);
   sweep(0, L, 2, [[[0, WIRE - 0.012], [0.012, WIRE], [0, WIRE + 0.012], [-0.012, WIRE], [0, WIRE - 0.012]]], wireMat);
 
-  // ---- catenary masts every 25 m (not in the tunnel) ----
+  // ---- catenary masts every 25 m (not in the tunnel); each arm reaches from its pole over the track ----
   {
     const pts = []; const d = new THREE.Object3D();
     for (let s = 12; s < L; s += 25) { if (s > TUN0 - 8 && s < TUN1 + 8) continue; pts.push(s); }
@@ -121,7 +121,7 @@ export function build(ctx) {
     const arm = new THREE.BoxGeometry(2.9, 0.09, 0.09); arm.translate(1.45, 5.7, 0);
     const drop = new THREE.BoxGeometry(0.03, 1.2, 0.03); drop.translate(2.9, 4.95, 0);
     const mp = new THREE.InstancedMesh(BGU.mergeGeometries([pole, arm, drop]), graphite, pts.length);
-    pts.forEach((s, i) => { pathAt(s, T); d.position.set(T.x + T.tz * 2.9, yAt(s), T.z - T.tx * 2.9); d.rotation.set(0, Math.atan2(T.tx, -T.tz), 0); d.updateMatrix(); mp.setMatrixAt(i, d.matrix); });
+    pts.forEach((s, i) => { pathAt(s, T); d.position.set(T.x + T.tz * 2.9, yAt(s), T.z - T.tx * 2.9); d.rotation.set(0, Math.atan2(-T.tx, -T.tz), 0); d.updateMatrix(); mp.setMatrixAt(i, d.matrix); });
     mp.castShadow = true; group.add(mp);
   }
 

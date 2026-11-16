@@ -6,7 +6,41 @@ const STOPS=[
   {id:'mercado',x:115,z:37,y:.35,boardX:112.8,boardZ:37},
   {id:'marginal',x:32,z:81,y:.35,boardX:29.8,boardZ:81}
 ];
-const ROUTES=[[[86,29],[86,48],[119,48],[119,37],[115,37]],[[115,37],[124,48],[126,116],[32,116],[32,81]],[[32,81],[32,98],[86,110],[86,48],[86,29]]];
+// ---- rails: every leg runs on track. The light-rail's east straight (metro.js, x=86) carries
+// the campus stop; two new spurs leave it: east to the Mercado (south branch at z=42, wye back
+// north at z=60) and west to the Marginal (from z=60). Pieces are lines and circular arcs.
+const PI=Math.PI,Ln=(x0,z0,x1,z1)=>({l:[x0,z0,x1,z1]}),Ar=(cx,cz,r,a0,a1)=>({a:[cx,cz,r,a0,a1]});
+const M_SOUTH=Ar(96,42,10,PI,PI/2),M_STEM=Ln(94,52,105,52),M_TURN=Ar(105,42,10,PI/2,0),M_END=Ln(115,42,115,28),M_WYE=Ar(94,60,8,-PI/2,-PI);
+const G_TURN=Ar(78,60,8,0,PI/2),G_WEST=Ln(78,68,40,68),G_NORTH=Ar(40,76,8,-PI/2,-PI),G_END=Ln(32,76,32,91);
+const NEW_TRACK=[M_SOUTH,M_STEM,M_TURN,M_END,M_WYE,G_TURN,G_WEST,G_NORTH,G_END];
+// Legs from stop to stop: [piece, reversed]; sub-lines are written out where a leg uses part of one.
+const LEGS=[
+  [[Ln(86,29,86,42)],[M_SOUTH],[Ln(96,52,105,52)],[M_TURN],[Ln(115,42,115,37)]],
+  [[Ln(115,37,115,42)],[M_TURN,1],[Ln(105,52,94,52)],[M_WYE],[G_TURN],[G_WEST],[G_NORTH],[Ln(32,76,32,81)]],
+  [[Ln(32,81,32,76)],[G_NORTH,1],[G_WEST,1],[G_TURN,1],[Ln(86,60,86,29)]]
+];
+function samplePiece(piece,step,out,reversed=false){
+  const pts=[];
+  if(piece.l){const [x0,z0,x1,z1]=piece.l,n=Math.max(1,Math.ceil(Math.hypot(x1-x0,z1-z0)/step));for(let i=0;i<=n;i++)pts.push([x0+(x1-x0)*i/n,z0+(z1-z0)*i/n]);}
+  else{const [cx,cz,r,a0,a1]=piece.a,n=Math.max(2,Math.ceil(Math.abs(a1-a0)*r/step));for(let i=0;i<=n;i++){const t=a0+(a1-a0)*i/n;pts.push([cx+r*Math.cos(t),cz+r*Math.sin(t)]);}}
+  if(reversed)pts.reverse();
+  for(const q of pts){const last=out[out.length-1];if(last&&Math.hypot(q[0]-last[0],q[1]-last[1])<1e-6)continue;out.push(q);}
+  return out;
+}
+// Arc-length table with unit tangents (direction of travel).
+function trackTable(pts){
+  const n=pts.length,x=new Float32Array(n),z=new Float32Array(n),s=new Float32Array(n),tx=new Float32Array(n),tz=new Float32Array(n);
+  for(let i=0;i<n;i++){x[i]=pts[i][0];z[i]=pts[i][1];if(i)s[i]=s[i-1]+Math.hypot(x[i]-x[i-1],z[i]-z[i-1]);}
+  for(let i=0;i<n;i++){const a=Math.max(0,i-1),b=Math.min(n-1,i+1),dx=x[b]-x[a],dz=z[b]-z[a],l=Math.hypot(dx,dz)||1;tx[i]=dx/l;tz[i]=dz/l;}
+  return {x,z,s,tx,tz,length:s[n-1],n};
+}
+const LEG_TABLES=LEGS.map(leg=>{const pts=[];for(const [piece,rev] of leg)samplePiece(piece,.25,pts,!!rev);return trackTable(pts);});
+function trackAt(t,d,o){
+  d=Math.max(0,Math.min(t.length,d));let lo=0,hi=t.n-1;while(hi-lo>1){const m=(lo+hi)>>1;if(t.s[m]<=d)lo=m;else hi=m;}
+  const span=t.s[hi]-t.s[lo],v=span>0?(d-t.s[lo])/span:0;
+  o.x=t.x[lo]+(t.x[hi]-t.x[lo])*v;o.z=t.z[lo]+(t.z[hi]-t.z[lo])*v;
+  const ax=t.tx[lo]+(t.tx[hi]-t.tx[lo])*v,az=t.tz[lo]+(t.tz[hi]-t.tz[lo])*v,l=Math.hypot(ax,az)||1;o.tx=ax/l;o.tz=az/l;return o;
+}
 const TAU=Math.PI*2,wrap=a=>a-TAU*Math.round(a/TAU);
 export function build(ctx){
   const {THREE,M}=ctx,group=new THREE.Group();group.name='tram-ride';
@@ -19,13 +53,14 @@ export function build(ctx){
   function box(list,w,h,d,x,y,z,tint=0xe2d5bb){const g=new THREE.BoxGeometry(w,h,d);M.boxUV(g);g.translate(x,y,z);if(list===0){color.setHex(tint);const a=new Float32Array(g.attributes.position.count*3);for(let i=0;i<a.length;i+=3){a[i]=color.r;a[i+1]=color.g;a[i+2]=color.b;}g.setAttribute('color',new THREE.BufferAttribute(a,3));}parts[list].push(g);}
   function localBox(x0,x1,z0,z1,y0=.35,y1=2.7){return {minX:x0,maxX:x1,minZ:z0,maxZ:z1,minY:y0,maxY:y1};}
   const localRegions=[{minX:-1.48,maxX:1.48,minZ:-4,maxZ:4,y:.35}];
-  const localColliders=[localBox(-1.63,-1.48,-4,-1.2),localBox(-1.63,-1.48,1.2,4),localBox(1.48,1.63,-4,4),localBox(-1.6,1.6,-4.12,-4),localBox(-1.6,1.6,4,4.12)];
-  const doorCol=localBox(-1.64,-1.46,-1.2,1.2);localColliders.push(doorCol);
+  const localColliders=[localBox(-1.63,-1.48,-4,-1.2),localBox(-1.63,-1.48,1.2,4),localBox(1.48,1.63,-4,-1.2),localBox(1.48,1.63,1.2,4),localBox(-1.6,1.6,-4.12,-4),localBox(-1.6,1.6,4,4.12)];
+  // Doors on both sides: on the return legs the car runs backward without turning, as a
+  // bidirectional tram does, so either side may face the platform.
+  const doorCol=localBox(-1.64,-1.46,-1.2,1.2),doorColR=localBox(1.46,1.64,-1.2,1.2);localColliders.push(doorCol,doorColR);
   box(0,3.2,.2,8.3,0,.25,0,0x7f7770);box(0,3.2,.12,8.3,0,2.95,0);
   box(0,3.2,.52,.12,0,.61,-4.1);box(0,3.2,.52,.12,0,.61,4.1);
   for(const x of [-1.56,1.56]){
     for(const z of [-2.65,2.65]){box(0,.12,.72,2.9,x,.81,z,0xd6c5a9);box(0,.12,.22,2.9,x,2.78,z);}
-    if(x>0)box(0,.12,.72,2.4,x,.81,0,0xd6c5a9);
     for(const z of [-4.04,-1.18,1.18,4.04])box(0,.12,1.86,.12,x,1.94,z,0x73655b);
   }
   for(const z of [-4.06,4.06]){box(0,.8,1.85,.1,-1.2,1.92,z);box(0,.8,1.85,.1,1.2,1.92,z);box(0,1.6,.25,.1,0,2.78,z);}
@@ -40,13 +75,54 @@ export function build(ctx){
     const grip=new THREE.TorusGeometry(.09,.013,5,10);M.boxUV(grip);grip.rotateY(Math.PI/2);grip.translate(x,2.34,z+.25);parts[2].push(grip);
   }
   box(2,1.72,.035,.035,0,2.65,-1.05);box(2,1.72,.035,.035,0,2.65,1.05);
+  // Pantograph up to the contact wire, 4.5 m over the rail base (the light-rail's own height).
+  const rodTmp=new THREE.Object3D(),va=new THREE.Vector3(),vb=new THREE.Vector3();
+  const rod=(ax,ay,az,bx,by,bz,t=.05)=>{va.set(ax,ay,az);vb.set(bx,by,bz);const g=new THREE.BoxGeometry(t,t,va.distanceTo(vb));M.boxUV(g);rodTmp.position.copy(va).add(vb).multiplyScalar(.5);rodTmp.lookAt(vb);rodTmp.updateMatrix();g.applyMatrix4(rodTmp.matrix);parts[2].push(g);};
+  box(2,.62,.1,.5,0,3.06,-.9);for(const x of [-.42,.42]){rod(x,3.1,-.9,x,3.86,.12);rod(x,3.86,.12,x,4.43,-.5);}rod(-.75,4.46,-.5,.75,4.46,-.5,.06);
   for(let i=0;i<3;i++){const merged=mergeGeometries(parts[i],false);const mesh=new THREE.Mesh(merged,materials[i]);mesh.castShadow=i!==2;mesh.receiveShadow=true;car.add(mesh);for(const g of parts[i])g.dispose();if(i===1){mesh.userData.action={type:'sit',seats};pickables.push(mesh);}}
   // One batch for every station's connected concrete platform, all new ground.
   const platformGeos=[];
-  for(const s of STOPS){const minX=s.id==='marginal'?26.8:s.id==='mercado'?109.8:81.8;const maxX=s.x-1.05;const r={minX,maxX,minZ:s.z-1.2,maxZ:s.z+1.2,y:.35};regions.push(r);const g=new THREE.BoxGeometry(maxX-minX,.35,2.4);M.boxUV(g);g.translate((minX+maxX)/2,.175,s.z);platformGeos.push(g);}
+  for(const s of STOPS){const minX=s.id==='marginal'?26.8:s.id==='mercado'?109.8:81.8;const maxX=s.x-1.05;const r={minX,maxX,minZ:s.z-1.2,maxZ:s.z+1.2,y:.35};regions.push(r);const g=new THREE.BoxGeometry(maxX-minX,.95,2.4);M.boxUV(g);g.translate((minX+maxX)/2,-.125,s.z);platformGeos.push(g);}
   const platform=new THREE.Mesh(mergeGeometries(platformGeos,false),M.get('concreteWall',{color:0xb9ad97,roughness:.85}));platform.receiveShadow=true;group.add(platform);for(const g of platformGeos)g.dispose();
+  // ---- new track (the main line is metro.js's): slab, shoulders, rails, contact wire, masts, buffers.
+  // Same profiles and materials as the light-rail, 4 mm lower so the junctions never z-fight.
+  {
+    const base=-.034,H_RAIL=.1,WIRE=4.5,dbl=m=>{const c=m.clone();c.side=THREE.DoubleSide;return c;};
+    const rail=c=>[[c-.07,0],[c+.07,0],[c+.07,.02],[c+.015,.03],[c+.015,.075],[c+.04,.082],[c+.04,H_RAIL],[c-.04,H_RAIL],[c-.04,.082],[c-.015,.075],[c-.015,.03],[c-.07,.02],[c-.07,0]];
+    const PROF={slab:[[[-1.6,0],[1.6,0]],[[1.6,0],[1.6,-.7]],[[-1.6,0],[-1.6,-.7]]],gravel:[[[1.6,0],[4.6,-1.5]],[[-1.6,0],[-4.6,-1.5]]],rails:[rail(-.7175),rail(.7175)],wire:[[[0,WIRE-.012],[.012,WIRE],[0,WIRE+.012],[-.012,WIRE],[0,WIRE-.012]]]};
+    const MAT={slab:dbl(M.get('concreteFloor')),gravel:dbl(M.get('gravel')),rails:M.get('steel'),wire:new THREE.MeshBasicMaterial({color:0x15171a,side:THREE.DoubleSide})};
+    const geos={slab:[],gravel:[],rails:[],wire:[]};
+    for(const piece of NEW_TRACK){
+      const t=trackTable(samplePiece(piece,piece.a?.5:1,[]));
+      for(const key in PROF){
+        const polys=PROF[key];let vc=0;for(const q of polys)vc+=t.n*q.length;
+        const pos=new Float32Array(vc*3),uv=new Float32Array(vc*2),idx=[];let w=0,u=0,b0=0;
+        for(const q of polys){
+          const m=q.length,cum=[0];for(let j=1;j<m;j++)cum.push(cum[j-1]+Math.hypot(q[j][0]-q[j-1][0],q[j][1]-q[j-1][1]));
+          for(let k=0;k<t.n;k++){const rx=-t.tz[k],rz=t.tx[k];for(let j=0;j<m;j++){pos[w++]=t.x[k]+rx*q[j][0];pos[w++]=base+q[j][1];pos[w++]=t.z[k]+rz*q[j][0];uv[u++]=t.s[k];uv[u++]=cum[j];}}
+          for(let k=0;k<t.n-1;k++)for(let j=0;j<m-1;j++){const a=b0+k*m+j,c=a+m;idx.push(a,c,a+1,c,c+1,a+1);}
+          b0+=t.n*m;
+        }
+        const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('uv',new THREE.BufferAttribute(uv,2));g.setIndex(idx);g.computeVertexNormals();geos[key].push(g);
+      }
+    }
+    // Buffer stops at the two dead ends.
+    for(const [x,z,dz] of [[115,28,-1],[32,91,1]]){const beam=new THREE.BoxGeometry(2.1,.42,.3);beam.translate(x,base+.62,z+dz*.15);geos.rails.push(beam);for(const sx of [-.75,.75]){const post=new THREE.BoxGeometry(.16,.9,.16);post.translate(x+sx,base+.45,z+dz*.35);geos.rails.push(post);}}
+    for(const key in geos){
+      const merged=mergeGeometries(geos[key],false);for(const g of geos[key])g.dispose();
+      const mesh=new THREE.Mesh(merged,MAT[key]);mesh.name='tram-track-'+key;mesh.receiveShadow=key!=='wire';mesh.castShadow=false;mesh.userData.noBatch=true;group.add(mesh);
+    }
+    // Catenary masts on the straights, on the side away from the platforms (as metro.js builds them).
+    const graphite=new THREE.MeshPhysicalMaterial({color:0x24272c,roughness:.35,metalness:.4,clearcoat:.6,clearcoatRoughness:.3});
+    const pole=new THREE.CylinderGeometry(.07,.11,6.2,8);pole.translate(0,3.1,0);const arm=new THREE.BoxGeometry(2.9,.09,.09);arm.translate(1.45,5.7,0);const drop=new THREE.BoxGeometry(.03,1.2,.03);drop.translate(2.9,4.95,0);
+    const mastGeo=mergeGeometries([pole,arm,drop]);pole.dispose();arm.dispose();drop.dispose();
+    const MASTS=[[100,52,1,0,-1],[115,34,0,-1,-1],[68,68,-1,0,1],[50,68,-1,0,1],[32,87,0,1,1]];   // x, z, tangent x, tangent z, side (1 = right of travel)
+    const masts=new THREE.InstancedMesh(mastGeo,graphite,MASTS.length),d=new THREE.Object3D();
+    MASTS.forEach(([x,z,tx,tz,side],i)=>{d.position.set(x+side*tz*2.9,base,z-side*tx*2.9);d.rotation.set(0,Math.atan2(-side*tx,-side*tz),0);d.updateMatrix();masts.setMatrixAt(i,d.matrix);});
+    masts.castShadow=true;masts.userData.noBatch=true;group.add(masts);
+  }
   // Open windows show the real campus; no worlds or media loaded.
-  const doors=new THREE.InstancedMesh(new THREE.BoxGeometry(.075,2.3,1.15),materials[2],2);M.boxUV(doors.geometry);car.add(doors);doors.userData.action={type:'custom',label:'PARTIR'};pickables.push(doors);
+  const doors=new THREE.InstancedMesh(new THREE.BoxGeometry(.075,2.3,1.15),materials[2],4);M.boxUV(doors.geometry);car.add(doors);doors.userData.action={type:'custom',label:'PARTIR'};pickables.push(doors);
   const bags=new THREE.InstancedMesh(new THREE.BoxGeometry(.36,.46,.22),M.get('leather',{color:0x6a4633,roughness:.7}),2);M.boxUV(bags.geometry);car.add(bags);
   const warm=M.get('plaster',{color:0xffe6bb,roughness:.55}).clone();warm.emissive.setHex(0xffc785);warm.emissiveIntensity=.45;
   const lamp=new THREE.Mesh(new THREE.BoxGeometry(.16,.025,6.5),warm);M.boxUV(lamp.geometry);lamp.position.set(0,2.86,0);car.add(lamp);lamp.userData.action={type:'custom',label:'PARTIR'};pickables.push(lamp);
@@ -58,7 +134,8 @@ export function build(ctx){
   const eventState=ctx.scene.userData.lastTramEvent={type:'',sequence:0,tripId:0,value:null};
   const impulse=ctx.scene.userData.tramImpulse={sequence:0,x:0,z:0,duration:.3};
   const carrier={x:86,z:29,yaw:0,fromX:86,fromZ:29,fromYaw:0,riding:false,localWorld:{regions:localRegions,colliders:localColliders}};
-  let stationIndex=0,nextStation=1,phase='docked',phaseTime=0,tripId=0,travelTime=0,travelProgress=0,smallUntil=0,route=ROUTES[0],routeLength=0,routeLengths=new Float32Array(12);
+  let stationIndex=0,nextStation=1,phase='docked',phaseTime=0,tripId=0,travelTime=0,travelProgress=0,smallUntil=0,route=LEG_TABLES[0],routeLength=0,facing=1;
+  const trackPoint={x:0,z:0,tx:0,tz:1};
   let readVisitor=null;const visitorPosition={x:86,y:1.97,z:29};
   function readVisitorPosition(){if(readVisitor)readVisitor(visitorPosition);else if(camera){visitorPosition.x=camera.position.x;visitorPosition.y=camera.position.y;visitorPosition.z=camera.position.z;}return visitorPosition;}
   let camera=null,doorOpen=1,incident=false,climax=false,fightStarted=false,accelUntil=0,quiet=false,sleep=false,visitorWasInside=false;
@@ -77,7 +154,8 @@ export function build(ctx){
   }
   function emit(type,value){eventState.type=type;eventState.sequence++;eventState.tripId=tripId;eventState.value=value;if(ctx.events?.dispatchEvent&&typeof CustomEvent!=='undefined')ctx.events.dispatchEvent(new CustomEvent('workshop',{detail:{type,value}}));}
   function contains(x,z,pad=0){const dx=x-carrier.x,dz=z-carrier.z,c=Math.cos(carrier.yaw),s=Math.sin(carrier.yaw);const lx=c*dx-s*dz,lz=s*dx+c*dz;return Math.abs(lx)<1.48-pad&&Math.abs(lz)<3.98-pad;}
-  function configureRoute(){route=ROUTES[stationIndex];routeLength=0;routeLengths[0]=0;for(let i=1;i<route.length;i++){routeLength+=Math.hypot(route[i][0]-route[i-1][0],route[i][1]-route[i-1][1]);routeLengths[i]=routeLength;}}
+  // The car keeps its own facing; on a leg that starts against it, it runs backward along the rails.
+  function configureRoute(){route=LEG_TABLES[stationIndex];routeLength=route.length;trackAt(route,0,trackPoint);facing=Math.sin(carrier.yaw)*trackPoint.tx+Math.cos(carrier.yaw)*trackPoint.tz>=0?1:-1;}
   function depart(){
     if(phase!=='docked'||!camera)return false;
     readVisitorPosition();if(!contains(visitorPosition.x,visitorPosition.z)||Math.abs(visitorPosition.y-1.97)>1.6){ctx.ui?.toast?.('Entre pela porta aberta.');return false;}
@@ -91,7 +169,7 @@ export function build(ctx){
     dynamicRegion.minX=carrier.x-1.48*ax-4*az;dynamicRegion.maxX=carrier.x+1.48*ax+4*az;dynamicRegion.minZ=carrier.z-1.48*az-4*ax;dynamicRegion.maxZ=carrier.z+1.48*az+4*ax;
     for(let i=0;i<localColliders.length;i++){const a=localColliders[i],b=globalBoxes[i],lx=(a.minX+a.maxX)/2,lz=(a.minZ+a.maxZ)/2,hx=(a.maxX-a.minX)/2,hz=(a.maxZ-a.minZ)/2,x=carrier.x+c*lx+s*lz,z=carrier.z-s*lx+c*lz;b.minX=x-ax*hx-az*hz;b.maxX=x+ax*hx+az*hz;b.minZ=z-az*hx-ax*hz;b.maxZ=z+az*hx+ax*hz;b.minY=a.minY;b.maxY=a.maxY;}
     for(let i=0;i<seats.length;i++){const p=seatPositions[i],seat=seats[i];seat.x=carrier.x+c*p[0]+s*p[1];seat.z=carrier.z-s*p[0]+c*p[1];seat.facing[0]=p[0]<0?c:-c;seat.facing[1]=p[0]<0?-s:s;}
-    for(let i=0;i<2;i++){dummy.position.set(-1.59,1.55,(i?1:-1)*(.59+doorOpen*1.18));dummy.rotation.set(0,0,0);dummy.updateMatrix();doors.setMatrixAt(i,dummy.matrix);dummy.position.set((i?.55:-.55)+(ctx.reducedMotion?0:Math.max(0,smallUntil-lastTime)*.06),.59,i?3.5:-3.5);dummy.rotation.set(0,0,ctx.reducedMotion?0:Math.sin(Math.max(0,accelUntil-lastTime)*6)*.13);dummy.updateMatrix();bags.setMatrixAt(i,dummy.matrix);}doors.instanceMatrix.needsUpdate=bags.instanceMatrix.needsUpdate=true;
+    for(let i=0;i<2;i++){dummy.position.set(-1.59,1.55,(i?1:-1)*(.59+doorOpen*1.18));dummy.rotation.set(0,0,0);dummy.updateMatrix();doors.setMatrixAt(i,dummy.matrix);dummy.position.set((i?.55:-.55)+(ctx.reducedMotion?0:Math.max(0,smallUntil-lastTime)*.06),.59,i?3.5:-3.5);dummy.rotation.set(0,0,ctx.reducedMotion?0:Math.sin(Math.max(0,accelUntil-lastTime)*6)*.13);dummy.updateMatrix();bags.setMatrixAt(i,dummy.matrix);}for(let i=0;i<2;i++){dummy.position.set(1.59,1.55,(i?1:-1)*(.59+doorOpen*1.18));dummy.rotation.set(0,0,0);dummy.updateMatrix();doors.setMatrixAt(i+2,dummy.matrix);}doors.instanceMatrix.needsUpdate=bags.instanceMatrix.needsUpdate=true;
     for(let i=0;i<4;i++){const n=passengers[i];if(!n)continue;const p=passengerSeats[i];n.x=carrier.x+c*p[0]+s*p[1];n.z=carrier.z-s*p[0]+c*p[1];if(n.pts){n.pts[0]=n.x;n.pts[1]=n.z;}const root=n.root||n.group||n.mesh;const poseY=root?root.position.y-(n.baseY||0):0;n.baseY=.35;if(root){root.position.x=n.x;root.position.z=n.z;root.position.y=.35+poseY;}
       if(n.col){const w=n.colW||.3;n.col.minX=n.x-w;n.col.maxX=n.x+w;n.col.minZ=n.z-w;n.col.maxZ=n.z+w;n.col.minY=.35;n.col.maxY=.35+(n.colH||1.8);}
       if(n.blob){n.blob.position.x=n.x;n.blob.position.z=n.z;n.blob.position.y=.37;}
@@ -106,19 +184,17 @@ export function build(ctx){
     if(phase==='closing'){phaseTime+=dt;doorOpen=Math.max(0,1-phaseTime/1.2);if(phaseTime>=1.2){phaseTime=0;carrier.riding=contains(visitorPosition.x,visitorPosition.z);visitorWasInside=carrier.riding;if(carrier.riding)phase='travel';else{phase='opening';tramMusic.mode='home';score.hush();announce('Partida cancelada. Porta a abrir.');}}}
     else if(phase==='travel'){
       travelTime+=dt;const duration=18;travelProgress+=dt/duration*(accelUntil>frame.time?1.7:1);const u=travelTime<duration-2?Math.min(.96,travelProgress):Math.min(1,.96+.04*(travelTime-(duration-2))/2),ease=u*u*(3-2*u),distance=routeLength*ease;
-      let k=1;while(k<route.length-1&&routeLengths[k]<distance)k++;const a=route[k-1],b=route[k],len=routeLengths[k]-routeLengths[k-1],v=len?Math.min(1,(distance-routeLengths[k-1])/len):1;
-      carrier.x=a[0]+(b[0]-a[0])*v;carrier.z=a[1]+(b[1]-a[1])*v;
-      const heading=Math.atan2(b[0]-a[0],b[1]-a[1]);carrier.yaw+=wrap((u>.94?0:heading)-carrier.yaw)*(1-Math.exp(-dt*2.5));
+      trackAt(route,distance,trackPoint);carrier.x=trackPoint.x;carrier.z=trackPoint.z;carrier.yaw=Math.atan2(facing*trackPoint.tx,facing*trackPoint.tz);
       if(!incident&&travelTime>4){incident=true;smallUntil=frame.time+2;if(!quiet)ctx.ui?.toast?.('A mala pediu outro lugar.');}
       if(!climax&&travelTime>7){climax=true;let a=null,b=null;for(let i=0;i<4;i++)if(passengers[i]){if(!a)a=passengers[i];else if(!b)b=passengers[i];}
         if(a&&b){const combat=ctx.scene.userData.combatAPI;lastCombatResult=combat?.getScriptedResult?.()?.sequence||0;fightStarted=!!combat?.startScripted?.(a.S.name,b.S.name,{duration:4,climax:true,allowSeated:true,inPlace:true,venue:'tram',tripId});}
-        if(fightStarted&&tripId%5!==0){accelUntil=frame.time+4;announce('Por motivos de porrada, vamos acelerar.');if(!ctx.reducedMotion&&carrier.riding){impulse.sequence++;impulse.x=-Math.sin(carrier.yaw)*.75;impulse.z=-Math.cos(carrier.yaw)*.75;}}
+        if(fightStarted&&tripId%5!==0){accelUntil=frame.time+4;announce('Por motivos de porrada, vamos acelerar.');if(!ctx.reducedMotion&&carrier.riding){impulse.sequence++;impulse.x=-facing*Math.sin(carrier.yaw)*.75;impulse.z=-facing*Math.cos(carrier.yaw)*.75;}}
       }
       const combatResult=ctx.scene.userData.combatAPI?.getScriptedResult?.();if(fightStarted&&combatResult?.sequence>lastCombatResult&&combatResult.completed){lastCombatResult=combatResult.sequence;if(combatResult.visitorWon)emit('tram-climax-win',{tripId,winner:combatResult.winner});}
       if(accelUntil&&frame.time>=accelUntil&&!rideSurvived){rideSurvived=true;const status=ctx.scene.userData.combatAPI?.getVisitorStatus?.();if(carrier.riding&&status?.fell===false)emit('tram-acceleration-survived',{tripId,fight:true,fell:false});}
-      if(u>=1){const s=STOPS[nextStation];carrier.x=s.x;carrier.z=s.z;carrier.yaw=0;stationIndex=nextStation;phase='opening';phaseTime=0;announce('Paragem: '+STOPS[stationIndex].id+'.');}
+      if(u>=1){const s=STOPS[nextStation];carrier.x=s.x;carrier.z=s.z;carrier.yaw=facing*route.tz[route.n-1]>=0?0:PI;stationIndex=nextStation;phase='opening';phaseTime=0;announce('Paragem: '+STOPS[stationIndex].id+'.');}
     } else if(phase==='opening'){phaseTime+=dt;doorOpen=Math.min(1,phaseTime/1.2);if(phaseTime>=2){phase='docked';carrier.riding=false;tramMusic.mode='home';score.hush();}}
-    doorCol.minY=doorOpen>.92?10:.35;doorCol.maxY=doorOpen>.92?11:2.8;
+    doorCol.minY=doorColR.minY=doorOpen>.92?10:.35;doorCol.maxY=doorColR.maxY=doorOpen>.92?11:2.8;
     const brutal=accelUntil-frame.time>3.55&&!ctx.reducedMotion&&carrier.riding;
     view.fov=brutal?-3:0;view.roll=brutal?Math.sin((accelUntil-frame.time)*7)*.012:0;
     warm.emissiveIntensity=.25+.5*(ctx.scene.userData.weather?.nightK||0);
@@ -126,7 +202,7 @@ export function build(ctx){
   }
   function beforeRender(){
     if(ctx.scene.userData.npcStatues)return;const ring=!ctx.reducedMotion&&!!ctx.scene.userData.combatAPI?.state?.active&&ctx.scene.userData.combatAPI.state.venue==='tram';const lean=!ctx.reducedMotion&&accelUntil>lastTime;if(!lean&&!ring)return;
-    for(let i=0;i<4;i++){const n=passengers[i],root=n&&(n.root||n.group||n.mesh);if(!root)continue;renderRoots[i]=root;renderPose[i*3]=root.rotation.x;renderPose[i*3+1]=root.rotation.z;renderPose[i*3+2]=root.rotation.y;if(ring&&i>=2)root.rotation.y=carrier.yaw+(i===2?0:Math.PI);if(lean){const a=carrier.yaw-root.rotation.y;root.rotation.x-=.12*Math.cos(a);root.rotation.z-=.12*Math.sin(a);}}
+    for(let i=0;i<4;i++){const n=passengers[i],root=n&&(n.root||n.group||n.mesh);if(!root)continue;renderRoots[i]=root;renderPose[i*3]=root.rotation.x;renderPose[i*3+1]=root.rotation.z;renderPose[i*3+2]=root.rotation.y;if(ring&&i>=2)root.rotation.y=carrier.yaw+(i===2?0:Math.PI);if(lean){const a=carrier.yaw-root.rotation.y;root.rotation.x-=.12*facing*Math.cos(a);root.rotation.z-=.12*facing*Math.sin(a);}}
   }
   function afterRender(){for(let i=0;i<4;i++){const root=renderRoots[i];if(root){root.rotation.x=renderPose[i*3];root.rotation.z=renderPose[i*3+1];root.rotation.y=renderPose[i*3+2];renderRoots[i]=null;}}}
   const assigned=[];let candidates=null;
