@@ -1,0 +1,367 @@
+diff --git a/assets/gallery/audio.js b/assets/gallery/audio.js
+index 9629633..132986f 100644
+--- a/assets/gallery/audio.js
++++ b/assets/gallery/audio.js
+@@ -3,7 +3,8 @@ import { rootEngine, managedEvent, managedLoop, maintainLoop, dropManagedLoop, t
+ // audio.js — the sound of the room. Pure Web Audio, fully procedural, no files.
+ // Graph builders take a context parameter so they can also render offline.
+ //
+-// Mix: ONE AudioContext, ONE limiter. Everything sums into E.master (mute + level), then the limiter,
++// Ambient mix: primary context/master/limiter. Statues adds one independently pausable NPC context.
++// Both contexts share the global voice ledger and reserve summing headroom. Primary sources sum into E.master, then the limiter,
+ // then a soft clip that never lets the sum cross 0 dBFS (the limiter's 3 ms attack lets transients by).
+ //   effects, beds, weather, sfx.js, NPC voices -> E.master (audio.bus)
+ //   the score -> E.musicIn (its fader: trim, a -1.5 dB dip at 2.2 kHz for the footstep band, a duck for the
+@@ -905,7 +906,7 @@ export function createAudio() {
+     nextOwl: 0, nextDog: 0, nextMoan: 0, nextGust: 0,
+     duckUntil: 0, duckDepth: 1, duckCur: 1, thunderAt: -10, musicCtx: null, stillFor: 0,
+   };
+-  const MASTER = 0.9;
++  const MASTER = 0.45; // Separate NPC transport has its own .45 master; reserve summing headroom.
+ 
+   const usable = () => A.started && A.ctx && A.E && !A.muted && !A.quiet && !A.hidden && A.ctx.state !== 'closed';
+   const gaitNow = () => clamp((A.speed - 2.3) / 0.8, 0, 1);
+@@ -1013,6 +1014,7 @@ export function createAudio() {
+   }
+ 
+   const api = {
++    registerVoiceContext(context){A.E?.voiceManager.registerContext(context);},
+     acquireVoice(options){if(!usable())return null;return A.E.voiceManager.acquireVoice(options);},
+     releaseVoice(token){A.E?.voiceManager.releaseVoice(token);},
+     preparePunchline(){
+diff --git a/assets/gallery/combat.js b/assets/gallery/combat.js
+index e9ae272..c76632d 100644
+--- a/assets/gallery/combat.js
++++ b/assets/gallery/combat.js
+@@ -75,11 +75,12 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
+   function stopSounds(){for(let i=0;i<voices.length;i++)if(voices[i]){try{voices[i].stop();}catch{}voices[i]=null;}}
+   function sound(r,step=0,soft=false,moveIndex=-1){
+     if(freeze()||quiet()||ctx.audio?.muted)return;
+-    let ac,bus;try{ac=ctx.audio?.context;bus=ctx.audio?.bus;}catch{return;}if(!ac||!bus||ac.state!=='running')return;
++    const voiceAudio=ctx.scene.userData.statueAudio?.audio||ctx.audio;
++    let ac,bus;try{ac=voiceAudio?.context;bus=voiceAudio?.bus;}catch{return;}if(!ac||!bus||ac.state!=='running')return;
+     let slot=-1;for(let i=0;i<6;i++)if(!voices[i]){slot=i;break;}if(slot<0)return;
+     const profile=moveIndex>=0?FOLEY[moveIndex]:null,duration=profile?BEAT*profile[5]:BEAT/4;
+     // No broker means silence: never bypass the global voice budget.
+-    const token=ctx.audio.acquireVoice?.({priority:3,foreground:true,ms:(duration+.03)*1000});
++    const token=voiceAudio.acquireVoice?.({priority:3,foreground:true,ms:(duration+.03)*1000});
+     if(!token||!token.active)return;
+     let source,gain,filter,pan;
+     try{
+@@ -257,7 +258,7 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
+   }
+   function update(dt){
+     if(disposed)return;readVisitor();const paused=freeze();state.paused=paused;
+-    if(paused&&!pausedBefore)stopSounds();pausedBefore=paused;
++    pausedBefore=paused;
+     if(state.active&&a?.visitor){a.n.x=position.x;a.n.z=position.z;a.n.baseY=position.y-1.62;a.n.shadowY=controls.floor;}
+     if((quiet()||!canAct())&&state.active){end(quiet()?'quiet':'overlay');return;}
+     if(paused){if(avatar)avatar.root.visible=false;refreshUi();return;}
+diff --git a/assets/gallery/fabinhe.js b/assets/gallery/fabinhe.js
+index 3d558f8..d41bbb5 100644
+--- a/assets/gallery/fabinhe.js
++++ b/assets/gallery/fabinhe.js
+@@ -140,9 +140,11 @@ export function createFabinhe(ctx, { npcs, say } = {}) {
+   function before(dt, frame) {
+     camera = frame?.camera || camera;
+     if (!actor || destroyed) return;
++    if(ctx.scene.userData.questQuiet||ctx.audio?.muted){if(state.active)cancel('quiet');state.paused=true;return;}
++    if(forcedPause||ctx.scene.userData.npcStatues){state.paused=true;return;}
+     const paused = quiet();
+     if (paused) { if (!state.paused || state.active) cancel('paused'); state.paused = true; return; }
+-    if (state.paused) { state.paused = false; state.phase = 'idle'; actor.rig?.setPreset?.(null); } // No queue catch-up or automatic replay on thaw.
++    if (state.paused) { state.paused = false; } // No queue catch-up or automatic replay on thaw.
+     if (!near()) { if (state.active) cancel('idle'); return; }
+     const step = Math.min(.05, Math.max(0, dt || 0)); state.clock += step;
+     if (!state.active) return;
+@@ -166,7 +168,7 @@ export function createFabinhe(ctx, { npcs, say } = {}) {
+   const visibility = () => { if (typeof document !== 'undefined' && document.hidden) cancel('idle'); };
+   if (typeof document !== 'undefined') document.addEventListener('visibilitychange', visibility);
+   return { state, before, after, onTalk, onSlap,
+-    setPaused(value) { forcedPause = !!value; if (forcedPause) { cancel('paused'); state.paused = true; } },
++    setPaused(value) { forcedPause = !!value;state.paused=forcedPause; },
+     dispose() { destroyed = true; cancel('disposed'); if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', visibility); }
+   };
+ }
+diff --git a/assets/gallery/main.js b/assets/gallery/main.js
+index fae0667..7aadf5a 100644
+--- a/assets/gallery/main.js
++++ b/assets/gallery/main.js
+@@ -401,7 +401,7 @@ import('./player.js').then((m) => {
+ worldReady.then(async(w)=>{
+   const {createCombat}=await import('./combat.js');
+   const npcModule=w.modules.get('npcs');if(!npcModule?.combatActors)return;
+-  combat=createCombat(ctx,{camera,controls,world:w,npcModule,getPlayer:()=>player,
++  combat=createCombat(ctx,{camera,controls,world:w,npcModule,enableStatues:true,getPlayer:()=>player,
+     canAct:()=>state.entered&&!state.overlay&&!state.exhibitionOpen,
+     canStart:()=>!charging&&!paper?.holding,
+     onSlap:()=>{state.slaps=(state.slaps||0)+1;}});
+diff --git a/assets/gallery/npc-comedy.js b/assets/gallery/npc-comedy.js
+index 7537ad8..710a2e6 100644
+--- a/assets/gallery/npc-comedy.js
++++ b/assets/gallery/npc-comedy.js
+@@ -243,7 +243,7 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
+     if(ctx.scene?.userData?.questQuiet){cancel();if(externalNow)lastExternal=externalNow();return;}
+     const frozen=manualPaused||!!ctx.scene?.userData?.npcStatues;
+     if(externalNow){const stamp=externalNow();if(frozen||wasPaused)externalOffset+=Math.max(0,stamp-lastExternal);lastExternal=stamp;}
+-    if(frozen){if(!wasPaused)stopAudio();wasPaused=true;observe();return;}
++    if(frozen){wasPaused=true;observe();return;}
+     if(!wasPaused)clock+=Math.min(.1,Math.max(0,dt||0));wasPaused=false;
+     if(disposed||!camera)return;const muted=!!ctx.audio?.muted;if(muted&&!mutedLast)stopAudio();mutedLast=muted;observe();if(quiet()){cancel();return;}
+     const t=time();
+@@ -282,8 +282,9 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
+       const k=Math.sin((t-r.cryAt)*18)*.035;n.arms[0].rotation.z+=k;n.arms[1].rotation.z-=k;n.head.rotation.x+=.13;
+     }
+   }
+-  function setPaused(value){manualPaused=!!value;if(manualPaused){wasPaused=true;if(externalNow)lastExternal=externalNow();stopAudio();}}
++  function setPaused(value){manualPaused=!!value;if(manualPaused){wasPaused=true;if(externalNow)lastExternal=externalNow();}}
++  function thaw(n,text){if(!['Eu estava a pensar.','Quem me mudou o intervalo?','O pombo estava a avaliar.'].includes(text)||quiet()||!awake(n))return false;authorized.add(keyOf(text));return say(n,text,false);}
+   function isSignature(n,text){return byNpc.get(n)?.descriptor.signature?.text===text;}
+   function dispose(){disposed=true;cancel();manifestRequest?.abort();clearTimeout(manifestTimer);for(let i=0;i<records.length;i++){records[i].request?.abort();clearTimeout(records[i].requestTimer);}}
+-  return {allow,line,select,notify,update,after,cancel,dispose,memory,debug,allowLaugh,sound,loadManifest,isSignature,setPaused,defeat};
++  return {thaw,allow,line,select,notify,update,after,cancel,dispose,memory,debug,allowLaugh,sound,loadManifest,isSignature,setPaused,defeat};
+ }
+diff --git a/assets/gallery/spaces/npcs.js b/assets/gallery/spaces/npcs.js
+index ad29bf2..5ff73a5 100644
+--- a/assets/gallery/spaces/npcs.js
++++ b/assets/gallery/spaces/npcs.js
+@@ -1,3 +1,4 @@
++import { createStatueAudio, createStatueDirector } from '../statue-director.js';
+ import { reserveModuleVoice, finishModuleVoice } from '../audio-lease.js';
+ // NPCs: six silly animal-headed people in suits who wander small loops around the
+ // campus, face the visitor when close, and talk (speech bubble + synthesised noise)
+@@ -10,22 +11,12 @@ import { buildCharacter, createLinePicker, createNpcEffects, mergeNpcProps } fro
+ 
+ export async function build(ctx) {
+   const { THREE, quality } = ctx;
+-  // Private NPC bus: statues never suspend the ambient AudioContext.
+   const sourceAudio=ctx.audio;
+-  let npcBus=null,npcContext=null,npcSpeechActive=false,npcSpeechPaused=false,statuesHeld=false,npcTime=0;
++  const statueAudio=createStatueAudio(ctx);ctx.scene.userData.statueAudio=statueAudio;
++  let npcSpeechActive=false,npcSpeechPaused=false,statuesHeld=false,npcTime=0;
+   const npcFrame={camera:null,time:0,level:0,weather:null};
+-  const npcAudio={
+-    get context(){return sourceAudio?.context;},
+-    get muted(){return !!sourceAudio?.muted||!!ctx.scene.userData.npcStatues;},
+-    get bus(){const ac=sourceAudio?.context,bus=sourceAudio?.bus;if(!ac||!bus)return null;
+-      if(npcContext!==ac){npcBus?.disconnect();npcContext=ac;npcBus=ac.createGain();npcBus.connect(bus);}
+-      npcBus.gain.value=ctx.scene.userData.npcStatues?0:1;return npcBus;},
+-    acquireVoice(options){return sourceAudio?.acquireVoice?.(options)||null;},
+-    releaseVoice(token){sourceAudio?.releaseVoice?.(token);},
+-    duck(seconds){sourceAudio?.duck?.(seconds);},
+-    preparePunchline(){return sourceAudio?.preparePunchline?.()||0;}
+-  };
+-  ctx={...ctx,audio:npcAudio};
++  ctx={...ctx,audio:statueAudio.audio};
++  let statueDirector=null;
+ 
+   let cast = [];
+   try {
+@@ -560,6 +551,7 @@ export async function build(ctx) {
+   }
+   comedy.loadManifest(); // background: never delays the Enter button
+   fabinhe = createFabinhe(ctx, { npcs, say });
++  statueDirector=createStatueDirector(ctx,{actors:npcs,say:(n,text)=>comedy.thaw(n,text)});
+ 
+   // ---------- sound ----------
+   // Web Audio is read lazily from ctx.audio (null until the visitor enters) and
+@@ -1285,16 +1277,12 @@ export async function build(ctx) {
+   // A throw would make the world drop this module's update for good: contain it here.
+   function setStatues(value){
+     if(statuesHeld===!!value)return;statuesHeld=!!value;
+-    if(npcBus&&npcContext)npcBus.gain.setValueAtTime(value?0:1,npcContext.currentTime);
+-    comedy?.setPaused?.(!!value);
+-    try{if(typeof speechSynthesis!=='undefined'){
+-      if(value&&npcSpeechActive&&speechSynthesis.speaking){speechSynthesis.pause();npcSpeechPaused=true;}
+-      else if(!value&&npcSpeechPaused){if(ctx.scene.userData.questQuiet)speechSynthesis.cancel();else speechSynthesis.resume();npcSpeechPaused=false;}
+-    }}catch{}
++    statueAudio.setPaused(!!value);comedy?.setPaused?.(!!value);
+   }
+   function update(dt, frame) {
+-    if (ctx.audio?.muted || ctx.scene.userData.questQuiet || ctx.scene.userData.npcStatues) stopSignatureSpeech();
++    if (ctx.audio?.muted || ctx.scene.userData.questQuiet) stopSignatureSpeech();
+     if (!frame?.camera) return;
++    statueAudio.update(frame.camera);statueDirector.update(dt,frame.camera);
+     fabinhe.before(dt,frame);
+     npcFrame.camera=frame.camera;npcFrame.level=frame.level;npcFrame.weather=frame.weather;
+     if(ctx.scene.userData.npcStatues){setStatues(true);comedy.update(0,npcFrame);effects.update(frame.camera,starMat.rotation);return;}
+@@ -1963,6 +1951,6 @@ export async function build(ctx) {
+     else if(move==='chapada'||move==='reves'||move==='sanduiche')comedy?.notify?.('slap',n);
+   }
+   return { group, regions: [], colliders, pickables, update, onPick, slap, fabinhe, setNavigation: personalities.setNavigation,
+-    actors:npcs,combatActors:npcs,findActor:findNpc,combatImpact,setStatues,refreshEffects:(camera)=>effects.update(camera,starMat.rotation),get comedyMemory(){return comedy.memory;} };
++    statueDirector,statueAudio,actors:npcs,combatActors:npcs,findActor:findNpc,combatImpact,setStatues,refreshEffects:(camera)=>effects.update(camera,starMat.rotation),get comedyMemory(){return comedy.memory;} };
+ 
+ }
+diff --git a/assets/gallery/voice-manager.js b/assets/gallery/voice-manager.js
+index 07ed46d..641e59b 100644
+--- a/assets/gallery/voice-manager.js
++++ b/assets/gallery/voice-manager.js
+@@ -1,19 +1,24 @@
+-// S: one admission ledger per shared AudioContext. Sources are created by callers.
++// One admission ledger shared by the ambient and NPC transport contexts.
+ // Production never wraps native factories. Optional factory auditing is TEST-only.
+ export function createVoiceManager(context, { test = false } = {}) {
+   const slots = new Array(26).fill(null);
+   const sourceOwners = new WeakMap();
+   let serial = 0, stolen = 0, disposed = false, draining = false, collecting = false, duckUntil = 0, gapAt = 0;
+   const audit = test ? installAudit(context, sourceOwners) : null;
++  const audits = audit ? [audit] : [], auditedContexts = new WeakSet([context]);
+   const clampPriority = n => Math.max(0, Math.min(3, Number.isFinite(n) ? Math.floor(n) : 0));
+ 
++  function registerContext(ac) {
++    if(!test||!ac||auditedContexts.has(ac)||disposed)return;
++    auditedContexts.add(ac);audits.push(installAudit(ac,sourceOwners));
++  }
+   function retire(token, reason) {
+     if (!token || token.released || slots[token.slot] !== token) return;
+     token.released = true; token.active = false; token.fading = false;
+     slots[token.slot] = null;
+     for (let i = 0; i < token.sources.length; i++) {
+       const source = token.sources[i];
+-      try { source.stop(context.currentTime); } catch { /* already ended */ }
++      try { source.stop(token.context.currentTime); } catch { /* already ended */ }
+       try { source.disconnect(); } catch { /* optional source */ }
+     }
+     try { token.gain.disconnect(); } catch { /* not connected */ }
+@@ -26,11 +31,11 @@ export function createVoiceManager(context, { test = false } = {}) {
+   function tick() {
+     if (collecting || disposed) return;
+     collecting = true;
+-    const now = context.currentTime;
+     for (let i = 0; i < slots.length; i++) {
+       const token = slots[i];
+       if (!token) continue;
+-      if (token.fading && now >= token.fadeEnd) retire(token, 'stolen');
++      const now = token.context.currentTime;
++      if (token.fading && (token.context.state === 'suspended' || now >= token.fadeEnd)) retire(token, 'stolen');
+       else if (token.active && now >= token.expires) retire(token, 'expired');
+     }
+     collecting = false;
+@@ -47,7 +52,7 @@ export function createVoiceManager(context, { test = false } = {}) {
+   }
+ 
+   function fade(token) {
+-    const now = context.currentTime;
++    const now = token.context.currentTime;
+     token.active = false; token.fading = true; token.fadeEnd = now + 0.03;
+     fadeGain(token.gain.gain, now, token.fadeEnd);
+     for (let i = 0; i < token.outputs.length; i++) fadeGain(token.outputs[i].gain, now, token.fadeEnd);
+@@ -57,8 +62,9 @@ export function createVoiceManager(context, { test = false } = {}) {
+     stolen++;
+   }
+ 
+-  function acquireVoice({ priority = 0, foreground = false, ms } = {}) {
+-    if (disposed || draining || !Number.isFinite(ms) || ms <= 0 || ms > 3600000) return null;
++  function acquireVoice({ priority = 0, foreground = false, ms, sourceContext = context } = {}) {
++    if (!sourceContext || sourceContext.state !== 'running' || disposed || draining || !Number.isFinite(ms) || ms <= 0 || ms > 3600000) return null;
++    registerContext(sourceContext);
+     tick();
+     priority = clampPriority(priority); foreground = !!foreground;
+     let voices = 0, fronts = 0, fades = 0, free = -1;
+@@ -69,9 +75,7 @@ export function createVoiceManager(context, { test = false } = {}) {
+       else if (token.fading) fades++;
+     }
+     const foregroundFull = foreground && fronts >= 6;
+-    if (free < 0) return null;
+     if (voices >= 24 || foregroundFull) {
+-      if (fades >= 2) return null;
+       let victim = null;
+       for (let i = 0; i < slots.length; i++) {
+         const candidate = slots[i];
+@@ -81,17 +85,23 @@ export function createVoiceManager(context, { test = false } = {}) {
+         if (!victim || candidate.id < victim.id) victim = candidate;
+       }
+       if (!victim) return null;
+-      fade(victim);
++      if(victim.context.state==='suspended') {
++        // Inaudible voices need no fade reservation. Normal global priority still applies.
++        const slot=victim.slot;draining=true;try{retire(victim,'stolen');stolen++;}finally{draining=false;}
++        if(free<0)free=slot;
++      } else { if(free<0||fades>=2)return null;fade(victim); }
+     }
+-    const now = context.currentTime;
++    if(free<0)return null;
++    const now = sourceContext.currentTime;
+     const token = {
++      context: sourceContext,
+       id: ++serial, slot: free, priority, foreground, startAt: now,
+-      expires: now + ms / 1000, gain: context.createGain(), outputs: [], sources: [], ended: 0,
++      expires: now + ms / 1000, gain: sourceContext.createGain(), outputs: [], sources: [], ended: 0,
+       active: true, fading: false, fadeEnd: 0, released: false, onRelease: null,
+       addOutput(node) {
+         if (!token.active || !node?.gain) return false;
+         token.outputs.push(node);
+-        if (!token.foreground) applyDuck(node.gain, context.currentTime);
++        if (!token.foreground) applyDuck(node.gain, sourceContext.currentTime, sourceContext);
+         return true;
+       },
+       track(source) {
+@@ -108,14 +118,14 @@ export function createVoiceManager(context, { test = false } = {}) {
+       },
+       renew(durationMs) {
+         if (!token.active || token.released || !Number.isFinite(durationMs) || durationMs <= 0 || durationMs > 3600000) return false;
+-        if (context.currentTime >= token.expires) { retire(token, 'expired'); return false; }
+-        token.expires = context.currentTime + durationMs / 1000;
++        if (sourceContext.currentTime >= token.expires) { retire(token, 'expired'); return false; }
++        token.expires = sourceContext.currentTime + durationMs / 1000;
+         return true;
+       },
+       release() { retire(token, 'released'); },
+     };
+     token.gain.gain.value = 1;
+-    if (!foreground) applyDuck(token.gain.gain, now);
++    if (!foreground) applyDuck(token.gain.gain, now, token.context);
+     slots[free] = token;
+     return token;
+   }
+@@ -126,21 +136,23 @@ export function createVoiceManager(context, { test = false } = {}) {
+     else { gain.cancelScheduledValues(now); gain.setValueAtTime(gain.value, now); }
+     gain.linearRampToValueAtTime(0, end);
+   }
+-  function applyDuck(param, now) {
+-    if (now >= duckUntil) return;
++  function applyDuck(param, now, sourceContext = context) {
++    const offset = context.currentTime - sourceContext.currentTime;
++    const localUntil = duckUntil - offset, localGap = gapAt - offset;
++    if (now >= localUntil) return;
+     param.cancelScheduledValues(now);
+-    param.setValueAtTime(now >= gapAt ? 0 : 0.2511886432, now);
+-    if (now < gapAt) { param.setValueAtTime(0.2511886432, gapAt); param.linearRampToValueAtTime(0, gapAt + .005); }
+-    param.setValueAtTime(0, duckUntil);
+-    param.linearRampToValueAtTime(1, duckUntil + .08);
++    param.setValueAtTime(now >= localGap ? 0 : 0.2511886432, now);
++    if (now < localGap) { param.setValueAtTime(0.2511886432, localGap); param.linearRampToValueAtTime(0, localGap + .005); }
++    param.setValueAtTime(0, localUntil);
++    param.linearRampToValueAtTime(1, localUntil + .08);
+   }
+   function preparePunchline() {
+     const now = context.currentTime;
+     gapAt = now + .25; duckUntil = now + .29;
+     for (let i = 0; i < slots.length; i++) {
+       const token = slots[i]; if (!token?.active || token.foreground) continue;
+-      applyDuck(token.gain.gain, now);
+-      for (let j = 0; j < token.outputs.length; j++) applyDuck(token.outputs[j].gain, now);
++      applyDuck(token.gain.gain, token.context.currentTime, token.context);
++      for (let j = 0; j < token.outputs.length; j++) applyDuck(token.outputs[j].gain, token.context.currentTime, token.context);
+     }
+     return .29;
+   }
+@@ -154,13 +166,13 @@ export function createVoiceManager(context, { test = false } = {}) {
+     tick();
+     const c = counts();
+     return { voices: c.voices, foreground: c.foreground, fading: c.fading, stolen,
+-      unmanaged: audit ? audit.unmanaged() : 0 };
++      unmanaged: audit ? audits.reduce((sum,a)=>sum+a.unmanaged(),0) : 0 };
+   }
+   function diagnostics() {
+-    return audit ? audit.snapshot() : null;
++    if(!audit)return null;const result={installed:true,sources:0,managedSources:0,unmanaged:0,scheduled:0,contexts:audits.length};for(const a of audits){const part=a.snapshot();result.installed=result.installed&&part.installed;for(const key of ['sources','managedSources','unmanaged','scheduled'])result[key]+=part[key];}return result;
+   }
+-  function dispose() { if (disposed) return; disposed = true; stopAll('dispose'); audit?.restore(); }
+-  return { acquireVoice, releaseVoice, tick, stopAll, stats, diagnostics, preparePunchline, dispose };
++  function dispose() { if (disposed) return; disposed = true; stopAll('dispose'); for(const a of audits)a.restore(); }
++  return { registerContext, acquireVoice, releaseVoice, tick, stopAll, stats, diagnostics, preparePunchline, dispose };
+ }
+ 
+ function installAudit(context, owners) {
