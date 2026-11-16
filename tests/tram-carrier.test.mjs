@@ -1,0 +1,20 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import * as THREE from 'three';
+import {createControls} from '../assets/gallery/controls.js';
+const noop=()=>{};
+test('carrier collision, rotated transport and impulses use local walkable floor',()=>{
+ globalThis.window={addEventListener:noop,removeEventListener:noop,innerWidth:1280,innerHeight:720};
+ globalThis.document={addEventListener:noop,removeEventListener:noop,pointerLockElement:null,hidden:false};
+ const camera=new THREE.PerspectiveCamera();camera.position.set(86,1.97,29);
+ const dom={style:{},clientWidth:1280,addEventListener:noop,removeEventListener:noop};
+ const controls=createControls(camera,dom,{bounds:{minX:-200,maxX:200,minZ:-200,maxZ:200},colliders:[],reducedMotion:true});
+ const regions=[{minX:-1.48,maxX:1.48,minZ:-4,maxZ:4,y:.35}];
+ const carrier={x:86,z:29,yaw:0,fromX:86,fromZ:29,fromYaw:0,riding:true,localWorld:{regions,colliders:[{minX:1.48,maxX:1.63,minZ:-4,maxZ:4,minY:.35,maxY:2.8}]}};
+ controls.transportCarrier(carrier);
+ assert.equal(controls.moveCarrierDelta(10,0),true);const p={};controls.readPosition(p);assert.ok(p.x<=87.130001);assert.equal(controls.floor,.35);
+ const localX=p.x-86;carrier.fromX=86;carrier.fromZ=29;carrier.x=110;carrier.z=50;carrier.yaw=Math.PI/2;
+ controls.transportCarrier(carrier);controls.readPosition(p);assert.ok(Math.abs(p.x-110)<1e-6);assert.ok(Math.abs(p.z-(50-localX))<1e-6);
+ const before={...p};controls.applyImpulse(-.75,0,.3);for(let i=0;i<6;i++)controls.update(.05);controls.readPosition(p);
+ assert.ok(Math.hypot(p.x-before.x,p.z-before.z)<=.750001);assert.equal(controls.floor,.35);assert.ok(Number.isFinite(p.y));controls.dispose();
+});

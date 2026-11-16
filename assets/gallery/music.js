@@ -181,6 +181,8 @@ export function createMusic(opts = {}) {
   }
   function routeVoice(token,from,destination) {from.connect(token.gain);token.gain.connect(destination);}
   let currentChord = null, journeyMode = 'home';
+  const SAUDADE=[81,76,72,69,67,69,72,76,81,79,76,72,69,67,69,69];
+  const saudade=()=> (opts.scene?.userData?.bairroEffects?.saudadeUntil||0)>performance.now()/1000;
   const hum = () => (rng() - 0.5) * 0.005;
 
   // ------------------------------------------------------------- graph --
@@ -458,6 +460,12 @@ export function createMusic(opts = {}) {
     if (sb === 0) { curSec = sec; barStart(bar, sec, t0); }
     if (muted || !stabPat) return;
     const t = t0 + ((sb & 1) ? swing * STEP : 0), b64 = bar % 64;
+    if(saudade()){
+      // Original guitarra-like call/answer on the same A pentatonic grid.
+      if(sb%2===0){const i=((bar&1)*8+(sb>>1));key(t,SAUDADE[i],.52);chipNote(t+.025,SAUDADE[i]+12,.22,(sb&4)?.2:-.2);}
+      if(sb===0||sb===8)bassNote(t,45,1.3,.55);
+      return;
+    }
     // drums
     if (lvl.kick > 0.01) {
       if (sec !== 'brk' && (sb % 4 === 0 || (harm === 'storm' && (sb === 11 || (sb === 14 && bar & 1))) || (sec === 'drop' && sb === 14 && bar % 4 === 3))) kick(t0, sb % 4 === 0 ? 1 : 0.7);
@@ -526,6 +534,7 @@ export function createMusic(opts = {}) {
     set('lead', groove * sm(0.3, 0.6, e) * (1 - 0.3 * st));
     set('chip', groove * sm(0.72, 0.95, e) + 0.7 * a);
     set('bell', 0.6 * n + 0.8 * r + 0.25 * calm * h);
+    if(saudade()){set('keys',.85);set('chip',.3);set('bass',.25);set('pad',.18);}
     set('ruin', r);
     set('fx', groove * sm(0.4, 0.8, e));
     // tone: night muffles the drums, the ruins darken the room, the hall opens it; night echoes linger

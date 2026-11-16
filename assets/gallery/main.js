@@ -212,7 +212,15 @@ const M = createMaterials(renderer, { quality });
 const props = createProps(room.scene, { quality, reducedMotion });
 const ctx = {
   THREE, renderer, scene: room.scene, M, quality, reducedMotion, audio,
-  ui: { openApp: (url, title) => ui.openApp(url, title), toast: (t) => ui.toast(t) },
+  events: room.scene.userData.workshopEvents ||= new EventTarget(),
+  ui: {
+    openApp: (url, title) => ui.openApp(url, title), toast: (t) => ui.toast(t),
+    setPasswordOverlay: (open) => {
+      state.overlay = open;
+      if (open) controls.exitLock();
+      controls.enabled = !open && state.entered && !state.exhibitionOpen;
+    },
+  },
 };
 const interactions = createInteractions(ctx);
 const interactionFrame = { camera };
@@ -233,6 +241,11 @@ const worldReady = createWorld(ctx, {
 }).then((w) => {
   world = w;
   w.modules.get('npcs')?.setNavigation?.(w);
+  if (w.modules.get('tram-ride')) {
+    w.modules.get('metro')?.setRideService?.(true);
+    w.modules.get('tram-ride').tram.bindControls(controls);
+    w.modules.get('tram-ride').tram.initializePassengers(w.modules.get('npcs')?.actors, !state.entered);
+  }
   if (TEST) performance.mark('workshop:campus-built');
   controls.setWorld({ regions: w.regions, colliders: w.colliders });
   // A mirror only needs re-rendering from the side where it can be seen: the
@@ -406,6 +419,14 @@ worldReady.then(async(w)=>{
     canStart:()=>!charging&&!paper?.holding,
     onSlap:()=>{state.slaps=(state.slaps||0)+1;}});
 }).catch(err=>console.warn('[combat]',err));
+
+let bairroEconomy=null;
+Promise.all([ready,worldReady]).then(async()=>{
+  const {createBairroEconomy}=await import('./bairro-economy.js');
+  bairroEconomy=createBairroEconomy(ctx,{camera,controls,weather:()=>weather,
+    canAct:()=>state.entered&&!state.overlay&&!state.exhibitionOpen,
+    setOverlay:(open)=>{state.overlay=open;controls.enabled=!open&&state.entered&&!state.exhibitionOpen;}});
+}).catch(err=>console.warn('[bairro]',err));
 
 let sfx = null;
 // Eerie and wacky sound layer: zones (the ruin's heartbeat, the stage choir)
@@ -1012,6 +1033,7 @@ function updateCatalogueCover(dt) {
   } catch (e) { /* cosmetic */ }
 }
 let prefetchClock = 0;
+let tramImpulseSequence = 0;
 
 async function maybeRehang(now) {
   if (state.swapping || curator.fixed || !state.entered) return;
@@ -1100,7 +1122,14 @@ function step() {
     interactions.beforeUpdate();
     world.update(dt, { camera, time: now, level: floor > 5 ? 1 : 0, weather: weather ? weather.mode : 'sunny' });
   }
+  const tramRide = room.scene.userData.tramRide;
+  controls.transportCarrier?.(tramRide?.carrier);
   combat?.update(dt);
+  const tramImpulse = room.scene.userData.tramImpulse;
+  if (tramImpulse && tramImpulse.sequence !== tramImpulseSequence) {
+    tramImpulseSequence = tramImpulse.sequence;
+    if (!reducedMotion && tramRide?.carrier.riding) controls.applyImpulse?.(tramImpulse.x, tramImpulse.z, tramImpulse.duration);
+  }
   props.update?.(dt, camera);
   if (state.entered) updateCentrePrompt(dt);
   if (state.seatHint && !controls.seated) clearSeatHint();
@@ -1207,7 +1236,9 @@ function step() {
   }
 
   audio.setMotion({ speed: Math.min(controls.speed, 3.2), moving: state.entered && controls.speed > 0.25, airborne: controls.airborne });
-  questSilence.requested = !!room.scene.userData.questQuiet;
+  bairroEconomy?.update();
+  questSilence.requested = !!room.scene.userData.questQuiet ||
+    (room.scene.userData.bairroEffects?.silenceUntil||0)>performance.now()/1000;
   audio.setQuiet?.(questSilence.requested);
   if (questSilence.requested && typeof speechSynthesis !== 'undefined' && (speechSynthesis.speaking || speechSynthesis.pending)) speechSynthesis.cancel();
   questSilence.confirmed = questSilence.requested && audio.quietConfirmed === true &&
@@ -1220,8 +1251,19 @@ function step() {
   post.setMoving(controls.speed > 0.3 || !!state.flying || controls.turnRate > 0.6);
   // Behind an opaque overlay the room does not need to be redrawn every frame.
   combat?.renderCamera();
+  try {
+  const tramView=room.scene.userData.tramView;
+  const tramRoll=reducedMotion?0:(tramView?.roll||0),tramFov=reducedMotion?0:(tramView?.fov||0),tramBaseFov=camera.fov;
+  tramRide?.beforeRender?.();
+  if(tramRoll)camera.rotateZ(tramRoll);
+  if(tramFov){camera.fov+=tramFov;camera.updateProjectionMatrix();}
   try { if (!state.exhibitionOpen || state.frames % 8 === 0) post.render(dt); }
-  finally { combat?.restoreCamera(); }
+  finally {
+    tramRide?.afterRender?.();
+    if(tramRoll)camera.rotateZ(-tramRoll);
+    if(tramFov){camera.fov=tramBaseFov;camera.updateProjectionMatrix();}
+  }
+  } finally { combat?.restoreCamera(); }
   // Hold the frame rate by trading resolution and passes, never by swapping the
   // room's materials mid-visit (perf.js). It only listens once the campus is in.
   perf.update(performance.now(), { active: state.entered && !!world && !state.exhibitionOpen && !state.overlay });

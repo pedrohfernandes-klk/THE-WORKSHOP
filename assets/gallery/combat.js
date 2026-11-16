@@ -226,7 +226,7 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
   function moveNpc(r,dt,target){
     if(r.visitor){controls.combatMove(r.recoilX*dt,r.recoilZ*dt);return;}
     if(r.inPlace||r.n.fixed)return;
-    const dx=target.n.x-r.n.x,dz=target.n.z-r.n.z,d=Math.hypot(dx,dz),chase=r.attack<0&&d>1.45&&d<6 ? .7 : 0;
+    const dx=target.n.x-r.n.x,dz=target.n.z-r.n.z,d=Math.hypot(dx,dz),chase=!(ctx.scene.userData.bairroEffects?.patienceUntil>performance.now()/1000)&&r.attack<0&&d>1.45&&d<6 ? .7 : 0;
     moveInWorld(r.n.x,r.n.z,0,(r.recoilX+(d?dx/d*chase:0))*dt,(r.recoilZ+(d?dz/d*chase:0))*dt,r.n.colW||.4,world.regions,colliders,active,out);
     if(Math.abs(out.floor)<.1){r.n.x=out.x;r.n.z=out.z;}
   }
@@ -325,7 +325,7 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
     moveSelect.value=String(selected);if(a&&b)statusText.textContent=freeze()?'Personagens em pausa':`BRIO: ${a.pride} · ${b.pride}`;
     if(blockButton)blockButton.setAttribute('aria-pressed',(a?.blocking?'true':'false'));
   }
-  function apologize(target){let n=typeof target==='string'?npcs.find(n=>n.S.name===target):npcModule.findActor(target);if(!n){readVisitor();let best=12.25;for(let i=0;i<npcs.length;i++){const q=npcs[i],dx=q.x-position.x,dz=q.z-position.z,d=dx*dx+dz*dz;if(q.rancor>0&&d<best){n=q;best=d;}}}if(!n||state.active||freeze())return false;n.rancor=0;n.grudge=-Infinity;n.escalate=false;n.pestCd=60;callout('DESCULPA. Ficamos por aqui.');return true;}
+  function apologize(target){let n=typeof target==='string'?npcs.find(n=>n.S.name===target):npcModule.findActor(target);if(!n){readVisitor();let best=12.25;for(let i=0;i<npcs.length;i++){const q=npcs[i],dx=q.x-position.x,dz=q.z-position.z,d=dx*dx+dz*dz;if(q.rancor>0&&d<best){n=q;best=d;}}}if(!n||state.active||freeze())return false;if(npcModule.reconcileActor&&!npcModule.reconcileActor(n))return false;n.rancor=0;n.grudge=-Infinity;n.escalate=false;n.pestCd=60;callout('DESCULPA. Ficamos por aqui.');return true;}
   function setWeapon(kind){equipped=['carapau','paposeco','couve','jornal','chinelo','toalha','nata','luva'].includes(kind)?kind:'';return equipped;}
   function doubleCalduco(){if(!state.active||state.kind!=='visitor'||freeze()||endingAt)return false;attack(4);if(queueCount<3)queue[queueCount++]=4;return true;}
   function getBrio(){return visitor?.pride??100;}

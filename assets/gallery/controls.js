@@ -141,6 +141,44 @@ export function createControls(camera, dom, opts = {}) {
     get position() { return { x: px, y: py, z: pz }; },
   };
 
+  // L2: an explicit moving floor, expressed in the carriage's local coordinates.
+  let activeCarrier = null;
+  const carrierActive = [];
+  const carrierMove = { x: 0, z: 0, floor: .35, step: 0, region: null };
+  function moveInsideCarrier(dx, dz, out) {
+    const c = activeCarrier, co = Math.cos(c.yaw), si = Math.sin(c.yaw);
+    const lx = co * (px - c.x) - si * (pz - c.z), lz = si * (px - c.x) + co * (pz - c.z);
+    moveInWorld(lx, lz, floor, co * dx - si * dz, si * dx + co * dz, RADIUS,
+      c.localWorld.regions, c.localWorld.colliders, carrierActive, carrierMove);
+    out.x = c.x + co * carrierMove.x + si * carrierMove.z;
+    out.z = c.z - si * carrierMove.x + co * carrierMove.z;
+    out.floor = carrierMove.floor; out.step = carrierMove.step;
+  }
+  controls.moveCarrierDelta = function(dx, dz) {
+    if (!activeCarrier?.riding) return false;
+    if (seat || fl) return true; // a seated passenger retains the handhold/seat
+    moveInsideCarrier(dx, dz, wtmp); px = wtmp.x; pz = wtmp.z; floor = wtmp.floor;
+    py = floor + eyeHeight + jumpY + eyeOff; applyCamera(0); return true;
+  };
+  controls.transportCarrier = function(c) {
+    if (!c?.riding) { activeCarrier = null; return; }
+    activeCarrier = c;
+    const da = wrapPi(c.yaw - c.fromYaw), co = Math.cos(da), si = Math.sin(da);
+    let x = px - c.fromX, z = pz - c.fromZ;
+    px = c.x + co*x + si*z; pz = c.z - si*x + co*z;
+    if (seat) {
+      x=seat.x-c.fromX;z=seat.z-c.fromZ;seat.x=c.x+co*x+si*z;seat.z=c.z-si*x+co*z;
+      x=seat.from.x-c.fromX;z=seat.from.z-c.fromZ;seat.from.x=c.x+co*x+si*z;seat.from.z=c.z-si*x+co*z;
+    }
+    if (fl) {
+      x=fl.sx-c.fromX;z=fl.sz-c.fromZ;fl.sx=c.x+co*x+si*z;fl.sz=c.z-si*x+co*z;
+      x=fl.ex-c.fromX;z=fl.ez-c.fromZ;fl.ex=c.x+co*x+si*z;fl.ez=c.z-si*x+co*z;
+      if (!reduced) { fl.syaw+=da;fl.eyaw+=da; }
+    }
+    if (!reduced) { yaw+=da;tYaw+=da; }
+    floor=.35;applyCamera(0);
+  };
+
   const eyeBase = () => (world ? floor : 0) + eyeHeight;
 
   /** Switch to world mode: { regions, colliders } (arrays may be mutated in place later). */
@@ -580,7 +618,10 @@ export function createControls(camera, dom, opts = {}) {
       mx -= sy * ds; mz -= cy * ds;
       let jump = 0;   // floor discontinuity crossed this frame (stairs, kerbs)
       let ax = px, az = pz;
-      if (world) {
+      if (activeCarrier?.riding) {
+        moveInsideCarrier(mx, mz, wtmp);
+        ax=wtmp.x;az=wtmp.z;floor=wtmp.floor;jump=wtmp.step||0;
+      } else if (world) {
         moveInWorld(px, pz, floor, mx, mz, RADIUS, world.regions, world.colliders, active, wtmp);
         ax = wtmp.x; az = wtmp.z; floor = wtmp.floor; jump = wtmp.step || 0;
         // a floor that moves (the lift car) carries the visitor; a new one appearing is a step

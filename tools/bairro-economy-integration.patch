@@ -1,0 +1,379 @@
+diff --git a/assets/gallery/main.js b/assets/gallery/main.js
+index c3dff35..1320f58 100644
+--- a/assets/gallery/main.js
++++ b/assets/gallery/main.js
+@@ -415,6 +415,14 @@ worldReady.then(async(w)=>{
+     onSlap:()=>{state.slaps=(state.slaps||0)+1;}});
+ }).catch(err=>console.warn('[combat]',err));
+ 
++let bairroEconomy=null;
++Promise.all([ready,worldReady]).then(async()=>{
++  const {createBairroEconomy}=await import('./bairro-economy.js');
++  bairroEconomy=createBairroEconomy(ctx,{camera,controls,weather:()=>weather,
++    canAct:()=>state.entered&&!state.overlay&&!state.exhibitionOpen,
++    setOverlay:(open)=>{state.overlay=open;controls.enabled=!open&&state.entered&&!state.exhibitionOpen;}});
++}).catch(err=>console.warn('[bairro]',err));
++
+ let sfx = null;
+ // Eerie and wacky sound layer: zones (the ruin's heartbeat, the stage choir)
+ // and one-shots that answer the visitor (boings, slide whistles, cushions).
+@@ -1215,7 +1223,9 @@ function step() {
+   }
+ 
+   audio.setMotion({ speed: Math.min(controls.speed, 3.2), moving: state.entered && controls.speed > 0.25, airborne: controls.airborne });
+-  questSilence.requested = !!room.scene.userData.questQuiet;
++  bairroEconomy?.update();
++  questSilence.requested = !!room.scene.userData.questQuiet ||
++    (room.scene.userData.bairroEffects?.silenceUntil||0)>performance.now()/1000;
+   audio.setQuiet?.(questSilence.requested);
+   if (questSilence.requested && typeof speechSynthesis !== 'undefined' && (speechSynthesis.speaking || speechSynthesis.pending)) speechSynthesis.cancel();
+   questSilence.confirmed = questSilence.requested && audio.quietConfirmed === true &&
+diff --git a/assets/gallery/music.js b/assets/gallery/music.js
+index fbf04fc..c93871d 100644
+--- a/assets/gallery/music.js
++++ b/assets/gallery/music.js
+@@ -181,6 +181,8 @@ export function createMusic(opts = {}) {
+   }
+   function routeVoice(token,from,destination) {from.connect(token.gain);token.gain.connect(destination);}
+   let currentChord = null, journeyMode = 'home';
++  const SAUDADE=[81,76,72,69,67,69,72,76,81,79,76,72,69,67,69,69];
++  const saudade=()=> (opts.scene?.userData?.bairroEffects?.saudadeUntil||0)>performance.now()/1000;
+   const hum = () => (rng() - 0.5) * 0.005;
+ 
+   // ------------------------------------------------------------- graph --
+@@ -458,6 +460,12 @@ export function createMusic(opts = {}) {
+     if (sb === 0) { curSec = sec; barStart(bar, sec, t0); }
+     if (muted || !stabPat) return;
+     const t = t0 + ((sb & 1) ? swing * STEP : 0), b64 = bar % 64;
++    if(saudade()){
++      // Original guitarra-like call/answer on the same A pentatonic grid.
++      if(sb%2===0){const i=((bar&1)*8+(sb>>1));key(t,SAUDADE[i],.52);chipNote(t+.025,SAUDADE[i]+12,.22,(sb&4)?.2:-.2);}
++      if(sb===0||sb===8)bassNote(t,45,1.3,.55);
++      return;
++    }
+     // drums
+     if (lvl.kick > 0.01) {
+       if (sec !== 'brk' && (sb % 4 === 0 || (harm === 'storm' && (sb === 11 || (sb === 14 && bar & 1))) || (sec === 'drop' && sb === 14 && bar % 4 === 3))) kick(t0, sb % 4 === 0 ? 1 : 0.7);
+@@ -526,6 +534,7 @@ export function createMusic(opts = {}) {
+     set('lead', groove * sm(0.3, 0.6, e) * (1 - 0.3 * st));
+     set('chip', groove * sm(0.72, 0.95, e) + 0.7 * a);
+     set('bell', 0.6 * n + 0.8 * r + 0.25 * calm * h);
++    if(saudade()){set('keys',.85);set('chip',.3);set('bass',.25);set('pad',.18);}
+     set('ruin', r);
+     set('fx', groove * sm(0.4, 0.8, e));
+     // tone: night muffles the drums, the ruins darken the room, the hall opens it; night echoes linger
+diff --git a/assets/gallery/spaces/vending.js b/assets/gallery/spaces/vending.js
+index a083469..74f46c0 100644
+--- a/assets/gallery/spaces/vending.js
++++ b/assets/gallery/spaces/vending.js
+@@ -1,8 +1,9 @@
++import { GOODS } from '../bairro-wallet.js';
+ import { reserveModuleVoice, finishModuleVoice } from '../audio-lease.js';
+ // vending.js — "Máquina de vending existencial" (BRIEF §6.2 space module).
+ // A believable retro snack machine against the arcade's west wall, just south of
+ // its door: enamelled steel body, lit interior behind glass, coin slot, pickup tray.
+-// It sells immaterial goods with pixel-art labels and prices in euros. Click a
++// It sells immaterial goods with pixel-art labels and prices in ORGULHO. Click a
+ // product (or anywhere on the machine for a surprise): coin clink, motor whirr, the
+ // coil turns, the item drops into the tray with a thunk and a deadpan toast. One
+ // time in four it sticks halfway ("Bate-lhe.") and the next click shakes it loose.
+@@ -49,14 +50,14 @@ const ITEMS = [
+   { name: 'Domingo à tarde', top: 'DOMINGO', bot: 'À TARDE', col: '#e9874a', icon: 'sunset', ic: '#fff0c8', shape: 'box', w: 0.13, h: 0.13, d: 0.05,
+     line: 'Saiu-lhe: Domingo à tarde. Já traz um bocadinho de melancolia.' },
+ ];
+-const MENU = [
+-  ['A1', 'SAUDADE', '0,50€'], ['A2', 'PACIÊNCIA', 'ESGOTADO'], ['A3', 'CORAGEM', 'SÓ TERÇAS'],
+-  ['B1', 'WI-FI VIZINHO', '2€'], ['B2', 'SILÊNCIO', '5€'], ['B3', 'SEGUNDA', 'GRÁTIS*'],
+-  ['C1', 'SESTA', '1,20€'], ['C2', 'A OUTRA MEIA', '0,80€'], ['C3', '5 MINUTINHOS', '3€'],
+-  ['D1', 'TROCO CERTO', '1€'], ['D2', 'DESCULPA', '0,10€'], ['D3', 'DOMINGO À TARDE', '4€'],
+-];
+-const STRIPS = [['A1 0,50€', 'A2 ESGOT.', 'A3 TERÇAS'], ['B1 2€', 'B2 5€', 'B3 GRÁTIS'],
+-  ['C1 1,20€', 'C2 0,80€', 'C3 3€'], ['D1 1€', 'D2 0,10€', 'D3 4€']];
++const SLOT_IDS=['saudade','patience','courage','wifi','silence','monday','apology','patience','wifi','saudade','apology','silence'];
++const COPY_FROM=[0,1,2,3,4,5,10,1,3,0,10,4];
++const originals=ITEMS.slice();
++for(let i=0;i<12;i++){const id=SLOT_IDS[i],g=GOODS[id];ITEMS[i]={...originals[COPY_FROM[i]],id,name:g.name,top:id==='wifi'?'WI-FI':id==='monday'?'SEGUNDA':g.name,bot:String(g.price)+' ORG.',line:'Recolhe o bem da gaveta.'};}
++const codes=['A1','A2','A3','B1','B2','B3','C1','C2','C3','D1','D2','D3'];
++const shortNames=['SAUDADE','PACIÊNCIA','CORAGEM','WI-FI','SILÊNCIO','SEGUNDA','DESCULPA','PACIÊNCIA','WI-FI','SAUDADE','DESCULPA','SILÊNCIO'];
++const MENU=SLOT_IDS.map((id,i)=>[codes[i],shortNames[i],String(GOODS[id].price)]);
++const STRIPS=[0,1,2,3].map(row=>[0,1,2].map(col=>{const i=row*3+col;return codes[i]+' '+GOODS[SLOT_IDS[i]].price;}));
+ 
+ // ---------- a 3×5 pixel font (8-row cells: 2 accent rows, 5 cap rows, 1 descender) ----------
+ const FONT = {
+@@ -157,7 +158,7 @@ export function build(ctx) {
+       const t = 'BENS IMATERIAIS';
+       txt(t, x + ((w - tw(t, 2)) >> 1), y + 1, '#1f4f4c', 2);
+       PX(x + 6, y + 18, w - 12, 2, '#cf4a35'); PX(x + 6, y + 21, w - 12, 1, '#e0a526');
+-      const s = 'SÓ MOEDAS · NÃO DÁ TROCO';
++      const s = 'ORGULHO · TROCO EM BOTÕES';
+       txt(s, x + ((w - tw(s)) >> 1), y + 22, '#1f4f4c'); }
+     // menu card
+     { const [x, y, w, h] = RG.menu;
+@@ -172,7 +173,7 @@ export function build(ctx) {
+         g.fillStyle = '#b9ad90';
+         for (let dx = x + 12 + tw(name) + 3; dx < px - 2; dx += 2) g.fillRect(dx, yy + 6, 1, 1);
+       });
+-      txt('* NINGUÉM QUER', x + 2, y + 136, '#6b6355');
++      txt('PREÇOS EM ORGULHO', x + 2, y + 136, '#6b6355');
+       txt('SUJEITO A HUMOR', x + 2, y + 147, '#6b6355'); }
+     // product labels
+     ITEMS.forEach((p, i) => {
+@@ -211,7 +212,7 @@ export function build(ctx) {
+     { const [x, y] = RG.coin;
+       PX(x, y, 64, 48, '#26282c');
+       PX(x + 8, y + 4, 14, 22, '#c3c8ce'); PX(x + 9, y + 5, 12, 20, '#8d939a'); PX(x + 14, y + 8, 2, 14, '#050505');
+-      txt('MOEDAS', x + 3, y + 27, '#e9e4d8');
++      txt('ORGULHO', x + 3, y + 27, '#e9e4d8');
+       PX(x + 38, y + 4, 20, 20, '#c3c8ce'); PX(x + 40, y + 6, 16, 16, '#0b0b0b');
+       txt('TROCO', x + 39, y + 27, '#e9e4d8');
+       const s = 'NÃO DÁ TROCO';
+@@ -223,7 +224,7 @@ export function build(ctx) {
+       txt('NÃO ABANE', x + 26, y + 3, '#1d1b1a'); txt('A MÁQUINA', x + 26, y + 12, '#1d1b1a'); }
+     PX(240, 100, 8, 8, '#fffaf0'); PX(240, 108, 8, 8, '#c9ccd0'); PX(240, 116, 8, 8, '#151515');
+   })();
+-  led('INSIRA MOEDA');
++  led('ESCOLHA UM BEM');
+ 
+   // ================= enamel body (one mesh, vertex-coloured) =================
+   const TEAL = 0x23847c, TEAL_D = 0x1a5e58, CREAM = 0xf2e0b0, GRAPH = 0x2a2c30, DARK = 0x141414, LINER = 0x4a4d52, SHELFC = 0x8a8e94;
+@@ -524,9 +525,9 @@ export function build(ctx) {
+     phase = IDLE; inTray = true; busyToast = false;
+     drop.position.set(tx, TRAY_Y + restY, 0.27);
+     drop.rotation.set(Math.PI * 1.5, 0, rm ? 0 : (Math.random() - 0.5) * 0.5);
+-    if (ITEMS[item].name !== 'Silêncio') sndThunk();   // silence lands silently
++    if (ITEMS[item].id !== 'silence') sndThunk();   // silence lands silently
+     setShelf(item, true);                               // the next one in the coil moves up
+-    ctx.ui.toast(note ? 'Coragem só às terças. Saiu-lhe: Segunda-feira. Era grátis.' : ITEMS[item].line);
++    ctx.ui.toast('Recolhe o bem da gaveta.');
+     led('OBRIGADO');
+   }
+   function fall() { phase = FALL; pt = 0; vy = 0; }
+@@ -537,25 +538,35 @@ export function build(ctx) {
+     if (phase !== IDLE) { if (!busyToast) { busyToast = true; ctx.ui.toast('Calma. Está a pensar.'); } return; }
+     if (ud.vendTray) {
+       if (inTray) {
++        const inventory=ctx.scene.userData.bairroInventory;
++        if(!inventory){ctx.ui.toast('A carteira está a chegar.');return;}
++        if(ITEMS[item].id==='courage'&&new Date().getDay()!==2){
++          inTray=false;drop.visible=false;led('ESCOLHA UM BEM');
++          ctx.ui.toast('A terça acabou. Bem devolvido.');return;
++        }
++        if(!inventory.buy(ITEMS[item].id))return;
+         inTray = false; drop.visible = false;
+-        ctx.ui.toast(`No bolso: ${ITEMS[item].name}. Não pesa nada.`);
+-        led('INSIRA MOEDA');
++        ctx.ui.toast('No bolso. Troco em botões.');
++        led('ESCOLHA UM BEM');
+       } else ctx.ui.toast('A gaveta está vazia. Escolha algo no vidro.');
+       return;
+     }
++    if(inTray){ctx.ui.toast('Recolhe primeiro o bem.');return;}
++    const inventory=ctx.scene.userData.bairroInventory;
++    if(!inventory){ctx.ui.toast('A carteira está a chegar.');return;}
+     const chosen = Number.isInteger(ud.vendSlot);
+     let i = chosen ? ud.vendSlot : Math.floor(Math.random() * ITEMS.length);
+-    if (i === 1 && chosen && patience < 2) {          // patience is earned by asking three times
++    if(i<0||i>=ITEMS.length)return;
++    if(!inventory.canBuy(ITEMS[i].id))return;
++    if (ITEMS[i].id === 'patience' && patience < 2) {          // patience is earned by asking three times
+       ctx.ui.toast(patience ? 'Ainda esgotada. Mais um bocadinho…' : 'Paciência: esgotada. Tenha paciência.');
+       led(patience ? 'TENHA PACIÊNCIA' : 'ESGOTADO');
+       patience++;
+       sndBuzz();
+       return;
+     }
+-    if (i === 1) patience = 0;
+-    let n = null;
+-    if (i === 2 && new Date().getDay() !== 2) { i = 5; n = 'coragem'; }   // not Tuesday: you get Monday
+-    startVend(i, n);
++    if (ITEMS[i].id === 'patience') patience = 0;
++    startVend(i, null); // No charge here: collection is the transaction boundary.
+   }
+ 
+   function update(dt, frame) {
+diff --git a/assets/gallery/spaces/quests.js b/assets/gallery/spaces/quests.js
+index 67766ff..650a011 100644
+--- a/assets/gallery/spaces/quests.js
++++ b/assets/gallery/spaces/quests.js
+@@ -189,7 +189,7 @@ export function build(ctx) {
+           actors.effect(s.efeito, camera);
+           toast(s.fala);
+         },
+-        complete(m) { reward(m); toast(m.recompensa.fala); next = (missions.indexOf(m) + 1) % missions.length; home(); },
++        complete(m) { ctx.events?.dispatchEvent?.(new CustomEvent('workshop',{detail:{type:'quest-done',value:{id:m.id}}})); reward(m); toast(m.recompensa.fala); next = (missions.indexOf(m) + 1) % missions.length; home(); },
+         cancel: home,
+       });
+     }).catch(() => { failed = true; }); // no unsolicited warning/toast before interaction
+diff --git a/assets/gallery/spaces/npcs.js b/assets/gallery/spaces/npcs.js
+index 5ff73a5..b5d0a33 100644
+--- a/assets/gallery/spaces/npcs.js
++++ b/assets/gallery/spaces/npcs.js
+@@ -550,6 +550,7 @@ export async function build(ctx) {
+     startSilly(n,4,FALL_D[n.fallType]);
+   }
+   comedy.loadManifest(); // background: never delays the Enter button
++  for(let i=0;i<npcs.length;i++)npcs[i].bairroTime=0;
+   fabinhe = createFabinhe(ctx, { npcs, say });
+   statueDirector=createStatueDirector(ctx,{actors:npcs,say:(n,text)=>comedy.thaw(n,text)});
+ 
+@@ -558,6 +559,7 @@ export async function build(ctx) {
+   // everything goes into its bus, so mute and the limiter apply. Voices fade with distance.
+   let ac = null, bus = null, vol = 1, slapBuf = null, whiteBuf = null;
+   function audioOn(n) {
++    if(ctx.scene.userData.bairroEffects?.silenceUntil>performance.now()/1000)return false;
+     if (ctx.scene.userData.questQuiet) return false;
+     const A = ctx.audio;
+     if (!A) return false;
+@@ -1014,7 +1016,7 @@ export async function build(ctx) {
+   }
+   // A line: the bubble is redrawn on the next frame that has budget for it (flush() draws now).
+   function say(n, text, withSound, up) {
+-    if (ctx.scene.userData.questQuiet) return;
++    if (ctx.scene.userData.questQuiet||ctx.scene.userData.bairroEffects?.silenceUntil>performance.now()/1000) return;
+     if (typeof text !== 'string' || !text) return;
+     if (comedy && !comedy.allow(n, text)) return;
+     n.curText = text; n.talkT = Math.min(5, Math.max(2.2, 1.4 + text.length * 0.06)); n.armUp = up || 1.7;
+@@ -1122,7 +1124,7 @@ export async function build(ctx) {
+     }
+   }
+   // Following: never into the hall, the classrooms or the lift (zones), at most two at once.
+-  function canChase(n) { return !reduced && CHASERS[n.S.name] && !n.fixed && n.zone === 0 && camZone === 0 && chasing < 2 && n.slapCd <= 0; }
++  function canChase(n) { return !(ctx.scene.userData.bairroEffects?.patienceUntil>performance.now()/1000) && !reduced && CHASERS[n.S.name] && !n.fixed && n.zone === 0 && camZone === 0 && chasing < 2 && n.slapCd <= 0; }
+   // mode 1: insistent (walking pace, lines), 2: angry (3 s, running), 3: revenge (walking pace, to slap back)
+   function startPest(n, t, mode) {
+     if (n.pestT <= 0) chasing++;
+@@ -1130,6 +1132,7 @@ export async function build(ctx) {
+     n.pestSide = (pcx - n.x) * cfz - (pcz - n.z) * cfx >= 0 ? 1 : -1;      // stay on the side they came from
+     if (mode !== 1) n.gest = 0.8;
+   }
++  function reconcileActor(n){if(!n||n.combatControlled)return false;if(n.pestT>0||n.windT>0||n.revengeAt>0)endPest(n,null);n.revengeAt=0;n.windT=0;n.lingerT=0;n.rancor=0;n.grudge=-Infinity;n.escalate=false;n.pestCd=60;return true;}
+   function endPest(n, why) {
+     if (n.pestT > 0) chasing = Math.max(0, chasing - 1);
+     n.pestT = 0; n.goOn = false; n.busy = false; n.pestCd = 30 + Math.random() * 20; n.wait = 1.5; n.windT = 0; n.pestMode = 0;
+@@ -1139,7 +1142,7 @@ export async function build(ctx) {
+     say(n, ONLY[n.S.name] ? line(n, 'talk') : pickFrom(n, P[n.S.name === 'mano' ? 'mb' : n.S.pt ? 'pt' : 'en']), false);
+   }
+   // The slap back: a wind-up (step back and you are safe), then PAF.
+-  function windUp(n) { n.windT = 0.55; n.lingerT = 0; if (n.talkT <= 0.5) say(n, line(n, 'wind'), false); }
++  function windUp(n) { if(ctx.scene.userData.bairroEffects?.patienceUntil>performance.now()/1000)return; n.windT = 0.55; n.lingerT = 0; if (n.talkT <= 0.5) say(n, line(n, 'wind'), false); }
+   function landSlap(n, d) {
+     n.windT = 0; n.swingT = 0.3;
+     if (d > 1.6) {                                        // whiff: spin round, embarrassed
+@@ -1332,6 +1335,8 @@ export async function build(ctx) {
+     if (dt > 0.1) dt = 0.1;
+     const camO = frame && frame.camera ? frame.camera : null;
+     const cam = camO ? camO.position : null;
++    const rawDt=dt,effectNow=performance.now()/1000,fx=ctx.scene.userData.bairroEffects;
++    const patience=!!(fx?.patienceUntil>effectNow),monday=!!(fx?.mondayUntil>effectNow);
+     clock += dt;
+     const time = frame && typeof frame.time === 'number' ? frame.time : clock;
+     if (cam) {
+@@ -1362,6 +1367,7 @@ export async function build(ctx) {
+     let budget = 2;                                        // bubble redraws per frame
+     for (let i = 0; i < npcs.length; i++) {
+       const n = npcs[i], S = n.S;
++      if(patience&&!n.combatControlled){if(n.pestT>0||n.windT>0)endPest(n,null);n.revengeAt=0;n.windT=0;n.lingerT=0;}
+       if(n.combatHidden){n.root.visible=false;n.stars.visible=false;if(n.sprite)n.sprite.visible=false;if(n.blob)n.blob.visible=false;n.col.minY=-51;n.col.maxY=-50;continue;}
+       if(n.combatControlled){n.root.visible=true;if(n.sprite)n.sprite.visible=false;n.talkT=0;n.bubble=0;continue;}
+       let dx = 0, dz = 0, d2 = 1e9;
+@@ -1378,12 +1384,15 @@ export async function build(ctx) {
+         n.col.minY = -51; n.col.maxY = -50;
+         continue; // sleep simulation beyond 40m, retaining state for return
+       }
++      const sluggish=monday&&!n.fixed&&!n.routineOwned&&!n.fabinhePerforming&&n.sillyT<0&&n.hatState<=0;
++      const dt=rawDt*(sluggish?.5:1);
++      n.bairroTime+=dt;const time=n.bairroTime;
+       const near = here && d2 < 16;
+       n.near2 = here && d2 < 225;
+       const down = n.sillyT >= 0 && n.sillyType === 4;
+       const floor = down && n.fallType >= 0;
+       n.reactCd -= dt;
+-      if (n.talkT > 0) { n.talkT -= dt; if (n.talkT <= 0) { n.talkT = 0; n.bubble = 0; } }
++      if (n.talkT > 0) { n.talkT -= rawDt; if (n.talkT <= 0) { n.talkT = 0; n.bubble = 0; } }
+       if (n.glare > 0) n.glare -= dt;
+       if (n.fist > 0) n.fist -= dt;
+       if (n.jerkAt > 0) { n.jerkAt -= dt; if (n.jerkAt <= 0) n.jerk = 1; }
+@@ -1399,7 +1408,7 @@ export async function build(ctx) {
+       if (n.snubT > 0) n.snubT -= dt;
+       if (n.snapT > 0 && n.freezeT <= 0) n.snapT -= dt;
+       if (n.seqStage) {
+-        n.seqT -= dt;
++        n.seqT -= rawDt;
+         if (n.seqT <= 0) {
+           const k = n.seqKind;
+           if (down && k !== 4) n.seqStage = 0;
+@@ -1806,7 +1815,12 @@ export async function build(ctx) {
+         else n.body.rotation.y = 0;
+       } else n.body.rotation.y = 0;
+ 
+-      n.rig.setExpression(n.talkT > 0 ? 0.3 + 0.3 * Math.sin(time * 14) : 0,
++      let mondayMouth=0;
++      if(sluggish&&!n.busy&&n.talkT<=0){const phase=(time+n.seed)%11;
++        if(phase<1.2){const yawn=Math.sin(phase/1.2*Math.PI);mondayMouth=.4*yawn;n.arms[1].rotation.x-=.8*yawn;}
++        if(moving&&!reduced&&phase>8&&phase<8.45){const stumble=Math.sin((phase-8)/.45*Math.PI);n.body.position.y-=.08*stumble;n.legs[1].rotation.x+=.3*stumble;}
++      }
++      n.rig.setExpression(n.talkT > 0 ? 0.3 + 0.3 * Math.sin(npcTime * 14) : mondayMouth,
+         n.glare > 0 ? 1 : n.laughT > 0 ? -0.5 : 0);
+       // where the head is, without a matrix update (root order YXZ: yaw, tilt, roll)
+       const yawR = n.yaw + spin + byaw, hh = (n.body.position.y + n.headY) * n.sz;
+@@ -1814,7 +1828,7 @@ export async function build(ctx) {
+       const cy = Math.cos(yawR), sy = Math.sin(yawR);
+       const hx = n.x + ha * cy + hc * sy, hy = rootY + hb * Math.cos(tilt), hz = n.z - ha * sy + hc * cy;
+       // bubble (redraws are budgeted; the bubble follows the head, also on the floor)
+-      if (n.talkT > 0) n.bubble = n.talkT < 0.3 ? Math.max(0, n.talkT / 0.3) : Math.min(1, n.bubble + dt * 6);
++      if (n.talkT > 0) n.bubble = n.talkT < 0.3 ? Math.max(0, n.talkT / 0.3) : Math.min(1, n.bubble + rawDt * 6);
+       if (n.dirty && n.talkT > 0 && budget > 0 && d2 < 1600) { drawBubble(n, n.curText); n.dirty = false; budget--; }
+       else if (n.dirty && n.talkT <= 0) n.dirty = false;
+       if (n.sprite) {
+@@ -1951,6 +1965,6 @@ export async function build(ctx) {
+     else if(move==='chapada'||move==='reves'||move==='sanduiche')comedy?.notify?.('slap',n);
+   }
+   return { group, regions: [], colliders, pickables, update, onPick, slap, fabinhe, setNavigation: personalities.setNavigation,
+-    statueDirector,statueAudio,actors:npcs,combatActors:npcs,findActor:findNpc,combatImpact,setStatues,refreshEffects:(camera)=>effects.update(camera,starMat.rotation),get comedyMemory(){return comedy.memory;} };
++    statueDirector,statueAudio,actors:npcs,combatActors:npcs,findActor:findNpc,reconcileActor,combatImpact,setStatues,refreshEffects:(camera)=>effects.update(camera,starMat.rotation),get comedyMemory(){return comedy.memory;} };
+ 
+ }
+diff --git a/assets/gallery/combat.js b/assets/gallery/combat.js
+index c76632d..964f570 100644
+--- a/assets/gallery/combat.js
++++ b/assets/gallery/combat.js
+@@ -226,7 +226,7 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
+   function moveNpc(r,dt,target){
+     if(r.visitor){controls.combatMove(r.recoilX*dt,r.recoilZ*dt);return;}
+     if(r.inPlace||r.n.fixed)return;
+-    const dx=target.n.x-r.n.x,dz=target.n.z-r.n.z,d=Math.hypot(dx,dz),chase=r.attack<0&&d>1.45&&d<6 ? .7 : 0;
++    const dx=target.n.x-r.n.x,dz=target.n.z-r.n.z,d=Math.hypot(dx,dz),chase=!(ctx.scene.userData.bairroEffects?.patienceUntil>performance.now()/1000)&&r.attack<0&&d>1.45&&d<6 ? .7 : 0;
+     moveInWorld(r.n.x,r.n.z,0,(r.recoilX+(d?dx/d*chase:0))*dt,(r.recoilZ+(d?dz/d*chase:0))*dt,r.n.colW||.4,world.regions,colliders,active,out);
+     if(Math.abs(out.floor)<.1){r.n.x=out.x;r.n.z=out.z;}
+   }
+@@ -325,7 +325,7 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
+     moveSelect.value=String(selected);if(a&&b)statusText.textContent=freeze()?'Personagens em pausa':`BRIO: ${a.pride} · ${b.pride}`;
+     if(blockButton)blockButton.setAttribute('aria-pressed',(a?.blocking?'true':'false'));
+   }
+-  function apologize(target){let n=typeof target==='string'?npcs.find(n=>n.S.name===target):npcModule.findActor(target);if(!n){readVisitor();let best=12.25;for(let i=0;i<npcs.length;i++){const q=npcs[i],dx=q.x-position.x,dz=q.z-position.z,d=dx*dx+dz*dz;if(q.rancor>0&&d<best){n=q;best=d;}}}if(!n||state.active||freeze())return false;n.rancor=0;n.grudge=-Infinity;n.escalate=false;n.pestCd=60;callout('DESCULPA. Ficamos por aqui.');return true;}
++  function apologize(target){let n=typeof target==='string'?npcs.find(n=>n.S.name===target):npcModule.findActor(target);if(!n){readVisitor();let best=12.25;for(let i=0;i<npcs.length;i++){const q=npcs[i],dx=q.x-position.x,dz=q.z-position.z,d=dx*dx+dz*dz;if(q.rancor>0&&d<best){n=q;best=d;}}}if(!n||state.active||freeze())return false;if(npcModule.reconcileActor&&!npcModule.reconcileActor(n))return false;n.rancor=0;n.grudge=-Infinity;n.escalate=false;n.pestCd=60;callout('DESCULPA. Ficamos por aqui.');return true;}
+   function setWeapon(kind){equipped=['carapau','paposeco','couve','jornal','chinelo','toalha','nata','luva'].includes(kind)?kind:'';return equipped;}
+   function doubleCalduco(){if(!state.active||state.kind!=='visitor'||freeze()||endingAt)return false;attack(4);if(queueCount<3)queue[queueCount++]=4;return true;}
+   function getBrio(){return visitor?.pride??100;}
+diff --git a/assets/gallery/statue-director.js b/assets/gallery/statue-director.js
+index 68452d5..ddba579 100644
+--- a/assets/gallery/statue-director.js
++++ b/assets/gallery/statue-director.js
+@@ -6,7 +6,7 @@ export function createStatueAudio(ctx) {
+   const parent=ctx.audio, scene=ctx.scene;
+   let ac=null,bus=null,limiter=null,closing=false,changing=false,wanted=false;
+   const view={get context(){return ac;},get bus(){return bus;},get muted(){return !!parent?.muted;},
+-    acquireVoice(options){if(!ac||ac.state!=='running'||wanted||scene.userData.questQuiet)return null;return parent?.acquireVoice?.({...options,sourceContext:ac})||null;},
++    acquireVoice(options){if(!ac||ac.state!=='running'||wanted||(scene.userData.questQuiet||(scene.userData.bairroEffects?.silenceUntil||0)>performance.now()/1000))return null;return parent?.acquireVoice?.({...options,sourceContext:ac})||null;},
+     releaseVoice(token){parent?.releaseVoice?.(token);},duck(seconds){parent?.duck?.(seconds);},preparePunchline(){return parent?.preparePunchline?.()||0;}};
+   function ensure(){
+     if(ac||closing||!parent?.context||parent.context.state!=='running')return;
+@@ -24,7 +24,7 @@ export function createStatueAudio(ctx) {
+   }
+   function gesture(){ensure();settle();}
+   function setPaused(value){wanted=!!value;settle();}
+-  function update(camera){ensure();if(!ac)return;const silent=!!parent.muted||!!scene.userData.questQuiet||typeof document!=='undefined'&&document.hidden;
++  function update(camera){ensure();if(!ac)return;const silent=!!parent.muted||!!parent.quietConfirmed||!!scene.userData.questQuiet||(scene.userData.bairroEffects?.silenceUntil||0)>performance.now()/1000||typeof document!=='undefined'&&document.hidden;
+     bus.gain.value=silent?0:.45;updateAudioListener(view,camera);}
+   if(typeof window!=='undefined'){window.addEventListener('pointerdown',gesture);window.addEventListener('keydown',gesture);}
+   if(typeof document!=='undefined')document.addEventListener('visibilitychange',settle);

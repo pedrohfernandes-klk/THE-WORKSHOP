@@ -550,6 +550,7 @@ export async function build(ctx) {
     startSilly(n,4,FALL_D[n.fallType]);
   }
   comedy.loadManifest(); // background: never delays the Enter button
+  for(let i=0;i<npcs.length;i++)npcs[i].bairroTime=0;
   fabinhe = createFabinhe(ctx, { npcs, say });
   statueDirector=createStatueDirector(ctx,{actors:npcs,say:(n,text)=>comedy.thaw(n,text)});
 
@@ -558,6 +559,7 @@ export async function build(ctx) {
   // everything goes into its bus, so mute and the limiter apply. Voices fade with distance.
   let ac = null, bus = null, vol = 1, slapBuf = null, whiteBuf = null;
   function audioOn(n) {
+    if(ctx.scene.userData.bairroEffects?.silenceUntil>performance.now()/1000)return false;
     if (ctx.scene.userData.questQuiet) return false;
     const A = ctx.audio;
     if (!A) return false;
@@ -1014,7 +1016,7 @@ export async function build(ctx) {
   }
   // A line: the bubble is redrawn on the next frame that has budget for it (flush() draws now).
   function say(n, text, withSound, up) {
-    if (ctx.scene.userData.questQuiet) return;
+    if (ctx.scene.userData.questQuiet||ctx.scene.userData.bairroEffects?.silenceUntil>performance.now()/1000) return;
     if (typeof text !== 'string' || !text) return;
     if (comedy && !comedy.allow(n, text)) return;
     n.curText = text; n.talkT = Math.min(5, Math.max(2.2, 1.4 + text.length * 0.06)); n.armUp = up || 1.7;
@@ -1122,7 +1124,7 @@ export async function build(ctx) {
     }
   }
   // Following: never into the hall, the classrooms or the lift (zones), at most two at once.
-  function canChase(n) { return !reduced && CHASERS[n.S.name] && !n.fixed && n.zone === 0 && camZone === 0 && chasing < 2 && n.slapCd <= 0; }
+  function canChase(n) { return !(ctx.scene.userData.bairroEffects?.patienceUntil>performance.now()/1000) && !reduced && CHASERS[n.S.name] && !n.fixed && n.zone === 0 && camZone === 0 && chasing < 2 && n.slapCd <= 0; }
   // mode 1: insistent (walking pace, lines), 2: angry (3 s, running), 3: revenge (walking pace, to slap back)
   function startPest(n, t, mode) {
     if (n.pestT <= 0) chasing++;
@@ -1130,6 +1132,7 @@ export async function build(ctx) {
     n.pestSide = (pcx - n.x) * cfz - (pcz - n.z) * cfx >= 0 ? 1 : -1;      // stay on the side they came from
     if (mode !== 1) n.gest = 0.8;
   }
+  function reconcileActor(n){if(!n||n.combatControlled)return false;if(n.pestT>0||n.windT>0||n.revengeAt>0)endPest(n,null);n.revengeAt=0;n.windT=0;n.lingerT=0;n.rancor=0;n.grudge=-Infinity;n.escalate=false;n.pestCd=60;return true;}
   function endPest(n, why) {
     if (n.pestT > 0) chasing = Math.max(0, chasing - 1);
     n.pestT = 0; n.goOn = false; n.busy = false; n.pestCd = 30 + Math.random() * 20; n.wait = 1.5; n.windT = 0; n.pestMode = 0;
@@ -1139,7 +1142,7 @@ export async function build(ctx) {
     say(n, ONLY[n.S.name] ? line(n, 'talk') : pickFrom(n, P[n.S.name === 'mano' ? 'mb' : n.S.pt ? 'pt' : 'en']), false);
   }
   // The slap back: a wind-up (step back and you are safe), then PAF.
-  function windUp(n) { n.windT = 0.55; n.lingerT = 0; if (n.talkT <= 0.5) say(n, line(n, 'wind'), false); }
+  function windUp(n) { if(ctx.scene.userData.bairroEffects?.patienceUntil>performance.now()/1000)return; n.windT = 0.55; n.lingerT = 0; if (n.talkT <= 0.5) say(n, line(n, 'wind'), false); }
   function landSlap(n, d) {
     n.windT = 0; n.swingT = 0.3;
     if (d > 1.6) {                                        // whiff: spin round, embarrassed
@@ -1332,6 +1335,8 @@ export async function build(ctx) {
     if (dt > 0.1) dt = 0.1;
     const camO = frame && frame.camera ? frame.camera : null;
     const cam = camO ? camO.position : null;
+    const rawDt=dt,effectNow=performance.now()/1000,fx=ctx.scene.userData.bairroEffects;
+    const patience=!!(fx?.patienceUntil>effectNow),monday=!!(fx?.mondayUntil>effectNow);
     clock += dt;
     const time = frame && typeof frame.time === 'number' ? frame.time : clock;
     if (cam) {
@@ -1362,6 +1367,7 @@ export async function build(ctx) {
     let budget = 2;                                        // bubble redraws per frame
     for (let i = 0; i < npcs.length; i++) {
       const n = npcs[i], S = n.S;
+      if(patience&&!n.combatControlled){if(n.pestT>0||n.windT>0)endPest(n,null);n.revengeAt=0;n.windT=0;n.lingerT=0;}
       if(n.combatHidden){n.root.visible=false;n.stars.visible=false;if(n.sprite)n.sprite.visible=false;if(n.blob)n.blob.visible=false;n.col.minY=-51;n.col.maxY=-50;continue;}
       if(n.combatControlled){n.root.visible=true;if(n.sprite)n.sprite.visible=false;n.talkT=0;n.bubble=0;continue;}
       let dx = 0, dz = 0, d2 = 1e9;
@@ -1378,12 +1384,15 @@ export async function build(ctx) {
         n.col.minY = -51; n.col.maxY = -50;
         continue; // sleep simulation beyond 40m, retaining state for return
       }
+      const sluggish=monday&&!n.fixed&&!n.routineOwned&&!n.fabinhePerforming&&n.sillyT<0&&n.hatState<=0;
+      const dt=rawDt*(sluggish?.5:1);
+      n.bairroTime+=dt;const time=n.bairroTime;
       const near = here && d2 < 16;
       n.near2 = here && d2 < 225;
       const down = n.sillyT >= 0 && n.sillyType === 4;
       const floor = down && n.fallType >= 0;
       n.reactCd -= dt;
-      if (n.talkT > 0) { n.talkT -= dt; if (n.talkT <= 0) { n.talkT = 0; n.bubble = 0; } }
+      if (n.talkT > 0) { n.talkT -= rawDt; if (n.talkT <= 0) { n.talkT = 0; n.bubble = 0; } }
       if (n.glare > 0) n.glare -= dt;
       if (n.fist > 0) n.fist -= dt;
       if (n.jerkAt > 0) { n.jerkAt -= dt; if (n.jerkAt <= 0) n.jerk = 1; }
@@ -1399,7 +1408,7 @@ export async function build(ctx) {
       if (n.snubT > 0) n.snubT -= dt;
       if (n.snapT > 0 && n.freezeT <= 0) n.snapT -= dt;
       if (n.seqStage) {
-        n.seqT -= dt;
+        n.seqT -= rawDt;
         if (n.seqT <= 0) {
           const k = n.seqKind;
           if (down && k !== 4) n.seqStage = 0;
@@ -1806,7 +1815,12 @@ export async function build(ctx) {
         else n.body.rotation.y = 0;
       } else n.body.rotation.y = 0;
 
-      n.rig.setExpression(n.talkT > 0 ? 0.3 + 0.3 * Math.sin(time * 14) : 0,
+      let mondayMouth=0;
+      if(sluggish&&!n.busy&&n.talkT<=0){const phase=(time+n.seed)%11;
+        if(phase<1.2){const yawn=Math.sin(phase/1.2*Math.PI);mondayMouth=.4*yawn;n.arms[1].rotation.x-=.8*yawn;}
+        if(moving&&!reduced&&phase>8&&phase<8.45){const stumble=Math.sin((phase-8)/.45*Math.PI);n.body.position.y-=.08*stumble;n.legs[1].rotation.x+=.3*stumble;}
+      }
+      n.rig.setExpression(n.talkT > 0 ? 0.3 + 0.3 * Math.sin(npcTime * 14) : mondayMouth,
         n.glare > 0 ? 1 : n.laughT > 0 ? -0.5 : 0);
       // where the head is, without a matrix update (root order YXZ: yaw, tilt, roll)
       const yawR = n.yaw + spin + byaw, hh = (n.body.position.y + n.headY) * n.sz;
@@ -1814,7 +1828,7 @@ export async function build(ctx) {
       const cy = Math.cos(yawR), sy = Math.sin(yawR);
       const hx = n.x + ha * cy + hc * sy, hy = rootY + hb * Math.cos(tilt), hz = n.z - ha * sy + hc * cy;
       // bubble (redraws are budgeted; the bubble follows the head, also on the floor)
-      if (n.talkT > 0) n.bubble = n.talkT < 0.3 ? Math.max(0, n.talkT / 0.3) : Math.min(1, n.bubble + dt * 6);
+      if (n.talkT > 0) n.bubble = n.talkT < 0.3 ? Math.max(0, n.talkT / 0.3) : Math.min(1, n.bubble + rawDt * 6);
       if (n.dirty && n.talkT > 0 && budget > 0 && d2 < 1600) { drawBubble(n, n.curText); n.dirty = false; budget--; }
       else if (n.dirty && n.talkT <= 0) n.dirty = false;
       if (n.sprite) {
@@ -1951,6 +1965,6 @@ export async function build(ctx) {
     else if(move==='chapada'||move==='reves'||move==='sanduiche')comedy?.notify?.('slap',n);
   }
   return { group, regions: [], colliders, pickables, update, onPick, slap, fabinhe, setNavigation: personalities.setNavigation,
-    statueDirector,statueAudio,actors:npcs,combatActors:npcs,findActor:findNpc,combatImpact,setStatues,refreshEffects:(camera)=>effects.update(camera,starMat.rotation),get comedyMemory(){return comedy.memory;} };
+    statueDirector,statueAudio,actors:npcs,combatActors:npcs,findActor:findNpc,reconcileActor,combatImpact,setStatues,refreshEffects:(camera)=>effects.update(camera,starMat.rotation),get comedyMemory(){return comedy.memory;} };
 
 }
