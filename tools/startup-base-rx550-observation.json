@@ -1,0 +1,1039 @@
+{
+  "version": 1,
+  "entryReady": 4605.400000002235,
+  "entryReadyDOM": 4620.300000000745,
+  "campusBuilt": 105825.60000000149,
+  "entered": 6248.300000000745,
+  "longTasks": [
+    {
+      "start": 962.1999999992549,
+      "duration": 599,
+      "name": "self"
+    },
+    {
+      "start": 6114.300000000745,
+      "duration": 55,
+      "name": "self"
+    },
+    {
+      "start": 6246,
+      "duration": 194,
+      "name": "self"
+    },
+    {
+      "start": 6487.800000000745,
+      "duration": 124,
+      "name": "self"
+    },
+    {
+      "start": 9637.900000002235,
+      "duration": 69,
+      "name": "self"
+    },
+    {
+      "start": 11337.199999999255,
+      "duration": 176,
+      "name": "self"
+    },
+    {
+      "start": 11548.800000000745,
+      "duration": 191,
+      "name": "self"
+    },
+    {
+      "start": 12128.300000000745,
+      "duration": 60,
+      "name": "self"
+    },
+    {
+      "start": 12358.300000000745,
+      "duration": 58,
+      "name": "self"
+    },
+    {
+      "start": 12959.60000000149,
+      "duration": 215,
+      "name": "self"
+    },
+    {
+      "start": 13360.5,
+      "duration": 78,
+      "name": "self"
+    },
+    {
+      "start": 18686.199999999255,
+      "duration": 193,
+      "name": "self"
+    },
+    {
+      "start": 26473.60000000149,
+      "duration": 84,
+      "name": "self"
+    },
+    {
+      "start": 49744.5,
+      "duration": 224,
+      "name": "self"
+    },
+    {
+      "start": 63726.300000000745,
+      "duration": 61,
+      "name": "self"
+    },
+    {
+      "start": 101214.30000000075,
+      "duration": 178,
+      "name": "self"
+    },
+    {
+      "start": 102655.69999999925,
+      "duration": 78,
+      "name": "self"
+    },
+    {
+      "start": 104573.90000000224,
+      "duration": 56,
+      "name": "self"
+    },
+    {
+      "start": 104630.80000000075,
+      "duration": 258,
+      "name": "self"
+    },
+    {
+      "start": 104951.10000000149,
+      "duration": 63,
+      "name": "self"
+    },
+    {
+      "start": 105801.90000000224,
+      "duration": 455,
+      "name": "self"
+    }
+  ],
+  "frameGaps": [
+    5.89999999925476,
+    200.19999999999982,
+    16.700000000000728,
+    2936.2999999999993,
+    16.700000000000728,
+    83.39999999999964,
+    16.700000000000728,
+    16.599999999998545,
+    16.80000000000109,
+    16.600000000000364,
+    50.099999999998545,
+    50.100000000000364,
+    33.5,
+    917.3999999999996,
+    33.400000000001455,
+    16.599999999998545,
+    16.700000000000728,
+    483.89999999999964,
+    33.30000000000109,
+    16.69999999999891,
+    16.700000000000728,
+    50.100000000000364,
+    50,
+    200.1999999999989,
+    583.8999999999996,
+    83.60000000000036,
+    33.20000000000073,
+    16.69999999999891,
+    16.700000000000728,
+    17.100000000000364,
+    16.299999999999272,
+    33.20000000000073,
+    16.799999999999272,
+    84,
+    149.5,
+    16.80000000000109,
+    216.79999999999927,
+    16.700000000000728,
+    16.69999999999891,
+    33.399999999999636,
+    50,
+    50.20000000000073,
+    266.7999999999993,
+    16.600000000000364,
+    2970.4000000007454
+  ],
+  "errors": [],
+  "frameWindowComplete": true,
+  "marks": [
+    {
+      "name": "workshop:entry-ready",
+      "start": 4605.400000002235
+    },
+    {
+      "name": "startup-entry-ready",
+      "start": 4620.300000000745
+    },
+    {
+      "name": "startup-entered",
+      "start": 6248.300000000745
+    },
+    {
+      "name": "workshop:campus-built",
+      "start": 105825.60000000149
+    }
+  ],
+  "streaming": null,
+  "observedAt": 143313.5,
+  "measures": [],
+  "resources": [
+    {
+      "name": "http://127.0.0.1:58983/assets/fonts/bungee-400.woff2",
+      "start": 35.5,
+      "end": 57.900000002235174,
+      "initiatorType": "link",
+      "transferSize": 14644,
+      "encodedBodySize": 14344
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/fonts/silkscreen-400.woff2",
+      "start": 36.100000001490116,
+      "end": 53.900000002235174,
+      "initiatorType": "link",
+      "transferSize": 8704,
+      "encodedBodySize": 8404
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/fonts/space-grotesk-variable.woff2",
+      "start": 36.19999999925494,
+      "end": 88.40000000223517,
+      "initiatorType": "link",
+      "transferSize": 22588,
+      "encodedBodySize": 22288
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/vendor/three/three.module.js",
+      "start": 36.5,
+      "end": 947.6000000014901,
+      "initiatorType": "script",
+      "transferSize": 1314981,
+      "encodedBodySize": 1314681
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/catalogue.js",
+      "start": 36.900000002235174,
+      "end": 210.10000000149012,
+      "initiatorType": "script",
+      "transferSize": 71387,
+      "encodedBodySize": 71087
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/room.js",
+      "start": 37.100000001490116,
+      "end": 210.5,
+      "initiatorType": "script",
+      "transferSize": 66967,
+      "encodedBodySize": 66667
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/audio.js",
+      "start": 37.19999999925494,
+      "end": 247.60000000149012,
+      "initiatorType": "script",
+      "transferSize": 78908,
+      "encodedBodySize": 78608
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/props.js",
+      "start": 37.400000002235174,
+      "end": 176.80000000074506,
+      "initiatorType": "script",
+      "transferSize": 40680,
+      "encodedBodySize": 40380
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/controls.js",
+      "start": 37.5,
+      "end": 177.5,
+      "initiatorType": "script",
+      "transferSize": 33154,
+      "encodedBodySize": 32854
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/ui.js",
+      "start": 37.80000000074506,
+      "end": 259.69999999925494,
+      "initiatorType": "script",
+      "transferSize": 34732,
+      "encodedBodySize": 34432
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/curator.js",
+      "start": 37.900000002235174,
+      "end": 249.10000000149012,
+      "initiatorType": "script",
+      "transferSize": 21488,
+      "encodedBodySize": 21188
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/post.js",
+      "start": 38,
+      "end": 259.19999999925494,
+      "initiatorType": "script",
+      "transferSize": 17411,
+      "encodedBodySize": 17111
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/materials.js",
+      "start": 38.100000001490116,
+      "end": 252.69999999925494,
+      "initiatorType": "script",
+      "transferSize": 16210,
+      "encodedBodySize": 15910
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/world.js",
+      "start": 38.19999999925494,
+      "end": 277.9000000022352,
+      "initiatorType": "script",
+      "transferSize": 10121,
+      "encodedBodySize": 9821
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/textures.js",
+      "start": 38.30000000074506,
+      "end": 260.1000000014901,
+      "initiatorType": "script",
+      "transferSize": 1484,
+      "encodedBodySize": 1184
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/collision.js",
+      "start": 38.400000002235174,
+      "end": 301.6000000014901,
+      "initiatorType": "script",
+      "transferSize": 9212,
+      "encodedBodySize": 8912
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/batch.js",
+      "start": 38.400000002235174,
+      "end": 316.30000000074506,
+      "initiatorType": "script",
+      "transferSize": 18588,
+      "encodedBodySize": 18288
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/vendor/three/addons/postprocessing/EffectComposer.js",
+      "start": 38.5,
+      "end": 297.80000000074506,
+      "initiatorType": "script",
+      "transferSize": 4951,
+      "encodedBodySize": 4651
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/vendor/three/addons/postprocessing/UnrealBloomPass.js",
+      "start": 38.600000001490116,
+      "end": 306.69999999925494,
+      "initiatorType": "script",
+      "transferSize": 12710,
+      "encodedBodySize": 12410
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/vendor/three/addons/postprocessing/ShaderPass.js",
+      "start": 38.69999999925494,
+      "end": 297.6000000014901,
+      "initiatorType": "script",
+      "transferSize": 1876,
+      "encodedBodySize": 1576
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/vendor/three/addons/postprocessing/MaskPass.js",
+      "start": 38.80000000074506,
+      "end": 317.19999999925494,
+      "initiatorType": "script",
+      "transferSize": 2531,
+      "encodedBodySize": 2231
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/vendor/three/addons/postprocessing/GTAOPass.js",
+      "start": 38.900000002235174,
+      "end": 365.1000000014901,
+      "initiatorType": "script",
+      "transferSize": 16882,
+      "encodedBodySize": 16582
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/vendor/three/addons/postprocessing/Pass.js",
+      "start": 39.100000001490116,
+      "end": 317.30000000074506,
+      "initiatorType": "script",
+      "transferSize": 2006,
+      "encodedBodySize": 1706
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/vendor/three/addons/shaders/GTAOShader.js",
+      "start": 39.100000001490116,
+      "end": 329.6000000014901,
+      "initiatorType": "script",
+      "transferSize": 13290,
+      "encodedBodySize": 12990
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/vendor/three/addons/shaders/PoissonDenoiseShader.js",
+      "start": 39.19999999925494,
+      "end": 335.69999999925494,
+      "initiatorType": "script",
+      "transferSize": 6914,
+      "encodedBodySize": 6614
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/vendor/three/addons/shaders/LuminosityHighPassShader.js",
+      "start": 39.30000000074506,
+      "end": 324.5,
+      "initiatorType": "script",
+      "transferSize": 1447,
+      "encodedBodySize": 1147
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/vendor/three/addons/shaders/CopyShader.js",
+      "start": 39.69999999925494,
+      "end": 324.69999999925494,
+      "initiatorType": "script",
+      "transferSize": 871,
+      "encodedBodySize": 571
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/vendor/three/addons/math/SimplexNoise.js",
+      "start": 39.80000000074506,
+      "end": 365.4000000022352,
+      "initiatorType": "script",
+      "transferSize": 14651,
+      "encodedBodySize": 14351
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/vendor/three/addons/objects/Reflector.js",
+      "start": 40,
+      "end": 347.1000000014901,
+      "initiatorType": "script",
+      "transferSize": 7343,
+      "encodedBodySize": 7043
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/vendor/three/addons/environments/RoomEnvironment.js",
+      "start": 40.19999999925494,
+      "end": 347.80000000074506,
+      "initiatorType": "script",
+      "transferSize": 3906,
+      "encodedBodySize": 3606
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/vendor/three/addons/loaders/RGBELoader.js",
+      "start": 40.19999999925494,
+      "end": 366,
+      "initiatorType": "script",
+      "transferSize": 11677,
+      "encodedBodySize": 11377
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/ui-v2.css",
+      "start": 42.900000002235174,
+      "end": 193.60000000149012,
+      "initiatorType": "link",
+      "transferSize": 4677,
+      "encodedBodySize": 4377
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/extracted/hrm-signature.webp",
+      "start": 73,
+      "end": 516.6000000014901,
+      "initiatorType": "img",
+      "transferSize": 119780,
+      "encodedBodySize": 119480
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/main.js",
+      "start": 140.5,
+      "end": 440.30000000074506,
+      "initiatorType": "script",
+      "transferSize": 60899,
+      "encodedBodySize": 60599
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/perf.js",
+      "start": 443.1000000014901,
+      "end": 480.5,
+      "initiatorType": "script",
+      "transferSize": 12306,
+      "encodedBodySize": 12006
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/spatial-audio.js",
+      "start": 443.19999999925494,
+      "end": 456.4000000022352,
+      "initiatorType": "script",
+      "transferSize": 1064,
+      "encodedBodySize": 764
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/mirror-campus-gate.js",
+      "start": 443.30000000074506,
+      "end": 456.5,
+      "initiatorType": "script",
+      "transferSize": 2332,
+      "encodedBodySize": 2032
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/interactions.js",
+      "start": 443.4000000022352,
+      "end": 499.19999999925494,
+      "initiatorType": "script",
+      "transferSize": 18554,
+      "encodedBodySize": 18254
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/voice-manager.js",
+      "start": 443.6000000014901,
+      "end": 499.6000000014901,
+      "initiatorType": "script",
+      "transferSize": 11110,
+      "encodedBodySize": 10810
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/audio-managed.js",
+      "start": 443.69999999925494,
+      "end": 467.69999999925494,
+      "initiatorType": "script",
+      "transferSize": 2702,
+      "encodedBodySize": 2402
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/audio-lease.js",
+      "start": 504.69999999925494,
+      "end": 514.9000000022352,
+      "initiatorType": "script",
+      "transferSize": 1942,
+      "encodedBodySize": 1642
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/fonts/instrument-serif-400.woff2",
+      "start": 1390.199999999255,
+      "end": 1416.6000000014901,
+      "initiatorType": "css",
+      "transferSize": 21332,
+      "encodedBodySize": 21032
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/fonts/instrument-sans-variable.woff2",
+      "start": 1390.4000000022352,
+      "end": 1431.9000000022352,
+      "initiatorType": "css",
+      "transferSize": 30392,
+      "encodedBodySize": 30092
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/data/interactions.json",
+      "start": 1549,
+      "end": 1649.199999999255,
+      "initiatorType": "fetch",
+      "transferSize": 45527,
+      "encodedBodySize": 45227
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/player.js",
+      "start": 1553.9000000022352,
+      "end": 1588.199999999255,
+      "initiatorType": "script",
+      "transferSize": 14969,
+      "encodedBodySize": 14669
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/sfx.js",
+      "start": 1554.1000000014901,
+      "end": 1633.300000000745,
+      "initiatorType": "script",
+      "transferSize": 32367,
+      "encodedBodySize": 32067
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/music.js",
+      "start": 1554.300000000745,
+      "end": 1665.199999999255,
+      "initiatorType": "script",
+      "transferSize": 41840,
+      "encodedBodySize": 41540
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/paperball.js",
+      "start": 1554.699999999255,
+      "end": 1587.800000000745,
+      "initiatorType": "script",
+      "transferSize": 10267,
+      "encodedBodySize": 9967
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/extracted/cadavre-expat.webp",
+      "start": 1555.6000000014901,
+      "end": 2537.199999999255,
+      "initiatorType": "img",
+      "transferSize": 435852,
+      "encodedBodySize": 435552
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/extracted/map-14-1869-u-s-coast-survey-map-of-the.webp",
+      "start": 1555.6000000014901,
+      "end": 1715,
+      "initiatorType": "img",
+      "transferSize": 49408,
+      "encodedBodySize": 49108
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/extracted/strongman-of-light.webp",
+      "start": 1555.800000000745,
+      "end": 1784.9000000022352,
+      "initiatorType": "img",
+      "transferSize": 79292,
+      "encodedBodySize": 78992
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/extracted/corridor-arcs.webp",
+      "start": 1555.9000000022352,
+      "end": 1801.9000000022352,
+      "initiatorType": "img",
+      "transferSize": 63362,
+      "encodedBodySize": 63062
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/extracted/untitled-5.webp",
+      "start": 1556.1000000014901,
+      "end": 1975.9000000022352,
+      "initiatorType": "img",
+      "transferSize": 133720,
+      "encodedBodySize": 133420
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/extracted/hrm-new-end.webp",
+      "start": 1556.199999999255,
+      "end": 2225.10000000149,
+      "initiatorType": "img",
+      "transferSize": 229666,
+      "encodedBodySize": 229366
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/extracted/plate-02.webp",
+      "start": 1556.300000000745,
+      "end": 1778.9000000022352,
+      "initiatorType": "img",
+      "transferSize": 23996,
+      "encodedBodySize": 23696
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/extracted/the-apparition.jpg",
+      "start": 1556.4000000022352,
+      "end": 2153.199999999255,
+      "initiatorType": "img",
+      "transferSize": 154224,
+      "encodedBodySize": 153924
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/extracted/the-candidate.webp",
+      "start": 1556.6000000014901,
+      "end": 2086.400000002235,
+      "initiatorType": "img",
+      "transferSize": 119574,
+      "encodedBodySize": 119274
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/extracted/mixed-media-3.webp",
+      "start": 1556.699999999255,
+      "end": 2505.5,
+      "initiatorType": "img",
+      "transferSize": 298736,
+      "encodedBodySize": 298436
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/extracted/untitled.webp",
+      "start": 1557,
+      "end": 2614.900000002235,
+      "initiatorType": "img",
+      "transferSize": 456002,
+      "encodedBodySize": 455702
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/extracted/mixed-media-4.webp",
+      "start": 1557.4000000022352,
+      "end": 2474.900000002235,
+      "initiatorType": "img",
+      "transferSize": 138638,
+      "encodedBodySize": 138338
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/extracted/map-02-1864-1777-valentine-des-barres-map-of.webp",
+      "start": 1557.6000000014901,
+      "end": 2396.199999999255,
+      "initiatorType": "img",
+      "transferSize": 90798,
+      "encodedBodySize": 90498
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/extracted/cadavre-expat-ii.webp",
+      "start": 1557.699999999255,
+      "end": 2505.400000002235,
+      "initiatorType": "img",
+      "transferSize": 119376,
+      "encodedBodySize": 119076
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/spaces/environment.js",
+      "start": 4606.699999999255,
+      "end": 4627,
+      "initiatorType": "script",
+      "transferSize": 8601,
+      "encodedBodySize": 8301
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/spaces/landscape.js",
+      "start": 4606.900000002235,
+      "end": 4627.199999999255,
+      "initiatorType": "script",
+      "transferSize": 13063,
+      "encodedBodySize": 12763
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/spaces/facade.js",
+      "start": 4607,
+      "end": 4642.10000000149,
+      "initiatorType": "script",
+      "transferSize": 23468,
+      "encodedBodySize": 23168
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/vendor/three/addons/utils/BufferGeometryUtils.js",
+      "start": 5364.10000000149,
+      "end": 5396.699999999255,
+      "initiatorType": "script",
+      "transferSize": 32068,
+      "encodedBodySize": 31768
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/textures/sky-1k.hdr",
+      "start": 5490,
+      "end": 6400.5,
+      "initiatorType": "fetch",
+      "transferSize": 1452284,
+      "encodedBodySize": 1451984
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/textures/aerial_grass_rock/diff-512.webp",
+      "start": 5534.60000000149,
+      "end": 5659,
+      "initiatorType": "fetch",
+      "transferSize": 57340,
+      "encodedBodySize": 57040
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/textures/aerial_grass_rock/arm-512.webp",
+      "start": 5534.699999999255,
+      "end": 5656.800000000745,
+      "initiatorType": "fetch",
+      "transferSize": 54138,
+      "encodedBodySize": 53838
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/textures/aerial_grass_rock/nor-512.webp",
+      "start": 5534.800000000745,
+      "end": 5718.400000002235,
+      "initiatorType": "fetch",
+      "transferSize": 83096,
+      "encodedBodySize": 82796
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/fonts/instrument-serif-400.woff2",
+      "start": 5571.199999999255,
+      "end": 5641.900000002235,
+      "initiatorType": "css",
+      "transferSize": 21332,
+      "encodedBodySize": 21032
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/textures/concrete_wall_008/diff-512.webp",
+      "start": 5571.5,
+      "end": 5626.10000000149,
+      "initiatorType": "fetch",
+      "transferSize": 14886,
+      "encodedBodySize": 14586
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/textures/concrete_wall_008/arm-512.webp",
+      "start": 5571.60000000149,
+      "end": 5664.60000000149,
+      "initiatorType": "fetch",
+      "transferSize": 16406,
+      "encodedBodySize": 16106
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/textures/concrete_wall_008/nor-512.webp",
+      "start": 5627.800000000745,
+      "end": 5657.10000000149,
+      "initiatorType": "fetch",
+      "transferSize": 3986,
+      "encodedBodySize": 3686
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/spaces/plaza.js",
+      "start": 5656.60000000149,
+      "end": 5702.10000000149,
+      "initiatorType": "script",
+      "transferSize": 17687,
+      "encodedBodySize": 17387
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/textures/white_sandstone_blocks_02/diff-512.webp",
+      "start": 5662.60000000149,
+      "end": 5781.5,
+      "initiatorType": "fetch",
+      "transferSize": 65366,
+      "encodedBodySize": 65066
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/textures/white_sandstone_blocks_02/arm-512.webp",
+      "start": 5663,
+      "end": 5734.400000002235,
+      "initiatorType": "fetch",
+      "transferSize": 26882,
+      "encodedBodySize": 26582
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/textures/white_sandstone_blocks_02/nor-512.webp",
+      "start": 5663.400000002235,
+      "end": 5780.900000002235,
+      "initiatorType": "fetch",
+      "transferSize": 49724,
+      "encodedBodySize": 49424
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/textures/marble_01/diff-512.webp",
+      "start": 5669.300000000745,
+      "end": 5735.199999999255,
+      "initiatorType": "fetch",
+      "transferSize": 12512,
+      "encodedBodySize": 12212
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/textures/marble_01/arm-512.webp",
+      "start": 5720.60000000149,
+      "end": 5749,
+      "initiatorType": "fetch",
+      "transferSize": 8878,
+      "encodedBodySize": 8578
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/spaces/pool.js",
+      "start": 6114,
+      "end": 6150.10000000149,
+      "initiatorType": "script",
+      "transferSize": 8533,
+      "encodedBodySize": 8233
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/textures/marble_01/nor-512.webp",
+      "start": 6171,
+      "end": 6181.900000002235,
+      "initiatorType": "fetch",
+      "transferSize": 2170,
+      "encodedBodySize": 1870
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/textures/concrete_floor_01/diff-512.webp",
+      "start": 6211.199999999255,
+      "end": 6353.5,
+      "initiatorType": "fetch",
+      "transferSize": 87998,
+      "encodedBodySize": 87698
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/textures/concrete_floor_01/arm-512.webp",
+      "start": 6211.60000000149,
+      "end": 6306.699999999255,
+      "initiatorType": "fetch",
+      "transferSize": 41252,
+      "encodedBodySize": 40952
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/textures/concrete_floor_01/nor-512.webp",
+      "start": 6211.900000002235,
+      "end": 6322.400000002235,
+      "initiatorType": "fetch",
+      "transferSize": 58236,
+      "encodedBodySize": 57936
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/textures/rectangular_paving/diff-512.webp",
+      "start": 6222.900000002235,
+      "end": 6258.60000000149,
+      "initiatorType": "fetch",
+      "transferSize": 12226,
+      "encodedBodySize": 11926
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/textures/rectangular_paving/arm-512.webp",
+      "start": 6232.10000000149,
+      "end": 6275.10000000149,
+      "initiatorType": "fetch",
+      "transferSize": 12966,
+      "encodedBodySize": 12666
+    },
+    {
+      "name": "http://127.0.0.1:58983/assets/gallery/spaces/parterre.js",
+      "start": 6236.300000000745,
+      "end": 6275.5,
+      "initiatorType": "script",
+      "transferSize": 6082,
+      "encodedBodySize": 5782
+    }
+  ],
+  "gpu": "ANGLE (AMD, Radeon RX550/550 Series (0x0000699F) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "render": {
+    "frame": 2765,
+    "calls": 1,
+    "triangles": 1,
+    "points": 0,
+    "lines": 0
+  },
+  "resourceWindows": {
+    "semantics": "Full transfer bytes for requests started before cutoff; not bytes received by cutoff",
+    "entryReady": {
+      "requests": 62,
+      "bytes": 4707018,
+      "jsRequests": 40,
+      "jsBytes": 2046730
+    },
+    "clickEnter": {
+      "requests": 88,
+      "bytes": 6898198,
+      "jsRequests": 47,
+      "jsBytes": 2156232
+    }
+  },
+  "longTaskWindows": {
+    "navigation20s": [
+      {
+        "start": 962.1999999992549,
+        "duration": 599,
+        "name": "self"
+      },
+      {
+        "start": 6114.300000000745,
+        "duration": 55,
+        "name": "self"
+      },
+      {
+        "start": 6246,
+        "duration": 194,
+        "name": "self"
+      },
+      {
+        "start": 6487.800000000745,
+        "duration": 124,
+        "name": "self"
+      },
+      {
+        "start": 9637.900000002235,
+        "duration": 69,
+        "name": "self"
+      },
+      {
+        "start": 11337.199999999255,
+        "duration": 176,
+        "name": "self"
+      },
+      {
+        "start": 11548.800000000745,
+        "duration": 191,
+        "name": "self"
+      },
+      {
+        "start": 12128.300000000745,
+        "duration": 60,
+        "name": "self"
+      },
+      {
+        "start": 12358.300000000745,
+        "duration": 58,
+        "name": "self"
+      },
+      {
+        "start": 12959.60000000149,
+        "duration": 215,
+        "name": "self"
+      },
+      {
+        "start": 13360.5,
+        "duration": 78,
+        "name": "self"
+      },
+      {
+        "start": 18686.199999999255,
+        "duration": 193,
+        "name": "self"
+      }
+    ],
+    "postEnter10s": [
+      {
+        "start": 6246,
+        "duration": 194,
+        "name": "self"
+      },
+      {
+        "start": 6487.800000000745,
+        "duration": 124,
+        "name": "self"
+      },
+      {
+        "start": 9637.900000002235,
+        "duration": 69,
+        "name": "self"
+      },
+      {
+        "start": 11337.199999999255,
+        "duration": 176,
+        "name": "self"
+      },
+      {
+        "start": 11548.800000000745,
+        "duration": 191,
+        "name": "self"
+      },
+      {
+        "start": 12128.300000000745,
+        "duration": 60,
+        "name": "self"
+      },
+      {
+        "start": 12358.300000000745,
+        "duration": 58,
+        "name": "self"
+      },
+      {
+        "start": 12959.60000000149,
+        "duration": 215,
+        "name": "self"
+      },
+      {
+        "start": 13360.5,
+        "duration": 78,
+        "name": "self"
+      }
+    ]
+  },
+  "environment": {
+    "quality": "medium",
+    "root": "main 970fc59 (624197d differs only in slap reach)",
+    "chrome": "157.0.8103.52",
+    "networkMbit": 20,
+    "viewport": [
+      1440,
+      900
+    ],
+    "headless": true,
+    "cache": "cold",
+    "cpuProfile": false,
+    "traceEnabled": false
+  },
+  "httpErrors": []
+}

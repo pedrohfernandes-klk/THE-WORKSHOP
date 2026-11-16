@@ -1,0 +1,1574 @@
+diff --git a/assets/gallery/textures.js b/assets/gallery/textures.js
+index f4707bd..60ab393 100644
+--- a/assets/gallery/textures.js
++++ b/assets/gallery/textures.js
+@@ -1,37 +1,46 @@
+-// Artwork texture loading. One GPU texture per image, shared by every slot that
+-// ever hangs it. Textures are never disposed by the room (they are cached).
++// One texture per work: a small local preview, sharpened in place on approach.
+ import * as THREE from 'three';
+-
+-const cache = new Map();
+-const loader = new THREE.TextureLoader();
+-// Resolve catalogue paths ("assets/extracted/x.webp") against the site root, no
+-// matter which page imports this module.
+-const ROOT = new URL('../../', import.meta.url);
+-
+-export function loadWorkTexture(work, renderer) {
+-  const key = work.src;
+-  let hit = cache.get(key);
+-  if (hit) return hit;
+-  hit = new Promise((resolve, reject) => {
+-    loader.load(
+-      new URL(work.src, ROOT).href,
+-      (tex) => {
+-        tex.colorSpace = THREE.SRGBColorSpace;
+-        tex.generateMipmaps = true;
+-        tex.minFilter = THREE.LinearMipmapLinearFilter;
+-        tex.magFilter = THREE.LinearFilter;
+-        tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+-        tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+-        tex.needsUpdate = true;
+-        resolve(tex);
+-      },
+-      undefined,
+-      (err) => {
+-        cache.delete(key);
+-        reject(err);
+-      },
+-    );
+-  });
+-  cache.set(key, hit);
+-  return hit;
++const ROOT=new URL('../../',import.meta.url),loader=new THREE.TextureLoader(),cache=new Map();
++let manifestPromise=null,upgradeBusy=false;
++export function prepareWorkTextures(){
++  return manifestPromise ||= fetch(new URL('./previews/manifest.json',import.meta.url))
++    .then(r=>r.ok?r.json():null).catch(()=>null);
++}
++function configure(tex,renderer){
++  tex.colorSpace=THREE.SRGBColorSpace;tex.generateMipmaps=true;
++  tex.minFilter=THREE.LinearMipmapLinearFilter;tex.magFilter=THREE.LinearFilter;
++  tex.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
++  tex.wrapS=tex.wrapT=THREE.ClampToEdgeWrapping;tex.needsUpdate=true;return tex;
++}
++export function loadWorkTexture(work,renderer){
++  if(cache.has(work.src))return cache.get(work.src);
++  const pending=prepareWorkTextures().then(async manifest=>{
++    const preview=manifest?.bySrc?.[work.src]?.preview;
++    let texture;
++    try{texture=await loader.loadAsync(new URL(preview||work.src,ROOT).href);texture.userData.preview=!!preview;}
++    catch(e){if(!preview)throw e;texture=await loader.loadAsync(new URL(work.src,ROOT).href);}
++    return configure(texture,renderer);
++  }).catch(e=>{cache.delete(work.src);throw e;});
++  cache.set(work.src,pending);return pending;
++}
++const idle=()=>new Promise(resolve=>typeof requestIdleCallback==='function'?requestIdleCallback(resolve,{timeout:150}):setTimeout(resolve,16));
++export async function sharpenWorkTexture(work,renderer,{maxEdge=1024}={}){
++  if(upgradeBusy||!cache.has(work.src))return false;
++  upgradeBusy=true;let full=null;
++  try{
++    const texture=await cache.get(work.src);
++    if(!texture.userData.preview||texture.userData.sharpened)return false;
++    await idle();
++    full=await loader.loadAsync(new URL(work.src,ROOT).href);
++    const image=full.image,k=Math.min(1,maxEdge/Math.max(image.width,image.height));
++    let next=image;
++    if(k<1){
++      const width=Math.max(1,Math.round(image.width*k)),height=Math.max(1,Math.round(image.height*k));
++      if(typeof createImageBitmap==='function')next=await createImageBitmap(image,{resizeWidth:width,resizeHeight:height,resizeQuality:'high',imageOrientation:'flipY'});
++      else {await idle();next=document.createElement('canvas');next.width=width;next.height=height;next.getContext('2d').drawImage(image,0,0,width,height);}
++    }
++    await idle();
++    texture.image=next;texture.needsUpdate=true;texture.userData.sharpened=true;
++    renderer.initTexture(texture);return true;
++  }catch{return false;}finally{full?.dispose();upgradeBusy=false;}
+ }
+diff --git a/assets/gallery/main.js b/assets/gallery/main.js
+index 7e23fc8..1a26e0a 100644
+--- a/assets/gallery/main.js
++++ b/assets/gallery/main.js
+@@ -11,7 +11,7 @@ import { createCurator, initialHang, encodeShow, decodeShow, titleFor } from './
+ import { createRoom, SLOTS, EYE_HEIGHT, START } from './room.js';
+ import { createPost } from './post.js';
+ import { createPerf, deviceProfile } from './perf.js';
+-import { loadWorkTexture } from './textures.js';
++import { loadWorkTexture, prepareWorkTextures, sharpenWorkTexture } from './textures.js';
+ import { createControls } from './controls.js';
+ import { createUI, showFallback } from './ui.js';
+ import { createAudio } from './audio.js';
+@@ -37,6 +37,9 @@ if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D
+ 
+ const params = new URLSearchParams(location.search);
+ const TEST = params.has('test');
++let resolveFirstMove, entryFlight = false;
++const startup = { moved: false, whenMoved: new Promise(resolve => { resolveFirstMove = resolve; }) };
++prepareWorkTextures();
+ const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+ const byId = new Map(WORKS.map(w => [w.id, w]));
+ const slotKinds = SLOTS.map(s => ({ index: s.index, id: s.id, kind: s.kind }));
+@@ -211,7 +214,7 @@ controls.lookAt(START.target);
+ const M = createMaterials(renderer, { quality });
+ const props = createProps(room.scene, { quality, reducedMotion });
+ const ctx = {
+-  THREE, renderer, scene: room.scene, M, quality, reducedMotion, audio,
++  THREE, renderer, scene: room.scene, M, quality, reducedMotion, audio, startup,
+   events: room.scene.userData.workshopEvents ||= new EventTarget(),
+   ui: {
+     openApp: (url, title) => ui.openApp(url, title), toast: (t) => ui.toast(t),
+@@ -236,15 +239,21 @@ ctx.prepareInteractions = async (built) => {
+ };
+ let world = null;
+ const worldReady = createWorld(ctx, {
++  ready: Promise.resolve().then(() => ready),
+   hallColliders: [...(room.colliders || []), ...(props.colliders || [])],
+   onProgress: (k) => { state.worldProgress = k; },
+ }).then((w) => {
+   world = w;
+-  w.modules.get('npcs')?.setNavigation?.(w);
++  const npcs = w.modules.get('npcs');
++  npcs?.setNavigation?.(w);
++  npcs?.onActorReady?.(() => {
++    w.registerPickables('npcs', npcs.pickables);
++    w.modules.get('tram-ride')?.tram.initializePassengers(npcs.actors, false);
++  });
+   if (w.modules.get('tram-ride')) {
+     w.modules.get('metro')?.setRideService?.(true);
+     w.modules.get('tram-ride').tram.bindControls(controls);
+-    w.modules.get('tram-ride').tram.initializePassengers(w.modules.get('npcs')?.actors, !state.entered);
++    w.modules.get('tram-ride').tram.initializePassengers(w.modules.get('npcs')?.actors, false);
+   }
+   if (TEST) performance.mark('workshop:campus-built');
+   controls.setWorld({ regions: w.regions, colliders: w.colliders });
+@@ -383,7 +392,8 @@ async function enter() {
+   powerTween = { t: 0, duration, from, relays: 0 };
+   controls.enabled = true;
+   // Step over the threshold as the lights come on.
+-  controls.flyTo({ position: START.position, target: START.target, duration: reducedMotion ? 0.2 : 3.4 });
++  entryFlight = true;
++  controls.flyTo({ position: START.position, target: START.target, duration: reducedMotion ? 0.2 : 3.4 }).finally(() => { entryFlight = false; });
+   const touch = matchMedia('(pointer: coarse)').matches;
+   // The intro owns the hint line until the visitor acts. The prompt updaters
+   // rewrite the line whenever their prompt changes, and state.prompt started
+@@ -1115,6 +1125,14 @@ function step() {
+   }
+ 
+   if (state.entered) controls.update(dt);
++  if (!startup.moved && state.entered && !entryFlight && controls.speed > 0.25) {
++    startup.moved = true; resolveFirstMove();
++    if (TEST) performance.mark('workshop:first-move');
++  }
++  if (startup.moved && state.inHall && state.gazeSlot >= 0 && state.gazeWeight > 0.6 && state.frames % 30 === 0) {
++    const work = byId.get(curator.hang[state.gazeSlot]);
++    if (work) sharpenWorkTexture(work, renderer, { maxEdge: quality === 'high' ? 2048 : quality === 'low' ? 768 : 1024 });
++  }
+   const pos = controls.position;
+   const floor = controls.floor;
+   if (world) {
+diff --git a/assets/gallery/world.js b/assets/gallery/world.js
+index 589dfab..7c428be 100644
+--- a/assets/gallery/world.js
++++ b/assets/gallery/world.js
+@@ -55,18 +55,45 @@ export function areaAt(x, y, z) {
+ // The campus waits for the hall: its modules are fetched only after the page's
+ // own load (capped), a few at a time, with the main thread handed back between
+ // module builds so the visitor can walk in the hall while the campus builds.
+-const LOAD_CAP_MS = 10000;
+ const IN_FLIGHT = 3;
+ // Flip to true once ?batch has been checked against ?nobatch (draw calls, screenshots, clicks).
+ const BATCH_BY_DEFAULT = false;
+ 
+-function afterPageLoad(capMs = LOAD_CAP_MS) {
+-  if (typeof document === 'undefined' || typeof addEventListener !== 'function' || document.readyState === 'complete') return Promise.resolve();
+-  return new Promise((resolve) => {
+-    const timer = setTimeout(resolve, capMs);
+-    addEventListener('load', () => { clearTimeout(timer); resolve(); }, { once: true });
+-  });
++const HALL_LOAD_CENTRES = Object.freeze({
++  environment: { essential: true }, facade: { essential: true }, plaza: { essential: true },
++  lift: { x: 4.3, z: 15.8 },
++  landscape: { x: 0, z: 28 },
++  pool: { x: 0, z: 31 }, parterre: { x: 0, z: 28 },
++  furniture: { x: 0, z: 32 }, wayfinding: { x: 0, z: 30 },
++  trees: { x: 0, z: 30 }, garden: { x: 40, z: 30 },
++  grass: { x: 38, z: 32 }, flowers: { x: 42, z: 30 },
++  fountain: { x: 46, z: 30 }, pergola: { x: 54, z: 39 },
++  sculptures: { x: 44, z: 36 }, amphitheatre: { x: -39, z: 30 },
++  studio: { x: -11, z: 44 }, arcade: { x: 11, z: 44 },
++  terrace: { x: 4, z: 15 }, cinema: { x: 0, z: 5 },
++  school: { x: 0, z: 54 }, birds: { x: 0, z: 32 },
++  passwords: { x: 0, z: 36 },
++  metro: { x: 82, z: 34 }, skyliner: { x: 50, z: 40 },
++  aviation: { x: 0, z: 34 }, npcs: { x: 0, z: 32 },
++  ruins: { x: -44, z: -26 }, murals: { x: 0, z: 4 },
++  vending: { x: 9, z: 22 }, cat: { x: 6, z: 24 },
++  radio: { x: 4, z: 10 }, ghost: { x: -43, z: -26, after: ['ruins'] },
++  floorsnake: { x: 0, z: 45 }, photobooth: { x: -21, z: 39 },
++  gnome: { x: 44, z: 30 }, oddities: { x: 0, z: 34 },
++  duck: { x: 0, z: 33, after: ['pool'] },
++  mercado: { x: 101, z: 31, after: ['metro'] },
++  marginal: { x: 4, z: 80, after: ['school'] },
++  'tram-ride': { x: 86, z: 29, after: ['metro', 'npcs'] },
++  arraial: { x: 71, z: 23 }, quests: { x: 0, z: 32 },
++  lightpools: { x: 0, z: 32 },
++});
++export function hallLoadOrder(names=SPACES){
++  const rank=name=>{const p=HALL_LOAD_CENTRES[name];return p?.essential?-1e6+SPACES.indexOf(name):p?(p.x*p.x+(p.z-13.5)**2):1e9;};
++  const sorted=names.slice().sort((a,b)=>rank(a)-rank(b)),result=[],seen=new Set();
++  function visit(name){if(seen.has(name))return;seen.add(name);for(const dependency of HALL_LOAD_CENTRES[name]?.after||[])if(names.includes(dependency))visit(dependency);result.push(name);}
++  for(const name of sorted)visit(name);return result;
+ }
++function firstCampusIdle(){return new Promise(resolve=>{if(typeof requestIdleCallback==='function')requestIdleCallback(()=>resolve(),{timeout:300});else setTimeout(resolve,0);});}
+ 
+ function yieldToMain() {
+   return new Promise((resolve) => {
+@@ -80,17 +107,22 @@ function yieldToMain() {
+  * createWorld(ctx, { hallColliders, onProgress }) → world
+  * ctx: { THREE, renderer, scene, M, quality, reducedMotion, audio, ui }
+  */
+-export async function createWorld(ctx, { hallColliders = [], onProgress } = {}) {
++export async function createWorld(ctx, { hallColliders = [], onProgress, ready, loadModule = name => import(`./spaces/${name}.js`) } = {}) {
+   const built = new Array(SPACES.length);
+   let done = 0, next = 0;
+-  await afterPageLoad();
+-  // A few workers take the modules in SPACES order (what appears first while loading).
++  await ready; // The Hall artwork owns startup bandwidth; this never prepares shaders.
++  await firstCampusIdle();
++  const loadOrder=hallLoadOrder();
++  const completed=new Map(),complete=new Map();
++  for(const name of SPACES)completed.set(name,new Promise(resolve=>complete.set(name,resolve)));
++  // Load nearby first; public registration remains in canonical SPACES order.
+   async function worker() {
+     while (next < SPACES.length) {
+-      const i = next++;
+-      const name = SPACES[i];
++      const name = loadOrder[next++];
++      const i = SPACES.indexOf(name);
+       try {
+-        const mod = await import(`./spaces/${name}.js`);
++        for(const dependency of HALL_LOAD_CENTRES[name]?.after||[])await completed.get(dependency);
++        const mod = await loadModule(name);
+         await yieldToMain();
+         const out = await mod.build(ctx);
+         if (out && out.group) {
+@@ -102,6 +134,7 @@ export async function createWorld(ctx, { hallColliders = [], onProgress } = {})
+       } catch (err) {
+         console.warn(`[world] ${name} skipped:`, err);
+       }
++      complete.get(name)();
+       done++;
+       onProgress?.(done / SPACES.length);
+       await yieldToMain();
+@@ -142,6 +175,9 @@ export async function createWorld(ctx, { hallColliders = [], onProgress } = {})
+   }
+   syncDynamic();
+ 
++  function registerPickables(name, list) {
++    for (const object of list || []) if (!owner.has(object)) { owner.set(object, name); pickables.push(object); }
++  }
+   function actionFor(object) {
+     for (let o = object; o; o = o.parent) {
+       if (o.userData && o.userData.action) return { action: o.userData.action, object: o, module: owner.get(o) || moduleOf(o) };
+@@ -207,7 +243,7 @@ export async function createWorld(ctx, { hallColliders = [], onProgress } = {})
+     }
+   }
+ 
+-  const world = { modules, groups, regions, colliders, pickables, lift, pick, actionFor, update, refreshShadows, batchStats: null };
++  const world = { modules, groups, regions, colliders, pickables, lift, pick, actionFor, registerPickables, update, refreshShadows, batchStats: null };
+   if (noBatch) world.batchStats = { disabled: true, before: 0, after: 0, merged: 0, skipped: 0 };
+   return world;
+ }
+diff --git a/assets/gallery/spaces/school.js b/assets/gallery/spaces/school.js
+index c58d083..7632963 100644
+--- a/assets/gallery/spaces/school.js
++++ b/assets/gallery/spaces/school.js
+@@ -1,4 +1,4 @@
+-// school.js — EPI / ETIC, Lisbon: the long low cream-rendered building south of the plaza,
++// school.js — the long low cream-rendered building south of the plaza,
+ // its forecourt (limestone pavement, granite kerb, bollards) and two enterable classrooms.
+ import * as THREE from 'three';
+ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+@@ -76,48 +76,42 @@ export function build(ctx) {
+   // student chair: seat 0.42 x 0.42 centred on the place, backrest 0.2 behind it, top 0.79 -> 2-3 cm to spare
+   const chairBox = sitBox(0.47, 0.46, 0, 0.82);
+ 
+-  // ---------- fonts + canvas textures ----------
+-  const redraws = [];
+-  function canvasTex(w, h, draw, { text = false, repeat = null, srgb = true } = {}) {
+-    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+-    const g = cv.getContext('2d'); draw(g, w, h);
+-    const t = new THREE.CanvasTexture(cv);
+-    t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+-    t.anisotropy = 8;
+-    if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat[0], repeat[1]); }
+-    if (text) redraws.push(() => { g.clearRect(0, 0, w, h); draw(g, w, h); t.needsUpdate = true; });
+-    return t;
++  // Only useful app screens allocate canvases; no font fetch or decorative painter.
++  const SANS = 'Arial, sans-serif', SERIF = 'Georgia, serif';
++  function canvasTex(w,h,draw) {
++    const cv=document.createElement('canvas'), scale=Math.min(1,256/Math.max(w,h));
++    cv.width=Math.round(w*scale);cv.height=Math.round(h*scale);
++    const g=cv.getContext('2d');g.scale(cv.width/w,cv.height/h);draw(g,w,h);
++    const t=new THREE.CanvasTexture(cv);t.colorSpace=THREE.SRGBColorSpace;
++    t.minFilter=t.magFilter=THREE.NearestFilter;t.generateMipmaps=false;return t;
++  }
++  const solids=new Map();
++  function solid(kind,{color,roughness}={}) {
++    color ??= ({oak:0xb59469,darkWood:0x443426,terrazzo:0xbcb7ac,oakPlanks:0xbca17a})[kind]??0xcccccc;
++    roughness ??= kind==='steel'?.45:.8;
++    const key=kind+':'+color+':'+roughness;
++    if(!solids.has(key))solids.set(key,new THREE.MeshStandardMaterial({color,roughness,metalness:kind==='steel'?.65:0}));
++    return solids.get(key);
+   }
+-  try {
+-    const defs = [
+-      ['Instrument Sans', '../../fonts/instrument-sans-variable.woff2', { weight: '400 700' }],
+-      ['Instrument Serif', '../../fonts/instrument-serif-400.woff2', {}],
+-      ['Instrument Serif', '../../fonts/instrument-serif-400-italic.woff2', { style: 'italic' }],
+-    ];
+-    Promise.all(defs.map(([n, u, d]) => new FontFace(n, `url(${new URL(u, import.meta.url)})`, d).load().then(f => { document.fonts.add(f); })))
+-      .then(() => redraws.forEach(r => r())).catch(() => {});
+-  } catch (e) { /* fonts optional */ }
+-  let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+-  const SANS = '"Instrument Sans", Helvetica, Arial, sans-serif', SERIF = '"Instrument Serif", Georgia, serif';
+ 
+   // ---------- materials ----------
+-  const render = M.get('plaster', { color: 0xe8e1d2 });
++  const render = solid('plaster', { color: 0xe8e1d2 });
+   render.color.setRGB(1.9, 1.78, 1.45);
+-  const renderIn = M.get('plaster', { color: 0xf1ece1 });
++  const renderIn = solid('plaster', { color: 0xf1ece1 });
+   renderIn.color.setRGB(2.4, 2.2, 1.85);
+-  const renderBlue = M.get('plaster', { color: 0x7d97ad });
+-  const ceilMat = M.get('plaster', { color: 0xf6f4ee });
++  const renderBlue = solid('plaster', { color: 0x7d97ad });
++  const ceilMat = solid('plaster', { color: 0xf6f4ee });
+   ceilMat.color.setRGB(2.6, 2.5, 2.3);
+-  const ironMat = M.get('steel', { color: 0x1a1c1f, roughness: 0.45 });
+-  const whiteSteel = M.get('steel', { color: 0xeeeeea, roughness: 0.5 });
+-  const steel = M.get('steel', { color: 0x9aa0a6, roughness: 0.35 });
+-  const granite = M.get('concreteWall', { color: 0x6f7173, roughness: 0.6 });
+-  const asphalt = M.get('gravel', { color: 0x2b2c2e, roughness: 0.95 });
+-  const oakM = M.get('oak');
+-  const darkWood = M.get('darkWood');
+-  const terrazzo = M.get('terrazzo');
+-  const resinFloor = M.get('concreteFloor', { color: 0xb9bec2, roughness: 0.4 });
+-  const plankFloor = M.get('oakPlanks');
++  const ironMat = solid('steel', { color: 0x1a1c1f, roughness: 0.45 });
++  const whiteSteel = solid('steel', { color: 0xeeeeea, roughness: 0.5 });
++  const steel = solid('steel', { color: 0x9aa0a6, roughness: 0.35 });
++  const granite = solid('concreteWall', { color: 0x6f7173, roughness: 0.6 });
++  const asphalt = solid('gravel', { color: 0x2b2c2e, roughness: 0.95 });
++  const oakM = solid('oak');
++  const darkWood = solid('darkWood');
++  const terrazzo = solid('terrazzo');
++  const resinFloor = solid('concreteFloor', { color: 0xb9bec2, roughness: 0.4 });
++  const plankFloor = solid('oakPlanks');
+   const laminate = new THREE.MeshStandardMaterial({ color: 0xd9c7a3, roughness: 0.45 });
+   const plasticBlue = new THREE.MeshStandardMaterial({ color: 0x3a6ea5, roughness: 0.5 });
+   const plasticGrey = new THREE.MeshStandardMaterial({ color: 0x59636b, roughness: 0.5 });
+@@ -150,19 +144,8 @@ export function build(ctx) {
+   // recessed plain render panels
+   for (const s of [-1, 1]) for (const c of rCx) BX(render, 2.2, 3.3, 0.35, s * c, 1.85, 56.325);
+   // glass-block panels (recessed 0.15 m)
+-  const glassBlockTex = canvasTex(512, 512, (g, w, h) => {
+-    const n = 16, c = w / n; g.fillStyle = 'rgba(205,210,205,1)'; g.fillRect(0, 0, w, h);
+-    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+-      const x = i * c, y = j * c, k = (Math.sin(i * 12.9 + j * 78.2) * 43758.5) % 1;
+-      const gr = g.createLinearGradient(x, y, x + c, y + c);
+-      gr.addColorStop(0, `rgba(${215 + k * 10 | 0},240,${225 + k * 8 | 0},0.78)`); gr.addColorStop(0.5, 'rgba(228,248,238,0.62)'); gr.addColorStop(1, 'rgba(180,215,205,0.78)');
+-      g.fillStyle = gr; g.fillRect(x + 2.5, y + 2.5, c - 5, c - 5);
+-      g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 1.5; g.strokeRect(x + 6, y + 6, c - 12, c - 12);
+-    }
+-  });
+-  const glassBlockMat = new THREE.MeshStandardMaterial({ map: glassBlockTex, transparent: true, roughness: 0.12, metalness: 0.05, emissive: 0xcfeee0, emissiveMap: glassBlockTex, emissiveIntensity: 0.28, envMapIntensity: 1.4, side: THREE.DoubleSide });
+-  const gbDims = (w, h) => { glassBlockTex.repeat.set(w / 3.2, h / 3.3); };
+-  gbDims(3.2, 3.3); glassBlockTex.wrapS = glassBlockTex.wrapT = THREE.RepeatWrapping;
++  const glassBlockTex = null;
++  const glassBlockMat = new THREE.MeshStandardMaterial({ color: 0xcfe1d8, opacity: .65, map: glassBlockTex, transparent: true, roughness: 0.12, metalness: 0.05, emissive: 0xcfeee0, emissiveMap: glassBlockTex, emissiveIntensity: 0.28, envMapIntensity: 1.4, side: THREE.DoubleSide });
+   for (const s of [-1, 1]) for (const c of glassCx) {
+     // 3.2 m x 3.3 m = 16 x 16.5 blocks of 0.2 m (texture is 16x16 squares over 3.2 x 3.2 + slight stretch)
+     addPlane(glassBlockMat, 3.2, 3.3, Tm(s * c, 1.85, 56.2, PI));
+@@ -179,7 +162,7 @@ export function build(ctx) {
+     CY(render, 0.35, H, sx * XE, H / 2, 71.65, null, 24);
+   }
+   // roof slab and plain parapet coping
+-  const roofMat = M.get('concreteFloor', { color: 0x6c6a66 });
++  const roofMat = solid('concreteFloor', { color: 0x6c6a66 });
+   BX(roofMat, 43, 0.3, 15.5, 0, H - 0.5, 64);
+   BX(render, 43.3, 0.1, 0.52, 0, H + 0.04, 56.25); // plain coping line
+   // doorway: dark recess behind the glass door
+@@ -195,12 +178,7 @@ export function build(ctx) {
+   doorLeaf(-0.95, -0.35); doorLeaf(0.95, 0.0);
+   // wall-mounted details
+   // Plain panels with an abstract mark (no names: the building stays unidentified).
+-  const signTex = (variant) => canvasTex(256, 256, (g, w, h) => {
+-    g.fillStyle = '#f4f4f1'; g.fillRect(0, 0, w, h); g.strokeStyle = '#2a2b2d'; g.lineWidth = 6; g.strokeRect(12, 12, w - 24, h - 24);
+-    g.fillStyle = '#111'; g.strokeStyle = '#111'; g.lineWidth = 10; g.lineCap = 'round';
+-    if (variant === 0) { g.beginPath(); g.arc(w * 0.42, h * 0.48, 30, 0, Math.PI * 2); g.stroke(); g.beginPath(); g.moveTo(w * 0.58, h * 0.66); g.lineTo(w * 0.74, h * 0.66); g.stroke(); }
+-    else { for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(w * (0.36 + i * 0.14), h * 0.34); g.lineTo(w * (0.36 + i * 0.14), h * 0.66); g.stroke(); } }
+-  }, { text: true });
++  const signTex = () => null;
+   const signMat = t => new THREE.MeshStandardMaterial({ map: t, roughness: 0.4 });
+   addPlane(signMat(signTex(0)), 0.75, 0.75, Tm(0.78, 3.15, 55.985, PI));
+   addPlane(signMat(signTex(1)), 0.75, 0.75, Tm(0.0, 3.15, 55.985, PI));
+@@ -208,42 +186,12 @@ export function build(ctx) {
+     const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0xc62222, roughness: 0.35 })); m.castShadow = true; group.add(m);
+     CY(whiteSteel, 0.12, 0.03, -0.45, 3.4, 55.97, Tm(0, 0, 0, 0, PI / 2), 20); }
+   // mural: notebook page across the upper band
+-  const muralTex = canvasTex(low ? 3072 : 6144, low ? 230 : 460, (g, w, h) => {
+-    const k = w / 6144; g.scale(k, k);
+-    const W = 6144, Hh = 460, ls = 44.6;
+-    g.lineWidth = 1.6; g.strokeStyle = 'rgba(141,138,132,0.38)';
+-    for (let y = 18; y < Hh; y += ls) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+-    g.strokeStyle = 'rgba(196,72,72,0.55)'; g.lineWidth = 2.2; g.beginPath(); g.moveTo(430, 0); g.lineTo(430, Hh); g.stroke();
+-    g.strokeStyle = 'rgba(141,138,132,0.55)'; g.lineWidth = 1.6; // far-left scribbles
+-    for (let s = 0; s < 3; s++) { g.beginPath(); const cx = 90 + s * 110, cy = 120 + s * 110; for (let a = 0; a < 26; a += 0.2) { const r = 3 + a * 3.6; g.lineTo(cx + Math.cos(a) * r * 1.2, cy + Math.sin(a) * r); } g.stroke(); }
+-    g.beginPath(); for (let t = 0; t < 40; t += 0.1) g.lineTo(60 + t * 8, 380 + Math.sin(t) * 28 * (1 + t / 30)); g.stroke();
+-    let sd = 3; const r2 = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
+-    const hand = (txt, x, y, size) => {
+-      g.font = `italic ${size}px ${SERIF}`; g.textBaseline = 'alphabetic'; g.lineWidth = 1.5; g.strokeStyle = 'rgba(141,138,132,0.62)'; g.lineJoin = 'round';
+-      for (const ch of txt) { const dy = (r2() - 0.5) * 7, rot = (r2() - 0.5) * 0.08; g.save(); g.translate(x, y + dy); g.rotate(rot); g.strokeText(ch, 0, 0); g.restore(); x += g.measureText(ch).width * 1.04 + (r2() - 0.5) * 3; }
+-      return x;
+-    };
+-    void hand; // the handwriting is abstracted: loops and strokes along the lines, no words
+-    const scribble = (x0, x1, y, amp, seed) => {
+-      sd = seed; g.lineWidth = 1.6; g.strokeStyle = 'rgba(141,138,132,0.6)'; g.lineJoin = 'round'; g.beginPath(); g.moveTo(x0, y);
+-      for (let x = x0; x < x1; x += 6) {
+-        const loop = r2() < 0.08;
+-        if (loop) { const r = amp * (0.4 + r2() * 0.5); for (let a = 0; a < Math.PI * 2; a += 0.35) g.lineTo(x + Math.sin(a) * r * 0.6, y - r + Math.cos(a) * r); }
+-        g.lineTo(x, y + Math.sin(x * 0.045 + seed) * amp * 0.35 + (r2() - 0.5) * amp * 0.25);
+-      }
+-      g.stroke();
+-    };
+-    scribble(520, 2600, 120, 46, 11); scribble(2800, 5400, 122, 44, 23);
+-    scribble(700, 4300, 258, 48, 37); scribble(3300, 5600, 398, 52, 41);
+-  }, { text: true });
+-  const muralMat = new THREE.MeshStandardMaterial({ map: muralTex, transparent: true, roughness: 0.95, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
++  const muralTex = null;
++  const muralMat = new THREE.MeshStandardMaterial({ map: muralTex, visible: false, transparent: true, roughness: 0.95, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+   addPlane(muralMat, 2 * (XE - 0.35), 3.3, Tm(0, 5.35, 55.992, PI));
+   // faint weathering streaks over the render
+-  const streakTex = canvasTex(1024, 256, (g, w, h) => {
+-    for (let i = 0; i < 160; i++) { const x = rnd() * w, len = 40 + rnd() * 200, a = 0.02 + rnd() * 0.05, wd = 1 + rnd() * 4;
+-      const gr = g.createLinearGradient(0, 0, 0, len); gr.addColorStop(0, `rgba(90,80,60,${a})`); gr.addColorStop(1, 'rgba(90,80,60,0)'); g.fillStyle = gr; g.fillRect(x, rnd() * 20, wd, len); }
+-  });
+-  addPlane(new THREE.MeshStandardMaterial({ map: streakTex, transparent: true, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -1 }), 2 * (XE - 0.35), 3.3, Tm(0, 5.35, 55.99, PI));
++  const streakTex = null;
++  addPlane(new THREE.MeshStandardMaterial({ map: streakTex, visible: false, transparent: true, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -1 }), 2 * (XE - 0.35), 3.3, Tm(0, 5.35, 55.99, PI));
+   // backfill so upper band is solid; side, back walls
+   const sideH = H;
+   BX(render, 0.5, sideH, 16.0, -21.75, sideH / 2, 64); BX(render, 0.5, sideH, 16.0, 21.75, sideH / 2, 64);
+@@ -260,17 +208,9 @@ export function build(ctx) {
+   }
+ 
+   // ---------- 2. FORECOURT ----------
+-  const slabTex = canvasTex(1024, 1024, (g, w, h) => {
+-    g.fillStyle = '#7e7f7b'; g.fillRect(0, 0, w, h);
+-    const sw = 256, sh = 128; // slab 1.0 x 0.5 m at 256 px/m
+-    for (let r = 0; r < h / sh; r++) for (let c = -1; c < w / sw; c++) {
+-      const x = c * sw + (r % 2) * sw / 2, y = r * sh, v = 188 + rnd() * 22;
+-      g.fillStyle = `rgb(${v | 0},${(v - 1) | 0},${(v - 6) | 0})`; g.fillRect(x + 3, y + 3, sw - 6, sh - 6);
+-      for (let i = 0; i < 260; i++) { g.fillStyle = `rgba(${rnd() < 0.5 ? '110,108,100' : '250,248,240'},${0.05 + rnd() * 0.1})`; g.fillRect(x + 3 + rnd() * (sw - 6), y + 3 + rnd() * (sh - 6), 1 + rnd() * 3, 1 + rnd() * 3); }
+-    }
+-  }, { repeat: [44 / 4, 3.2 / 4] });
+-  const slabBump = slabTex.clone(); slabBump.needsUpdate = true;
+-  const pave = new THREE.MeshStandardMaterial({ map: slabTex, roughness: 0.85, bumpMap: slabBump, bumpScale: 1.0 });
++  const slabTex = null;
++  const slabBump = null;
++  const pave = new THREE.MeshStandardMaterial({ color: 0xc3c1b9, map: slabTex, roughness: 0.85, bumpMap: slabBump, bumpScale: 1.0 });
+   { const m = addPlane(pave, 44, 2.8, Tm(0, 0.02, 54.6).multiply(new THREE.Matrix4().makeRotationX(-PI / 2))); } // z 53.2 .. 56
+   addPlane(pave, 4, 0.4, Tm(0, 0.016, 52.2).multiply(new THREE.Matrix4().makeRotationX(-PI / 2)));
+   BX(asphalt, 44, 0.03, 0.6, 0, 0.015, 52.7); // road strip z 52.4..53.0
+@@ -324,91 +264,28 @@ export function build(ctx) {
+   // upper-floor mass over corridor not needed (solid)
+ 
+   // ---------- canvases: photos, boards, plates, lockers ----------
+-  function photoPaint(style) {
+-    return (g, w, h) => {
+-      g.fillStyle = '#f6f4ee'; g.fillRect(0, 0, w, h);
+-      const m = Math.round(w * 0.07), x0 = m, y0 = m, pw = w - 2 * m, ph = h - 2 * m;
+-      g.save(); g.beginPath(); g.rect(x0, y0, pw, ph); g.clip();
+-      if (style === 0) {
+-        const s = g.createLinearGradient(0, y0, 0, y0 + ph); s.addColorStop(0, '#2a3f66'); s.addColorStop(0.55, '#e48a4c'); s.addColorStop(1, '#f6c77a'); g.fillStyle = s; g.fillRect(x0, y0, pw, ph);
+-        const sun = g.createRadialGradient(x0 + pw * 0.65, y0 + ph * 0.6, 0, x0 + pw * 0.65, y0 + ph * 0.6, pw * 0.3); sun.addColorStop(0, 'rgba(255,245,200,1)'); sun.addColorStop(1, 'rgba(255,200,120,0)'); g.fillStyle = sun; g.fillRect(x0, y0, pw, ph);
+-        for (let L = 0; L < 3; L++) { g.fillStyle = `rgb(${20 + L * 18},${24 + L * 16},${40 + L * 14})`; g.beginPath(); g.moveTo(x0, y0 + ph); for (let x = 0; x <= pw; x += 8) g.lineTo(x0 + x, y0 + ph * (0.62 + L * 0.1) - Math.sin(x * 0.01 + L * 2) * ph * 0.08 - Math.sin(x * 0.037 + L) * ph * 0.03); g.lineTo(x0 + pw, y0 + ph); g.fill(); }
+-      } else if (style === 1) {
+-        const bg = g.createRadialGradient(x0 + pw / 2, y0 + ph * 0.4, 10, x0 + pw / 2, y0 + ph / 2, pw * 0.8); bg.addColorStop(0, '#b8b8b8'); bg.addColorStop(1, '#161616'); g.fillStyle = bg; g.fillRect(x0, y0, pw, ph);
+-        g.fillStyle = '#222'; g.beginPath(); g.ellipse(x0 + pw / 2, y0 + ph * 0.42, pw * 0.17, ph * 0.22, 0, 0, PI * 2); g.fill();
+-        g.beginPath(); g.ellipse(x0 + pw / 2, y0 + ph * 1.05, pw * 0.4, ph * 0.38, 0, 0, PI * 2); g.fill();
+-        g.fillStyle = 'rgba(255,255,255,0.35)'; g.beginPath(); g.ellipse(x0 + pw * 0.43, y0 + ph * 0.36, pw * 0.05, ph * 0.1, 0.4, 0, PI * 2); g.fill();
+-      } else if (style === 2) {
+-        const s = g.createLinearGradient(0, y0, 0, y0 + ph); s.addColorStop(0, '#79a8d6'); s.addColorStop(1, '#f1e6d0'); g.fillStyle = s; g.fillRect(x0, y0, pw, ph);
+-        for (let i = 0; i < 16; i++) { const bw = pw / 10 + rnd() * 20, bx = x0 + i * pw / 14 - 10, bh = ph * (0.25 + rnd() * 0.3); g.fillStyle = ['#d9b79a', '#c98a62', '#e8d6b4', '#b96b4a'][i % 4]; g.fillRect(bx, y0 + ph - bh, bw, bh); g.fillStyle = '#b4522f'; g.beginPath(); g.moveTo(bx - 3, y0 + ph - bh); g.lineTo(bx + bw / 2, y0 + ph - bh - 16); g.lineTo(bx + bw + 3, y0 + ph - bh); g.fill(); g.fillStyle = 'rgba(40,40,50,0.6)'; for (let wy = 0; wy < 2; wy++) g.fillRect(bx + 6, y0 + ph - bh + 10 + wy * 26, 8, 14); }
+-        g.fillStyle = '#f2c230'; g.fillRect(x0, y0 + ph - 16, pw, 10);
+-      } else {
+-        g.fillStyle = '#d4d4d4'; g.fillRect(x0, y0, pw, ph);
+-        for (let i = 0; i < 14; i++) { g.fillStyle = `rgb(${255 - i * 17},${255 - i * 17},${255 - i * 17})`; g.beginPath(); g.moveTo(x0, y0 + ph); g.lineTo(x0 + pw * (i / 14), y0 + ph); g.lineTo(x0 + pw * (i / 14) + pw * 0.2, y0); g.lineTo(x0 + pw * ((i - 1) / 14) + pw * 0.2, y0); g.fill(); }
+-      }
+-      const gi = g.getImageData(x0, y0, pw, ph);
+-      if (style === 1 || style === 3) for (let i = 0; i < gi.data.length; i += 4) { const v = (gi.data[i] + gi.data[i + 1] + gi.data[i + 2]) / 3 + (rnd() - 0.5) * 30; gi.data[i] = gi.data[i + 1] = gi.data[i + 2] = v; }
+-      else for (let i = 0; i < gi.data.length; i += 4) { const n = (rnd() - 0.5) * 20; gi.data[i] += n; gi.data[i + 1] += n; gi.data[i + 2] += n; }
+-      g.putImageData(gi, x0, y0);
+-      g.restore(); g.strokeStyle = 'rgba(0,0,0,0.15)'; g.lineWidth = 2; g.strokeRect(x0, y0, pw, ph);
+-    };
+-  }
+-  const photoTexs = [0, 1, 2, 3].map(i => canvasTex(300, 220, photoPaint(i)));
+-  const photoTexsP = [1, 0, 3].map(i => canvasTex(220, 300, photoPaint(i)));
++  const photoTexs=[null,null,null,null], photoTexsP=[null,null,null];
+   const matCache = new Map();
+   const texMat = (t, o = {}) => { if (!matCache.has(t)) matCache.set(t, new THREE.MeshStandardMaterial({ map: t, roughness: 0.5, ...o })); return matCache.get(t); };
+   function hang(m, w, h, tex, frame = dark) { BX(frame, w + 0.06, h + 0.06, 0.03, 0, 0, 0.015, m); addPlane(texMat(tex), w, h, mul(m, Tm(0, 0, 0.032))); }
+ 
+-  function corkBoard(variant) {
+-    return canvasTex(1024, 640, (g, w, h) => {
+-      g.fillStyle = '#b98a5a'; g.fillRect(0, 0, w, h);
+-      for (let i = 0; i < 6000; i++) { g.fillStyle = `rgba(${rnd() < 0.5 ? '90,55,25' : '230,190,140'},0.18)`; g.fillRect(rnd() * w, rnd() * h, 2 + rnd() * 3, 2 + rnd() * 3); }
+-      const titles = variant ? ['Open Day', 'Horários 2026/27', 'Bolsa de Estudo', 'Sala de Estudo'] : ['Fotografia', 'Exposição Final', 'Bem-vindos', 'Cursos'];
+-      const subs = variant ? ['12 de maio · entrada livre', 'turmas · salas · docentes', 'candidaturas até junho', 'biblioteca · 2.º piso'] : ['Imagem · Luz · Olhar', 'galeria da escola', 'ano letivo 2026/2027', 'Foto · Vídeo · Design'];
+-      const cols = ['#e9d35b', '#f4f1ea', '#6fa8c7', '#e98b73', '#a5d1a0', '#d9d0f0'];
+-      for (let i = 0; i < 4; i++) {
+-        const x = 40 + (i % 2) * 480 + rnd() * 30, y = 30 + Math.floor(i / 2) * 300 + rnd() * 20, pw = 400 + rnd() * 40, ph = 270;
+-        g.save(); g.translate(x + pw / 2, y + ph / 2); g.rotate((rnd() - 0.5) * 0.06);
+-        g.shadowColor = 'rgba(0,0,0,0.4)'; g.shadowBlur = 8; g.shadowOffsetY = 4; g.fillStyle = cols[(i + variant * 2) % 6]; g.fillRect(-pw / 2, -ph / 2, pw, ph); g.shadowColor = 'transparent';
+-        g.fillStyle = 'rgba(20,20,30,0.85)'; g.font = `400 52px ${SERIF}`; g.textAlign = 'left'; g.fillText(titles[i], -pw / 2 + 24, -ph / 2 + 80);
+-        g.font = `500 24px ${SANS}`; g.fillText(subs[i], -pw / 2 + 24, -ph / 2 + 124);
+-        g.fillStyle = 'rgba(20,20,30,0.25)'; g.beginPath(); g.arc(pw / 2 - 90, ph / 2 - 70, 50, 0, PI * 2); g.fill(); g.fillRect(-pw / 2 + 24, ph / 2 - 60, 140, 8); g.fillRect(-pw / 2 + 24, ph / 2 - 40, 100, 8);
+-        g.fillStyle = '#c62828'; g.beginPath(); g.arc(0, -ph / 2 + 12, 8, 0, PI * 2); g.fill();
+-        g.restore();
+-      }
+-    }, { text: true });
+-  }
+-  function plateTex(txt) {
+-    return canvasTex(512, 192, (g, w, h) => {
+-      g.fillStyle = '#e9ecee'; g.fillRect(0, 0, w, h); g.strokeStyle = '#4b5a66'; g.lineWidth = 8; g.strokeRect(6, 6, w - 12, h - 12);
+-      g.fillStyle = '#1c2630'; g.font = `600 64px ${SANS}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, w / 2, h / 2 + 3);
+-    }, { text: true });
+-  }
+-  const lockerTex = canvasTex(192, 384, (g, w, h) => {
+-    const cols = ['#2f6f86', '#c9a43a', '#3f7f6a'];
+-    for (let i = 0; i < 3; i++) {
+-      const x = i * 64; g.fillStyle = cols[i]; g.fillRect(x, 0, 64, h);
+-      g.fillStyle = 'rgba(0,0,0,0.35)'; for (let k = 0; k < 6; k++) g.fillRect(x + 12, 20 + k * 7, 40, 3);
+-      g.fillStyle = 'rgba(255,255,255,0.12)'; g.fillRect(x, 0, 64, 4);
+-      g.fillStyle = '#d8dadb'; g.fillRect(x + 25, 170, 14, 40); g.fillStyle = '#222'; g.fillRect(x + 28, 120, 8, 12);
+-      g.fillStyle = '#f4f4f4'; g.fillRect(x + 22, 70, 20, 14); g.fillStyle = '#222'; g.font = `600 12px ${SANS}`; g.textAlign = 'center'; g.fillText(String(101 + i), x + 32, 81);
+-      g.strokeStyle = 'rgba(0,0,0,0.55)'; g.lineWidth = 2; g.strokeRect(x + 1, 1, 62, h - 2);
+-    }
+-  }, { text: true, repeat: [13, 1] });
++  const corkBoard = () => null;
++  const plateTex = () => null;
++  const lockerTex = null;
+   const lockerMat = new THREE.MeshStandardMaterial({ map: lockerTex, roughness: 0.4, metalness: 0.3 });
+ 
+   // ---------- corridor dressing ----------
+   // lockers along the back wall, either side of the classroom doors
+   for (const [a, b] of [[-20.6, -8.9], [8.9, 20.6]]) {
+     const len = b - a, cx = (a + b) / 2;
+-    BX(M.get('steel', { color: 0x44555d, roughness: 0.5 }), len, 1.85, 0.4, cx, 0.93, 60.1);
+-    BX(M.get('steel', { color: 0x44555d, roughness: 0.5 }), len, 0.05, 0.42, cx, 1.88, 60.09);
+-    const lt = lockerTex.clone(); lt.repeat.set(len / 0.9, 1); lt.needsUpdate = true;
+-    addPlane(new THREE.MeshStandardMaterial({ map: lt, roughness: 0.4, metalness: 0.3 }), len, 1.8, Tm(cx, 0.95, 59.895, PI));
++    BX(solid('steel', { color: 0x44555d, roughness: 0.5 }), len, 1.85, 0.4, cx, 0.93, 60.1);
++    BX(solid('steel', { color: 0x44555d, roughness: 0.5 }), len, 0.05, 0.42, cx, 1.88, 60.09);
++    const lt = null;
++    addPlane(new THREE.MeshStandardMaterial({ color: 0x44555d, map: lt, roughness: 0.4, metalness: 0.3 }), len, 1.8, Tm(cx, 0.95, 59.895, PI));
+     col(a, b, 59.9, 60.3, 0, 1.9);
+   }
+   // notice boards and photos on the core wall (z=60.3 face, facing -z)
+-  const boardMat = (v) => new THREE.MeshStandardMaterial({ map: corkBoard(v), roughness: 0.9 });
++  const boardMat = (v) => new THREE.MeshStandardMaterial({ color: 0xb98a5a, map: corkBoard(v), roughness: 0.9 });
+   for (const [cx, v] of [[-3.0, 0], [3.0, 1]]) {
+     BX(whiteSteel, 2.4, 1.5, 0.03, cx, 1.65, 60.285);
+     addPlane(boardMat(v), 2.3, 1.4, Tm(cx, 1.65, 60.265, PI));
+@@ -425,8 +302,8 @@ export function build(ctx) {
+ 
+   // ---------- ceiling LEDs + light pools ----------
+   const ledGeo = new THREE.BoxGeometry(0.6, 0.03, 0.6);
+-  const glowTex = canvasTex(128, 128, (g, w, h) => { const r = g.createRadialGradient(64, 64, 0, 64, 64, 64); r.addColorStop(0, 'rgba(255,240,215,0.5)'); r.addColorStop(1, 'rgba(255,240,215,0)'); g.fillStyle = r; g.fillRect(0, 0, w, h); });
+-  const glowMat = new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.55 });
++  const glowTex = null;
++  const glowMat = new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0 });
+   glowMat.userData.noShadow = true;
+   const glowGeo = new THREE.PlaneGeometry(1, 1); glowGeo.rotateX(-PI / 2);
+   const led = (x, z, sc = 2.6) => { I('led', ledGeo, ledMat, Tm(x, CH - 0.015, z)); I('glow', glowGeo, glowMat, new THREE.Matrix4().compose(new THREE.Vector3(x, 0.03, z), new THREE.Quaternion(), new THREE.Vector3(sc, 1, sc))); };
+@@ -476,11 +353,7 @@ export function build(ctx) {
+     }
+     return R;
+   }
+-  const blindTex = canvasTex(128, 128, (g, w, h) => {
+-    g.fillStyle = '#d8d2c4'; g.fillRect(0, 0, w, h);
+-    for (let y = 0; y < h - 8; y += 6) { const gr = g.createLinearGradient(0, y, 0, y + 6); gr.addColorStop(0, '#f1ece0'); gr.addColorStop(1, '#bfb8a8'); g.fillStyle = gr; g.fillRect(0, y, w, 5); }
+-    g.fillStyle = '#9a9384'; g.fillRect(0, h - 8, w, 8); g.fillRect(30, 0, 1, h); g.fillRect(98, 0, 1, h);
+-  });
++  const blindTex = null;
+   const blindMat = new THREE.MeshStandardMaterial({ map: blindTex, roughness: 0.7, side: THREE.DoubleSide });
+   const A = makeRoom(-1), B = makeRoom(1);
+ 
+@@ -491,40 +364,17 @@ export function build(ctx) {
+     const cx = w * 0.78, cy = h * 0.5; for (let i = 1; i <= 6; i++) { g.beginPath(); g.arc(cx, cy, h * 0.07 * i, 0, PI * 2); g.stroke(); }
+     for (let i = 0; i < 8; i++) { const a = i * PI / 4; g.beginPath(); g.moveTo(cx + Math.cos(a) * h * 0.07, cy + Math.sin(a) * h * 0.07); g.lineTo(cx + Math.cos(a + 0.5) * h * 0.42, cy + Math.sin(a + 0.5) * h * 0.42); g.stroke(); }
+     g.fillStyle = '#f2ede2'; g.textBaseline = 'alphabetic'; g.font = `400 ${h * 0.34}px ${SERIF}`; g.fillText('Lente', w * 0.07, h * 0.52);
+-    g.font = `400 ${h * 0.09}px ${SERIF}`; g.fillStyle = '#c9d8e8'; g.fillText('Lente · EPI 2026/2027', w * 0.075, h * 0.68);
++    g.font = `400 ${h * 0.09}px ${SERIF}`; g.fillStyle = '#c9d8e8'; g.fillText('ABRIR', w * 0.075, h * 0.68);
+ 
+   };
+   const lenteTex = canvasTex(1280, 720, lenteCard, { text: true });
+-  const lapTex = canvasTex(512, 320, lenteCard, { text: true });
++  const lapTex = lenteTex;
+   const emissiveScreen = (t) => new THREE.MeshStandardMaterial({ map: t, emissiveMap: t, emissive: 0xffffff, emissiveIntensity: 0.9, roughness: 0.3, color: 0x111111 });
+-  const wbTex = canvasTex(1536, 512, (g, w, h) => {
+-    g.fillStyle = '#f7f8f6'; g.fillRect(0, 0, w, h);
+-    for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(150,160,170,${0.03 + rnd() * 0.05})`; g.beginPath(); g.ellipse(rnd() * w, rnd() * h, 40 + rnd() * 120, 10 + rnd() * 25, rnd() * 3, 0, PI * 2); g.fill(); }
+-    g.lineJoin = 'round';
+-    const write = (txt, x, y, size, color) => { g.font = `italic ${size}px ${SERIF}`; g.fillStyle = color; g.strokeStyle = color; g.lineWidth = size * 0.02;
+-      for (const ch of txt) { const dy = (rnd() - 0.5) * size * 0.07; g.save(); g.translate(x, y + dy); g.rotate((rnd() - 0.5) * 0.07); g.fillText(ch, 0, 0); g.strokeText(ch, 0, 0); g.restore(); x += g.measureText(ch).width * 1.03; } return x; };
+-    const xe = write('Português · EPI', 90, 150, 150, '#1b4fa8');
+-    g.strokeStyle = '#c0392b'; g.lineWidth = 7; g.beginPath(); g.moveTo(90, 180); g.bezierCurveTo(400, 200, 700, 165, xe, 185); g.stroke();
+-    write('ler · escrever · ouvir · falar', 100, 285, 82, '#222');
+-    write('A língua é a nossa casa.', 100, 380, 82, '#1f7a4d');
+-    write('Os Lusíadas — Camões, 1572', 100, 465, 62, '#222');
+-    write('eu falei · tu falaste', 860, 285, 62, '#b03a2e'); write('ele falou · nós falámos', 860, 360, 62, '#b03a2e');
+-  }, { text: true });
++  const wbTex = null;
+   const screenTex = canvasTex(640, 400, (g, w, h) => {
+-    g.fillStyle = '#f3f3f0'; g.fillRect(0, 0, w, h); g.fillStyle = '#1b4fa8'; g.font = `400 70px ${SERIF}`; g.textAlign = 'center'; g.fillText('Português · EPI', w / 2, h / 2); g.font = `500 24px ${SANS}`; g.fillStyle = '#555'; g.fillText('projeção · toque para abrir', w / 2, h / 2 + 50);
+-  }, { text: true });
+-  const pts = [[-8.85, 41.87], [-8.83, 41.7], [-8.7, 41.15], [-8.7, 40.65], [-8.87, 40.15], [-9.07, 39.6], [-9.38, 39.35], [-9.5, 38.78], [-9.2, 38.7], [-8.9, 38.5], [-8.78, 38.0], [-8.99, 37.02], [-8.67, 37.1], [-7.93, 37.02], [-7.42, 37.17], [-7.5, 37.7], [-7.27, 38.2], [-7.17, 38.85], [-7.0, 39.3], [-7.1, 39.7], [-6.9, 40.0], [-7.0, 40.3], [-6.95, 40.8], [-6.8, 41.05], [-6.55, 41.5], [-6.2, 41.57], [-6.55, 41.95], [-7.2, 41.9], [-8.2, 42.15]];
+-  const mapTex = canvasTex(700, 1000, (g, w, h) => {
+-    const sea = g.createLinearGradient(0, 0, 0, h); sea.addColorStop(0, '#2c6a99'); sea.addColorStop(1, '#4b8dbd'); g.fillStyle = sea; g.fillRect(0, 0, w, h);
+-    g.strokeStyle = 'rgba(255,255,255,0.12)'; g.lineWidth = 1; for (let i = 0; i < 20; i++) { g.beginPath(); g.moveTo(0, i * 50); g.lineTo(w, i * 50); g.stroke(); g.beginPath(); g.moveTo(i * 50, 0); g.lineTo(i * 50, h); g.stroke(); }
+-    const pj = (lo, la) => [150 + (lo + 9.7) * 120, 90 + (42.3 - la) * 150];
+-    g.beginPath(); pts.forEach(([lo, la], i) => { const [x, y] = pj(lo, la); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.closePath();
+-    g.shadowColor = 'rgba(0,0,0,0.4)'; g.shadowBlur = 14; g.fillStyle = '#e9dcb4'; g.fill(); g.shadowColor = 'transparent'; g.strokeStyle = '#8a7a4a'; g.lineWidth = 3; g.stroke();
+-    g.fillStyle = '#9a1c1c'; g.strokeStyle = '#fff'; g.lineWidth = 2; g.font = `500 22px ${SANS}`;
+-    for (const [n, lo, la] of [['Porto', -8.61, 41.15], ['Coimbra', -8.42, 40.2], ['Lisboa', -9.14, 38.72], ['Faro', -7.93, 37.02], ['Évora', -7.9, 38.57], ['Braga', -8.42, 41.55]]) { const [x, y] = pj(lo, la); g.beginPath(); g.arc(x, y, 6, 0, PI * 2); g.fill(); g.stroke(); g.fillStyle = '#222'; g.fillText(n, x + 12, y + 7); g.fillStyle = '#9a1c1c'; }
+-    g.fillStyle = '#f4f1ea'; g.font = `italic 68px ${SERIF}`; g.fillText('Portugal', 40, 70); g.font = `500 20px ${SANS}`; g.fillStyle = '#dbe8f2'; g.fillText('Mapa de Portugal continental', 44, 100);
+-    g.fillStyle = '#e9dcb4'; g.beginPath(); g.ellipse(80, 900, 36, 18, 0.3, 0, PI * 2); g.fill(); g.beginPath(); g.ellipse(150, 880, 22, 10, 0.2, 0, PI * 2); g.fill(); g.fillStyle = '#f4f1ea'; g.font = `18px ${SANS}`; g.fillText('Açores', 50, 940); g.fillText('Madeira', 138, 920);
++    g.fillStyle = '#f3f3f0'; g.fillRect(0, 0, w, h); g.fillStyle = '#1b4fa8'; g.font = `400 70px ${SERIF}`; g.textAlign = 'center'; g.fillText('ABRIR', w / 2, h / 2); g.font = `500 24px ${SANS}`; g.fillStyle = '#555'; g.fillText('Português', w / 2, h / 2 + 50);
+   }, { text: true });
++  const mapTex = null;
+ 
+   // --- Sala Lente (A, west) ---
+   {
+@@ -551,7 +401,7 @@ export function build(ctx) {
+     // wall photographs on the door wall and partition
+     hang(L(2.2, 1.8, -5.545, 0), 1.0, 0.73, photoTexs[0]); hang(L(4.0, 1.8, -5.545, 0), 1.0, 0.73, photoTexs[2]);
+     hang(L(9.78, 1.7, -2.2, -PI / 2), 0.8, 1.1, photoTexsP[0]); hang(L(9.78, 1.7, 0.0, -PI / 2), 0.8, 1.1, photoTexsP[1]); hang(L(9.78, 1.7, 2.2, -PI / 2), 0.8, 1.1, photoTexsP[2]);
+-    BX(M.get('steel', { color: 0xb8bcc0 }), 0.04, 0.04, 2.0, 0, 0, 0, L(0.05, 0.9, 0.3)); // sound bar / ledge
++    BX(solid('steel', { color: 0xb8bcc0 }), 0.04, 0.04, 2.0, 0, 0, 0, L(0.05, 0.9, 0.3)); // sound bar / ledge
+     // cabinet by door wall
+     BX(whiteSteel, 0.5, 1.8, 1.2, 0, 0, 0, L(9.4, 0.9, -4.7)); aabb(9.15, 9.8, -5.3, -4.1, 1.8);
+     const pl = plateTex('Sala Lente'); addPlane(texMat(pl), 0.4, 0.15, L(8.4, 1.55, -5.54, 0));
+@@ -600,7 +450,7 @@ export function build(ctx) {
+   }, { text: true });
+   const quedaMat = emissiveScreen(quedaTex);
+   const quedaAction = () => ({ type: 'app', url: 'assets/apps/blocks.html', title: 'QUEDA \u00b7 jogo de blocos' });
+-  const pcMat = M.get('steel', { color: 0x2a2c30, roughness: 0.5 });
++  const pcMat = solid('steel', { color: 0x2a2c30, roughness: 0.5 });
+   function addPC(m) { // local +z faces the user; origin on the desk surface
+     BX(pcMat, 0.56, 0.34, 0.03, 0, 0.36, 0, m); BX(pcMat, 0.04, 0.2, 0.03, 0, 0.1, -0.03, m); BX(pcMat, 0.22, 0.012, 0.16, 0, 0.006, 0, m);
+     BX(pcMat, 0.44, 0.02, 0.14, 0, 0.01, 0.32, m); BX(pcMat, 0.06, 0.025, 0.1, 0.32, 0.012, 0.32, m);
+diff --git a/assets/gallery/spaces/grass.js b/assets/gallery/spaces/grass.js
+index 83fdd54..ff2bcf7 100644
+--- a/assets/gallery/spaces/grass.js
++++ b/assets/gallery/spaces/grass.js
+@@ -4,7 +4,9 @@ export function build(ctx) {
+   const { THREE, M, quality } = ctx;
+   const group = new THREE.Group(); group.name = 'grass';
+   const qs = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
+-  const dens = (quality === 'low' ? 70 : 260) * Number(qs.get('grassd') || 1);
++  const requestedDensity = Number(qs.get('grassd') || 1);
++  const densityScale = Number.isFinite(requestedDensity) ? Math.max(0.05, Math.min(2, requestedDensity)) : 1;
++  const dens = (quality === 'low' ? 18 : quality === 'medium' ? 60 : 260) * densityScale;
+ 
+   const LAWNS = [[29.5, 43.3, 15, 26.3], [48.7, 63, 15, 26.3], [29.5, 43.3, 31.7, 49], [48.7, 63, 31.7, 49]];
+   const HOLES = [[46, 29, 5.5], [36, 21, 1.4], [56, 21, 1.4], [36, 42, 1.4], [60, 46, 1.4], [55, 40, 3.4]];
+diff --git a/assets/gallery/materials.js b/assets/gallery/materials.js
+index 39ff148..55e17b0 100644
+--- a/assets/gallery/materials.js
++++ b/assets/gallery/materials.js
+@@ -239,7 +239,7 @@ export function createMaterials(renderer, { quality = 'high' } = {}) {
+       const environment = pmrem.fromEquirectangular(hdr).texture;
+       pmrem.dispose();
+       let sharp = null;
+-      const sharpened = () => (sharp ||= (tier === 'low' || full) ? Promise.resolve(hdr) : sharpen(hdr, large));
++      const sharpened = () => (sharp ||= (tier !== 'high' || full) ? Promise.resolve(hdr) : sharpen(hdr, large));
+       return { hdr, environment, sharpened };
+     });
+   }
+@@ -279,7 +279,7 @@ export function createMaterials(renderer, { quality = 'high' } = {}) {
+   function overcast() {
+     if (!overcastPromise) {
+       overcastPromise = loadSky('sky-overcast-1k.hdr', 'sky-overcast.hdr', 0).then(({ hdr, environment, sharpened }) => (
+-        { background: hdr, environment, sharp: sharpened() }
++        { background: hdr, environment, get sharp() { return sharpened(); } }
+       ));
+       overcastPromise.catch(() => { overcastPromise = null; });
+     }
+diff --git a/assets/gallery/spaces/amphitheatre.js b/assets/gallery/spaces/amphitheatre.js
+index b9992b0..5eac12f 100644
+--- a/assets/gallery/spaces/amphitheatre.js
++++ b/assets/gallery/spaces/amphitheatre.js
+@@ -8,7 +8,6 @@ const N_TIERS = 10, R_IN = 7, TREAD = 0.8;
+ const RISER = (RIM - FLOOR) / N_TIERS;          // 0.422
+ const R_OUT = R_IN + N_TIERS * TREAD;            // 15
+ const AISLE_STEPS = 24;
+-const VIDEO_URL = new URL('../../extracted/hall-fireworks-video.mp4', import.meta.url).href;
+ 
+ export function build(ctx) {
+   const { THREE, M, quality } = ctx;
+@@ -264,20 +263,10 @@ export function build(ctx) {
+ 
+   // ---------------------------------------------------------------- outdoor screen
+   const SCR_W = 12, SCR_H = 6.75, SCR_Y = 3.175, SCR_X = -56.97;
+-  const video = document.createElement('video');
+-  video.muted = true; video.defaultMuted = true; video.loop = true; video.playsInline = true;
+-  video.setAttribute('playsinline', ''); video.setAttribute('muted', '');
+-  video.crossOrigin = 'anonymous'; video.preload = 'none'; video.src = VIDEO_URL;
+-  const vtex = new THREE.VideoTexture(video);
+-  vtex.colorSpace = THREE.SRGBColorSpace; vtex.minFilter = THREE.LinearFilter; vtex.generateMipmaps = false;
+-  // standby picture shown until the film is playing
+-  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 288;
+-  { const c = cv.getContext('2d'); const gr = c.createLinearGradient(0, 0, 0, 288); gr.addColorStop(0, '#0b1020'); gr.addColorStop(1, '#1d2440'); c.fillStyle = gr; c.fillRect(0, 0, 512, 288); }
+-  const standby = new THREE.CanvasTexture(cv); standby.colorSpace = THREE.SRGBColorSpace;
+-  const screenMat = new THREE.MeshBasicMaterial({ map: standby, toneMapped: false });
+-  let playing = false, failed = false;
+-  video.addEventListener('error', () => { failed = true; screenMat.map = standby; screenMat.needsUpdate = true; });
+-  video.addEventListener('playing', () => { if (!failed) { screenMat.map = vtex; screenMat.needsUpdate = true; } });
++  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 144;
++  { const c=cv.getContext('2d'); c.fillStyle='#0b1020';c.fillRect(0,0,256,144);c.fillStyle='#f4ead2';c.font='bold 30px sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText('▶ VER',128,72); }
++  const standby=new THREE.CanvasTexture(cv);standby.colorSpace=THREE.SRGBColorSpace;standby.generateMipmaps=false;
++  const screenMat=new THREE.MeshBasicMaterial({map:standby,toneMapped:false});
+   const screen = new THREE.Mesh(new THREE.PlaneGeometry(SCR_W, SCR_H), screenMat);
+   screen.rotation.y = Math.PI / 2; screen.position.set(SCR_X, SCR_Y, 30); screen.name = 'screen';
+   group.add(screen);
+@@ -383,20 +372,7 @@ export function build(ctx) {
+   regions.push({ minX: -50.9, maxX: -50.3, minZ: 28, maxZ: 32, y: -3.7 });                      // stage step
+   regions.push({ minX: -57, maxX: -50.9, minZ: 22.2, maxZ: 37.8, y: -3.2 });                    // stage
+ 
+-  // ---------------------------------------------------------------- update: film plays only when close
+-  let acc = 0;
+-  const sx = -57, sy = 3, sz = 30;
+-  function update(dt, frame) {
+-    acc += dt;
+-    if (acc < 0.4) return;
+-    acc = 0;
+-    const p = frame.camera.position;
+-    const dx = p.x - sx, dy = p.y - sy, dz = p.z - sz;
+-    const near = dx * dx + dy * dy + dz * dz < 3600;
+-    if (near && !playing && !failed) { playing = true; const pr = video.play(); if (pr && pr.catch) pr.catch(() => { playing = false; }); }
+-    else if (!near && playing) { playing = false; video.pause(); }
+-  }
+-  screen.onBeforeRender = () => { /* VideoTexture self-updates via requestVideoFrameCallback */ };
++  function update() {}
+ 
+   return { group, regions, colliders, pickables, seats, update, onPick() {} };
+ }
+diff --git a/assets/gallery/spaces/arraial.js b/assets/gallery/spaces/arraial.js
+index 933190b..8f694e5 100644
+--- a/assets/gallery/spaces/arraial.js
++++ b/assets/gallery/spaces/arraial.js
+@@ -5,14 +5,14 @@ import { reserveModuleVoice, finishModuleVoice, releaseModuleVoices } from '../a
+ // Zé da Concertina (accordion) and Dona Rosa do Bombo (bass drum) trade silly
+ // verses about the campus, call and response, and she always has the last word.
+ // Three cabeçudos (huge papier-mâché heads on small bodies) dance badly in front.
+-// A sardine grill smokes at the side. Click Zé or Rosa: a "bomba" (firecracker).
++// A sardine grill smokes at the side. Click Zé or Rosa: a drum accent.
+ //
+ // Footprint x 65.6…77.4, z 19.4…27.6 (floor y 0); the garden path region at
+ // z 27.6…30.4 is the threshold. Draw calls: floor 1, wood 1, metal 1, bulbs 1,
+ // pennants 1, performers 1 (one SkinnedMesh, 14 bones), FX points 1, bubble 1
+ // (only while someone sings) = 8. No lights, no image/audio files, one 256×128
+ // CanvasTexture. update(): returns at once beyond 40 m; otherwise ~14 bone
+-// sets, 72 particles and a Web Audio look-ahead scheduler, no allocations.
++// sets, 20 smoke particles and a Web Audio look-ahead scheduler, no allocations.
+ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+ 
+ const CX = 71.5, CZ = 23.4;                 // centre of the corner
+@@ -41,7 +41,7 @@ const STORM_VERSES = [
+   { ze: ['Trovoada no arraial,', 'caiu-me o boné no grelhador!'], rosa: ['Deixa estar, ó Zé:', 'assim já tem mais sabor!'], big: 1 },
+   { ze: ['Chove nas sardinhas,', 'já estão a nadar outra vez!'], rosa: ['Antes nadar no prato', 'do que ouvir-te mais um mês!'], big: 0 },
+ ];
+-const ZE_BOMBAS = [
++const ZE_BATIDAS = [
+   'Comi tanta sardinha que já nado de costas!',
+   'Esta concertina é como eu: velhinha, mas com muito fole!',
+   'A minha voz é como o caldo verde: aquece, mas ninguém repete!',
+@@ -51,15 +51,15 @@ const ZE_BOMBAS = [
+   'O gato crítico deu-me cinco estrelas. Estavam todas apagadas!',
+ ];
+ const ROSA_LAST = [
+-  'E ninguém te pediu, Zé!', 'Bomba é a tua afinação!', 'Ó Zé, toca e cala-te!',
++  'E ninguém te pediu, Zé!', 'Desafinado é o teu palpite!', 'Ó Zé, toca e cala-te!',
+   'Isso foi pior que sardinha crua!', 'Ai, Zé, ainda te troco pelo pato!', 'Até o forcado disse que não tá bueno!',
+ ];
+-const ROSA_BOMBAS = [
++const ROSA_BATIDAS = [
+   'Pum! Esta foi para acordar o Zé!',
+   'Quem bate no bombo sou eu. O resto é conversa!',
+   'O bombo é como o Zé: oco, mas faz um barulhão!',
+   'Sardinha que salta do prato é porque ouviu o Zé!',
+-  'Mais uma bomba e o anão foge para o metro!',
++  'Mais uma batida e perco o metro!',
+ ];
+ const CAB_LINES = [
+   '(abafado) Não vejo nada cá de dentro!', '(abafado) Quem é que me pisou o pé?',
+@@ -377,15 +377,15 @@ export function build(ctx) {
+     p.position.set(x, y, z); p.name = 'arraial-' + id; p.userData.action = { type: 'custom', id, label };
+     group.add(p); pickables.push(p); return p;
+   };
+-  proxy(0.75, 1.95, 0.8, 70.6, 1.4, 21.45, 'ze', 'Ask Zé for a bomba');
+-  proxy(0.8, 1.9, 0.85, 72.8, 1.37, 21.45, 'rosa', 'Ask Rosa for a bomba');
++  proxy(0.75, 1.95, 0.8, 70.6, 1.4, 21.45, 'ze', 'PEDIR BATIDA');
++  proxy(0.8, 1.9, 0.85, 72.8, 1.37, 21.45, 'rosa', 'PEDIR BATIDA');
+   CABS.forEach(([x, z], k) => {
+     proxy(1.0, 2.3, 1.0, x, 1.15, z, 'cab' + k, 'Dance with the cabeçudo');
+     colliders.push({ minX: x - 0.45, maxX: x + 0.45, minZ: z - 0.45, maxZ: z + 0.45, minY: 0, maxY: 2.3 });
+   });
+ 
+-  // ---- FX: grill smoke + bomba sparks, one Points --------------------------------------
+-  const NSM = 20, NFX = 72;
++  // ---- FX: grill smoke only, one Points --------------------------------------
++  const NSM = 20, NFX = NSM;
+   const fxPos = new Float32Array(NFX * 3), fxCol = new Float32Array(NFX * 4), fxVel = new Float32Array(NFX * 3);
+   const fxAge = new Float32Array(NFX), fxLife = new Float32Array(NFX);
+   for (let i = 0; i < NSM; i++) { fxLife[i] = 3.6; fxAge[i] = (i / NSM) * 3.6; }
+@@ -397,20 +397,6 @@ export function build(ctx) {
+   const fx = new THREE.Points(fxGeo, fxMat);
+   fx.frustumCulled = false; fx.raycast = () => {}; fx.renderOrder = 2; fx.visible = false;
+   group.add(fx);
+-  const SPARK = [[0.94, 0.49, 0.34], [1, 0.8, 0.46], [1, 0.95, 0.84], [0.65, 0.94, 0.44], [0.25, 0.65, 0.96]];
+-  function burst(x, y, z, big) {
+-    const n = big ? NFX - NSM : 28;
+-    for (let j = 0; j < n; j++) {
+-      const i = NSM + j, u = Math.random() * 2 - 1, a = Math.random() * 6.283, r = Math.sqrt(1 - u * u);
+-      const v = RM ? 0.6 + Math.random() * 0.6 : 2.4 + Math.random() * 2.2;
+-      fxPos[i * 3] = x; fxPos[i * 3 + 1] = y; fxPos[i * 3 + 2] = z;
+-      fxVel[i * 3] = r * Math.cos(a) * v; fxVel[i * 3 + 1] = Math.abs(u) * v * 0.8 + (RM ? 0.2 : 1.2); fxVel[i * 3 + 2] = r * Math.sin(a) * v;
+-      fxAge[i] = 0; fxLife[i] = RM ? 2.2 + Math.random() : 0.8 + Math.random() * 0.6;
+-      const c = SPARK[(Math.random() * SPARK.length) | 0];
+-      fxCol[i * 4] = c[0]; fxCol[i * 4 + 1] = c[1]; fxCol[i * 4 + 2] = c[2]; fxCol[i * 4 + 3] = 1;
+-    }
+-  }
+-
+   // ---- the speech bubble: one Sprite, 256×128 pixel canvas ------------------------------
+   const BW = 256, BH = 128;
+   const bc = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+@@ -458,7 +444,7 @@ export function build(ctx) {
+   const SPOT = { ze: [70.6, 2.5, 21.4], rosa: [72.8, 2.45, 21.4] };
+ 
+   // ---- sound: everything into ctx.audio.bus, read lazily ---------------------------------
+-  let A = null, cur = 0, want = 0, punch = 0, strikeAt = 0, burstAt = 0, burstBig = 0;
++  let A = null, cur = 0, want = 0, punch = 0, strikeAt = 0;
+   function audioOut() {
+     const au = ctx.audio; if (!au) return null;
+     try { const ac = au.context, bus = au.bus; return ac && bus && !au.muted && ac.state === 'running' ? au : null; } catch (e) { return null; }
+@@ -505,23 +491,8 @@ export function build(ctx) {
+     f.cancelScheduledValues(t); f.setValueAtTime(105, t); f.exponentialRampToValueAtTime(43, t + 0.24);
+     g.cancelScheduledValues(t); g.setValueAtTime(0.0001, t); g.exponentialRampToValueAtTime(v, t + 0.006); g.exponentialRampToValueAtTime(0.0005, t + 0.55);
+   }
+-  function crack(t, big) {
+-    const ac = A.ac;
+-    const lease = reserveModuleVoice(ctx, 3, true, .7, A.out, t); if (!lease) return t; t = Math.max(t, lease.startAt);
+-    try {
+-      const n1 = ac.createBufferSource(), f1 = ac.createBiquadFilter(), g1 = ac.createGain();
+-      n1.buffer = A.noise; f1.type = 'bandpass'; f1.frequency.value = 5200; f1.Q.value = 1.5;
+-      g1.gain.setValueAtTime(0, t); g1.gain.linearRampToValueAtTime(0.04, t + 0.04); g1.gain.linearRampToValueAtTime(0, t + 0.3);
+-      n1.connect(f1); f1.connect(g1); g1.connect(lease.gain); lease.track(n1); n1.start(t, 0, 0.32);
+-      const tb = t + 0.3, n2 = ac.createBufferSource(), f2 = ac.createBiquadFilter(), g2 = ac.createGain();
+-      n2.buffer = A.noise; f2.type = 'highpass'; f2.frequency.value = 450;
+-      g2.gain.setValueAtTime(0.0001, tb); g2.gain.exponentialRampToValueAtTime(big ? 0.55 : 0.4, tb + 0.004); g2.gain.exponentialRampToValueAtTime(0.0008, tb + 0.24);
+-      n2.connect(f2); f2.connect(g2); g2.connect(lease.gain); lease.gain.connect(A.dl); lease.track(n2); finishModuleVoice(lease, n2); n2.start(tb, 0.2, 0.3);
+-      boom(tb, big ? 0.5 : 0.35);
+-      n2.onended = () => { try { g1.disconnect(); g2.disconnect(); } catch (e) { /* gone */ } };
+-      return tb;
+-    } catch (e) { lease.release(); return t; }
+-  }
++  function drumAccent(t) { boom(t, 0.5); return t; }
++
+   function schedStep(t) {
+     let T = TUNES[cur];
+     if (A.step > 0 && A.step % T.len === 0 && want === cur && !T.waltz) want = 1 - cur;   // alternate the two marchas
+@@ -544,7 +515,7 @@ export function build(ctx) {
+       const now = A.ac.currentTime;
+       if (punch) {
+         boom(t, 0.5); strikeAt = clock + (t - now);
+-        if (punch === 2) { const tb = crack(t + 4 * S16, true); burstAt = clock + (tb - now); burstBig = 1; }
++        if (punch === 2) drumAccent(t + 4 * S16);
+         punch = 0;
+       } else if (!T.waltz) boom(t, 0.14);
+     }
+@@ -563,18 +534,17 @@ export function build(ctx) {
+     if (pool === VERSES) lastV = i;
+     return pool[i];
+   }
+-  function bomba(who) {
++  function drumRequest(who) {
+     if (coolT > 0) return;
+     coolT = 1.4;
+     const sp = SPOT[who];
+-    if (who === 'ze') { say('ZÉ', pick(ZE_BOMBAS), sp[0], sp[1], sp[2], 3.6); stage = 4; showT = 3.6; }
+-    else { say('ROSA', pick(ROSA_BOMBAS), sp[0], sp[1], sp[2], 3.8); rosaHit = 1; stage = 3; showT = 4.2; }
+-    ctx.ui?.toast?.(who === 'ze' ? 'PUM! Bomba do Zé!' : 'PUM! Bomba da Rosa!');
++    if (who === 'ze') { say('ZÉ', pick(ZE_BATIDAS), sp[0], sp[1], sp[2], 3.6); stage = 4; showT = 3.6; }
++    else { say('ROSA', pick(ROSA_BATIDAS), sp[0], sp[1], sp[2], 3.8); rosaHit = 1; stage = 3; showT = 4.2; }
++    ctx.ui?.toast?.('PUM! Toca o bombo!');
+     const au = audioOut();
+     if (au && !A) startAudio(au);
+-    if (A) { const now = A.ac.currentTime, tb = crack(now + 0.02, true); burstAt = clock + (tb - now); }
+-    else burstAt = clock + 0.3;
+-    burstBig = 1;
++    if (A) drumAccent(A.ac.currentTime + 0.02);
++    strikeAt = clock + 0.02;
+   }
+ 
+   const _dir = new THREE.Vector3();
+@@ -629,12 +599,11 @@ export function build(ctx) {
+         } else if (stage === 1) {
+           stage = 2; showT = 4.8; punch = verse.big ? 2 : 1;
+           say('ROSA', verse.rosa.join('\n'), SPOT.rosa[0], SPOT.rosa[1], SPOT.rosa[2], 4.6);
+-          if (!A) { strikeAt = clock + 0.4; if (verse.big) { burstAt = clock + 1.0; burstBig = 0; } punch = 0; }
++          if (!A) { strikeAt = clock + 0.4; punch = 0; }
+         } else { stage = 3; showT = 3.4; if (Math.random() < 0.25) { stage = 4; say('ROSA', pick(ROSA_LAST), SPOT.rosa[0], SPOT.rosa[1], SPOT.rosa[2], 2.6); } }
+       }
+     }
+     if (strikeAt && clock >= strikeAt) { strikeAt = 0; rosaHit = 1; }
+-    if (burstAt && clock >= burstAt) { burstAt = 0; burst(burstBig ? SPOT.ze[0] + 1.1 : SPOT.rosa[0], 3.6, 21.8, burstBig); fx.visible = true; }
+ 
+     // bubble life
+     if (bubT > 0) { bubT -= dt; if (bubT <= 0) bubble.visible = false; else bubMat.opacity = bubT < 0.3 ? bubT / 0.3 : 1; }
+@@ -677,7 +646,7 @@ export function build(ctx) {
+       h.rotation.x = 0.07 * amp * Math.sin(bp * sad + ph);
+     }
+ 
+-    // ---- FX: smoke always (within 40 m), sparks after a bomba -----------------------
++    // ---- FX: grill smoke within 40 m -----------------------
+     let alive = 0;
+     for (let i = 0; i < NFX; i++) {
+       const i3 = i * 3, i4 = i * 4;
+@@ -694,15 +663,6 @@ export function build(ctx) {
+         fxCol[i4] = g; fxCol[i4 + 1] = g; fxCol[i4 + 2] = g + 0.03;
+         fxCol[i4 + 3] = (storm ? 0.12 : 0.3) * (1 - k) * Math.min(1, fxAge[i] * 3);
+         alive++;
+-      } else if (fxCol[i4 + 3] > 0) {
+-        fxAge[i] += dt;
+-        const k = fxAge[i] / fxLife[i];
+-        if (k >= 1) { fxCol[i4 + 3] = 0; continue; }
+-        const drag = RM ? 0.98 : 0.995;
+-        fxVel[i3] *= drag; fxVel[i3 + 2] *= drag; fxVel[i3 + 1] -= (RM ? 0.9 : 5.5) * dt;
+-        fxPos[i3] += fxVel[i3] * dt; fxPos[i3 + 1] += fxVel[i3 + 1] * dt; fxPos[i3 + 2] += fxVel[i3 + 2] * dt;
+-        fxCol[i4 + 3] = k > 0.6 ? (1 - k) / 0.4 : 1;
+-        alive++;
+       }
+     }
+     fx.visible = alive > 0;
+@@ -711,7 +671,7 @@ export function build(ctx) {
+ 
+   function onPick(target) {
+     const id = target && target.userData && target.userData.action && target.userData.action.id;
+-    if (id === 'ze' || id === 'rosa') { bomba(id); return; }
++    if (id === 'ze' || id === 'rosa') { drumRequest(id); return; }
+     if (id && id.startsWith('cab')) {
+       const k = +id.slice(3) || 0;
+       if (cabSpin[k] > 0) return;
+diff --git a/classic.html b/classic.html
+index 05a7694..9955542 100644
+--- a/classic.html
++++ b/classic.html
+@@ -2080,10 +2080,8 @@ body.rpgMode #rpgModeBadge{display:block}
+     <button id="studioNowReturn" type="button">Studio</button>
+     <button id="studioNowStop" type="button">Stop</button>
+   </div>
+-  <video id="fireworksVideo" autoplay playsinline muted loop preload="metadata" crossorigin="anonymous"
+-    style="position:absolute;width:2px;height:2px;opacity:0;pointer-events:none;left:-10px;top:-10px"></video>
+   <div id="windowControls" aria-hidden="true">
+-    <span id="windowControlsLabel">Fireworks window · always open</span>
++    <span id="windowControlsLabel">Night window · always open</span>
+     <button class="btn" id="windowSoundBtn">Sound: off</button>
+   </div>
+   <div id="mobileControls" aria-hidden="false">
+@@ -4874,30 +4872,15 @@ function fallbackTextureWide(title, w=1600, h=724){
+ }
+ 
+ 
+-// setHallWindow removed (batch 126): the hall fireworks window opens/closes through the shared interactive-window system.
++// setHallWindow removed (batch 126): the hall scenic window opens/closes through the shared interactive-window system.
+ function toggleHallWindowSound(){
+   if(!hallWindow) return;
+   const btn = $('windowSoundBtn');
+   hallWindow.muted = true;
+   if(btn) btn.textContent = 'Sound: n/a';
+-  msg('The fireworks window plays a silent film loop — sound stays off by design.');
+-}
+-function updateHallWindow(dt){
+-  // Batch 128: the fireworks window is now a real looped video (VideoTexture).
+-  // This updater only keeps playback healthy and drives the interior firelight.
+-  if(!hallWindow) return;
+-  const v = hallWindow.video;
+-  if(v && hallWindow.open !== false && pageVisible && v.paused && v.readyState >= 2){
+-    v.play().catch(()=>{});
+-  }
+-  if(hallWindow.glowLight && hallWindow.open !== false){
+-    if(reducedMotion){ hallWindow.glowLight.intensity = 1.0; return; }
+-    hallWindow.time = (hallWindow.time || 0) + dt;
+-    const t = hallWindow.time;
+-    const flicker = .80 + .15*Math.sin(t*2.1) + .09*Math.sin(t*5.3 + 1.7) + .06*Math.sin(t*11.4);
+-    hallWindow.glowLight.intensity = Math.max(.4, flicker) * 1.05;
+-  }
++  msg('Esta janela mostra uma imagem fixa.');
+ }
++function updateHallWindow() {}
+ 
+ function init(){
+   const initStarted=performance.now();
+@@ -5475,13 +5458,13 @@ function buildHall(){
+     gPool.position.set(hw-2.4,.02,gZ); scene.add(gPool);
+   }
+ 
+-  // --- Fireworks window: restored as a lightweight animated scenic canvas, and now closeable by the user. ---
++  // --- Night window: restored as a static scenic canvas, and now closeable by the user. ---
+   {
+     const winW = 14.8, winH = 8.1;
+     const winY = (mouthHeight + hallHeight)/2 + 1.18;
+     const winZ = z0 + .065;
+ 
+-    // Poster: a quiet night sky shown for the instant before the video is ready.
++    // Static night sky: no video downloads or playback.
+     const posterCanvas = document.createElement('canvas');
+     posterCanvas.width = 512; posterCanvas.height = 280;
+     {
+@@ -5496,30 +5479,7 @@ function buildHall(){
+     const posterTex = new THREE.CanvasTexture(posterCanvas);
+     posterTex.colorSpace = THREE.SRGBColorSpace;
+ 
+-    // The real view: a seamless 7 s fireworks loop (hue-cycling finale, silent).
+-    const fireVideo = document.createElement('video');
+-    fireVideo.muted = true;
+-    fireVideo.loop = true;
+-    fireVideo.playsInline = true;
+-    fireVideo.setAttribute('playsinline','');
+-    fireVideo.preload = 'auto';
+-    fireVideo.src = MEDIA.hallFireworksVideo;
+-    const fireTex = new THREE.VideoTexture(fireVideo);
+-    fireTex.colorSpace = THREE.SRGBColorSpace;
+-    fireTex.minFilter = THREE.LinearFilter;
+-    fireTex.magFilter = THREE.LinearFilter;
+-    fireTex.generateMipmaps = false;
+-
+     const windowMat = new THREE.MeshBasicMaterial({map:posterTex, toneMapped:false});
+-    fireVideo.addEventListener('loadeddata', ()=>{
+-      windowMat.map = fireTex;
+-      windowMat.needsUpdate = true;
+-      fireVideo.play().catch(()=>{});
+-    });
+-    // Autoplay safety: some browsers require one gesture before video runs.
+-    const resumeFireworks = ()=>{ if(fireVideo.paused && hallWindow && hallWindow.open !== false) fireVideo.play().catch(()=>{}); };
+-    document.addEventListener('pointerdown', resumeFireworks, {passive:true});
+-    document.addEventListener('keydown', resumeFireworks, {passive:true});
+     const frameMat2 = new THREE.MeshStandardMaterial({color:0x1f1c18, roughness:.48, metalness:.58});
+     const mullionMat = new THREE.MeshStandardMaterial({color:0xebe2d4, roughness:.62, metalness:.08});
+     const revealMatH = new THREE.MeshStandardMaterial({color:0xd7ccb7, roughness:.82, metalness:.02});
+@@ -5530,7 +5490,7 @@ function buildHall(){
+     const winScreen = new THREE.Mesh(new THREE.PlaneGeometry(winW, winH), windowMat);
+     winScreen.position.set(0, winY, winZ+.02);
+     winScreen.userData.hallWindow = true;
+-    winScreen.userData.windowLabel = 'Fireworks window';
++    winScreen.userData.windowLabel = 'Night window';
+     scene.add(winScreen);
+ 
+     const topBar = new THREE.Mesh(new THREE.BoxGeometry(winW+.76, barT, .18), frameMat2);
+@@ -5593,17 +5553,14 @@ function buildHall(){
+     scene.add(glow); regLight('gallery', glow);
+ 
+     hallWindow = registerInteractiveWindow({
+-      room:'gallery', label:'Fireworks window', view:winScreen, shade, hit, light:glow,
++      room:'gallery', label:'Night window', view:winScreen, shade, hit, light:glow,
+       open:true, openIntensity:1.0, closedIntensity:0.18,
+       onToggle:(win)=>{
+         sheen.visible = win.open;
+-        if(win.open){ fireVideo.play().catch(()=>{}); }
+-        else{ fireVideo.pause(); }
+       }
+     });
+-    hallWindow.video = fireVideo;
+     hallWindow.muted = true;
+-    hallWindow.texture = fireTex;
++    hallWindow.texture = posterTex;
+     hallWindow.glowLight = glow;
+     hallWindow.time = 0;
+   }
+@@ -5826,7 +5783,6 @@ const SUNSET_LOUNGE_PROMENADE_VIEW_SRC = 'assets/extracted/sunset-lounge-promena
+ // systems until the project is split into modules and external assets.
+ const SPARK_LAB_NIGHT_WINDOW_SRC = 'assets/extracted/spark-lab-night-window.webp';
+ 
+-const HALL_FIREWORKS_VIDEO_SRC = 'assets/extracted/hall-fireworks-video.mp4';
+ 
+ 
+ const THINKING_PASTURE_SRC = 'assets/extracted/thinking-pasture.webp';
+@@ -5848,7 +5804,6 @@ const MEDIA = Object.freeze({
+   studioStreet: STUDIO_STREET_SRC,
+   studioKeys: STUDIO_KEYS_SRC,
+   thinkingPasture: THINKING_PASTURE_SRC,
+-  hallFireworksVideo: HALL_FIREWORKS_VIDEO_SRC,
+   nightRoomView: NIGHT_ROOM_VIEW_SRC,
+   nightRoomSideDoor: NIGHT_ROOM_SIDE_DOOR_SRC,
+   sunsetLoungeBridgeView: SUNSET_LOUNGE_BRIDGE_VIEW_SRC,
+diff --git a/assets/gallery/spaces/npcs.js b/assets/gallery/spaces/npcs.js
+index b5d0a33..a4d0f64 100644
+--- a/assets/gallery/spaces/npcs.js
++++ b/assets/gallery/spaces/npcs.js
+@@ -1,15 +1,18 @@
+-import { createStatueAudio, createStatueDirector } from '../statue-director.js';
+-import { reserveModuleVoice, finishModuleVoice } from '../audio-lease.js';
++import {createActorStream} from '../npc-stream.js';
++import {idleSlice,afterFirstMove} from '../startup-idle.js';
+ // NPCs: six silly animal-headed people in suits who wander small loops around the
+ // campus, face the visitor when close, and talk (speech bubble + synthesised noise)
+ // when picked. Procedural low-poly-but-smooth models; no per-frame allocation.
+ 
+-import { createNpcComedy } from '../npc-comedy.js';
+-import { createNpcPersonalities } from '../npc-onlookers.js';
+-import { createFabinhe } from '../fabinhe.js';
+-import { buildCharacter, createLinePicker, createNpcEffects, mergeNpcProps } from '../npc-models.js';
+ 
+-export async function build(ctx) {
++async function buildReady(ctx) {
++  const { createStatueAudio, createStatueDirector }=await import('../statue-director.js');
++  const { reserveModuleVoice, finishModuleVoice }=await import('../audio-lease.js');
++  const { createNpcComedy }=await import('../npc-comedy.js');
++  const { createNpcPersonalities }=await import('../npc-onlookers.js');
++  const { createFabinhe }=await import('../fabinhe.js');
++  const { buildCharacter, createLinePicker, createNpcEffects, mergeNpcProps }=await import('../npc-models.js');
++  await afterFirstMove(ctx.startup);await idleSlice();
+   const { THREE, quality } = ctx;
+   const sourceAudio=ctx.audio;
+   const statueAudio=createStatueAudio(ctx);ctx.scene.userData.statueAudio=statueAudio;
+@@ -18,12 +21,7 @@ export async function build(ctx) {
+   ctx={...ctx,audio:statueAudio.audio};
+   let statueDirector=null;
+ 
+-  let cast = [];
+-  try {
+-    const response = await fetch(new URL('../../data/npc-cast.json', import.meta.url));
+-    if (response.ok) cast = (await response.json()).characters || [];
+-  } catch { /* Existing cast remains usable when optional data is unavailable. */ }
+-  const castById = new Map(cast.map(c => [c.id, c]));
++  const castById = new Map();
+   const chooseLine = createLinePicker();
+   const lineKeys = { ouch: 'slap1', ouch2: 'slap2', ouch3: 'slap3', ha: 'bystander_laugh', sit: 'sit_beside', rude: 'gesture_rude', run: 'run_past' };
+   const reduced = !!ctx.reducedMotion;
+@@ -455,20 +453,28 @@ export async function build(ctx) {
+ 
+   // ---------- build the characters ----------
+   let personalities = null, comedy = null, fabinhe = null;
+-  const npcs = [];
+-  const pickables = [];
+-  const propSource = new THREE.Group();
++  const npcs = ctx.__npcShell.actors;
++  const pickables = ctx.__npcShell.pickables;
+   // A director may replace slots, never silently add another actor.
+   const assignments = ctx.scene?.userData?.npcAssignments;
+-  const roster = SPECS.map((legacy, i) => {
+-    const entry = Array.isArray(assignments) ? castById.get(assignments[i]) : legacy.name === 'rooster' ? castById.get('fabinhe') : null;
+-    if (!entry || entry.legacy) return legacy;
+-    return { ...legacy, name: entry.id, head: entry.model.head, lines: entry.lines.talk,
+-      pt: true, phone: entry.model.clothing === 'influencer', proud: false, fixed: false,
+-      seated: false, r: Math.max(0.7, legacy.r), speed: 0.65, props: null, extra: null,
+-      ...(entry.id === 'fabinhe' ? { sound: 'tut', tie: null, braces: false, hoodie: false, stock: false, fat: 1 } : {}) };
++  const stationIds=['tortoise','raccoon','cat','walrus'];
++  const slots=SPECS.map((legacy,index)=>{
++    const id=Array.isArray(assignments)&&typeof assignments[index]==='string'?assignments[index]:legacy.name==='rooster'?'fabinhe':legacy.name;
++    const berth=stationIds.indexOf(id);
++    const home=berth>=0?[83.4+(berth%2)*.45,28.45+Math.floor(berth/2)*1.1]:legacy.home.slice();
++    return {id,index,home,legacy,station:berth>=0};
+   });
+-  roster.forEach((S, idx) => {
++  ctx.__npcShell.slots.push(...slots);
++  const colliders=ctx.__npcShell.colliders;
++  const readyListeners=ctx.__npcShell.listeners;
++  function onActorReady(fn){readyListeners.add(fn);return()=>readyListeners.delete(fn);}
++  async function assemble(slot,entry){
++    const idx=slot.index,legacy=slot.legacy;
++    let S={...legacy,home:slot.home};
++    if(entry&&!entry.legacy)S={...S,name:entry.id,head:entry.model.head,lines:entry.lines.talk,pt:true,phone:entry.model.clothing==='influencer',proud:false,fixed:false,seated:false,r:Math.max(.7,legacy.r),speed:.65,props:null,extra:null,...(entry.id==='fabinhe'?{sound:'tut',tie:null,braces:false,hoodie:false,stock:false,fat:1}:{})};
++    if(slot.station)S={...S,r:0,speed:0,fixed:true,seated:false,props:null};
++    castById.set(S.name,entry);
++    const staged=new THREE.Group(),propSource=new THREE.Group();
+     const root = new THREE.Group(); root.name = 'npc-' + S.name; root.rotation.order = 'YXZ';
+     const shp = castById.get(S.name)?.model?.shape || SHAPE[S.name] || [1, 1, 1];
+     const rig = buildCharacter(THREE, ctx.M, { ...S, ...castById.get(S.name)?.model, shape: shp, quality });
+@@ -477,7 +483,7 @@ export async function build(ctx) {
+     const { body, head, arms, legs } = rig.bones;
+     const hat = rig.bones.hat, hatReal = rig.hasHat;
+     const stars = new THREE.Sprite(starMat);
+-    stars.scale.set(0.6, 0.6, 1); stars.visible = false; stars.renderOrder = 9; stars.raycast = noop; group.add(stars);
++    stars.scale.set(0.6, 0.6, 1); stars.visible = false; stars.renderOrder = 9; stars.raycast = noop; staged.add(stars);
+     // bubble
+     let bctx = null, btex = null, sprite = null;
+     if (typeof document !== 'undefined') {
+@@ -486,14 +492,14 @@ export async function build(ctx) {
+       btex.magFilter = btex.minFilter = THREE.NearestFilter; btex.generateMipmaps = false;
+       sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: btex, transparent: true, depthWrite: false }));
+       sprite.center.set(0.5, 0); sprite.scale.set(0.01, 0.005, 1);
+-      sprite.renderOrder = 10; sprite.visible = false; sprite.raycast = noop; group.add(sprite);
++      sprite.renderOrder = 10; sprite.visible = false; sprite.raycast = noop; staged.add(sprite);
+     }
+     // pick hitbox
+     const hit = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 2.1, 10), hitMat);
+     hit.scale.y = Math.max(0.6, topH / 2.1); hit.position.y = topH / 2; hit.userData.action = { type: 'custom', id: 'npc-' + S.name }; root.add(hit);
+     hit.material.visible = false; // keep hit.visible for main.pickAt; skip drawing only
+     root.userData.action = hit.userData.action;
+-    pickables.push(hit, root);
++
+ 
+     // waypoints around home
+     const nPts = S.r > 1 ? 4 : 2;
+@@ -503,13 +509,13 @@ export async function build(ctx) {
+       pts.push(S.home[0] + Math.cos(a) * S.r, S.home[1] + Math.sin(a) * S.r * (nPts === 2 ? 0.6 : 1));
+     }
+     root.position.set(pts[0], 0, pts[1]); root.scale.setScalar(rig.shape[0]);
+-    group.add(root);
++    staged.add(root);
+     if (S.props) S.props(propSource);
+     let blob = null;
+     if (!S.fixed) {
+       root.traverse((o) => { if (o.isMesh) o.castShadow = false; });
+       if (!hatReal) hat.traverse((o) => { if (o.isMesh) o.castShadow = false; });
+-      if (blobMat) { blob = new THREE.Mesh(blobGeo, blobMat); blob.raycast = noop; blob.renderOrder = 1; blob.position.set(pts[0], 0.02, pts[1]); group.add(blob); }
++      if (blobMat) { blob = new THREE.Mesh(blobGeo, blobMat); blob.raycast = noop; blob.renderOrder = 1; blob.position.set(pts[0], 0.02, pts[1]); staged.add(blob); }
+     }
+     const n = {
+       S, rig, root, body, head, arms, legs, hit, sprite, bctx, btex, pts, nPts, ti: 1,
+@@ -530,17 +536,23 @@ export async function build(ctx) {
+       seqKind: 0, shoutCd: 25 + idx, fartCd: 200 + idx * 23, judgeAt: 0, murmurCd: 0, revengeAt: 0, barkFit: 0,
+     };
+     hit.userData.npc = n; root.userData.npc = n;
+-    npcs.push(n);
+-  });
+-  const propsBatch = mergeNpcProps(THREE, propSource);
+-  if (propsBatch) group.add(propsBatch);
+-  // Keep transforms as animation proxies; the two instanced meshes render them.
+-  for (const n of npcs) { group.remove(n.stars); if (n.blob) group.remove(n.blob); }
+-  const effects = createNpcEffects(THREE, group, npcs, blobGeo, blobMat, starMat);
+-  onFont.push(() => { for (const n of npcs) if (n.talkT > 0 && n.curText) drawBubble(n, n.curText); });
+-  // One moving box per NPC. world.js keeps these very objects in its live list: mutate, never replace.
+-  // Parked below the floor (inactive) until the visitor is near.
+-  const colliders = npcs.map((n) => (n.col = { minX: n.x - 0.3, maxX: n.x + 0.3, minZ: n.z - 0.3, maxZ: n.z + 0.3, minY: -51, maxY: -50 }));
++    n.slotIndex=idx;n.bairroTime=0;
++    if(slot.station){n.baseY=.35;root.position.y=.35;if(blob)blob.position.y=.37;}
++    n.col=colliders[idx];
++    const own=R[S.name];n.talk=ONLY[S.name]?own.talk:S.lines.concat((own&&own.talk)||[]);
++    const propsBatch=mergeNpcProps(THREE,propSource);if(propsBatch)staged.add(propsBatch);
++    staged.remove(stars);if(blob)staged.remove(blob);
++    await (ctx.yieldBuild?ctx.yieldBuild():idleSlice());
++    n.staged=staged;return n;
++  }
++  const effects=createNpcEffects(THREE,group,npcs,blobGeo,blobMat,starMat);
++  onFont.push(()=>{for(const n of npcs)if(n.talkT>0&&n.curText)drawBubble(n,n.curText);});
++  const stream=createActorStream(ctx,{slots,assemble,commit(n){
++    group.add(n.staged);delete n.staged;npcs.push(n);pickables.push(n.hit,n.root);
++    personalities.registerActor(n);comedy.registerActor(n);fabinhe.registerActor(n);
++    if(n.S.name==='goat')GO=n;if(n.S.name==='pigeon')PG=n;if(n.S.name==='horse')HO=n;if(n.S.name==='cat')CA=n;if(n.S.name==='pig')PI=n;
++    for(const listener of readyListeners){try{listener(n);}catch(error){console.error('NPC actor-ready listener',error);}}
++  }});
+   personalities = createNpcPersonalities(ctx, { npcs, castById, chooseLine, say });
+   comedy = createNpcComedy(ctx, { npcs, say, startLaugh, fall: dominoFall });
+   function dominoFall(n) {
+@@ -1200,11 +1212,12 @@ export async function build(ctx) {
+   }
+ 
+   // ---------- drama director ----------
+-  const GO = npcs[1], PG = npcs[2], HO = npcs[3], CA = npcs[4], PI = npcs[5];
++  let GO=null,PG=null,HO=null,CA=null,PI=null;
+   let aSt = 0, aT = 22, aI = 0;           // argument: horse vs cat
+   let cSt = 0, cT = 30, cAng = 0, cLeft = 0, cSq = 0;   // chase: pigeon after pig
+   const PCX = 0, PCZ = 31, PRX = 6.2, PRZ = 9.5;
+   function director(dt) {
++    if(!GO||!PG||!HO||!CA||!PI)return;
+     // argument
+     if (aSt === 0) {
+       aT -= dt;
+@@ -1283,6 +1296,7 @@ export async function build(ctx) {
+     statueAudio.setPaused(!!value);comedy?.setPaused?.(!!value);
+   }
+   function update(dt, frame) {
++    stream.update(frame);
+     if (ctx.audio?.muted || ctx.scene.userData.questQuiet) stopSignatureSpeech();
+     if (!frame?.camera) return;
+     statueAudio.update(frame.camera);statueDirector.update(dt,frame.camera);
+@@ -1590,7 +1604,7 @@ export async function build(ctx) {
+         if (floor || n.ghostT > 0 || n.pestT > 0 || (n.busy && n.goOn) || (C.maxY < 0 && d2 < 0.81)) { if (C.maxY > -50) { C.minY = -51; C.maxY = -50; } }
+         else {
+           const hw = n.colW;
+-          C.minX = n.x - hw; C.maxX = n.x + hw; C.minZ = n.z - hw; C.maxZ = n.z + hw; C.minY = 0; C.maxY = n.colH;
++          C.minX = n.x - hw; C.maxX = n.x + hw; C.minZ = n.z - hw; C.maxZ = n.z + hw; C.minY = n.baseY || 0; C.maxY = C.minY + n.colH;
+         }
+       }
+       if (n.hatState === 1) {
+@@ -1964,7 +1978,37 @@ export async function build(ctx) {
+     if(ko)comedy?.defeat?.(n);
+     else if(move==='chapada'||move==='reves'||move==='sanduiche')comedy?.notify?.('slap',n);
+   }
+-  return { group, regions: [], colliders, pickables, update, onPick, slap, fabinhe, setNavigation: personalities.setNavigation,
+-    statueDirector,statueAudio,actors:npcs,combatActors:npcs,findActor:findNpc,reconcileActor,combatImpact,setStatues,refreshEffects:(camera)=>effects.update(camera,starMat.rotation),get comedyMemory(){return comedy.memory;} };
++  function dispose(){stream.dispose();readyListeners.clear();stopSignatureSpeech();comedy.dispose();personalities.dispose();fabinhe.dispose();statueDirector.dispose();statueAudio.dispose();}
++  return { group, regions: [], colliders, pickables, update, onPick, slap, fabinhe,dispose, setNavigation: personalities.setNavigation,
++    statueDirector,statueAudio,actorSlots:slots,onActorReady,stream,actors:npcs,combatActors:npcs,findActor:findNpc,reconcileActor,combatImpact,setStatues,refreshEffects:(camera)=>effects.update(camera,starMat.rotation),get comedyMemory(){return comedy.memory;} };
+ 
+ }
++
++// Synchronous empty shell: no actor module imports, canvases, fonts or cast requests.
++export function build(ctx){
++  const group=new ctx.THREE.Group();group.name='npcs';
++  const shell={actors:[],pickables:[],slots:[],listeners:new Set(),colliders:Array.from({length:14},()=>({minX:0,maxX:0,minZ:0,maxZ:0,minY:-51,maxY:-50}))};
++  let ready=null,loading=false,disposed=false,navigation=null,clock=0,retryAt=0,attempts=0;
++  let statues=!!ctx.scene.userData.npcStatues;
++  function onActorReady(fn){shell.listeners.add(fn);return()=>shell.listeners.delete(fn);}
++  function update(dt,frame){
++    if(disposed)return;
++    if(ready){ready.update(dt,frame);return;}
++    if(Number.isFinite(frame?.time))clock=frame.time;
++    if(loading||attempts>=3||clock<retryAt||ctx.startup&&!ctx.startup.moved)return;
++    loading=true;attempts++;shell.slots.length=0;
++    Promise.resolve().then(()=>buildReady({...ctx,__npcShell:shell})).then(out=>{
++      if(disposed){out.dispose();return;}ready=out;
++      statues=!!ctx.scene.userData.npcStatues;out.setStatues(statues);
++      group.add(out.group);if(navigation)out.setNavigation(navigation);
++    }).catch(error=>{loading=false;retryAt=clock+3;if(disposed)return;ctx.onActorError?.('npcs',error);console.warn('[npcs] startup attempt '+attempts+'/3',error);});
++  }
++  const api={group,regions:[],colliders:shell.colliders,pickables:shell.pickables,actors:shell.actors,combatActors:shell.actors,actorSlots:shell.slots,onActorReady,update,
++    setNavigation(world){navigation=world;ready?.setNavigation(world);},
++    dispose(){disposed=true;shell.listeners.clear();ready?.dispose();},
++    get fabinhe(){return ready?.fabinhe;},get statueDirector(){return ready?.statueDirector;},get statueAudio(){return ready?.statueAudio;},get stream(){return ready?.stream;},get comedyMemory(){return ready?.comedyMemory;}};
++  api.onPick=(a,b)=>ready?.onPick(a,b);api.slap=(a,b)=>ready?.slap(a,b);api.findActor=a=>ready?.findActor(a);
++  api.reconcileActor=a=>ready?.reconcileActor(a);api.combatImpact=(a,b,c,d)=>ready?.combatImpact(a,b,c,d);
++  api.setStatues=a=>{statues=!!a;ctx.scene.userData.npcStatues=statues;ready?.setStatues(statues);};api.refreshEffects=a=>ready?.refreshEffects(a);
++  return api;
++}
+diff --git a/assets/gallery/combat.js b/assets/gallery/combat.js
+index 964f570..0eb612b 100644
+--- a/assets/gallery/combat.js
++++ b/assets/gallery/combat.js
+@@ -50,7 +50,9 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
+   function callout(text){const memory=npcModule.comedyMemory;const allowed=memory?memory.commit(text):clock-(said.get(text)??-Infinity)>=600;if(allowed){said.set(text,clock);toast(text);}}
+   function record(n,visitor=false){return {n,visitor,pride:100,attack:-1,t:0,landed:false,boost:1,blocking:false,recoilX:0,recoilZ:0,
+     attackCount:0,headZ:0,inPlace:false,oldBusy:false,oldControlled:false,base:new Float32Array(18),bones:null};}
+-  for(let i=0;i<npcs.length;i++){const r=record(npcs[i]);records.push(r);byNpc.set(r.n,r);}
++  function registerActor(n){if(byNpc.has(n))return;const r=record(n);records.push(r);byNpc.set(n,r);}
++  for(const n of npcs)registerActor(n);
++  const unsubscribeActor=npcModule?.onActorReady?.(registerActor);
+   let visitor=null;
+   const panel=typeof document==='undefined'?null:document.createElement('section');
+   let cssLink=null,hud=null,statusText=null,banner=null,moveSelect=null,statueButton=null,fightButton=null,blockButton=null;
+@@ -118,7 +120,7 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
+   function eligible(n,allowSeated=false){return n&&(!n.S.seated||allowSeated)&&!n.combatHidden&&!n.busy&&!n.goOn&&n.sillyT<0&&n.windT<=0&&n.pestT<=0&&n.hatState<=0;}
+   function chooseDonor(target){
+     let chosen=null,best=144;
+-    for(let i=0;i<npcs.length;i++){const n=npcs[i];if(i>=1&&i<=5||n===target||!eligible(n)||n.routineMoving||n.talkT>0)continue;const dx=n.x-position.x,dz=n.z-position.z,d=dx*dx+dz*dz;if(d>best){best=d;chosen=n;}}
++    for(let i=0;i<npcs.length;i++){const n=npcs[i];if((n.slotIndex??npcs.indexOf(n))>=1&&(n.slotIndex??npcs.indexOf(n))<=5||n===target||!eligible(n)||n.routineMoving||n.talkT>0)continue;const dx=n.x-position.x,dz=n.z-position.z,d=dx*dx+dz*dz;if(d>best){best=d;chosen=n;}}
+     return chosen;
+   }
+   function prepareCollision(){
+@@ -254,7 +256,7 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
+       else if(id(r)==='mano'){n.arms[0].rotation.x=-1.1*k;n.arms[1].rotation.x=-.75*k;n.arms[1].rotation.y=.8*k;}
+       else if(id(r)==='porco_fato'){n.head.position.z=r.headZ+.12*k;n.head.rotation.x=-.2*k;n.arms[1].rotation.x=-.2*k;}
+     }
+-    if(n.col){const w=n.colW||.4;n.col.minX=n.x-w;n.col.maxX=n.x+w;n.col.minZ=n.z-w;n.col.maxZ=n.z+w;n.col.minY=0;n.col.maxY=n.colH||2;}
++    if(n.col){const w=n.colW||.4;n.col.minX=n.x-w;n.col.maxX=n.x+w;n.col.minZ=n.z-w;n.col.maxZ=n.z+w;n.col.minY=n.baseY||0;n.col.maxY=n.col.minY+(n.colH||2);}
+   }
+   function update(dt){
+     if(disposed)return;readVisitor();const paused=freeze();state.paused=paused;
+@@ -347,7 +349,7 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
+     for(const name of ['pointerdown','pointerup','mousedown','mouseup','contextmenu'])window.addEventListener(name,pointer,true);
+     window.addEventListener('blur',blurred);
+   }
+-  function dispose(){end('dispose');if(freeze())statues(false);disposed=true;hud?.remove();panel?.remove();cssLink?.remove();stopSounds();if(typeof window!=='undefined'){window.removeEventListener('keydown',keydown,true);window.removeEventListener('keyup',keyup,true);for(const name of ['pointerdown','pointerup','mousedown','mouseup','contextmenu'])window.removeEventListener(name,pointer,true);window.removeEventListener('blur',blurred);}if(avatar){ctx.scene.remove(avatar.root);avatar.rig.mesh.geometry.dispose();avatar.rig.mesh.material.dispose();}}
++  function dispose(){unsubscribeActor?.();end('dispose');if(freeze())statues(false);disposed=true;hud?.remove();panel?.remove();cssLink?.remove();stopSounds();if(typeof window!=='undefined'){window.removeEventListener('keydown',keydown,true);window.removeEventListener('keyup',keyup,true);for(const name of ['pointerdown','pointerup','mousedown','mouseup','contextmenu'])window.removeEventListener(name,pointer,true);window.removeEventListener('blur',blurred);}if(avatar){ctx.scene.remove(avatar.root);avatar.rig.mesh.geometry.dispose();avatar.rig.mesh.material.dispose();}}
+   function getVisitorStatus(){return visitorStatus;}
+   function getScriptedResult(){return scriptedResult;}
+   const api={actors:npcs,getVisitorStatus,getScriptedResult,state,events,engage,startScripted,end,attack,block,dodge,statues,apologize,setWeapon,doubleCalduco,getBrio,setBrio,adjustBrio,update,renderCamera,restoreCamera,dispose};
+diff --git a/assets/gallery/fabinhe.js b/assets/gallery/fabinhe.js
+index d41bbb5..b029d55 100644
+--- a/assets/gallery/fabinhe.js
++++ b/assets/gallery/fabinhe.js
+@@ -167,7 +167,8 @@ export function createFabinhe(ctx, { npcs, say } = {}) {
+   }
+   const visibility = () => { if (typeof document !== 'undefined' && document.hidden) cancel('idle'); };
+   if (typeof document !== 'undefined') document.addEventListener('visibilitychange', visibility);
+-  return { state, before, after, onTalk, onSlap,
++  function registerActor(n){if(!actor&&n.S.name==='fabinhe'){actor=n;n.fabinhePerforming=false;}}
++  return { registerActor,state, before, after, onTalk, onSlap,
+     setPaused(value) { forcedPause = !!value;state.paused=forcedPause; },
+     dispose() { destroyed = true; cancel('disposed'); if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', visibility); }
+   };
+diff --git a/assets/gallery/npc-comedy.js b/assets/gallery/npc-comedy.js
+index 710a2e6..c1818f4 100644
+--- a/assets/gallery/npc-comedy.js
++++ b/assets/gallery/npc-comedy.js
+@@ -1,3 +1,4 @@
++import {idleSlice} from './startup-idle.js';
+ // Shared speech ledger and bounded, opt-in comic direction. No render objects.
+ const keyOf = text => typeof text === 'string' ? text.normalize('NFC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('pt-PT') : '';
+ export function createComedyMemory({ now = () => performance.now() / 1000 } = {}) {
+@@ -29,6 +30,7 @@ const EXCESS_FIRST = 'Olha que lhe arrebentas a tromba, bro! Para lá com isso,
+ const EXCESS_LAST = 'Eh, calma, Zé!';
+ 
+ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now: externalNow } = {}) {
++  const yieldData=ctx.yieldBuild||idleSlice;
+   let manifestReady=Object.keys(data).length>0,manifestRequest=null,manifestTimer=0,manifestRetry=0,manifestAttempts=0;
+   let manualPaused=false,wasPaused=false,externalOffset=0,lastExternal=externalNow?externalNow():0;
+   let clock=0,camera=null,active=false,sceneIndex=0,sceneLength=0,nextBeat=0,nextScene=0;
+@@ -46,12 +48,14 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
+   const queue=new Array(8),voices=new Array(6).fill(null);
+   const debug={active:false,duets:0,emitted:0,laughs:0,fetches:0};
+   for(let i=0;i<8;i++)queue[i]={n:null,text:'',canonical:'',pause:.6,domino:false};
+-  for(let i=0;i<npcs.length;i++){
+-    const n=npcs[i],id=n.S.name,descriptor=data.characters?.[id]||{};
++  function registerActor(n){
++    if(byNpc.has(n))return;
++    const id=n.S.name,descriptor=data.characters?.[id]||{};
+     const r={n,id,descriptor,pools:null,status:0,attempts:0,retryAt:0,request:null,requestTimer:0,pending:'',pendingUntil:0,lastEvent:-Infinity,cryUntil:0,cryAt:0,puddleUntil:0,cryPending:false,cryExpires:0,laughAt:0,fallAt:0,fallEpoch:0,lastCanonical:'',selectedText:''};
+     records.push(r);byNpc.set(n,r);byId.set(id,r);memory.get(id);
+     n.comedyPuddle=0;
+   }
++  for(const n of npcs)registerActor(n);
+   function quiet(){return manualPaused||!!ctx.scene?.userData?.npcStatues||!!ctx.scene?.userData?.questQuiet;}
+   function awake(n,range=40){if(!camera)return false;const dx=n.x-camera.position.x,dz=n.z-camera.position.z;return dx*dx+dz*dz<=range*range&&Math.abs((n.baseY||0)+1.62-camera.position.y)<2.4;}
+   function available(n){return awake(n)&&!n.busy&&!(n.windT>0)&&!(n.pestT>0)&&!(n.sillyT>=0)&&!(n.talkT>0);}
+@@ -97,7 +101,8 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
+     return '';
+   }
+   function line(n,key){const r=byNpc.get(n);let event=EVENTS[key]||key;if(key==='talk'&&memory.get(n.S.name).insistencia>1)event='repeat_talk';if(tryScene(event))return '';const text=select(n,event,null);if(r)r.selectedText=text;return text;}
+-  function request(r){
++  function request(r){if(disposed||r.status!==0||ctx.startup&&!ctx.startup.moved)return;r.status=4;yieldData().then(()=>{r.status=0;if(!disposed&&awake(r.n))fetchRecord(r);});}
++  function fetchRecord(r){
+     if(r.status!==0||fetching>=2||disposed)return;
+     // Fixed self-origin path; manifest cannot turn a dialogue load into an external request.
+     if(!/^[a-z0-9_]+$/.test(r.id)){r.status=3;return;}
+@@ -105,18 +110,21 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
+     const controller=new AbortController();r.request=controller;
+     r.requestTimer=setTimeout(()=>controller.abort(),8000);
+     fetch(new URL('../data/comedy/'+r.id+'.json',import.meta.url),{signal:controller.signal})
+-      .then(async response=>{if(!response.ok)throw new Error('dialogue unavailable');const text=await response.text();if(new TextEncoder().encode(text).byteLength>30720)throw new Error('dialogue exceeds 30 KiB');return JSON.parse(text);})
++      .then(async response=>{if(!response.ok)throw new Error('dialogue unavailable');const text=await response.text();if(new TextEncoder().encode(text).byteLength>30720)throw new Error('dialogue exceeds 30 KiB');await yieldData();if(disposed||!awake(r.n))throw new Error('actor left range');return JSON.parse(text);})
+       .then(body=>{if(!disposed){r.pools=body;r.status=2;for(const level of Object.values(body.levels||{}))for(const list of Object.values(level))if(Array.isArray(list))for(const entry of list)authorize(entry);}})
+       .catch(()=>{r.status=3;r.retryAt=time()+30;r.pending='';})
+       .finally(()=>{clearTimeout(r.requestTimer);r.request=null;fetching--;});
+   }
+-  function loadManifest(){
++  function anyAwake(){for(let i=0;i<records.length;i++)if(awake(records[i].n))return true;return false;}
++  let manifestScheduled=false;
++  function loadManifest(){if(manifestReady||manifestRequest||manifestScheduled||disposed||ctx.startup&&!ctx.startup.moved||!anyAwake())return;manifestScheduled=true;yieldData().then(()=>{manifestScheduled=false;if(!disposed&&anyAwake())fetchManifest();});}
++  function fetchManifest(){
+     if(disposed||manifestReady||manifestRequest)return;
+     manifestAttempts++;
+     const controller=new AbortController();manifestRequest=controller;
+     manifestTimer=setTimeout(()=>controller.abort(),8000);
+     fetch(new URL('../data/npc-comedy.json',import.meta.url),{signal:controller.signal})
+-      .then(async response=>{if(!response.ok)throw new Error('manifest unavailable');const text=await response.text();if(new TextEncoder().encode(text).byteLength>204800)throw new Error('manifest too large');return JSON.parse(text);})
++      .then(async response=>{if(!response.ok)throw new Error('manifest unavailable');const text=await response.text();if(new TextEncoder().encode(text).byteLength>204800)throw new Error('manifest too large');await yieldData();return JSON.parse(text);})
+       .then(body=>{if(disposed)return;data=body;
+         for(let i=0;i<records.length;i++){const r=records[i];r.descriptor=data.characters?.[r.id]||{};authorize(r.descriptor.signature);}
+         for(const scene of [...(data.duets||[]),...(data.gags||[])])for(const beat of scene.lines||scene.beats||[])authorize(beat);
+@@ -239,7 +247,7 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
+     if(w!==lastWeather){lastWeather=w;notify(w);}
+   }
+   function update(dt,frame){
+-    camera=frame?.camera||camera;
++    camera=frame?.camera||camera;if(ctx.startup&&!ctx.startup.moved)return;
+     if(ctx.scene?.userData?.questQuiet){cancel();if(externalNow)lastExternal=externalNow();return;}
+     const frozen=manualPaused||!!ctx.scene?.userData?.npcStatues;
+     if(externalNow){const stamp=externalNow();if(frozen||wasPaused)externalOffset+=Math.max(0,stamp-lastExternal);lastExternal=stamp;}
+@@ -286,5 +294,5 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
+   function thaw(n,text){if(!['Eu estava a pensar.','Quem me mudou o intervalo?','O pombo estava a avaliar.'].includes(text)||quiet()||!awake(n))return false;authorized.add(keyOf(text));return say(n,text,false);}
+   function isSignature(n,text){return byNpc.get(n)?.descriptor.signature?.text===text;}
+   function dispose(){disposed=true;cancel();manifestRequest?.abort();clearTimeout(manifestTimer);for(let i=0;i<records.length;i++){records[i].request?.abort();clearTimeout(records[i].requestTimer);}}
+-  return {thaw,allow,line,select,notify,update,after,cancel,dispose,memory,debug,allowLaugh,sound,loadManifest,isSignature,setPaused,defeat};
++  return {registerActor,thaw,allow,line,select,notify,update,after,cancel,dispose,memory,debug,allowLaugh,sound,loadManifest,isSignature,setPaused,defeat};
+ }
+diff --git a/assets/gallery/npc-models.js b/assets/gallery/npc-models.js
+index 293aa91..c8a0682 100644
+--- a/assets/gallery/npc-models.js
++++ b/assets/gallery/npc-models.js
+@@ -518,18 +518,20 @@ export function createLinePicker(random=Math.random) {
+ // Existing NPC behaviour writes Object3D transforms. Keep those objects as
+ // proxies, drawing their ground shadows and daze stars in two instanced calls.
+ export function createNpcEffects(THREE, group, npcs, blobGeometry, blobMaterial, starMaterial) {
+-  const shadow = blobMaterial ? new THREE.InstancedMesh(blobGeometry,blobMaterial,npcs.length) : null;
++  const shadow = blobMaterial ? new THREE.InstancedMesh(blobGeometry,blobMaterial,14) : null;
+   const starGeometry=new THREE.PlaneGeometry(1,1);
+   const starSurface=new THREE.MeshBasicMaterial({map:starMaterial.map,transparent:true,depthWrite:false});
+-  const stars=new THREE.InstancedMesh(starGeometry,starSurface,npcs.length);
++  const stars=new THREE.InstancedMesh(starGeometry,starSurface,14);
+   const dummy=new THREE.Object3D(), invisible=new THREE.Matrix4().makeScale(0,0,0);
+   stars.frustumCulled=false;stars.renderOrder=9;stars.raycast=()=>{};group.add(stars);
+   if(shadow){shadow.frustumCulled=false;shadow.renderOrder=1;shadow.raycast=()=>{};group.add(shadow);}
+   const selected=new Int16Array(3), distances=new Float64Array(3);
+   const shadowBlack=new THREE.Color(0), puddleTint=new THREE.Color('#a58b43');
+-  if(shadow)shadow.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(npcs.length*3),3);
++  if(shadow)shadow.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(14*3),3);
++  stars.count=0;if(shadow)shadow.count=0;
+   return {
+     update(camera,rotation=0) {
++      stars.count=npcs.length;if(shadow)shadow.count=npcs.length;
+       selected.fill(-1);distances.fill(Infinity);
+       for(let i=0;i<npcs.length;i++){
+         const n=npcs[i];
+diff --git a/assets/gallery/npc-onlookers.js b/assets/gallery/npc-onlookers.js
+index a4357b9..ca285e7 100644
+--- a/assets/gallery/npc-onlookers.js
++++ b/assets/gallery/npc-onlookers.js
+@@ -12,9 +12,10 @@ export function createNpcPersonalities(ctx, { npcs, castById, chooseLine, say })
+   let world = null, camera = null, now = 0, serial = 0, eventAt = -1e9;
+   let eventX = 0, eventZ = 0, victim = null, nextLine = 0, gestureTime = null;
+   let snakeTime = null, started = false, mutedLast = false, nextPlan = 0;
+-  for (let i = 0; i < npcs.length; i++) {
+-    const n = npcs[i], entry = castById.get(n.S.name), kind = entry?.behavior;
+-    if (kind !== 'onlooker' && kind !== 'sniffer' && kind !== 'hugger') continue;
++  function registerActor(n) {
++    if(lookup.has(n))return;
++    const entry = castById.get(n.S.name), kind = entry?.behavior;
++    if (kind !== 'onlooker' && kind !== 'sniffer' && kind !== 'hugger') return;
+     const r = { n, entry, kind, index: records.length, homeX: n.x, homeZ: n.z,
+       obstacles: [], covers: [], navigationReady: false, cover: null, event: 0, until: 0, targetX: n.x, targetZ: n.z,
+       nextPlan: 0, nextSpeak: 0, nextSniff: 7 + records.length * 3,
+@@ -25,7 +26,9 @@ export function createNpcPersonalities(ctx, { npcs, castById, chooseLine, say })
+     // move it, but ordinary random patrol/director routing must not move it too.
+     n.fixed = true; n.S.fixed = true; n.S.personality = kind;
+     n.pts[0] = n.x; n.pts[1] = n.z;
++    if(world)setNavigation(world);
+   }
++  for(const n of npcs)registerActor(n);
+   function quiet() { return !!ctx.scene?.userData?.questQuiet; }
+   function interrupted(n) {
+     return n.busy || n.pestT > 0 || n.windT > 0 || n.goOn || n.S.seated
+@@ -221,7 +224,7 @@ export function createNpcPersonalities(ctx, { npcs, castById, chooseLine, say })
+     }
+   }
+   function dispose(){silence();for(let i=0;i<records.length;i++)records[i].n.rig?.setPreset?.(null,0);}
+-  return {before,after,onEvent,sound,setNavigation,dispose};
++  return {registerActor,before,after,onEvent,sound,setNavigation,dispose};
+ }
+ 
+ export const createNpcOnlookers = createNpcPersonalities;
+diff --git a/tests/npc-comedy.test.mjs b/tests/npc-comedy.test.mjs
+index a1dc919..e0bd175 100644
+--- a/tests/npc-comedy.test.mjs
++++ b/tests/npc-comedy.test.mjs
+@@ -87,7 +87,7 @@ function fixture(t,extra={}) {
+   let seconds=100;
+   const npcs=['bull','pig','cat','goat','pigeon'].map((id,i)=>actor(id,i));
+   const spoken=[],laughs=[];
+-  const ctx={scene:{userData:{}},audio:{muted:false},reducedMotion:true};
++  const ctx={yieldBuild:()=>Promise.resolve(),scene:{userData:{}},audio:{muted:false},reducedMotion:true};
+   const data={characters:Object.fromEntries(npcs.map(n=>[n.S.name,{}])),duets:[
+     {id:'first',trigger:'approach',roles:['bull','pig'],lines:[
+       {speaker:'bull',text:'A cadeira pediu a palavra.',score:4,pause:.6},
+diff --git a/assets/extracted/hall-fireworks-video.mp4 b/assets/extracted/hall-fireworks-video.mp4
+deleted file mode 100644
+index d84082bb03d605ebd09aaeec9434120b0b29328a..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+

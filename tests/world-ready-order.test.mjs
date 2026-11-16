@@ -1,0 +1,9 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {createWorld,hallLoadOrder,SPACES} from '../assets/gallery/world.js';
+test('Hall order prioritizes essentials and proximity, with dependencies first',()=>{const order=hallLoadOrder();assert.deepEqual(order.slice(0,3),['environment','facade','plaza']);assert.equal(new Set(order).size,SPACES.length);assert.ok(order.indexOf('radio')<order.indexOf('metro'));assert.ok(order.indexOf('pool')<order.indexOf('duck'));assert.ok(order.indexOf('metro')<order.indexOf('tram-ride'));assert.ok(order.indexOf('npcs')<order.indexOf('tram-ride'));});
+test('no import/build before ready and first idle300; dependent build waits for completion',async()=>{
+ const old=globalThis.requestIdleCallback;let resolveReady,releaseIdle;const ready=new Promise(r=>resolveReady=r),calls=[],timeouts=[],finished=new Set();
+ globalThis.requestIdleCallback=(callback,options)=>{timeouts.push(options.timeout);if(timeouts.length===1)releaseIdle=callback;else queueMicrotask(callback);};
+ try{const pending=createWorld({scene:{add(){}}},{ready,loadModule:async name=>{calls.push(name);return{async build(){if(name==='pool')await new Promise(r=>setTimeout(r,10));if(name==='duck')assert.ok(finished.has('pool'));if(name==='tram-ride'){assert.ok(finished.has('metro'));assert.ok(finished.has('npcs'));}finished.add(name);return{};}};}});
+ await new Promise(r=>setImmediate(r));assert.equal(calls.length,0);assert.equal(timeouts.length,0);resolveReady();await new Promise(r=>setImmediate(r));assert.equal(calls.length,0);assert.equal(timeouts[0],300);releaseIdle();const world=await pending;assert.deepEqual(calls.slice(0,3),['environment','facade','plaza']);assert.deepEqual([...world.modules.keys()],SPACES);assert.equal(finished.size,SPACES.length);
+ }finally{globalThis.requestIdleCallback=old;}
+});
