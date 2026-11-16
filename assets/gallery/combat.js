@@ -204,7 +204,9 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
   }
   function prepareCollision(){
     colliders.length=0;const x=(a.n.x+b.n.x)*.5,z=(a.n.z+b.n.z)*.5;
-    const tram=state.venue==='tram'?ctx.scene.userData.tramRide:null;
+    // The car's world boxes are dropped only while the visitor rides inside (a yawed car's boxes cover
+    // its own aisle); docked, with the visitor on the platform, the walls still stop a fight through them.
+    const tram=state.venue==='tram'&&ctx.scene.userData.tramRide?.carrier?.riding?ctx.scene.userData.tramRide:null;
     for(let i=0;i<world.colliders.length;i++){const c=world.colliders[i];if(c===a.n.col||c===b.n.col||c===donor?.col||tram?.isCarCollider?.(c))continue;
       if(c.maxX<x-12||c.minX>x+12||c.maxZ<z-12||c.minZ>z+12)continue;
       if(colliders.length>=1024)return false;colliders.push(c);

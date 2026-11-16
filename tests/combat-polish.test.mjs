@@ -204,3 +204,13 @@ test('cartoon key poses: 30% deeper wind-up and recoil, hit-stop unchanged',()=>
   assert.notEqual(landedAt,null);for(let i=0;i<90;i++)d.combat.update(1/60);
   const pushed=d.position.z-landedAt;assert.ok(pushed>.075&&pushed<.1,'pushed '+pushed);d.combat.dispose();
 });
+
+test('a docked tram keeps its walls: no porrada through the side of the car',()=>{
+  // The visitor stands on the platform, a passenger sits inside, the car's side wall between them.
+  const wall={minX:-1.5,maxX:1.5,minZ:-.95,maxZ:-.75,minY:0,maxY:2.6};
+  const d=driver({opponent:[0,-1.6],fixed:true,reducedMotion:true,obstacles:[wall]});
+  d.scene.userData.tramRide={carrier:{x:0,z:-2.5,yaw:0,riding:false},hasPassenger:n=>n===d.actors[0],isCarCollider:c=>c===wall};
+  assert.equal(d.combat.engage(d.actors[0].hit,{explicit:true}),false,'the wall stops it while docked');
+  assert.equal(d.scene.userData.combatState.active,false);
+  d.combat.dispose();
+});

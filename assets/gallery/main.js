@@ -265,13 +265,19 @@ const ROUND_CALLS = [
   { offset: 3.56, duration: 1.38 }, // "Third round"
   { offset: 5.24, duration: 1.50 }, // "Final round"
 ];
-const roundCall = { fight: 0, calls: 0, until: 0, busy: false };
+// A visitor's porrada is a best of three, so each round gets its own call (round 1, round 2,
+// then "final round"); a one-round NPC brawl keeps the running count across fights.
+const roundCall = { fight: 0, round: 0, pick: -1, calls: 0, until: 0, busy: false };
 function updateRoundCall(now) {
   const fight = room.scene.userData.combatState;
   if (!houseSamples || !fight) return;
-  if (fight.active && fight.id !== roundCall.fight) { roundCall.fight = fight.id; roundCall.until = now + 2.5; }
+  const visitor = fight.kind === 'visitor', round = visitor ? Math.max(1, fight.round || 1) : 1;
+  if (fight.active && (fight.id !== roundCall.fight || round !== roundCall.round)) {
+    roundCall.fight = fight.id; roundCall.round = round; roundCall.until = now + 2.5;
+    roundCall.pick = visitor ? (fight.final && round > 1 ? 3 : Math.min(round - 1, 2)) : -1;
+  }
   if (!fight.active || now > roundCall.until || roundCall.busy) return;
-  const call = ROUND_CALLS[Math.min(roundCall.calls, ROUND_CALLS.length - 1)];
+  const call = ROUND_CALLS[roundCall.pick >= 0 ? roundCall.pick : Math.min(roundCall.calls, ROUND_CALLS.length - 1)];
   roundCall.busy = true;
   houseSamples.play('announcer', { manual: true, ...call, maxDelay: 0.6 }).then((played) => {
     roundCall.busy = false;
