@@ -1,3 +1,5 @@
+import {sampleCombatMotion,crossedContact,stepSpring,stepGuardHold,solveFootPlant} from './combat-motion.js';
+import {createCombatParticles} from './combat-particles.js';
 import { buildCharacter } from './npc-models.js';
 import { moveInWorld, groundAt } from './collision.js';
 
@@ -32,10 +34,16 @@ const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 
 export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canAct=()=>true,canStart=()=>true,onSlap=()=>{},enableStatues=false}={}){
   const {THREE}=ctx,npcs=npcModule?.combatActors||[];
+  const particles=createCombatParticles(THREE,ctx.scene),guard={elapsed:0,fired:false};let guardHeld=false,frameDt=0;
+  const direction=new THREE.Vector3(),followPosition=new THREE.Vector3();let followReady=false;
+  const motion={phase:0,drive:0,anticipation:0,settle:0,twist:0,lift:0},plant={hip:0,knee:0,ankle:0};
+  const jointKeys=['elbows','wrists','knees','ankles','shoulders','cheeks'];
+  let pillA=null,pillB=null,lagA=null,lagB=null,shownA=100,shownB=100;
   const events={serial:0,entries:new Array(16)};
   for(let i=0;i<16;i++)events.entries[i]={serial:0,type:'',fightId:0,aId:'',bId:'',ax:0,az:0,bx:0,bz:0,intensity:0,move:'',time:0};
   const state={active:false,paused:false,id:0,kind:'',venue:'',serial:0,event:'',actorA:'',actorB:'',aId:'',bId:'',ax:0,az:0,bx:0,bz:0,brioA:100,brioB:100,prideA:100,prideB:100};
   ctx.scene.userData.combatEvents=events;ctx.scene.userData.combatState=state;
+  const originalToast=ctx.ui?.toast;const guardedToast=(...args)=>{if(!state.active)originalToast?.apply(ctx.ui,args);};if(ctx.ui)ctx.ui.toast=guardedToast;
   let clock=0,a=null,b=null,donor=null,avatar=null,selected=2,hitstop=0,shake=0,scriptEnd=0,nextAi=0;
   let queueCount=0,combo=0,lastTap=-Infinity,blockAt=-Infinity,dodgeUntil=0,dodgeReady=0,counterUntil=0;
   let noiseBuffer=null,noiseContext=null,aiTurn=0;
@@ -47,18 +55,18 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
   const position={x:0,y:1.62,z:0},savedCamera=new THREE.Vector3(),savedQuat=new THREE.Quaternion();
   const cameraPoint=new THREE.Vector3(),cameraAim=new THREE.Vector3(),soundPoint=new THREE.Vector3();
   const voices=new Array(6).fill(null),records=[],byNpc=new WeakMap(),said=new Map();
-  function callout(text){const memory=npcModule.comedyMemory;const allowed=memory?memory.commit(text):clock-(said.get(text)??-Infinity)>=600;if(allowed){said.set(text,clock);toast(text);}}
+  function callout(text){if(state.active)return;const memory=npcModule.comedyMemory;const allowed=memory?memory.commit(text):clock-(said.get(text)??-Infinity)>=600;if(allowed){said.set(text,clock);toast(text);}}
   function record(n,visitor=false){return {n,visitor,pride:100,attack:-1,t:0,landed:false,boost:1,blocking:false,recoilX:0,recoilZ:0,
-    attackCount:0,headZ:0,inPlace:false,oldBusy:false,oldControlled:false,base:new Float32Array(18),bones:null};}
+    spring:{x:0,v:0},attackCount:0,headZ:0,inPlace:false,oldBusy:false,oldControlled:false,base:new Float32Array(18),bones:null};}
   function registerActor(n){if(byNpc.has(n))return;const r=record(n);records.push(r);byNpc.set(n,r);}
   for(const n of npcs)registerActor(n);
   const unsubscribeActor=npcModule?.onActorReady?.(registerActor);
   let visitor=null;
   const panel=typeof document==='undefined'?null:document.createElement('section');
   let cssLink=null,hud=null,statusText=null,banner=null,moveSelect=null,statueButton=null,fightButton=null,blockButton=null;
-  function toast(text){ctx.ui?.toast?.(text);}
+  function toast(text){if(!state.active)ctx.ui?.toast?.(text);}
   function freeze(){return !!ctx.scene.userData.npcStatues;}
-  function quiet(){return !!ctx.scene.userData.questQuiet;}
+  function quiet(){return !!(ctx.scene.userData.questQuiet||ctx.scene.userData.tramHallQuiet);}
   function readVisitor(){controls.readPosition(position);}
   function id(r){return r?.visitor?'visitor':r?.n?.S?.name||'';}
   function emit(type,intensity=0,move=''){
@@ -71,9 +79,9 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
     r.bones=[n.body,n.head,n.arms[0],n.arms[1],n.legs[0],n.legs[1]];
     for(let i=0;i<6;i++){const q=r.bones[i].rotation;r.base[i*3]=q.x;r.base[i*3+1]=q.y;r.base[i*3+2]=q.z;}
     n.talkT=0;n.bubble=0;if(n.sprite)n.sprite.visible=false;
-    r.pride=100;r.attack=-1;r.t=0;r.blocking=false;r.recoilX=r.recoilZ=0;r.attackCount=0;
+    r.spring.x=r.spring.v=0;r.pride=100;r.attack=-1;r.t=0;r.blocking=false;r.recoilX=r.recoilZ=0;r.attackCount=0;
   }
-  function restore(r){if(!r)return;const n=r.n;for(let i=0;i<6;i++)r.bones[i].rotation.set(r.base[i*3],r.base[i*3+1],r.base[i*3+2]);n.head.position.z=r.headZ;n.busy=r.oldBusy;n.combatControlled=r.oldControlled;}
+  function restore(r){if(!r)return;resetJoints(r);const n=r.n;for(let i=0;i<6;i++)r.bones[i].rotation.set(r.base[i*3],r.base[i*3+1],r.base[i*3+2]);n.head.position.z=r.headZ;n.busy=r.oldBusy;n.combatControlled=r.oldControlled;}
   function stopSounds(){for(let i=0;i<voices.length;i++)if(voices[i]){try{voices[i].stop();}catch{}voices[i]=null;}}
   function sound(r,step=0,soft=false,moveIndex=-1){
     if(freeze()||quiet()||ctx.audio?.muted)return;
@@ -169,17 +177,20 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
     capture(a);capture(b);a.inPlace=b.inPlace=allowSeated;
     if(donor){donor.combatShadowProxy=avatar;donor.combatOldBusy=donor.busy;donor.busy=true;donor.combatHidden=true;donor.combatHitMask=donor.hit.layers.mask;donor.hit.layers.mask=0;}
     if(kind==='visitor')avatar.root.visible=true;
+    followReady=false;guardHeld=false;shownA=shownB=100;
+    for(const n of npcs){n.bubble=0;n.talkT=0;if(n.sprite)n.sprite.visible=false;}
     state.active=true;state.id++;state.kind=kind;state.venue=venue;arenaX=(a.n.x+b.n.x)*.5;arenaZ=(a.n.z+b.n.z)*.5;climaxFight=false;visitorStatus.fell=false;visitorStatus.fightId=state.id;enteredAt=clock;endingAt=0;loser=null;queueCount=combo=aiTurn=0;hitstop=shake=0;blockAt=-Infinity;dodgeUntil=0;dodgeReady=clock;counterUntil=0;lastTap=-Infinity;nextAi=clock+BEAT*2;scriptEnd=clock+8;
     controls.releaseCombatKeys?.();ctx.audio?.duck?.(8);emit('fightStarted',.2);callout(kind==='visitor'?'Olha a porrada!':'Vai haver porrada!');uiDirty=true;return true;
   }
-  function engage(object){
+  function engage(object,{explicit=false}={}){
+    if(!explicit&&(!state.active||state.kind!=='visitor'))return false;
     const n=npcModule.findActor(object);if(!n)return false;
     if(state.active&&state.kind==='visitor')return attack(0);
     let joining=false,oldVenue='',oldTrip='';
     if(state.active){if(n!==a.n&&n!==b.n)return false;if(!canStart()||controls.seated||!chooseDonor(n)){toast('Levanta-te e liberta espaço.');return false;}readVisitor();if(Math.hypot(position.x-n.x,position.z-n.z)>1.8)return false;makeAvatar();const oldA=a,oldB=b;a=visitor;b=byNpc.get(n);a.n.x=position.x;a.n.z=position.z;a.n.baseY=position.y-1.62;a.n.shadowY=controls.floor;const spaceReady=prepareCollision()&&!blockedSegment(a.n.x,a.n.z,b.n.x,b.n.z)&&placeCamera();a=oldA;b=oldB;if(!spaceReady){prepareCollision();toast('Sem espaço para a porrada.');return false;}joining=true;oldVenue=state.venue;oldTrip=tripId;end('joined');}
     const onTram=joining?oldVenue==='tram':!!ctx.scene.userData.tramRide?.hasPassenger?.(n);
     makeAvatar();if(!begin(visitor,byNpc.get(n),'visitor',onTram,onTram?'tram':''))return false;
-    if(joining){climaxFight=true;state.venue=oldVenue;tripId=oldTrip;}return attack(0);
+    if(joining){climaxFight=true;state.venue=oldVenue;tripId=oldTrip;}return true;
   }
   function startScripted(aId,bId,options={}){
     let x=null,y=null;for(let i=0;i<records.length;i++){if(id(records[i])===aId)x=records[i];if(id(records[i])===bId)y=records[i];}
@@ -191,7 +202,7 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
     if((state.kind==='scripted'||climaxFight)&&reason!=='joined'){scriptedResult.sequence++;scriptedResult.fightId=state.id;scriptedResult.completed=reason==='ko'||reason==='finished';scriptedResult.visitorWon=state.kind==='visitor'&&reason==='ko'&&loser===b;scriptedResult.winner=reason==='ko'?id(loser===a?b:a):a.pride>b.pride?id(a):b.pride>a.pride?id(b):'';}
     emit('fightEnded',reason==='ko'?1:0);restore(a);restore(b);
     if(donor){donor.combatShadowProxy=null;donor.busy=donor.combatOldBusy;donor.combatHidden=false;donor.hit.layers.mask=donor.combatHitMask;donor=null;}
-    if(avatar){avatar.root.visible=false;avatar.comedyPuddle=0;}state.active=false;state.paused=false;queueCount=0;stopSounds();controls.releaseCombatKeys?.();a=b=null;uiDirty=true;
+    if(avatar){avatar.root.visible=false;avatar.comedyPuddle=0;}particles.clear();followReady=false;guardHeld=false;state.active=false;state.paused=false;queueCount=0;stopSounds();controls.releaseCombatKeys?.();a=b=null;uiDirty=true;
   }
   function launch(r,index){r.attack=index;r.t=0;r.landed=false;r.attackCount++;r.boost=r.visitor&&clock<counterUntil?1.5:1;if(r.visitor)counterUntil=0;sound(r,index%5,true);}
   function attack(index=selected){
@@ -218,6 +229,8 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
     const guarded=target.blocking,perfect=guarded&&target.visitor&&clock-blockAt<.22;
     const courage=r.visitor&&ctx.scene.userData.bairroEffects?.courageUntil>performance.now()/1000&&new Date().getDay()===2?2:1;
     let damage=Math.round(move.power*r.boost*courage*(guarded ? .2 : 1));if(perfect){damage=0;counterUntil=clock+.8;callout('Ó trombil de papo seco!');}
+    target.spring.v+=guarded?.5:1.8;
+    if(!ctx.reducedMotion)particles.burst(target.n.x,(target.n.baseY||0)+1.15,target.n.z,ux,uz);
     target.pride=Math.max(0,target.pride-damage);if(!target.visitor&&damage>0)target.n.rancor=(target.n.rancor||0)+1;target.recoilX=ux*(perfect ? .05 : guarded ? .15 : .55);target.recoilZ=uz*(perfect ? .05 : guarded ? .15 : .55);
     if(!ctx.reducedMotion){hitstop=.06;shake=.16;}sound(target,combo===0?3:combo,guarded,id(r)==='velho'&&move.index===8?4:move.index);emit('impact',damage/25,equipped&&r.visitor?equipped:move.id);uiDirty=true;
     if(r.visitor&&move.index<=2)onSlap();
@@ -234,36 +247,64 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
   }
   function simulate(r,target,dt){
     moveNpc(r,dt,target);r.recoilX*=Math.exp(-dt*9);r.recoilZ*=Math.exp(-dt*9);
-    if(r.attack<0)return;r.t+=dt*(r.visitor&&equipped==='luva' ? .5 : 1);const move=MOVES[r.attack];
-    if(!r.landed&&r.t>=move.windup){r.landed=true;hit(r,target,move);if(!state.active)return;}
+    if(r.attack<0)return;const previous=r.t;r.t+=dt*(r.visitor&&equipped==='luva' ? .5 : 1);const move=MOVES[r.attack];
+    if(crossedContact(previous,r.t,move,r.landed)){r.landed=true;hit(r,target,move);if(!state.active)return;}
     if(r.t>=move.duration){r.attack=-1;if(r.visitor&&queueCount){const next=queue[0];for(let i=1;i<queueCount;i++)queue[i-1]=queue[i];queueCount--;launch(r,next);}}
   }
+  function resetJoints(r){
+    const b=r.n.rig?.bones;if(!b)return;
+    for(const name of jointKeys)if(b[name])for(const joint of b[name])joint.rotation.set(0,0,0);
+    if(b.neck)b.neck.rotation.set(0,0,0);if(b.hat)b.hat.rotation.set(0,0,0);if(b.hair)b.hair.rotation.set(0,0,0);if(b.belly)b.belly.scale.set(1,1,1);
+  }
   function pose(r,target){
+    resetJoints(r);
     const n=r.n;n.head.position.z=r.headZ;for(let i=0;i<6;i++)r.bones[i].rotation.set(0,0,0);
     n.yaw=Math.atan2(target.n.x-n.x,target.n.z-n.z);n.root.position.set(n.x,n.baseY||0,n.z);n.root.rotation.set(0,n.yaw,0);n.rig?.setExpression?.(0,r.pride<40 ? .5 : 0);if(n.blob){n.blob.position.x=n.x;n.blob.position.z=n.z;n.blob.visible=true;}
     n.arms[0].rotation.x=n.arms[1].rotation.x=r.blocking?-1.2:-.25;n.arms[0].rotation.z=-.2;n.arms[1].rotation.z=.2;
     if(r.attack>=0){
-      const m=MOVES[r.attack],t=clamp(r.t/m.duration,0,1),k=Math.sin(t*Math.PI)*(ctx.reducedMotion ? .45 : 1),p=m.pose;
-      n.head.rotation.z=(p==='tickle' ? .12 : .05)*k;n.body.rotation.y=(p==='back'?-.35:.25)*k;
+      const m=MOVES[r.attack],t=clamp(r.t/m.duration,0,1),sample=sampleCombatMotion(m,r.t,motion),k=sample.drive*(ctx.reducedMotion ? .45 : 1),p=m.pose;
+      n.head.rotation.z=(p==='tickle' ? .12 : .05)*k;n.body.rotation.y=sample.twist*(ctx.reducedMotion?.45:1);
       if(p==='stomp'||p==='sweepLeg'){n.legs[1].rotation.x=-.85*k;n.legs[1].rotation.z=(p==='sweepLeg' ? .65 : .1)*k;}
       else if(p==='both'||p==='hug'||p==='tickle'||p==='pillow'){n.arms[0].rotation.x=n.arms[1].rotation.x=-1.25*k;n.arms[0].rotation.z=-.8*(1-k);n.arms[1].rotation.z=.8*(1-k);if(p==='both'){n.arms[0].rotation.y=.9*k;n.arms[1].rotation.y=-.9*k;}if(p==='tickle'&&!ctx.reducedMotion){n.arms[0].rotation.z+=Math.sin(t*28)*.12;n.arms[1].rotation.z-=Math.sin(t*28)*.12;}if(p==='pillow'){n.body.rotation.x=.18*k;n.arms[0].rotation.y=n.arms[1].rotation.y=.25*k;}}
       else{n.arms[1].rotation.x=-(p==='over'?2.5:p==='shoe'?2.1:p==='finger' ? .75 : 1.2)*k;n.arms[1].rotation.z=(p==='back'?-.9:p==='fan'?(ctx.reducedMotion ? .15 : Math.sin(t*24)*.35):p==='shoe'?Math.sin(t*Math.PI*2)*1.1:p==='whip'?Math.sin(t*10)*.9:.8)*k;n.arms[1].rotation.y=(p==='pull'?-1:p==='pinch' ? .7 : 0)*k;}
     }
-    if(r.attack>=0&&SPECIAL[id(r)]===r.attack){const k=Math.sin(clamp(r.t/MOVES[r.attack].duration,0,1)*Math.PI)*(ctx.reducedMotion ? .45 : 1);
+    if(r.attack>=0&&SPECIAL[id(r)]===r.attack){const k=sampleCombatMotion(MOVES[r.attack],r.t,motion).drive*(ctx.reducedMotion ? .45 : 1);
       if(id(r)==='forcado'){n.body.rotation.x=.35*k;n.head.rotation.x=.2*k;n.arms[0].rotation.x=n.arms[1].rotation.x=-1.6*k;}
       else if(id(r)==='velho'){n.arms[1].rotation.x=-1.8*k;n.body.rotation.y=.1*k;}
       else if(id(r)==='gordo'){n.body.rotation.x=-.25*k;n.arms[0].rotation.z=-.6*k;n.arms[1].rotation.z=.6*k;}
       else if(id(r)==='mano'){n.arms[0].rotation.x=-1.1*k;n.arms[1].rotation.x=-.75*k;n.arms[1].rotation.y=.8*k;}
       else if(id(r)==='porco_fato'){n.head.position.z=r.headZ+.12*k;n.head.rotation.x=-.2*k;n.arms[1].rotation.x=-.2*k;}
     }
+    const rig=n.rig?.bones;
+    if(rig){
+      const drive=r.attack>=0?motion.drive:0,hit=stepSpring(r.spring,0,frameDt,6,.65);
+      if(rig.neck)rig.neck.rotation.z=ctx.reducedMotion?0:hit*.10;
+      if(rig.hat)rig.hat.rotation.z=ctx.reducedMotion?0:-hit*.16+motion.settle*.025*(r.attack>=0?1:0);
+      if(rig.hair)rig.hair.rotation.x=ctx.reducedMotion?0:hit*.09;
+      if(rig.belly)rig.belly.scale.z=1+(ctx.reducedMotion?0:hit*.06);
+      if(rig.cheeks)for(let i=0;i<2;i++)rig.cheeks[i].rotation.z=(i?1:-1)*hit*.08;
+      for(let i=0;i<2;i++){
+        if(rig.shoulders)rig.shoulders[i].rotation.y=n.arms[i].rotation.y*.12;
+        if(rig.elbows)rig.elbows[i].rotation.x=-.30-(r.blocking?.75:Math.max(0,1-drive)*.16);
+        if(rig.wrists)rig.wrists[i].rotation.z=(i?1:-1)*(drive*.16+hit*.05);
+        const lifting=r.attack>=0&&i===1&&(MOVES[r.attack].pose==='stomp'||MOVES[r.attack].pose==='sweepLeg');
+        if(rig.knees&&rig.ankles){
+          solveFootPlant(.40,.34,lifting?Math.max(0,drive)*.12:0,plant);
+          rig.knees[i].rotation.x=plant.knee;rig.ankles[i].rotation.x=plant.ankle;
+          n.legs[i].rotation.x+=plant.hip;
+        }
+      }
+    }
     if(n.col){const w=n.colW||.4;n.col.minX=n.x-w;n.col.maxX=n.x+w;n.col.minZ=n.z-w;n.col.maxZ=n.z+w;n.col.minY=n.baseY||0;n.col.maxY=n.col.minY+(n.colH||2);}
   }
   function update(dt){
-    if(disposed)return;readVisitor();const paused=freeze();state.paused=paused;
+    if(disposed)return;frameDt=Math.min(.05,Math.max(0,dt));readVisitor();const paused=freeze();
+    particles.update(frameDt,paused||hitstop>0);
+    if((!state.active||state.kind==="scripted")&&stepGuardHold(guard,frameDt,guardHeld,!paused&&!quiet()&&canAct()&&!!nearestActor()))nearest();state.paused=paused;
     pausedBefore=paused;
     if(state.active&&a?.visitor){a.n.x=position.x;a.n.z=position.z;a.n.baseY=position.y-1.62;a.n.shadowY=controls.floor;}
     if((quiet()||!canAct())&&state.active){end(quiet()?'quiet':'overlay');return;}
-    if(paused){if(avatar)avatar.root.visible=false;refreshUi();return;}
+    if(paused){frameDt=0;if(avatar)avatar.root.visible=false;refreshUi();return;}
     clock+=Math.min(.1,Math.max(0,dt));
     if(!state.active){refreshUi();return;}
     if(avatar){avatar.root.visible=state.kind==='visitor';avatar.root.scale.setScalar(ctx.reducedMotion?1:clamp((clock-enteredAt)/.5,.01,1));}
@@ -272,7 +313,7 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
     if(!endingAt&&state.kind==='scripted'&&clock>=scriptEnd){end('finished');refreshUi();return;}
     if(endingAt){pose(a,b);pose(b,a);loser.n.head.rotation.x=.4;loser.n.body.rotation.x=.2;if((loser.visitor||!npcModule.comedyMemory)&&!ctx.reducedMotion){const sob=Math.sin((clock-enteredAt)*18)*.035;loser.n.arms[0].rotation.z-=sob;loser.n.arms[1].rotation.z+=sob;}
       loser.n.comedyPuddle=loser.visitor||!npcModule.comedyMemory?1:0;if(clock>=endingAt){const victim=loser.n,wasVisitor=loser.visitor;victim.comedyPuddle=0;end('ko');if(!wasVisitor)npcModule.combatImpact?.(victim,true);}refreshUi();return;}
-    const step=hitstop>0?0:Math.min(.1,Math.max(0,dt));hitstop=Math.max(0,hitstop-dt);shake=Math.max(0,shake-dt);
+    const step=hitstop>0?0:Math.min(.1,Math.max(0,dt));frameDt=step;hitstop=Math.max(0,hitstop-dt);shake=Math.max(0,shake-dt);
     if(clock>=nextAi){
       nextAi=clock+BEAT*(state.kind==='scripted'?2:3);const ai=state.kind==='scripted'&&(aiTurn++%2===1)?a:b;
       if(ai.attack<0){const index=SPECIAL[id(ai)]??(ai.attackCount%4);launch(ai,index);ai.blocking=false;callout('Vou-te ao trombil!');}
@@ -288,7 +329,10 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
     if(!placeCamera()){end('camera');return;}
     savedCamera.copy(camera.position);savedQuat.copy(camera.quaternion);savedFov=camera.fov;rendering=true;
     if(state.venue==='tram'&&camera.fov<70){camera.fov=70;camera.updateProjectionMatrix();}
-    camera.position.copy(cameraPoint);camera.lookAt(cameraAim);
+    if(!followReady){followPosition.copy(savedCamera);followReady=true;}
+    followPosition.lerp(cameraPoint,ctx.reducedMotion?1:1-Math.exp(-Math.max(.001,frameDt)*12));
+    if(blockedSegment(cameraAim.x,cameraAim.z,followPosition.x,followPosition.z))followPosition.copy(cameraPoint);
+    camera.position.copy(followPosition);camera.lookAt(cameraAim);
     if(!ctx.reducedMotion&&shake>0)camera.rotateZ(Math.sin(clock*60)*shake*.04);
     camera.updateMatrixWorld(true);const hands=getPlayer?.();if(hands?.group){firstHandsVisible=hands.group.visible;hands.group.visible=false;}
   }
@@ -300,33 +344,44 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
       if(ids.length>=3){ids.sort();const sceneId=ids.join('|');ctx.events?.dispatchEvent?.(new CustomEvent('workshop',{detail:{type:'statue-scene',value:{sceneId,actorIds:ids,count:ids.length,eventId:'statues-'+sceneId}}}));}}
     uiDirty=true;refreshUi();
   }
-  function nearest(){readVisitor();let best=null,distance=1.8*1.8;for(let i=0;i<npcs.length;i++){const n=npcs[i],dx=n.x-position.x,dz=n.z-position.z,d=dx*dx+dz*dz;if(eligible(n)&&Math.abs(position.y-1.62-(n.baseY||0))<.8&&d<distance){best=n;distance=d;}}if(best)engage(best.hit);else toast('Chega mais perto do trombil.');}
+  function nearestActor(){
+    readVisitor();camera.getWorldDirection(direction);let best=null,distance=1.8*1.8;
+    for(let i=0;i<npcs.length;i++){const n=npcs[i],dx=n.x-position.x,dz=n.z-position.z,d=dx*dx+dz*dz;
+      if((eligible(n)||(state.active&&state.kind==='scripted'&&(n===a?.n||n===b?.n)))&&Math.abs(position.y-1.62-(n.baseY||0))<.8&&d<distance&&(dx*direction.x+dz*direction.z)>Math.sqrt(d)*.65){best=n;distance=d;}}
+    return best;
+  }
+  function nearest(){const best=nearestActor();return best?engage(best.hit,{explicit:true}):false;}
+
   function typing(e){return !!e.target?.closest?.('input,textarea,select,[contenteditable="true"]');}
   function keydown(e){
     if(e.ctrlKey||e.metaKey||e.altKey||typing(e)||!canAct())return;
+    if((!state.active||state.kind==='scripted')&&e.code==='KeyQ'){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat)guardHeld=true;return;}
     if(enableStatues&&e.code==='KeyX'){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat)statues();return;}
     if(!state.active||freeze()||state.kind!=='visitor')return;
     if(e.code==='Escape'){end('exit');return;}
+    if(/^Digit[1-8]$/.test(e.code)){selected=Number(e.code.slice(5))-1+(e.shiftKey?8:0);e.preventDefault();e.stopImmediatePropagation();return;}
     if(!['KeyQ','KeyE','KeyZ','KeyC','KeyF','ShiftLeft','ShiftRight'].includes(e.code))return;
     e.preventDefault();e.stopImmediatePropagation();if(e.repeat)return;
     if(e.code==='KeyQ')attack(selected);else if(e.code==='KeyE')block(true);else if(e.code==='KeyZ')attack(7);else if(e.code==='KeyC')attack(11);else if(e.code==='KeyF')attack(9);else dodge();uiDirty=true;
   }
-  function keyup(e){if(e.code==='KeyE'&&a)block(false);if(state.active&&!freeze()&&['KeyQ','KeyE','KeyZ','KeyC','KeyF','ShiftLeft','ShiftRight'].includes(e.code)){e.preventDefault();e.stopImmediatePropagation();}}
+  function keyup(e){if(e.code==='KeyQ')guardHeld=false;if(e.code==='KeyE'&&a)block(false);if(state.active&&!freeze()&&['KeyQ','KeyE','KeyZ','KeyC','KeyF','ShiftLeft','ShiftRight'].includes(e.code)){e.preventDefault();e.stopImmediatePropagation();}}
   function pointer(e){
     if(!state.active||freeze()||state.kind!=='visitor'||typing(e)||e.target?.closest?.('button,select,.combat-panel'))return;
     if(e.button!==0&&e.button!==2)return;e.preventDefault();e.stopImmediatePropagation();
     if(e.type==='pointerdown')attack(e.button===0?0:1);
   }
-  function blurred(){if(a)a.blocking=false;end('blur');}
+  function blurred(){guardHeld=false;guard.elapsed=0;if(a)a.blocking=false;end('blur');}
   function refreshUi(){
-    if(!panel)return;panel.hidden=!state.active;hud.hidden=!canAct();
-    if(banner)banner.hidden=!state.active||clock-enteredAt>.5;
-    if(!uiDirty&&statueButton.getAttribute('aria-pressed')===(freeze()?'true':'false'))return;
-    uiDirty=false;statueButton.setAttribute('aria-pressed',(freeze()?'true':'false'));statueButton.textContent=freeze()?'RETOMAR':'ESTÁTUAS';
-    fightButton.textContent=state.active?'SAIR DA PORRADA':'PORRADA';
-    moveSelect.value=String(selected);if(a&&b)statusText.textContent=freeze()?'Personagens em pausa':`BRIO: ${a.pride} · ${b.pride}`;
-    if(blockButton)blockButton.setAttribute('aria-pressed',(a?.blocking?'true':'false'));
+    if(!panel)return;panel.hidden=!state.active;hud.hidden=!canAct();statueButton.hidden=state.active||!enableStatues;
+    if(!uiDirty)return;
+    fightButton.textContent=state.active?'×':'🥊';fightButton.setAttribute('aria-label',state.active?'Sair da luta':'Entrar em guarda (manter Q)');
+    if(a&&b){shownA=a.pride;shownB=b.pride;
+      pillA.style.transform=`scaleX(${a.pride/100})`;pillB.style.transform=`scaleX(${b.pride/100})`;
+      lagA.style.transform=`scaleX(${shownA/100})`;lagB.style.transform=`scaleX(${shownB/100})`;
+      pillA.parentNode.setAttribute('aria-valuenow',String(a.pride));pillB.parentNode.setAttribute('aria-valuenow',String(b.pride));}
+    uiDirty=false;
   }
+
   function apologize(target){let n=typeof target==='string'?npcs.find(n=>n.S.name===target):npcModule.findActor(target);if(!n){readVisitor();let best=12.25;for(let i=0;i<npcs.length;i++){const q=npcs[i],dx=q.x-position.x,dz=q.z-position.z,d=dx*dx+dz*dz;if(q.rancor>0&&d<best){n=q;best=d;}}}if(!n||state.active||freeze())return false;if(npcModule.reconcileActor&&!npcModule.reconcileActor(n))return false;n.rancor=0;n.grudge=-Infinity;n.escalate=false;n.pestCd=60;callout('DESCULPA. Ficamos por aqui.');return true;}
   function setWeapon(kind){equipped=['carapau','paposeco','couve','jornal','chinelo','toalha','nata','luva'].includes(kind)?kind:'';return equipped;}
   function doubleCalduco(){if(!state.active||state.kind!=='visitor'||freeze()||endingAt)return false;attack(4);if(queueCount<3)queue[queueCount++]=4;return true;}
@@ -337,19 +392,17 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
   if(panel){
     cssLink=document.createElement('link');cssLink.rel='stylesheet';cssLink.href=new URL('./combat-ui.css',import.meta.url).href;document.head.append(cssLink);
     hud=document.createElement('div');hud.className='combat-hud';hud.hidden=true;hud.setAttribute('role','toolbar');hud.setAttribute('aria-label','Porrada e estátuas');statueButton=button('ESTÁTUAS',()=>statues());statueButton.setAttribute('aria-label','Estátuas: pausar personagens (X)');
-    fightButton=button('PORRADA',()=>state.active?end('exit'):nearest());statueButton.hidden=!enableStatues;hud.append(statueButton,fightButton);document.body.append(hud);
-    panel.className='combat-panel';panel.setAttribute('aria-label','Porrada');panel.hidden=true;
-    statusText=document.createElement('p');statusText.setAttribute('role','status');panel.append(statusText);banner=document.createElement('strong');banner.className='combat-banner';banner.textContent='PORRADA!';panel.append(banner);
-    const label=document.createElement('label');label.textContent='Golpe ';moveSelect=document.createElement('select');moveSelect.setAttribute('aria-label','Escolher golpe');
-    for(let i=0;i<MOVES.length;i++){const option=document.createElement('option');option.value=String(i);option.textContent=MOVES[i].label;moveSelect.append(option);}moveSelect.addEventListener('change',()=>{selected=+moveSelect.value;uiDirty=true;});label.append(moveSelect);panel.append(label);
-    const keys=document.createElement('p');keys.className='combat-keys';keys.textContent='Clique: chapada · Direito: revés · Q: golpe · Z/C: especiais · F: chinelada · E: defender · Shift: esquivar · Espaço: saltar · WASD: mover';panel.append(keys);
-    const actions=document.createElement('div');actions.className='combat-actions';actions.append(button('GOLPEAR',()=>attack(selected)));
-    blockButton=button('DEFENDER',()=>block(!a?.blocking));blockButton.setAttribute('aria-pressed','false');actions.append(blockButton,button('ESQUIVAR',dodge),button('SALTAR',()=>controls.combatJump()));panel.append(actions);document.body.append(panel);
+    fightButton=button('🥊',()=>state.active?end('exit'):nearest());fightButton.setAttribute('aria-label','Entrar em guarda (manter Q)');statueButton.hidden=!enableStatues;hud.append(statueButton,fightButton);document.body.append(hud);
+    panel.className='combat-panel';panel.setAttribute('aria-label','Brio e movimentos');panel.hidden=true;
+    function pill(label){const track=document.createElement('div');track.className='combat-pill';track.setAttribute('role','progressbar');track.setAttribute('aria-label',label);track.setAttribute('aria-valuemin','0');track.setAttribute('aria-valuemax','100');const lag=document.createElement('i'),value=document.createElement('i');lag.className='combat-pill-lag';value.className='combat-pill-value';track.append(lag,value);panel.append(track);return [value,lag];}
+    [pillA,lagA]=pill('O teu brio');[pillB,lagB]=pill('Brio do adversário');
+    const actions=document.createElement('div');actions.className='combat-actions';
+    for(const [icon,label,action] of [['✋','Chapada',()=>attack(0)],['↶','Revés',()=>attack(1)],['🛡','Defender',()=>block(!a?.blocking)],['↔','Esquivar',dodge],['↑','Saltar',()=>controls.combatJump()],['⟳','Mudar golpe',()=>{selected=(selected+1)%16;}],['⚡','Golpe escolhido',()=>attack(selected)]]){const b=button(icon,action);b.setAttribute('aria-label',label);actions.append(b);}panel.append(actions);document.body.append(panel);
     window.addEventListener('keydown',keydown,true);window.addEventListener('keyup',keyup,true);
     for(const name of ['pointerdown','pointerup','mousedown','mouseup','contextmenu'])window.addEventListener(name,pointer,true);
     window.addEventListener('blur',blurred);
   }
-  function dispose(){unsubscribeActor?.();end('dispose');if(freeze())statues(false);disposed=true;hud?.remove();panel?.remove();cssLink?.remove();stopSounds();if(typeof window!=='undefined'){window.removeEventListener('keydown',keydown,true);window.removeEventListener('keyup',keyup,true);for(const name of ['pointerdown','pointerup','mousedown','mouseup','contextmenu'])window.removeEventListener(name,pointer,true);window.removeEventListener('blur',blurred);}if(avatar){ctx.scene.remove(avatar.root);avatar.rig.mesh.geometry.dispose();avatar.rig.mesh.material.dispose();}}
+  function dispose(){unsubscribeActor?.();end('dispose');particles.dispose();if(ctx.ui?.toast===guardedToast)ctx.ui.toast=originalToast;if(freeze())statues(false);disposed=true;hud?.remove();panel?.remove();cssLink?.remove();stopSounds();if(typeof window!=='undefined'){window.removeEventListener('keydown',keydown,true);window.removeEventListener('keyup',keyup,true);for(const name of ['pointerdown','pointerup','mousedown','mouseup','contextmenu'])window.removeEventListener(name,pointer,true);window.removeEventListener('blur',blurred);}if(avatar){ctx.scene.remove(avatar.root);avatar.rig.mesh.geometry.dispose();avatar.rig.mesh.material.dispose();}}
   function getVisitorStatus(){return visitorStatus;}
   function getScriptedResult(){return scriptedResult;}
   const api={actors:npcs,getVisitorStatus,getScriptedResult,state,events,engage,startScripted,end,attack,block,dodge,statues,apologize,setWeapon,doubleCalduco,getBrio,setBrio,adjustBrio,update,renderCamera,restoreCamera,dispose};

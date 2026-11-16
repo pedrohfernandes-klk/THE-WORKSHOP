@@ -684,7 +684,7 @@ function act(found, hit) {
     if (hit && hit.distance > TALK_REACH) { ui.toast(state.viaUse ? 'Get closer to talk' : 'Get closer', 1200); return; }
     if (!state.viaUse && !coarsePointer && npcs && typeof npcs.slap === 'function') {
       if (hit && hit.distance > SLAP_REACH) { ui.toast('Too far to slap', 1200); return; }
-      if(combat){combat.engage(object);return;}
+      // An isolated click remains a first-person slap. Guard entry is explicit in combat.
       npcs.slap(object);
       player?.gesture?.('slap') || player?.gesture?.('wave');
       state.slaps = (state.slaps || 0) + 1;
