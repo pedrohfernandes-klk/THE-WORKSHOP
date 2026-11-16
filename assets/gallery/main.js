@@ -226,16 +226,55 @@ const ctx = {
   },
 };
 const interactions = createInteractions(ctx);
+function isHouseSpeechActive(){
+  const module=world?.modules.get('npcs'),actors=module?.actors||module?.combatActors;
+  if(actors)for(let i=0;i<actors.length;i++){const n=actors[i];if(n.talkT>0&&n.d2<400)return true;}
+  return false;
+}
+let houseSamples = null;
+startup.whenMoved.then(async () => {
+  const { createHouseSamples } = await import('./house-samples.js');
+  houseSamples = createHouseSamples(ctx, { isSpeaking: isHouseSpeechActive });
+  houseSamples.setMoved();
+  houseSamples.configure({ fifthSlapVoice: 'alternate', approved: true });
+}).catch(error => console.warn('[house samples]', error));
+// The announcer calls the round when a porrada starts: first, second, third, then every
+// later one is the final round. Excerpts chosen from the 95.9 s pack (phrase bounds by
+// silence detection, words checked by offline recognition at four pitch shifts).
+const ROUND_CALLS = [
+  { offset: 28.22, duration: 1.40 }, // "First round"
+  { offset: 31.73, duration: 1.56 }, // "Second round"
+  { offset: 35.32, duration: 1.38 }, // "Third round"
+  { offset: 75.28, duration: 1.50 }, // "Final round"
+];
+const roundCall = { fight: 0, calls: 0, until: 0, busy: false };
+function updateRoundCall(now) {
+  const fight = room.scene.userData.combatState;
+  if (!houseSamples || !fight) return;
+  if (fight.active && fight.id !== roundCall.fight) { roundCall.fight = fight.id; roundCall.until = now + 2.5; }
+  if (!fight.active || now > roundCall.until || roundCall.busy) return;
+  const call = ROUND_CALLS[Math.min(roundCall.calls, ROUND_CALLS.length - 1)];
+  roundCall.busy = true;
+  houseSamples.play('announcer', { manual: true, ...call, maxDelay: 0.6 }).then((played) => {
+    roundCall.busy = false;
+    if (played) { roundCall.calls++; roundCall.until = 0; }
+  }, () => { roundCall.busy = false; });
+}
 const interactionFrame = { camera };
-const interactionAbort = new AbortController();
-const interactionTimer = setTimeout(() => interactionAbort.abort(), 8000);
-const interactionMap = fetch(new URL('../data/interactions.json', import.meta.url), { signal: interactionAbort.signal })
+// The map is small but shares the start with the Hall's artwork, and on a slow device it
+// can arrive after the world stops waiting. Aborting it lost the map for good; instead the
+// world waits until at most 8 s after start, and a late map is installed when it lands.
+const interactionDeadline = performance.now() + 8000;
+const interactionMap = fetch(new URL('../data/interactions.json', import.meta.url))
   .then(r => { if (!r.ok) throw new Error('interaction map ' + r.status); return r.json(); })
-  .catch(err => { console.warn('[interactions]', err); return null; })
-  .finally(() => clearTimeout(interactionTimer));
+  .catch(err => { console.warn('[interactions]', err); return null; });
 ctx.prepareInteractions = async (built) => {
-  const data = await interactionMap;
-  if (data) interactions.installMap(built, data);
+  let timer = 0;
+  const late = new Promise((resolve) => { timer = setTimeout(resolve, Math.max(0, interactionDeadline - performance.now()), undefined); });
+  const data = await Promise.race([interactionMap, late]);
+  clearTimeout(timer);
+  if (data) { interactions.installMap(built, data); return; }
+  if (data === undefined) interactionMap.then((map) => { if (map) interactions.installMap(built, map); });
 };
 let world = null;
 const worldReady = createWorld(ctx, {
@@ -684,7 +723,7 @@ function act(found, hit) {
     if (hit && hit.distance > TALK_REACH) { ui.toast(state.viaUse ? 'Get closer to talk' : 'Get closer', 1200); return; }
     if (!state.viaUse && !coarsePointer && npcs && typeof npcs.slap === 'function') {
       if (hit && hit.distance > SLAP_REACH) { ui.toast('Too far to slap', 1200); return; }
-      if(combat){combat.engage(object);return;}
+      // An isolated click remains a first-person slap. Guard entry is explicit in combat.
       npcs.slap(object);
       player?.gesture?.('slap') || player?.gesture?.('wave');
       state.slaps = (state.slaps || 0) + 1;
@@ -1263,6 +1302,8 @@ function step() {
     (typeof speechSynthesis === 'undefined' || (!speechSynthesis.speaking && !speechSynthesis.pending));
   updateAudioListener(audio,camera);
   audio.update(dt);
+  houseSamples?.update(camera);
+  updateRoundCall(performance.now() / 1000);
   room.update(dt, camera);
   interactions.update(dt, interactionFrame);
   // Walking or turning: the depth of field fades out (it only serves stillness).

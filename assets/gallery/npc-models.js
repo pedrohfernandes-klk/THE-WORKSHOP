@@ -1,4 +1,4 @@
-// One PBR SkinnedMesh; rigid bone weights keep seams under cuffs and collars.
+// One PBR SkinnedMesh; joint blends deform sleeves, skin and trouser knees.
 // +z is forward, metres, soles y=0. Call setExpression only while awake.
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
@@ -33,20 +33,36 @@ export function buildCharacter(THREE, M, spec = {}) {
   const armRadius=clamp(spec.armRadius??(tank?.052:.067),.045,.085);
   const seam=cloth.clone().multiplyScalar(.78), sole=shoe.clone().multiplyScalar(.62);
   const seg = spec.quality === 'low' ? 10 : 14;
-  const bones = {}, ordered = [], parts = [];
+  const bones = {}, ordered = [], parts = [];let skinClothBoxes=0;
   function bone(name, parent, x=0, y=0, z=0) {
     const b = new THREE.Bone(); b.name = name; b.position.set(x,y,z);
     bones[name] = b; ordered.push(b); if (parent) parent.add(b); return b;
   }
   const pelvis = bone('pelvis', null);
   const body = bone('spine', pelvis, 0, .82*(leg-1));
-  const head = bone('head', body, 0, 1.74 + .17*(hs-1)); head.scale.setScalar(hs);
+  const headY=1.74+.17*(hs-1);
+  const neck=bone('neck',body,0,1.49);
+  const head = bone('head', neck, 0, headY-1.49); head.scale.setScalar(hs);
   const hat = bone('hat', head);
   const snoutBone=bone('snout',head);
   bones.arms = [bone('armL', body, -.3*bodyWidth,1.38), bone('armR',body,.3*bodyWidth,1.38)];
   for(const b of bones.arms)b.scale.y=clamp(spec.armLength||1,.85,1.2);
   bones.legs = [bone('legL',pelvis,-.1*bodyWidth,.82*leg),bone('legR',pelvis,.1*bodyWidth,.82*leg)];
   for (const b of bones.legs) b.scale.y=leg;
+  bones.shoulders=[];bones.elbows=[];bones.wrists=[];bones.knees=[];bones.ankles=[];
+  for(let i=0;i<2;i++){
+    const a=bones.arms[i],l=bones.legs[i];
+    const shoulder=bone(i?'shoulderR':'shoulderL',body,a.position.x,a.position.y,0);
+    shoulder.add(a);a.position.set(0,0,0);bones.shoulders.push(shoulder);
+    const elbow=bone(i?'elbowR':'elbowL',a,0,-.32,0);
+    const wrist=bone(i?'wristR':'wristL',elbow,0,-.27,0);
+    const knee=bone(i?'kneeR':'kneeL',l,0,-.40,0);
+    const ankle=bone(i?'ankleR':'ankleL',knee,0,-.34,0);
+    bones.elbows.push(elbow);bones.wrists.push(wrist);bones.knees.push(knee);bones.ankles.push(ankle);
+  }
+  bones.hair=bone('hair',head);bones.belly=bone('belly',body,0,1.03,.1);
+  const cheeks=[bone('cheekL',head,-.10,-.025,.12),bone('cheekR',head,.10,-.025,.12)];bones.cheeks=cheeks;
+
   const jaw = bone('mouth',head,0,-.075,.15);
   const brows = [bone('browL',head,-.078,.106,.172),bone('browR',head,.078,.106,.172)];
   const pupils = [bone('eyeL',head,-.078,.04,.205),bone('eyeR',head,.078,.04,.205)];
@@ -57,16 +73,35 @@ export function buildCharacter(THREE, M, spec = {}) {
   function part(g,b,c,rough=.8,x=0,y=0,z=0,sx=1,sy=1,sz=1,rz=0,rx=0) {
     if((tracksuit||wardrobe==='influencer')&&(c===cloth||c===trousers))rough=wardrobe==='tracksuit'?.82:.43;
     const m = new THREE.Matrix4().compose(new THREE.Vector3(x,y,z),new THREE.Quaternion().setFromEuler(new THREE.Euler(rx,0,rz)),new THREE.Vector3(sx*(b===body?bodyWidth:1),sy,sz));
-    pelvis.updateMatrixWorld(true); g.applyMatrix4(m); M?.boxUV?.(g); g.applyMatrix4(b.matrixWorld);
+    pelvis.updateMatrixWorld(true); g.applyMatrix4(m); M?.boxUV?.(g);
+    const local=g.attributes.position.array.slice();g.applyMatrix4(b.matrixWorld);
     const n=g.attributes.position.count;
     if(!g.index)g.setIndex(new THREE.BufferAttribute(Uint16Array.from({length:n},(_,i)=>i),1));
     if(!g.attributes.irisUV)g.setAttribute('irisUV',new THREE.BufferAttribute(new Float32Array(n*2),2));
     const col=new Float32Array(n*3), r=new Float32Array(n), ids=new Uint16Array(n*4), weights=new Float32Array(n*4);
     const bi=ordered.indexOf(b);
     for(let i=0;i<n;i++){col[i*3]=c.r;col[i*3+1]=c.g;col[i*3+2]=c.b;r[i]=rough;ids[i*4]=bi;weights[i*4]=1;}
+    // Bind-space weights keep every vertex in place, but soften joint folds.
+    const arm=bones.arms.indexOf(b),legIndex=bones.legs.indexOf(b);
+    for(let i=0;i<n;i++){
+      const y=local[i*3+1];let second=null,w=0;
+      if(arm>=0){
+        if(y<-.52){ids[i*4]=ordered.indexOf(bones.elbows[arm]);second=bones.wrists[arm];w=clamp((-.52-y)/.10,0,1);}
+        else {second=bones.elbows[arm];w=clamp((-.24-y)/.16,0,1);}
+      }else if(legIndex>=0){
+        if(y<-.67){ids[i*4]=ordered.indexOf(bones.knees[legIndex]);second=bones.ankles[legIndex];w=clamp((-.67-y)/.12,0,1);}
+        else {second=bones.knees[legIndex];w=clamp((-.31-y)/.18,0,1);}
+      }else if(b===head&&c===hair){second=bones.hair;w=.85;}else if(b===body&&(c===cloth||c===skin)&&y>.85&&y<1.30){second=bones.belly;w=.28*Math.exp(-(((y-1.06)/.18)**2));}else if(b===body&&c===skin&&y>1.42){second=neck;w=clamp((y-1.42)/.13,0,.8);}
+      else if(b===head&&g.userData?.organicFace){
+        const x=local[i*3],z=local[i*3+2];second=cheeks[x>0?1:0];
+        w=.28*Math.exp(-(((Math.abs(x)-.10)/.05)**2)-(((y+.025)/.055)**2))*clamp(z/.12,0,1);
+      }
+      if(second){ids[i*4+1]=ordered.indexOf(second);weights[i*4]=1-w;weights[i*4+1]=w;}
+    }
     // 0 cloth, 1 human skin, 2 leather, 3 hair/fur, 4 other hard surfaces.
     const surface=(b===pupils[0]||b===pupils[1]||(c===white&&rough<.25)) ? 5 : c===skin ? (human?1:3) : c===hair ? 3 : (c===shoe||c===sole) ? 2 :
       (c===cloth||c===seam||c===shirt||c===trousers||c===robeFabric||b===hat) ? 0 : 4;
+    if(g.type==='BoxGeometry'&&(surface===0||surface===1)&&(b===body||bones.arms.includes(b)||bones.legs.includes(b)))skinClothBoxes++;
     g.setAttribute('surfaceKind',new THREE.BufferAttribute(new Float32Array(n).fill(surface),1));
     const pattern=c===cloth ? (kind==='forcado'?1:wardrobe==='fan'?2:wardrobe==='neighbor'?3:robe?4:0) : 0;
     g.setAttribute('fabricPattern',new THREE.BufferAttribute(new Float32Array(n).fill(pattern),1));
@@ -76,7 +111,11 @@ export function buildCharacter(THREE, M, spec = {}) {
     parts.push(g);
   }
   const sph=(b,c,x,y,z,sx,sy,sz,rough=.65)=>part(new THREE.SphereGeometry(1,b===body||bones.arms.includes(b)||bones.legs.includes(b)?10:seg,8),b,c,rough,x,y,z,sx,sy,sz);
-  const box=(b,c,x,y,z,w,h,d,rough=.8,rz=0)=>part(new THREE.BoxGeometry(w,h,d),b,c,rough,x,y,z,1,1,1,rz);
+  const box=(b,c,x,y,z,w,h,d,rough=.8,rz=0)=>{
+    const soft=(b===body||bones.arms.includes(b)||bones.legs.includes(b)) && (rough>=.6||[cloth,seam,shirt,trousers,skin,robeFabric,shoe,sole,white].includes(c));
+    if(soft)part(new THREE.SphereGeometry(1,6,4),b,c,rough,x,y,z,w*.5,h*.5,d*.5,rz);
+    else part(new THREE.BoxGeometry(w,h,d),b,c,rough,x,y,z,1,1,1,rz);
+  };
   const cap=(b,c,x,y,z,r,len,rough=.85)=>{
     const half=len/2;
     // Shaped elbow/knee silhouette: cuffs and joints, not uninterrupted tubes.
@@ -164,7 +203,7 @@ export function buildCharacter(THREE, M, spec = {}) {
     if(kind==='bear'){x*=1+.015*Math.sin(y*61)*Math.sin(z*37);y+=.002*Math.sin(x*71+z*51);}
     fp.setXYZ(i,x,y,z);
   }
-  face.computeVertexNormals();part(face,head,skin,human?.59:.8);
+  face.userData={organicFace:true};face.computeVertexNormals();part(face,head,skin,human?.59:.8);
   if(human)for(const sign of [-1,1])sph(head,ink,sign*.022,-.057,.219,.009,.005,.008,.66);
   for(const sign of [-1,1]) {
     if(kind==='bear')sph(head,skin,sign*.151,.19,-.014,.058,.06,.032,.87);
@@ -347,7 +386,7 @@ export function buildCharacter(THREE, M, spec = {}) {
     const strapPath=[[1.30,.17],[1.43,.17],[1.50,.11],[1.53,0],[1.50,-.11],[1.43,-.17],[1.30,-.17]];
     for(const sign of [-1,1])for(let i=1;i<strapPath.length;i++) {
       const a=strapPath[i-1],b=strapPath[i],dy=b[0]-a[0],dz=b[1]-a[1];
-      part(new THREE.BoxGeometry(.055,Math.hypot(dy,dz),.016),body,cloth,.87,
+      part(new THREE.SphereGeometry(1,6,4).scale(.0275,Math.hypot(dy,dz)*.5,.008),body,cloth,.87,
         sign*.12,(a[0]+b[0])/2,(a[1]+b[1])/2,1,1,1,0,Math.atan2(dz,dy));
     }
   }
@@ -390,7 +429,7 @@ export function buildCharacter(THREE, M, spec = {}) {
   if(kind==='pig')part(new THREE.TorusGeometry(.04,.012,6,12,Math.PI*1.6),body,skin,.7,0,.95,-.21);
   hat.visible=!!hasHat;
   const hatUniform={value:hasHat?1:0};
-  const geometry=mergeGeometries(parts,false);for(const p of parts)p.dispose();geometry.clearGroups();
+  const geometry=mergeGeometries(parts,false);for(const p of parts)p.dispose();geometry.clearGroups();geometry.userData.skinClothBoxes=skinClothBoxes;
   // Clone the library PBR base, replace photographed fabric maps with sub-pixel
   // procedural weave; a single material uses per-vertex roughness for skin/eyes.
   const base=M?.get ? M.get('fabric',{color:0xffffff,roughness:.85}) : null;
@@ -492,7 +531,7 @@ export function buildCharacter(THREE, M, spec = {}) {
     jaw.rotation.z=pose?pose[9]*poseWeight:0;
     updateEyes();
   }
-  return {mesh,bones,height,mouth,eyes,hasHat,shape:[shape[0]||1,leg,hs],bodyY0:body.position.y,headY:head.position.y,
+  return {mesh,bones,height,mouth,eyes,hasHat,shape:[shape[0]||1,leg,hs],bodyY0:body.position.y,headY,
     triangles:geometry.index.count/3,
     setExpression,
     setPreset(name,weight=1){pose=EXPRESSION_PRESETS[name]||null;poseWeight=clamp(weight,0,1);setExpression(lastOpen,lastBrow);},

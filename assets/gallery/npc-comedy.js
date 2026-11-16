@@ -28,6 +28,11 @@ const GESTURE_LABELS=Object.freeze({wave:'aceno',thumbs:'polegar levantado',clap
 const ACTOR_LABELS=Object.freeze({bull:'touro',goat:'cabra',pigeon:'pombo',horse:'cavalo',cat:'gato',pig:'porco',walrus:'morsa',rooster:'galo',tortoise:'cágado',raccoon:'guaxinim',forcado:'forcado',velho:'senhor',gordo:'vizinho',mano:'mano',tio_camisola:'tio da camisola',senhor_banho:'senhor do banho',cusco_roupao:'vizinho do roupão',porco_fato:'senhor de fato',urso_treino:'urso do treino'});
 const EXCESS_FIRST = 'Olha que lhe arrebentas a tromba, bro! Para lá com isso, #%&@!';
 const EXCESS_LAST = 'Eh, calma, Zé!';
+export const EXCESS_WITNESS_LINES=Object.freeze([
+ EXCESS_FIRST,EXCESS_LAST,'assim já é demais!','Ai, que ele dá cabo do homem!',
+ 'ganda sapa, bro! hihihihi!','eia, ca estúpidos!',
+ 'LOOOOL! Hihihihihi!','LMFAOOOO! HÁ-HÁ-HÁ!'
+]);
 
 export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now: externalNow } = {}) {
   const yieldData=ctx.yieldBuild||idleSlice;
@@ -36,6 +41,7 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
   let clock=0,camera=null,active=false,sceneIndex=0,sceneLength=0,nextBeat=0,nextScene=0;
   let emitting=false,emitter=null,emissionText='',emissionCanonical='',lastGesture=null,lastSnake=null,lastPick=null,lastWeather='';
   let started=false,nextFetch=0,fetching=0,disposed=false,chainTarget=null,chainCount=0,chainAt=-Infinity,chainUsed=false;
+  let excessCursor=0;
   let mutedLast=false,laughStart=-Infinity,laughCount=0,lastPlace='',pendingExcess=null,excessExpires=0;
   let dominoEpoch=0,dominoCount=0,dominoUntil=0,dominoCooldown=0,punchPrepared=false;
   const time=()=>externalNow?externalNow()-externalOffset:clock;
@@ -51,19 +57,19 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
   function registerActor(n){
     if(byNpc.has(n))return;
     const id=n.S.name,descriptor=data.characters?.[id]||{};
-    const r={n,id,descriptor,pools:null,status:0,attempts:0,retryAt:0,request:null,requestTimer:0,pending:'',pendingUntil:0,lastEvent:-Infinity,cryUntil:0,cryAt:0,puddleUntil:0,cryPending:false,cryExpires:0,laughAt:0,fallAt:0,fallEpoch:0,lastCanonical:'',selectedText:''};
+    const r={n,id,descriptor,pools:null,status:0,attempts:0,retryAt:0,request:null,requestTimer:0,pending:'',pendingUntil:0,lastEvent:-Infinity,cryUntil:0,cryAt:0,puddleUntil:0,cryPending:false,cryExpires:0,laughAt:0,bigLaughAt:0,fallAt:0,fallEpoch:0,lastCanonical:'',selectedText:''};
     records.push(r);byNpc.set(n,r);byId.set(id,r);memory.get(id);
     n.comedyPuddle=0;
   }
   for(const n of npcs)registerActor(n);
-  function quiet(){return manualPaused||!!ctx.scene?.userData?.npcStatues||!!ctx.scene?.userData?.questQuiet;}
+  function quiet(){return manualPaused||!!ctx.scene?.userData?.npcStatues||!!(ctx.scene?.userData?.questQuiet||ctx.scene?.userData?.tramHallQuiet||ctx.scene?.userData?.combatState?.active);}
   function awake(n,range=40){if(!camera)return false;const dx=n.x-camera.position.x,dz=n.z-camera.position.z;return dx*dx+dz*dz<=range*range&&Math.abs((n.baseY||0)+1.62-camera.position.y)<2.4;}
   function available(n){return awake(n)&&!n.busy&&!(n.windT>0)&&!(n.pestT>0)&&!(n.sillyT>=0)&&!(n.talkT>0);}
   function allow(n,text){
     if(disposed||quiet()||!awake(n)||data.protectedLineContext?.[text])return false;
     if(!emitting&&!authorized.has(keyOf(text))&&byNpc.get(n)?.selectedText!==text)return false;
     if(active&&(!emitting||n!==emitter||text!==emissionText))return false;
-    if((text===EXCESS_FIRST||text===EXCESS_LAST)&&!emitting)return false;
+    if(EXCESS_WITNESS_LINES.includes(text)&&!emitting)return false;
     const record=byNpc.get(n),canonical=emitting?emissionCanonical:record?.selectedText===text?record.lastCanonical:'';
     if(canonical&&!memory.canSpeak(canonical))return false;
     if(!memory.commit(text))return false;
@@ -135,7 +141,7 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
   }
   function clearQueue(){active=false;debug.active=false;punchPrepared=false;sceneIndex=sceneLength=0;for(let i=0;i<8;i++){queue[i].n=null;queue[i].text='';}}
   function stopAudio(){for(let i=0;i<voices.length;i++){const v=voices[i];if(v){try{v.stop();}catch{}voices[i]=null;}}}
-  function cancel(){clearQueue();stopAudio();pendingExcess=null;chainTarget=null;chainCount=0;chainUsed=false;chainAt=-Infinity;dominoEpoch++;dominoCount=0;dominoUntil=0;dominoCooldown=time()+8;for(let i=0;i<records.length;i++){const r=records[i];r.pending='';r.cryPending=false;r.cryUntil=0;r.puddleUntil=0;r.laughAt=0;r.fallAt=0;r.fallEpoch=0;r.n.comedyPuddle=0;}}
+  function cancel(){clearQueue();stopAudio();pendingExcess=null;chainTarget=null;chainCount=0;chainUsed=false;chainAt=-Infinity;dominoEpoch++;dominoCount=0;dominoUntil=0;dominoCooldown=time()+8;for(let i=0;i<records.length;i++){const r=records[i];r.pending='';r.cryPending=false;r.cryUntil=0;r.puddleUntil=0;r.laughAt=0;r.bigLaughAt=0;r.fallAt=0;r.fallEpoch=0;r.n.comedyPuddle=0;}}
   function sound(n,kind='laugh'){
     if(quiet()||!awake(n,18)||ctx.audio?.muted)return true;
     let ac,bus;try{ac=ctx.audio?.context;bus=ctx.audio?.bus;}catch{return true;}
@@ -143,7 +149,7 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
     let slot=-1;for(let i=0;i<voices.length;i++)if(!voices[i]){slot=i;break;}if(slot<0)return true;
     const r=byNpc.get(n),voice=r?.descriptor.voice||{},family=voice.family||'chuckle';
     const pitch=Math.max(50,Math.min(900,Number(voice.pitch)||150));
-    const duration=kind==='bleep' ? .16 : kind==='sob' ? .45 : .65;
+    const duration=kind==='bleep' ? .16 : kind==='sob' ? .45 : kind==='biglaugh' ? .95 : .65;
     const lease=ctx.audio.acquireVoice?.({priority:kind==='bleep'?3:2,foreground:true,ms:(duration+.08)*1000});if(!lease)return true;
     let osc,gain,filter,panner;
     try{
@@ -156,7 +162,7 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
       filter.type='lowpass';filter.frequency.value=kind==='bleep'?1400:family==='murmur'?350:1800;
       const dx=n.x-camera.position.x,dz=n.z-camera.position.z,vol=.09*Math.max(0,1-Math.sqrt(dx*dx+dz*dz)/18)**2;
       gain.gain.setValueAtTime(.0001,t);
-      const count=kind==='laugh'?3:1;
+      const count=kind==='biglaugh'?5:kind==='laugh'?3:1;
       for(let i=0;i<count;i++){const beat=t+i*duration/count;gain.gain.exponentialRampToValueAtTime(Math.max(.0002,vol),beat+.025);gain.gain.exponentialRampToValueAtTime(.0001,beat+duration/count-.01);}
       panner=ac.createPanner();panner.panningModel='HRTF';panner.distanceModel='inverse';panner.refDistance=3;panner.maxDistance=18;panner.rolloffFactor=1;
       panner.positionX.value=n.x;panner.positionY.value=(n.baseY||0)+1.4;panner.positionZ.value=n.z;
@@ -180,7 +186,7 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
       const b=lines[i],r=byId.get(b.speaker);if(!r||typeof b.text!=='string'||b.score<4||data.protectedLineContext?.[b.text]||!permitted(b,null))return false;
       const text=render(b.text,r.n);if(!memory.canSpeak(b.text)||!memory.canSpeak(text))return false;
       for(let j=0;j<count;j++)if(keyOf(queue[j].text)===keyOf(text))return false;
-      const q=queue[count++];q.n=r.n;q.text=text;q.canonical=b.text;q.pause=Math.max(.4,Math.min(.8,Number(b.pause)||.6));q.domino=i===lines.length-1;
+      const q=queue[count++];q.n=r.n;q.text=text;q.canonical=b.text;q.pause=Math.max(.4,Math.min(.8,Number(b.pause)||.6));q.domino=i===lines.length-1;q.bigLaugh=false;
     }
     active=true;debug.active=true;sceneLength=count;sceneIndex=0;nextBeat=t+.4;nextScene=t+20;seenScenes.set(scene.id,t);debug.duets++;return true;
   }
@@ -227,13 +233,17 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
   function defeat(n){const r=byNpc.get(n);if(!r||quiet())return false;r.cryPending=true;r.cryExpires=time()+15;return true;}
   function excess(){
     if(!pendingExcess||active||time()>excessExpires){if(time()>excessExpires)pendingExcess=null;return;}
-    let chosen=null,best=144;
-    for(let i=0;i<records.length;i++){const r=records[i],n=r.n;if(n.S.personality!=='onlooker'||!available(n))continue;const dx=n.x-pendingExcess.x,dz=n.z-pendingExcess.z,d=dx*dx+dz*dz;if(d<best){chosen=n;best=d;}}
+    let chosen=null,best=288;
+    for(let i=0;i<records.length;i++){const r=records[i],n=r.n;if(n===pendingExcess||!available(n))continue;const dx=n.x-pendingExcess.x,dz=n.z-pendingExcess.z,d=dx*dx+dz*dz;if(d>=144)continue;const rank=d+(n.S.personality==='onlooker'?0:144);if(rank<best){chosen=n;best=rank;}}
     if(!chosen)return;
-    if(!memory.canSpeak(EXCESS_FIRST)||!memory.canSpeak(EXCESS_LAST)){pendingExcess=null;return;}
-    const q=queue[0];q.n=chosen;q.text=q.canonical=EXCESS_FIRST;q.pause=.6;q.domino=false;
-    const end=queue[1];end.n=chosen;end.text=end.canonical=EXCESS_LAST;end.pause=.6;end.domino=true;
-    active=true;debug.active=true;sceneLength=2;sceneIndex=0;nextBeat=time()+.5;nextScene=Math.max(nextScene,time()+20);pendingExcess=null;
+    let count=0;
+    for(let tries=0;tries<EXCESS_WITNESS_LINES.length&&count<2;tries++){
+      const text=EXCESS_WITNESS_LINES[excessCursor++%EXCESS_WITNESS_LINES.length];if(!memory.canSpeak(text))continue;
+      const q=queue[count++];q.n=chosen;q.text=q.canonical=text;q.pause=.6;q.domino=false;q.bigLaugh=/LOL|LMFAO|hihihihi/.test(text);
+    }
+    if(!count){pendingExcess=null;return;}queue[count-1].domino=true;
+    active=true;debug.active=true;sceneLength=count;sceneIndex=0;nextBeat=time()+.5;nextScene=Math.max(nextScene,time()+20);pendingExcess=null;
+
   }
   function fresh(stamp){const wall=externalNow?externalNow():performance.now()/1000;return typeof stamp==='number'&&Math.abs(wall-stamp)<=3;}
   function observe(){
@@ -248,7 +258,7 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
   }
   function update(dt,frame){
     camera=frame?.camera||camera;if(ctx.startup&&!ctx.startup.moved)return;
-    if(ctx.scene?.userData?.questQuiet){cancel();if(externalNow)lastExternal=externalNow();return;}
+    if(ctx.scene?.userData?.questQuiet||ctx.scene?.userData?.tramHallQuiet||ctx.scene?.userData?.combatState?.active){cancel();if(externalNow)lastExternal=externalNow();return;}
     const frozen=manualPaused||!!ctx.scene?.userData?.npcStatues;
     if(externalNow){const stamp=externalNow();if(frozen||wasPaused)externalOffset+=Math.max(0,stamp-lastExternal);lastExternal=stamp;}
     if(frozen){wasPaused=true;observe();return;}
@@ -266,6 +276,7 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
       if(r.cryPending&&t>r.cryExpires)r.cryPending=false;
       if(r.cryPending&&n.sillyT<0&&!n.busy){r.cryPending=false;r.cryAt=t;r.cryUntil=t+1.2;r.puddleUntil=t+2.4;sound(n,'sob');}
       n.comedyPuddle=t<r.puddleUntil?(ctx.reducedMotion?1:Math.min(1,(t-r.cryAt)*3)*Math.min(1,(r.puddleUntil-t)*3)):0;
+      if(r.bigLaughAt>0&&t>=r.bigLaughAt){r.bigLaughAt=0;if(available(n)&&allowLaugh(n))sound(n,'biglaugh');}
       if(r.laughAt>0&&t>=r.laughAt){r.laughAt=0;if(available(n))startLaugh(n,'',false);}
     }
     excess();
@@ -277,7 +288,8 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
     if(sceneIndex===sceneLength-1&&!punchPrepared){punchPrepared=true;const lead=ctx.audio?.preparePunchline?.()||0;if(lead>0){nextBeat=t+lead;return;}}
     emitting=true;emitter=q.n;emissionText=q.text;emissionCanonical=q.canonical;const emittedBefore=debug.emitted;try{say(q.n,q.text,false);}finally{emitting=false;}
     if(debug.emitted===emittedBefore){clearQueue();return;}
-    const last=sceneIndex===sceneLength-1,delay=Math.max(0,q.n.talkT||0)+q.pause;
+    const last=sceneIndex===sceneLength-1,delay=Math.max(0,q.n.talkT||0)+q.pause+(q.bigLaugh?1.1:0);
+    if(q.bigLaugh){const r=byNpc.get(q.n);if(r)r.bigLaughAt=t+Math.max(0,q.n.talkT||0)+.1;}
     if(last&&q.domino){
       let added=0;for(let i=0;i<records.length&&added<3;i++){const r=records[i],n=r.n;const dx=n.x-q.n.x,dz=n.z-q.n.z;if(n!==q.n&&awake(n,18)&&!n.busy&&dx*dx+dz*dz<64){r.laughAt=t+delay+added*.35;added++;}}
     }

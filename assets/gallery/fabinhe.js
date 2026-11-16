@@ -12,7 +12,7 @@ export function createFabinhe(ctx, { npcs, say } = {}) {
   const state = { active: false, paused: false, singing: false, phase: 'idle', clock: 0, elapsed: 0, lastSong: -Infinity, nextReply: 0, localVoice: '', generation: 0 };
   let camera = null, forcedPause = false, destroyed = false, songLease = null, songSource = null, whistleLease = null, utterance = null, ttsLease = null, ttsOwner = null, breathFinished = false;
   if (actor) actor.fabinhePerforming = false;
-  const quiet = () => forcedPause || !!ctx.audio?.muted || !!ctx.scene?.userData?.questQuiet || !!ctx.scene?.userData?.npcStatues;
+  const quiet = () => forcedPause || !!ctx.audio?.muted || !!(ctx.scene?.userData?.questQuiet||ctx.scene?.userData?.combatState?.active) || !!ctx.scene?.userData?.npcStatues;
   function near() { return actor && camera && (actor.x - camera.position.x) ** 2 + (actor.z - camera.position.z) ** 2 < 1600; }
   function stopOwnedSpeech() {
     const owner = ttsOwner, token = ttsLease; ttsOwner = null; ttsLease = null; utterance = null;
@@ -140,7 +140,7 @@ export function createFabinhe(ctx, { npcs, say } = {}) {
   function before(dt, frame) {
     camera = frame?.camera || camera;
     if (!actor || destroyed) return;
-    if(ctx.scene.userData.questQuiet||ctx.audio?.muted){if(state.active)cancel('quiet');state.paused=true;return;}
+    if(ctx.scene.userData.questQuiet||ctx.scene.userData.combatState?.active||ctx.audio?.muted){if(state.active)cancel('quiet');state.paused=true;return;}
     if(forcedPause||ctx.scene.userData.npcStatues){state.paused=true;return;}
     const paused = quiet();
     if (paused) { if (!state.paused || state.active) cancel('paused'); state.paused = true; return; }

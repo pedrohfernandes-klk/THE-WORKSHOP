@@ -14,6 +14,8 @@ async function buildReady(ctx) {
   const { buildCharacter, createLinePicker, createNpcEffects, mergeNpcProps }=await import('../npc-models.js');
   await afterFirstMove(ctx.startup);await idleSlice();
   const { THREE, quality } = ctx;
+  const {createReadableBubbles}=await import('../readable-bubbles.js');
+  const readableBubbles=createReadableBubbles(THREE,{renderer:ctx.renderer,userData:ctx.scene.userData});
   const sourceAudio=ctx.audio;
   const statueAudio=createStatueAudio(ctx);ctx.scene.userData.statueAudio=statueAudio;
   let npcSpeechActive=false,npcSpeechPaused=false,statuesHeld=false,npcTime=0;
@@ -369,34 +371,7 @@ async function buildReady(ctx) {
     g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
     g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
   }
-  function drawBubble(n, text) {
-    const g = n.bctx; if (!g) return;
-    g.clearRect(0, 0, BW, BH);
-    const x = 4, y = 4, w = BW - 8, h = BH - 28, r = 18;
-    g.fillStyle = 'rgba(0,0,0,0.18)';
-    g.beginPath(); rrect(g, x + 3, y + 5, w, h, r); g.fill();
-    g.fillStyle = '#ffffff'; g.strokeStyle = '#1b1b1b'; g.lineWidth = 2;
-    g.beginPath(); rrect(g, x, y, w, h, r);
-    g.moveTo(BW / 2 - 11, y + h); g.lineTo(BW / 2, BH - 5); g.lineTo(BW / 2 + 11, y + h);
-    g.fill(); g.stroke();
-    g.fillStyle = '#ffffff'; g.fillRect(BW / 2 - 9, y + h - 3, 18, 5);
-    g.fillStyle = '#161616'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    const sizes = [20, 17, 15, 13];
-    let lines = [], size = 13;
-    for (let si = 0; si < sizes.length; si++) {
-      size = sizes[si]; g.font = `600 ${size}px "Instrument Sans", sans-serif`;
-      lines = []; let cur = '';
-      for (const word of text.split(' ')) {
-        const t = cur ? cur + ' ' + word : word;
-        if (g.measureText(t).width > w - 28 && cur) { lines.push(cur); cur = word; } else cur = t;
-      }
-      lines.push(cur);
-      if (lines.length * size * 1.18 <= h - 15) break;
-    }
-    const lh = size * 1.18, y0 = y + h / 2 - ((lines.length - 1) * lh) / 2;
-    for (let i = 0; i < lines.length; i++) g.fillText(lines[i], BW / 2, y0 + i * lh);
-    n.btex.needsUpdate = true;
-  }
+  function drawBubble(n,text){n.talkT=Math.max(n.talkT,readableBubbles.setText(n,text));}
 
   const starsTex = (() => {
     if (typeof document === 'undefined') return null;
@@ -548,7 +523,7 @@ async function buildReady(ctx) {
   const effects=createNpcEffects(THREE,group,npcs,blobGeo,blobMat,starMat);
   onFont.push(()=>{for(const n of npcs)if(n.talkT>0&&n.curText)drawBubble(n,n.curText);});
   const stream=createActorStream(ctx,{slots,assemble,commit(n){
-    group.add(n.staged);delete n.staged;npcs.push(n);pickables.push(n.hit,n.root);
+    group.add(n.staged);delete n.staged;npcs.push(n);readableBubbles.register(n);pickables.push(n.hit,n.root);
     personalities.registerActor(n);comedy.registerActor(n);fabinhe.registerActor(n);
     if(n.S.name==='goat')GO=n;if(n.S.name==='pigeon')PG=n;if(n.S.name==='horse')HO=n;if(n.S.name==='cat')CA=n;if(n.S.name==='pig')PI=n;
     for(const listener of readyListeners){try{listener(n);}catch(error){console.error('NPC actor-ready listener',error);}}
@@ -1028,13 +1003,13 @@ async function buildReady(ctx) {
   }
   // A line: the bubble is redrawn on the next frame that has budget for it (flush() draws now).
   function say(n, text, withSound, up) {
-    if (ctx.scene.userData.questQuiet||ctx.scene.userData.bairroEffects?.silenceUntil>performance.now()/1000) return;
+    if (ctx.scene.userData.combatState?.active||ctx.scene.userData.tramHallQuiet||ctx.scene.userData.questQuiet||ctx.scene.userData.bairroEffects?.silenceUntil>performance.now()/1000) return;
     if (typeof text !== 'string' || !text) return;
     if (comedy && !comedy.allow(n, text)) return;
-    n.curText = text; n.talkT = Math.min(5, Math.max(2.2, 1.4 + text.length * 0.06)); n.armUp = up || 1.7;
+    n.curText = text; n.talkT = readableBubbles.setText(n,text); n.armUp = up || 1.7;
     if (n.near2) { const A = ctx.audio; if (A && typeof A.duck === 'function') { try { A.duck(n.talkT); } catch (e) { /* no score */ } } }
     personalities?.onEvent('speech', n);
-    n.dirty = true; n.bubble = Math.min(n.bubble, 0.55); n.mutterCd = 14;
+    n.dirty = false; n.bubble = Math.min(n.bubble, 0.55); n.mutterCd = 14;
     if (withSound) noise(n);
     if (text.indexOf('#%&@') >= 0) { if (comedy) comedy.sound(n, 'bleep'); else sfx(n, 'bip'); }              // bleeped, like the censored gestures
     else speakMaybe(n, text);
@@ -1045,7 +1020,7 @@ async function buildReady(ctx) {
   function go(n, x, z, sp, t) { n.goOn = true; n.gx = x; n.gz = z; n.gsp = sp; n.goT = t; }
   function bark(n) {
     const gap = 0.2 + Math.random() * 0.07;
-    say(n, BARK_TXT, false); n.talkT = 2.2;
+    say(n, BARK_TXT, false); n.talkT = Math.max(n.talkT,2.2);
     n.jerk = 1; n.jerkAt = gap; n.barkCd = 28 + Math.random() * 30;
     barkSound(n, gap);
   }
@@ -1297,15 +1272,16 @@ async function buildReady(ctx) {
   }
   function update(dt, frame) {
     stream.update(frame);
-    if (ctx.audio?.muted || ctx.scene.userData.questQuiet) stopSignatureSpeech();
+    if (ctx.audio?.muted || ctx.scene.userData.questQuiet || ctx.scene.userData.combatState?.active) stopSignatureSpeech();
     if (!frame?.camera) return;
     statueAudio.update(frame.camera);statueDirector.update(dt,frame.camera);
     fabinhe.before(dt,frame);
     npcFrame.camera=frame.camera;npcFrame.level=frame.level;npcFrame.weather=frame.weather;
-    if(ctx.scene.userData.npcStatues){setStatues(true);comedy.update(0,npcFrame);effects.update(frame.camera,starMat.rotation);return;}
+    if(ctx.scene.userData.npcStatues){setStatues(true);comedy.update(0,npcFrame);effects.update(frame.camera,starMat.rotation);readableBubbles.update(frame.camera);return;}
     setStatues(false);npcTime+=Math.min(.1,Math.max(0,dt));npcFrame.time=npcTime;
     try { comedy.update(dt,npcFrame);personalities.before(dt,npcFrame);step(dt,npcFrame);personalities.after(dt,npcFrame);fabinhe.after(dt,npcFrame);comedy.after();effects.update(frame.camera,starMat.rotation); }
     catch (err) { warnOnce('update', err); }
+    readableBubbles.update(frame.camera);
   }
 
   // The visitor's cheeky gestures (written by main.js); react once per new event.
@@ -1841,19 +1817,7 @@ async function buildReady(ctx) {
       const ha = -hh * Math.sin(roll), hb = hh * Math.cos(roll), hc = hb * Math.sin(tilt);
       const cy = Math.cos(yawR), sy = Math.sin(yawR);
       const hx = n.x + ha * cy + hc * sy, hy = rootY + hb * Math.cos(tilt), hz = n.z - ha * sy + hc * cy;
-      // bubble (redraws are budgeted; the bubble follows the head, also on the floor)
-      if (n.talkT > 0) n.bubble = n.talkT < 0.3 ? Math.max(0, n.talkT / 0.3) : Math.min(1, n.bubble + rawDt * 6);
-      if (n.dirty && n.talkT > 0 && budget > 0 && d2 < 1600) { drawBubble(n, n.curText); n.dirty = false; budget--; }
-      else if (n.dirty && n.talkT <= 0) n.dirty = false;
-      if (n.sprite) {
-        const showB = n.talkT > 0 && !n.dirty;
-        if (n.sprite.visible !== showB) n.sprite.visible = showB;
-        if (showB) {
-          const k = n.bubble * (1 + 0.06 * Math.sin(n.bubble * 3.14));
-          n.sprite.scale.set(1.6 * k + 0.001, 0.8 * k + 0.001, 1);
-          n.sprite.position.set(hx, Math.max(hy + n.bOff, 0.9), hz);
-        }
-      }
+      // Screen-space layout is shared, after every actor has updated.
       const st = down && !n.rofl && n.sillyT < n.sillyDur * 0.85;
       if (n.stars.visible !== st) n.stars.visible = st;
       if (st) n.stars.position.set(hx, hy + 0.3 * n.hs * n.sz, hz);

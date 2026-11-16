@@ -25,7 +25,7 @@ test('W3 every model has one mesh, valid normalized skin weights and bounded geo
     const a=rig.mesh.geometry.attributes;
     for(let i=0;i<a.position.count;i++){
       assert.ok(Number.isFinite(a.position.getX(i))&&Number.isFinite(a.position.getY(i))&&Number.isFinite(a.position.getZ(i)));
-      assert.equal(a.skinWeight.getX(i)+a.skinWeight.getY(i)+a.skinWeight.getZ(i)+a.skinWeight.getW(i),1);
+      assert.ok(Math.abs(a.skinWeight.getX(i)+a.skinWeight.getY(i)+a.skinWeight.getZ(i)+a.skinWeight.getW(i)-1)<1e-6, "Float32 blended weights normalize within storage precision");
       assert.ok(a.skinIndex.getX(i)<rig.mesh.skeleton.bones.length);
     }
     rig.setExpression(1,1);rig.eyes.setLook(1,-1);assert.ok(rig.mouth.bone.scale.y>1);
