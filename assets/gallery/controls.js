@@ -273,7 +273,7 @@ export function createControls(camera, dom, opts = {}) {
       return;
     }
     if (e.code === 'KeyE' && !e.repeat) { if (typeof controls.onUse === 'function') controls.onUse(); return; }
-    if ((/^Digit[1-9]$/.test(e.code) || e.code === 'KeyG') && !e.repeat) {
+    if ((/^Digit[0-9]$/.test(e.code) || e.code === 'KeyG' || e.code === 'KeyB') && !e.repeat) {
       if (typeof controls.onGesture === 'function') controls.onGesture(e.code);
       return;
     }

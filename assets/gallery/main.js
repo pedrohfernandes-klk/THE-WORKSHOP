@@ -24,6 +24,7 @@ import { gateHallCampus } from './mirror-campus-gate.js';
 import { createInteractions } from './interactions.js';
 import { createLightPool } from './light-pool.js';
 import { createFirstMinute } from './first-minute.js';
+import { createBursts } from './comic-bursts.js';
 
 // Canvas roundRect arrived in Safari 16; NPC speech bubbles and the poster use it.
 if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
@@ -473,7 +474,8 @@ const crosshair = document.getElementById('crosshair');
 import('./player.js').then((m) => {
   player = m.createPlayer(camera, { reducedMotion, audio });
   // Every gesture, from any caller, is published for the world (NPCs react).
-  player.onGestureStart = (name) => { room.scene.userData.lastGesture = { name, time: performance.now() / 1000 }; };
+  // The double pirete counts as a pirete for the people watching.
+  player.onGestureStart = (name) => { room.scene.userData.lastGesture = { name: name === 'pirete_duplo' ? 'pirete' : name, time: performance.now() / 1000 }; };
   room.scene.add(camera);
   if (player.group && !player.group.parent) camera.add(player.group);
 }).catch(() => { /* gestures are optional */ });
@@ -576,15 +578,72 @@ controls.onUse = () => {
   state.viaUse = true;   // E talks; a click slaps
   try { controls.onTap?.(innerWidth / 2, innerHeight / 2); } finally { state.viaUse = false; }
 };
-// 8 and 9 are the two cheeky ones (censored on screen): never picked by G.
-const GESTURE_KEYS = { Digit1: 'wave', Digit2: 'thumbs', Digit3: 'clap', Digit4: 'point', Digit5: 'shrug', Digit6: 'dance', Digit7: 'peace', Digit8: 'manguito', Digit9: 'pirete' };
+// 8, 9 and 0 are the cheeky ones (censored on screen): never picked by G. B shouts.
+const GESTURE_KEYS = { Digit1: 'wave', Digit2: 'thumbs', Digit3: 'clap', Digit4: 'point', Digit5: 'shrug', Digit6: 'dance', Digit7: 'peace', Digit8: 'manguito', Digit9: 'pirete', Digit0: 'pirete_duplo' };
 controls.onGesture = (code) => {
+  if (code === 'KeyB') { shout(); return; }
   if (!player) return;
   const list = ['wave', 'thumbs', 'clap', 'point', 'shrug', 'dance', 'peace'];
   const name = code === 'KeyG' ? list[Math.floor(Math.random() * list.length)] : GESTURE_KEYS[code];
   if (!name) return;
   player.gesture(name);   // player.onGestureStart publishes it to the world
 };
+
+// ---- SAPAS!: every slap lands with a comic word over the face; a streak on the same face grows
+// into a CHAPADÃO. The visitor can also provoke: manguito, pirete, double pirete, and a shout.
+const bursts = createBursts({ reducedMotion });
+const slapStreak = { n: null, count: 0, at: -1 };
+const headScreen = new THREE.Vector3();
+function sapas(n) {
+  const now = performance.now() / 1000;
+  if (!n) { bursts.pop('SAPAS!', innerWidth / 2, innerHeight * 0.42, { size: 1 }); return; }
+  slapStreak.count = slapStreak.n === n && now - slapStreak.at < 2.6 ? slapStreak.count + 1 : 1;
+  slapStreak.n = n; slapStreak.at = now;
+  headScreen.set(n.x, (n.baseY || 0) + (n.S?.top || 1.9) * 0.92, n.z).project(camera);
+  if (headScreen.z > 1) return;   // behind the camera
+  const x = (headScreen.x * 0.5 + 0.5) * innerWidth, y = (-headScreen.y * 0.5 + 0.5) * innerHeight;
+  const k = slapStreak.count;
+  bursts.pop(k >= 3 ? 'CHAPADÃO' + '!'.repeat(Math.min(5, k)) : k === 2 ? 'SAPAS!!' : 'SAPAS!', x, y - 24, { size: Math.min(2.1, 0.9 + 0.35 * k), color: k >= 3 ? '#ff6b3d' : '#ffd84a' });
+}
+// The shout: the owner's own recording when it is free, else the browser's voice, and a bleep
+// over the swear; people nearby take it like a pirete.
+function shoutBleep(at = 0.55) {
+  const ac = audio.context; if (!ac || audio.muted || ac.state !== 'running') return;
+  const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime + at;
+  o.type = 'sine'; o.frequency.value = 1000; g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.09, t + 0.01); g.gain.setValueAtTime(0.09, t + 0.32); g.gain.linearRampToValueAtTime(0.0001, t + 0.36);
+  o.connect(g); g.connect(audio.bus || ac.destination); o.start(t); o.stop(t + 0.4); o.onended = () => { o.disconnect(); g.disconnect(); };
+}
+let lastShout = -10;
+function shout() {
+  if (!state.entered || state.overlay) return;
+  const now = performance.now() / 1000; if (now - lastShout < 1.2) return; lastShout = now;
+  bursts.pop('CALA-TEEEE, #%&@!', innerWidth / 2, innerHeight * 0.36, { size: 1.5, color: '#ff5a3c', tilt: -4 });
+  room.scene.userData.lastGesture = { name: 'pirete', time: now };
+  if (audio.muted) return;
+  const samples = room.scene.userData.houseSamples;
+  Promise.resolve(samples?.play?.('voice', { manual: true })).then((played) => {
+    if (played) return;
+    if (typeof speechSynthesis === 'undefined' || typeof SpeechSynthesisUtterance === 'undefined' || speechSynthesis.speaking || room.scene.userData.ttsOwner) { shoutBleep(0.05); return; }
+    const voices = speechSynthesis.getVoices(), voice = voices.find((v) => /^pt[-_]PT$/i.test(v.lang)) || voices.find((v) => /^pt/i.test(v.lang)) || null;
+    const u = new SpeechSynthesisUtterance('Cala-teeeee!'); if (voice) { u.voice = voice; u.lang = voice.lang; } else u.lang = 'pt-PT';
+    u.pitch = 1.25; u.rate = 0.95; u.volume = 0.9; speechSynthesis.speak(u); shoutBleep(0.75);
+  }).catch(() => shoutBleep(0.05));
+}
+// The choice, on screen (and on touch): a hand button that opens the four provocations.
+{
+  const wrap = document.createElement('div'); wrap.className = 'taunts';
+  Object.assign(wrap.style, { position: 'fixed', right: '12px', top: '64px', zIndex: '36', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' });
+  const mk = (label, aria) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.setAttribute('aria-label', aria);
+    Object.assign(b.style, { minWidth: '44px', minHeight: '44px', padding: '0 12px', border: '1px solid #eee7d8', borderRadius: '22px', background: '#181a20', color: '#fff7e7', font: "700 15px/1 system-ui, sans-serif", cursor: 'pointer', touchAction: 'manipulation' }); return b; };
+  const open = mk('🤌', 'Provocar'), menu = document.createElement('div');
+  Object.assign(menu.style, { display: 'none', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' });
+  const items = [['Manguito · 8', () => player?.gesture?.('manguito')], ['Pirete · 9', () => player?.gesture?.('pirete')], ['Pirete duplo · 0', () => player?.gesture?.('pirete_duplo')], ['CALA-TE! · B', () => shout()]];
+  for (const [label, run] of items) { const b = mk(label, label.split(' · ')[0]); b.addEventListener('click', (e) => { e.stopPropagation(); run(); menu.style.display = 'none'; }); menu.appendChild(b); }
+  open.addEventListener('click', (e) => { e.stopPropagation(); menu.style.display = menu.style.display === 'none' ? 'flex' : 'none'; });
+  wrap.append(open, menu); document.body.appendChild(wrap);
+  const sync = () => { wrap.style.display = state.entered && !state.overlay && !state.exhibitionOpen && !room.scene.userData.combatState?.active ? 'flex' : 'none'; };
+  setInterval(sync, 400); sync();
+}
 
 // With the mouse captured, the crosshair says what E / click will do.
 let centreClock = 0;
@@ -745,6 +804,7 @@ function act(found, hit) {
       npcs.slap(object);
       player?.gesture?.('slap') || player?.gesture?.('wave');
       state.slaps = (state.slaps || 0) + 1;
+      sapas(npcs.findActor?.(object));
       return;
     }
     world.pick(object);
@@ -1202,6 +1262,7 @@ function step() {
   controls.transportCarrier?.(tramRide?.carrier);
   combat?.update(dt);
   lightPool.update(camera, dt);
+  bursts.update(dt);
   firstMinute.update({ entered: state.entered, inHall: !!state.inHall, slaps: state.slaps || 0, busy: !!(state.overlay || state.exhibitionOpen || room.scene.userData.combatState?.active) });
   const tramImpulse = room.scene.userData.tramImpulse;
   if (tramImpulse && tramImpulse.sequence !== tramImpulseSequence) {

@@ -1,6 +1,7 @@
 // Walkable carriage. Campus actors remain owned by npcs; no actors are spawned.
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createTramScore } from '../commuter-score.js';
+import { reserveModuleVoice, finishModuleVoice } from '../audio-lease.js';
 const STOPS=[
   {id:'campus',x:86,z:29,y:.35,boardX:83.8,boardZ:29},
   {id:'mercado',x:115,z:37,y:.35,boardX:112.8,boardZ:37},
@@ -13,11 +14,18 @@ const PI=Math.PI,Ln=(x0,z0,x1,z1)=>({l:[x0,z0,x1,z1]}),Ar=(cx,cz,r,a0,a1)=>({a:[
 const M_SOUTH=Ar(96,42,10,PI,PI/2),M_STEM=Ln(94,52,105,52),M_TURN=Ar(105,42,10,PI/2,0),M_END=Ln(115,42,115,28),M_WYE=Ar(94,60,8,-PI/2,-PI);
 const G_TURN=Ar(78,60,8,0,PI/2),G_WEST=Ln(78,68,40,68),G_NORTH=Ar(40,76,8,-PI/2,-PI),G_END=Ln(32,76,32,91);
 const NEW_TRACK=[M_SOUTH,M_STEM,M_TURN,M_END,M_WYE,G_TURN,G_WEST,G_NORTH,G_END];
+// The light-rail's loop (metro.js: rounded rectangle x -84..86, z -56..98, radius 22, flat rail
+// base -0.04..-0.03 all round, tunnel on the north straight), in its own direction of travel.
+const R22=22,L_NE=Ar(64,76,R22,0,PI/2),L_NORTH=Ln(64,98,-62,98),L_NW=Ar(-62,76,R22,PI/2,PI),L_WEST=Ln(-84,76,-84,-34),L_SW=Ar(-62,-34,R22,PI,1.5*PI),L_SOUTH=Ln(-62,-56,64,-56),L_SE=Ar(64,-34,R22,-PI/2,0);
+const LOOP_CCW=[[L_NE],[L_NORTH],[L_NW],[L_WEST],[L_SW],[L_SOUTH],[L_SE]],LOOP_CW=[[L_SE,1],[L_SOUTH,1],[L_SW,1],[L_WEST,1],[L_NW,1],[L_NORTH,1],[L_NE,1]];
 // Legs from stop to stop: [piece, reversed]; sub-lines are written out where a leg uses part of one.
+// Campus to Mercado goes the long way: once round the whole campus, through the tunnel, then
+// past the campus stop again and onto the Mercado spur. Marginal to Campus goes round the other
+// way and passes the campus stop without stopping first. Mercado to Marginal stays direct.
 const LEGS=[
-  [[Ln(86,29,86,42)],[M_SOUTH],[Ln(96,52,105,52)],[M_TURN],[Ln(115,42,115,37)]],
+  [[Ln(86,29,86,76)],...LOOP_CCW,[Ln(86,-34,86,42)],[M_SOUTH],[Ln(96,52,105,52)],[M_TURN],[Ln(115,42,115,37)]],
   [[Ln(115,37,115,42)],[M_TURN,1],[Ln(105,52,94,52)],[M_WYE],[G_TURN],[G_WEST],[G_NORTH],[Ln(32,76,32,81)]],
-  [[Ln(32,81,32,76)],[G_NORTH,1],[G_WEST,1],[G_TURN,1],[Ln(86,60,86,29)]]
+  [[Ln(32,81,32,76)],[G_NORTH,1],[G_WEST,1],[G_TURN,1],[Ln(86,60,86,-34)],...LOOP_CW,[Ln(86,76,86,29)]]
 ];
 function samplePiece(piece,step,out,reversed=false){
   const pts=[];
@@ -42,8 +50,8 @@ function trackTable(pts){
 const CURVE_WEIGHT=22;
 // Accelerate over the first fifth, cruise, brake over the last fifth (peak 1.25× the mean speed).
 const RAMP=.2,easeTrip=u=>u<RAMP?u*u/(2*RAMP*(1-RAMP)):u>1-RAMP?1-(1-u)*(1-u)/(2*RAMP*(1-RAMP)):(u-RAMP/2)/(1-RAMP);
-// The two long legs get a little more time (the commuter tests allow up to 21.8 s of travel).
-const LEG_SECONDS=[18,21,20];
+// Seconds per leg: the two tours of the campus are about 670 m and 710 m (~11 m/s on average).
+const LEG_SECONDS=[60,21,62];
 function costToDistance(t,cost){
   cost=Math.max(0,Math.min(t.cost,cost));let lo=0,hi=t.n-1;while(hi-lo>1){const m=(lo+hi)>>1;if(t.c[m]<=cost)lo=m;else hi=m;}
   const span=t.c[hi]-t.c[lo];return t.s[lo]+(span>0?(cost-t.c[lo])/span:0)*(t.s[hi]-t.s[lo]);
@@ -71,13 +79,16 @@ export function build(ctx){
   // Doors on both sides: on the return legs the car runs backward without turning, as a
   // bidirectional tram does, so either side may face the platform.
   const doorCol=localBox(-1.64,-1.46,-1.2,1.2),doorColR=localBox(1.46,1.64,-1.2,1.2);localColliders.push(doorCol,doorColR);
-  box(0,3.2,.2,8.3,0,.25,0,0x7f7770);box(0,3.2,.12,8.3,0,2.95,0);
-  box(0,3.2,.52,.12,0,.61,-4.1);box(0,3.2,.52,.12,0,.61,4.1);
+  // Livery: the yellow and cream of a Lisbon electric outside, wood inside, a dark skirt over the rails.
+  const YELLOW=0xf2b81c,CREAM=0xf3ead2,WOOD=0x9c6b3f,SKIRT=0x262626,ROOF=0xe8e3d6;
+  box(0,3.2,.2,8.3,0,.25,0,0x7f7770);box(0,3.2,.12,8.3,0,2.95,0,ROOF);
+  box(0,3.2,.52,.12,0,.61,-4.1,YELLOW);box(0,3.2,.52,.12,0,.61,4.1,YELLOW);
+  for(const x of [-1.62,1.62])box(0,.05,.13,8.3,x,.115,0,SKIRT);for(const z of [-4.17,4.17])box(0,3.2,.13,.05,0,.115,z,SKIRT);
   for(const x of [-1.56,1.56]){
-    for(const z of [-2.65,2.65]){box(0,.12,.72,2.9,x,.81,z,0xd6c5a9);box(0,.12,.22,2.9,x,2.78,z);}
+    for(const z of [-2.65,2.65]){box(0,.06,.72,2.9,x+(x>0?.03:-.03),.81,z,YELLOW);box(0,.06,.72,2.9,x-(x>0?.03:-.03),.81,z,WOOD);box(0,.12,.22,2.9,x,2.78,z,CREAM);}
     for(const z of [-4.04,-1.18,1.18,4.04])box(0,.12,1.86,.12,x,1.94,z,0x73655b);
   }
-  for(const z of [-4.06,4.06]){box(0,.8,1.85,.1,-1.2,1.92,z);box(0,.8,1.85,.1,1.2,1.92,z);box(0,1.6,.25,.1,0,2.78,z);}
+  for(const z of [-4.06,4.06]){box(0,.8,1.85,.1,-1.2,1.92,z,YELLOW);box(0,.8,1.85,.1,1.2,1.92,z,YELLOW);box(0,1.6,.25,.1,0,2.78,z,CREAM);}
   const seats=[];
   for(const x of [-1.08,1.08])for(const z of [-2.75,2.75]){
     box(1,.62,.13,1.65,x,.81,z);box(1,.1,.65,1.65,x+(x<0?-.28:.28),1.1,z);
@@ -139,6 +150,10 @@ export function build(ctx){
   const doors=new THREE.InstancedMesh(new THREE.BoxGeometry(.075,2.3,1.15),materials[2],4);M.boxUV(doors.geometry);car.add(doors);doors.userData.action={type:'custom',label:'PARTIR'};pickables.push(doors);
   const bags=new THREE.InstancedMesh(new THREE.BoxGeometry(.36,.46,.22),M.get('leather',{color:0x6a4633,roughness:.7}),2);M.boxUV(bags.geometry);car.add(bags);
   const warm=M.get('plaster',{color:0xffe6bb,roughness:.55}).clone();warm.emissive.setHex(0xffc785);warm.emissiveIntensity=.45;
+  // Headlamps (white) and tail lamps (red) on both ends; emissive, no real lights.
+  {const head=M.get('plaster',{color:0xffffff,roughness:.3}).clone();head.emissive.setHex(0xfff4d8);head.emissiveIntensity=1.6;
+   const tail=M.get('plaster',{color:0xb01818,roughness:.4}).clone();tail.emissive.setHex(0xff2010);tail.emissiveIntensity=1.2;
+   for(const z of [-4.13,4.13])for(const x of [-1.05,1.05]){const h=new THREE.Mesh(new THREE.CylinderGeometry(.11,.11,.05,14),head);h.rotation.x=PI/2;h.position.set(x,.72,z);car.add(h);const t=new THREE.Mesh(new THREE.BoxGeometry(.16,.09,.04),tail);t.position.set(x*.62,.72,z);car.add(t);}}
   const lamp=new THREE.Mesh(new THREE.BoxGeometry(.16,.025,6.5),warm);M.boxUV(lamp.geometry);lamp.position.set(0,2.86,0);car.add(lamp);lamp.userData.action={type:'custom',label:'PARTIR'};pickables.push(lamp);
   const dynamicRegion={minX:84.5,maxX:87.5,minZ:25,maxZ:33,y:.35};regions.push(dynamicRegion);
   const globalBoxes=localColliders.map(()=>localBox(0,0,0,0));colliders.push(...globalBoxes);
@@ -148,7 +163,7 @@ export function build(ctx){
   const eventState=ctx.scene.userData.lastTramEvent={type:'',sequence:0,tripId:0,value:null};
   const impulse=ctx.scene.userData.tramImpulse={sequence:0,x:0,z:0,duration:.3};
   const carrier={x:86,z:29,yaw:0,fromX:86,fromZ:29,fromYaw:0,riding:false,localWorld:{regions:localRegions,colliders:localColliders}};
-  let stationIndex=0,nextStation=1,phase='docked',phaseTime=0,tripId=0,travelTime=0,travelProgress=0,smallUntil=0,route=LEG_TABLES[0],routeLength=0,facing=1,finalFrom=0;
+  let stationIndex=0,nextStation=1,phase='docked',phaseTime=0,tripId=0,travelTime=0,travelProgress=0,smallUntil=0,route=LEG_TABLES[0],routeLength=0,facing=1,finalFrom=0,lastDistance=0,speed=0,curveRoll=0,saidMid=0,passedCampus=false;
   const trackPoint={x:0,z:0,tx:0,tz:1};
   let readVisitor=null;const visitorPosition={x:86,y:1.97,z:29};
   function readVisitorPosition(){if(readVisitor)readVisitor(visitorPosition);else if(camera){visitorPosition.x=camera.position.x;visitorPosition.y=camera.position.y;visitorPosition.z=camera.position.z;}return visitorPosition;}
@@ -166,6 +181,26 @@ export function build(ctx){
     token.onRelease=()=>{if(announcement===utterance){speechSynthesis.cancel();announcement=null;announcementVoice=null;}};
     utterance.onend=utterance.onerror=()=>{if(announcement===utterance){announcement=null;announcementVoice=null;}token.release();};ctx.audio?.duck?.(6);speechSynthesis.speak(utterance);
   }
+  // The voice of the line: dry, a bit unhinged, always in pt-PT.
+  const NAME={campus:'Campus',mercado:'Mercado',marginal:'Marginal'};
+  const DEPART={mercado:['Próxima paragem: Mercado, pelo caminho mais comprido. Damos a volta ao campus todo, porque sim.','Próxima paragem: Mercado. Segurem-se: hoje vamos pelo túnel, e o maquinista bebeu três bicas.'],
+    marginal:['Próxima paragem: Marginal. É proibido dar chapadas ao maquinista.','Próxima paragem: Marginal. Os influencers sentam-se à janela, por causa da luz.'],
+    campus:['Próxima paragem: Campus, com volta ao quarteirão. Os stories agradecem.','Próxima paragem: Campus. Este elétrico não tem pressa. Tem é estilo.']};
+  const MID=['Informamos que há carteiristas a bordo. E influencers. Escolham o mal menor.','Validem os bilhetes. Ninguém está a ver, mas o pombo está.','Senhores passageiros: o túnel não é um portal. Ou é.','Por favor, não alimentem o maquinista.','Lembramos que os assentos são para pessoas, não para mochilas, nem para egos.'];
+  const ARRIVE={campus:'Paragem: Campus. Saída pelo lado da plataforma. O outro lado não abre, não insistam.',mercado:'Paragem: Mercado. Cuidado com os tremoços e com quem os filma.',marginal:'Paragem: Marginal. Vista para o canal, sem custos adicionais.'};
+  const pick=(list,k)=>list[(k%list.length+list.length)%list.length];
+  // "Dlim-dlim": two bell strikes from the car (sine partials with a long ring), through the voice broker.
+  function bell(){
+    const ac=ctx.audio?.context;if(!ac||quiet)return;
+    const lease=reserveModuleVoice(ctx,3,true,1.3,ctx.audio.bus);if(!lease)return;
+    try{
+      const p=ac.createPanner();p.panningModel='HRTF';p.distanceModel='inverse';p.refDistance=3;p.maxDistance=60;p.positionX.value=carrier.x;p.positionY.value=2.6;p.positionZ.value=carrier.z;
+      lease.gain.disconnect();lease.gain.connect(p);p.connect(ctx.audio.bus);
+      const t=Math.max(ac.currentTime,lease.startAt);let last=null;
+      for(const [k,at] of [[0,0],[1,.28]])for(const [f,lv] of [[1318.5,.11],[2637,.045],[3951,.02]]){const o=ac.createOscillator(),g=ac.createGain();o.type='sine';o.frequency.value=f*(k?1.002:1);g.gain.setValueAtTime(.0001,t+at);g.gain.linearRampToValueAtTime(lv,t+at+.004);g.gain.exponentialRampToValueAtTime(.0001,t+at+.95);o.connect(g);g.connect(lease.gain);lease.track(o);o.start(t+at);o.stop(t+at+1);last=o;o.addEventListener('ended',()=>{o.disconnect();g.disconnect();},{once:true});}
+      if(last){finishModuleVoice(lease,last);last.addEventListener('ended',()=>p.disconnect(),{once:true});}
+    }catch{lease.release();}
+  }
   function emit(type,value){eventState.type=type;eventState.sequence++;eventState.tripId=tripId;eventState.value=value;if(ctx.events?.dispatchEvent&&typeof CustomEvent!=='undefined')ctx.events.dispatchEvent(new CustomEvent('workshop',{detail:{type,value}}));}
   function contains(x,z,pad=0){const dx=x-carrier.x,dz=z-carrier.z,c=Math.cos(carrier.yaw),s=Math.sin(carrier.yaw);const lx=c*dx-s*dz,lz=s*dx+c*dz;return Math.abs(lx)<1.48-pad&&Math.abs(lz)<3.98-pad;}
   // The car keeps its own facing; on a leg that starts against it, it runs backward along the rails.
@@ -175,7 +210,7 @@ export function build(ctx){
     readVisitorPosition();if(!contains(visitorPosition.x,visitorPosition.z)||Math.abs(visitorPosition.y-1.97)>1.6){ctx.ui?.toast?.('Entre pela porta aberta.');return false;}
     if(candidates)for(const n of candidates){if(passengers.indexOf(null)<0)break;if(!n.combatControlled&&!n.busy&&!n.S.seated)api.board(n);}
     nextStation=(stationIndex+1)%3;
-    configureRoute();tripId++;phase='closing';phaseTime=0;travelTime=0;travelProgress=0;finalFrom=0;smallUntil=0;incident=climax=fightStarted=rideSurvived=false;visitorWasInside=true;score.arm();score.doorClose();tramMusic.mode='journey';announce('Próxima paragem: '+STOPS[nextStation].id+'.');return true;
+    configureRoute();tripId++;phase='closing';phaseTime=0;travelTime=0;travelProgress=0;finalFrom=0;smallUntil=0;incident=climax=fightStarted=rideSurvived=false;visitorWasInside=true;score.arm();score.doorClose();tramMusic.mode='journey';announce(pick(DEPART[STOPS[nextStation].id],tripId));saidMid=0;passedCampus=false;lastDistance=0;speed=0;return true;
   }
   function pose(){
     car.position.set(carrier.x,0,carrier.z);car.rotation.y=carrier.yaw;
@@ -183,7 +218,8 @@ export function build(ctx){
     dynamicRegion.minX=carrier.x-1.48*ax-4*az;dynamicRegion.maxX=carrier.x+1.48*ax+4*az;dynamicRegion.minZ=carrier.z-1.48*az-4*ax;dynamicRegion.maxZ=carrier.z+1.48*az+4*ax;
     for(let i=0;i<localColliders.length;i++){const a=localColliders[i],b=globalBoxes[i],lx=(a.minX+a.maxX)/2,lz=(a.minZ+a.maxZ)/2,hx=(a.maxX-a.minX)/2,hz=(a.maxZ-a.minZ)/2,x=carrier.x+c*lx+s*lz,z=carrier.z-s*lx+c*lz;b.minX=x-ax*hx-az*hz;b.maxX=x+ax*hx+az*hz;b.minZ=z-az*hx-ax*hz;b.maxZ=z+az*hx+ax*hz;b.minY=a.minY;b.maxY=a.maxY;}
     for(let i=0;i<seats.length;i++){const p=seatPositions[i],seat=seats[i];seat.x=carrier.x+c*p[0]+s*p[1];seat.z=carrier.z-s*p[0]+c*p[1];seat.facing[0]=p[0]<0?c:-c;seat.facing[1]=p[0]<0?-s:s;}
-    for(let i=0;i<2;i++){dummy.position.set(-1.59,1.55,(i?1:-1)*(.59+doorOpen*1.18));dummy.rotation.set(0,0,0);dummy.updateMatrix();doors.setMatrixAt(i,dummy.matrix);dummy.position.set((i?.55:-.55)+(ctx.reducedMotion?0:Math.max(0,smallUntil-lastTime)*.06),.59,i?3.5:-3.5);dummy.rotation.set(0,0,ctx.reducedMotion?0:Math.sin(Math.max(0,accelUntil-lastTime)*6)*.13);dummy.updateMatrix();bags.setMatrixAt(i,dummy.matrix);}for(let i=0;i<2;i++){dummy.position.set(1.59,1.55,(i?1:-1)*(.59+doorOpen*1.18));dummy.rotation.set(0,0,0);dummy.updateMatrix();doors.setMatrixAt(i+2,dummy.matrix);}doors.instanceMatrix.needsUpdate=bags.instanceMatrix.needsUpdate=true;
+    const leftOpen=Math.cos(carrier.yaw)>0?doorOpen:0,rightOpen=Math.cos(carrier.yaw)>0?0:doorOpen;
+    for(let i=0;i<2;i++){dummy.position.set(-1.59,1.55,(i?1:-1)*(.59+leftOpen*1.18));dummy.rotation.set(0,0,0);dummy.updateMatrix();doors.setMatrixAt(i,dummy.matrix);dummy.position.set((i?.55:-.55)+(ctx.reducedMotion?0:Math.max(0,smallUntil-lastTime)*.06),.59,i?3.5:-3.5);dummy.rotation.set(0,0,ctx.reducedMotion?0:Math.sin(Math.max(0,accelUntil-lastTime)*6)*.13);dummy.updateMatrix();bags.setMatrixAt(i,dummy.matrix);}for(let i=0;i<2;i++){dummy.position.set(1.59,1.55,(i?1:-1)*(.59+rightOpen*1.18));dummy.rotation.set(0,0,0);dummy.updateMatrix();doors.setMatrixAt(i+2,dummy.matrix);}doors.instanceMatrix.needsUpdate=bags.instanceMatrix.needsUpdate=true;
     for(let i=0;i<4;i++){const n=passengers[i];if(!n)continue;const p=passengerSeats[i];n.x=carrier.x+c*p[0]+s*p[1];n.z=carrier.z-s*p[0]+c*p[1];if(n.pts){n.pts[0]=n.x;n.pts[1]=n.z;}const root=n.root||n.group||n.mesh;const poseY=root?root.position.y-(n.baseY||0):0;n.baseY=.35;if(root){root.position.x=n.x;root.position.z=n.z;root.position.y=.35+poseY;}
       if(n.col){const w=n.colW||.3;n.col.minX=n.x-w;n.col.maxX=n.x+w;n.col.minZ=n.z-w;n.col.maxZ=n.z+w;n.col.minY=.35;n.col.maxY=.35+(n.colH||1.8);}
       if(n.blob){n.blob.position.x=n.x;n.blob.position.z=n.z;n.blob.position.y=.37;}
@@ -195,11 +231,18 @@ export function build(ctx){
     const dx=visitorPosition.x-carrier.x,dz=visitorPosition.z-carrier.z;
     sleep=!carrier.riding&&dx*dx+dz*dz>1600;if(sleep){score.hush();stopAnnouncement();return;}
     quiet=!!ctx.scene.userData.questQuiet||(ctx.scene.userData.bairroEffects?.silenceUntil||0)>frame.time;if(quiet||ctx.audio?.muted)stopAnnouncement();
-    if(phase==='closing'){phaseTime+=dt;doorOpen=Math.max(0,1-phaseTime/1.2);if(phaseTime>=1.2){phaseTime=0;carrier.riding=contains(visitorPosition.x,visitorPosition.z);visitorWasInside=carrier.riding;if(carrier.riding)phase='travel';else{phase='opening';tramMusic.mode='home';score.hush();announce('Partida cancelada. Porta a abrir.');}}}
+    if(phase==='closing'){phaseTime+=dt;doorOpen=Math.max(0,1-phaseTime/1.2);if(phaseTime>=1.2){phaseTime=0;carrier.riding=contains(visitorPosition.x,visitorPosition.z);visitorWasInside=carrier.riding;if(carrier.riding){phase='travel';bell();}else{phase='opening';tramMusic.mode='home';score.hush();announce('Partida cancelada. Porta a abrir.');}}}
     else if(phase==='travel'){
       travelTime+=dt;const duration=LEG_SECONDS[stationIndex];travelProgress+=dt/duration*(accelUntil>frame.time?1.7:1);let u;if(travelTime<duration-2){u=Math.min(.96,travelProgress);finalFrom=u;}else u=Math.min(1,finalFrom+(1-finalFrom)*(travelTime-(duration-2))/2);
       const distance=costToDistance(route,route.cost*easeTrip(u));
+      const yaw0=carrier.yaw;
       trackAt(route,distance,trackPoint);carrier.x=trackPoint.x;carrier.z=trackPoint.z;carrier.yaw=Math.atan2(facing*trackPoint.tx,facing*trackPoint.tz);
+      if(dt>0){speed=Math.abs(distance-lastDistance)/dt;let dy=carrier.yaw-yaw0;dy-=TAU*Math.round(dy/TAU);
+        // Passengers feel the curves: a small camera roll from the lateral acceleration (v · yaw rate).
+        const target=Math.max(-.022,Math.min(.022,-speed*(dy/dt)*.0026*facing));curveRoll+=(target-curveRoll)*Math.min(1,dt*3);}
+      lastDistance=distance;
+      if(duration>=40&&saidMid<2&&travelTime>(saidMid?42:22)){announce(pick(MID,tripId*2+saidMid));saidMid++;}
+      if(!passedCampus&&stationIndex===2&&travelTime>4&&u<.5&&Math.abs(carrier.x-86)<1&&Math.abs(carrier.z-29)<3){passedCampus=true;bell();announce('Não paramos aqui. Já cá estiveram.');}
       if(!incident&&travelTime>4){incident=true;smallUntil=frame.time+2;if(!quiet)ctx.ui?.toast?.('A mala pediu outro lugar.');}
       if(!climax&&travelTime>7){climax=true;let a=null,b=null;for(let i=0;i<4;i++)if(passengers[i]){if(!a)a=passengers[i];else if(!b)b=passengers[i];}
         if(a&&b){const combat=ctx.scene.userData.combatAPI;lastCombatResult=combat?.getScriptedResult?.()?.sequence||0;fightStarted=!!combat?.startScripted?.(a.S.name,b.S.name,{duration:4,climax:true,allowSeated:true,inPlace:true,venue:'tram',tripId});}
@@ -207,13 +250,13 @@ export function build(ctx){
       }
       const combatResult=ctx.scene.userData.combatAPI?.getScriptedResult?.();if(fightStarted&&combatResult?.sequence>lastCombatResult&&combatResult.completed){lastCombatResult=combatResult.sequence;if(combatResult.visitorWon)emit('tram-climax-win',{tripId,winner:combatResult.winner});}
       if(accelUntil&&frame.time>=accelUntil&&!rideSurvived){rideSurvived=true;const status=ctx.scene.userData.combatAPI?.getVisitorStatus?.();if(carrier.riding&&status?.fell===false)emit('tram-acceleration-survived',{tripId,fight:true,fell:false});}
-      if(u>=1){const s=STOPS[nextStation];carrier.x=s.x;carrier.z=s.z;carrier.yaw=facing*route.tz[route.n-1]>=0?0:PI;stationIndex=nextStation;phase='opening';phaseTime=0;announce('Paragem: '+STOPS[stationIndex].id+'.');}
+      if(u>=1){const s=STOPS[nextStation];carrier.x=s.x;carrier.z=s.z;carrier.yaw=facing*route.tz[route.n-1]>=0?0:PI;stationIndex=nextStation;phase='opening';phaseTime=0;announce(ARRIVE[STOPS[stationIndex].id]||('Paragem: '+NAME[STOPS[stationIndex].id]+'.'));speed=0;curveRoll=0;}
     } else if(phase==='opening'){phaseTime+=dt;doorOpen=Math.min(1,phaseTime/1.2);if(phaseTime>=2){phase='docked';carrier.riding=false;tramMusic.mode='home';score.hush();}}
-    doorCol.minY=doorColR.minY=doorOpen>.92?10:.35;doorCol.maxY=doorColR.maxY=doorOpen>.92?11:2.8;
+    {const left=Math.cos(carrier.yaw)>0,open=doorOpen>.92;doorCol.minY=open&&left?10:.35;doorCol.maxY=open&&left?11:2.8;doorColR.minY=open&&!left?10:.35;doorColR.maxY=open&&!left?11:2.8;}
     const brutal=accelUntil-frame.time>3.55&&!ctx.reducedMotion&&carrier.riding;
-    view.fov=brutal?-3:0;view.roll=brutal?Math.sin((accelUntil-frame.time)*7)*.012:0;
+    view.fov=brutal?-3:0;view.roll=brutal?Math.sin((accelUntil-frame.time)*7)*.012:(carrier.riding&&!ctx.reducedMotion&&phase==='travel'?curveRoll:0);
     warm.emissiveIntensity=.25+.5*(ctx.scene.userData.weather?.nightK||0);
-    pose();score.update(frame.time,-1,phase==='travel'?1:0,carrier.x,.35,carrier.z,carrier.riding,quiet,accelUntil>frame.time?1:0);
+    pose();score.update(frame.time,-1,phase==='travel'?Math.max(.06,Math.min(1.5,speed/10)):0,carrier.x,.35,carrier.z,carrier.riding,quiet,accelUntil>frame.time?1:0);
   }
   function beforeRender(){
     if(ctx.scene.userData.npcStatues)return;const ring=!ctx.reducedMotion&&!!ctx.scene.userData.combatAPI?.state?.active&&ctx.scene.userData.combatAPI.state.venue==='tram';const lean=!ctx.reducedMotion&&accelUntil>lastTime;if(!lean&&!ring)return;

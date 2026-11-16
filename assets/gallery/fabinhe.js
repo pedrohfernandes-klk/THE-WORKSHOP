@@ -5,6 +5,10 @@ export const FABINHE_REPLIES = Object.freeze(['Gostaste? É minha.', 'Faço conc
 // An original phrase, A minor pentatonic, eighth notes at 96 BPM. No sampled song.
 const MELODY = Object.freeze([69, 72, 76, 74, 72, 69, 67, 69, 72, 76, 79, 76, 74, 72, 69, 69]);
 const BEAT = 60 / 96, SONG_SECONDS = MELODY.length * BEAT / 2 + 3.2;
+// The lyric as he sings it: phrase, pitch, rate. Rising, then the last note held far too long.
+const SUNG = Object.freeze([['Se as pingas da chuva', 1.35, .92], ['fosse pingas de Bow-Seta,', 1.65, .86], ['que chuva de Mer-dass', 1.25, .9], ['seriaaaaa!', 1.95, .5]]);
+// He bursts into song by himself when the visitor is close, at most this often (seconds).
+const ENCORE = 90;
 
 export function createFabinhe(ctx, { npcs, say } = {}) {
   let actor = null;
@@ -26,14 +30,16 @@ export function createFabinhe(ctx, { npcs, say } = {}) {
     songLease?.release(); songLease = null; songSource = null; whistleLease?.release(); whistleLease = null;
     stopOwnedSpeech();
   }
+  // He sings with whatever voice the browser has: Portugal first, then any Portuguese, then an
+  // English voice murdering the lyric (also funny). Local voices win ties; network voices count.
   function chooseLocalVoice(synth) {
-    const voices = synth.getVoices(); let english = null;
+    const voices = synth.getVoices(); let best = null, rank = 99;
     for (let i = 0; i < voices.length; i++) {
-      const voice = voices[i]; if (voice.localService !== true) continue;
-      if (/^pt[-_]PT$/i.test(voice.lang || '')) return voice;
-      if (!english && /^en(?:[-_]|$)/i.test(voice.lang || '')) english = voice;
+      const voice = voices[i], lang = voice.lang || '';
+      const r = (/^pt[-_]PT$/i.test(lang) ? 0 : /^pt(?:[-_]|$)/i.test(lang) ? 2 : /^en(?:[-_]|$)/i.test(lang) ? 4 : 99) + (voice.localService === true ? 0 : 1);
+      if (r < rank) { rank = r; best = voice; }
     }
-    return english;
+    return best;
   }
   function speakLyric() {
     if (typeof speechSynthesis === 'undefined' || typeof SpeechSynthesisUtterance === 'undefined') return;
@@ -43,9 +49,9 @@ export function createFabinhe(ctx, { npcs, say } = {}) {
     const token = reserveModuleVoice(ctx, 3, true, SONG_SECONDS + .5, ctx.audio?.bus); if (!token) return;
     const generation = state.generation;
     try {
-      const u = new SpeechSynthesisUtterance(FABINHE_LYRIC);
-      u.voice = voice; u.lang = voice.lang; u.rate = /^pt/i.test(voice.lang) ? 1.03 : .94; u.pitch = 1.22;
-      u.volume = Math.min(.6, .32 * energy()) * audibility();
+      const pt = /^pt/i.test(voice.lang), volume = Math.min(.75, .45 * energy()) * audibility();
+      const phrases = SUNG.map(([text, pitch, rate]) => { const v = new SpeechSynthesisUtterance(text); v.voice = voice; v.lang = voice.lang; v.pitch = pitch; v.rate = rate * (pt ? 1 : .92); v.volume = volume; return v; });
+      const u = phrases[phrases.length - 1];
       const owner = { utterance: u, lease: token, synth };
       ttsOwner = owner; ttsLease = token; utterance = u; ctx.scene.userData.ttsOwner = owner; state.localVoice = voice.lang;
       const done = () => {
@@ -53,14 +59,14 @@ export function createFabinhe(ctx, { npcs, say } = {}) {
         if (ttsOwner === owner) { ttsOwner = null; ttsLease = null; utterance = null; }
         token.release(); if (generation === state.generation) breathFinished = true;
       };
-      u.onend = done; u.onerror = done;
+      u.onend = done; for (const v of phrases) v.onerror = done;
       token.onRelease = () => {
         if (ctx.scene.userData.ttsOwner !== owner) return;
         ctx.scene.userData.ttsOwner = null;
         if (ttsOwner === owner) { ttsOwner = null; ttsLease = null; utterance = null; }
         try { synth.cancel(); } catch {}
       };
-      synth.speak(u);
+      for (const v of phrases) synth.speak(v);
     } catch { token.release(); stopOwnedSpeech(); }
   }
   function audibility() {
@@ -86,15 +92,25 @@ export function createFabinhe(ctx, { npcs, say } = {}) {
     let panner = null;
     try {
       panner = placeSound(ac, lease, audio.bus);
-      const osc = ac.createOscillator(), filter = ac.createBiquadFilter(), envelope = ac.createGain(); songSource = osc;
-      const t = Math.max(ac.currentTime, lease.startAt), eighth = BEAT / 2, level = .048 * energy();
-      osc.type = 'triangle'; filter.type = 'lowpass'; filter.frequency.value = 2200; filter.Q.value = .7;
-      osc.connect(filter); filter.connect(envelope); envelope.connect(lease.gain); lease.track(osc); finishModuleVoice(lease, osc);
+      // A wheezy accordion: two detuned saws through a soft low-pass, a little bellows vibrato,
+      // and an oom-pah bass under it (the arraial way).
+      const osc = ac.createOscillator(), reed = ac.createOscillator(), bass = ac.createOscillator(), vib = ac.createOscillator(), vibDepth = ac.createGain();
+      const filter = ac.createBiquadFilter(), envelope = ac.createGain(), bassEnv = ac.createGain(); songSource = osc;
+      const t = Math.max(ac.currentTime, lease.startAt), eighth = BEAT / 2, level = .07 * energy();
+      osc.type = reed.type = 'sawtooth'; bass.type = 'triangle'; reed.detune.value = 9;
+      vib.frequency.value = 5.5; vibDepth.gain.value = 6; vib.connect(vibDepth); vibDepth.connect(osc.detune); vibDepth.connect(reed.detune);
+      filter.type = 'lowpass'; filter.frequency.value = 1800; filter.Q.value = .9;
+      osc.connect(filter); reed.connect(filter); filter.connect(envelope); envelope.connect(lease.gain);
+      bass.connect(bassEnv); bassEnv.connect(lease.gain);
+      for (const o of [reed, bass, vib]) lease.track(o);
+      lease.track(osc); finishModuleVoice(lease, osc);
       for (let i = 0; i < MELODY.length; i++) {
-        const start = t + i * eighth;
-        osc.frequency.setValueAtTime(440 * 2 ** ((MELODY[i] - 69) / 12), start);
-        envelope.gain.setValueAtTime(.0001, start); envelope.gain.linearRampToValueAtTime(level, start + .018);
-        envelope.gain.exponentialRampToValueAtTime(.0001, start + eighth * .86);
+        const start = t + i * eighth, f = 440 * 2 ** ((MELODY[i] - 69) / 12);
+        osc.frequency.setValueAtTime(f, start); reed.frequency.setValueAtTime(f, start);
+        envelope.gain.setValueAtTime(.0001, start); envelope.gain.linearRampToValueAtTime(level, start + .025);
+        envelope.gain.exponentialRampToValueAtTime(.0001, start + eighth * .9);
+        // oom on the beat (A2/E2 alternating), pah off the beat is left to the melody
+        if (i % 2 === 0) { const b = 110 * (i % 4 === 0 ? 1 : .75); bass.frequency.setValueAtTime(b, start); bassEnv.gain.setValueAtTime(.0001, start); bassEnv.gain.linearRampToValueAtTime(level * .9, start + .02); bassEnv.gain.exponentialRampToValueAtTime(.0001, start + eighth * .8); }
       }
       const tail = t + MELODY.length * eighth;
       // Repeated last note loses breath and drifts sharp; finite, never an endless gag.
@@ -104,8 +120,9 @@ export function createFabinhe(ctx, { npcs, say } = {}) {
         envelope.gain.setValueAtTime(.0001, start); envelope.gain.linearRampToValueAtTime(peak, start + .02);
         envelope.gain.exponentialRampToValueAtTime(.0001, start + eighth * .8);
       }
-      osc.addEventListener('ended', () => { osc.disconnect(); filter.disconnect(); envelope.disconnect(); panner?.disconnect(); if (songSource === osc) { songSource = null; songLease = null; } }, { once: true });
-      osc.start(t); osc.stop(t + SONG_SECONDS);
+      for (let i = 0; i < 10; i++) reed.frequency.setValueAtTime(440 * 2 ** ((i * 4.3) / 1200), tail + i * eighth);
+      osc.addEventListener('ended', () => { for (const n of [osc, reed, bass, vib, vibDepth, filter, envelope, bassEnv]) n.disconnect(); panner?.disconnect(); if (songSource === osc) { songSource = null; songLease = null; } }, { once: true });
+      for (const o of [osc, reed, bass, vib]) { o.start(t); o.stop(t + SONG_SECONDS); }
     } catch { lease.release(); panner?.disconnect(); songLease = null; songSource = null; }
   }
   function whistle() {
@@ -128,7 +145,7 @@ export function createFabinhe(ctx, { npcs, say } = {}) {
     if (ctx.audio?.muted && !ctx.scene.userData.questQuiet && !ctx.scene.userData.npcStatues) { say?.(actor, FABINHE_REPLIES[state.nextReply++ % FABINHE_REPLIES.length], false); return true; }
     if (destroyed || quiet() || !near() || n.combatControlled || n.combatHidden || n.sillyT >= 0) return true;
     if (state.active) return true;
-    if (state.clock - state.lastSong < 600) { say?.(actor, FABINHE_REPLIES[state.nextReply++ % FABINHE_REPLIES.length], false); return true; }
+    if (state.clock - state.lastSong < ENCORE) { say?.(actor, FABINHE_REPLIES[state.nextReply++ % FABINHE_REPLIES.length], false); return true; }
     // Shared comedy has the final word, including identical captions still on screen.
     if (say?.(actor, FABINHE_LYRIC, false) !== true) return true;
     state.generation++; state.lastSong = state.clock; state.elapsed = 0; state.active = true; state.singing = true; state.phase = 'song'; breathFinished = false;
@@ -147,7 +164,12 @@ export function createFabinhe(ctx, { npcs, say } = {}) {
     if (state.paused) { state.paused = false; } // No queue catch-up or automatic replay on thaw.
     if (!near()) { if (state.active) cancel('idle'); return; }
     const step = Math.min(.05, Math.max(0, dt || 0)); state.clock += step;
-    if (!state.active) return;
+    if (!state.active) {
+      // Close enough to hear him, and nobody asked: he sings anyway.
+      const close = (actor.x - camera.position.x) ** 2 + (actor.z - camera.position.z) ** 2 < 144;
+      if (close && state.clock - state.lastSong >= ENCORE && state.clock > 4 && !actor.combatControlled && !actor.combatHidden && actor.sillyT < 0 && !actor.busy) onTalk(actor);
+      return;
+    }
     if (actor.combatControlled || actor.combatHidden || actor.sillyT >= 0) { cancel('interrupted'); return; }
     state.elapsed += step;
     if (state.elapsed >= SONG_SECONDS) {

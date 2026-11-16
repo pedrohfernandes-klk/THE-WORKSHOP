@@ -12,7 +12,8 @@ function harness(reducedMotion=false){
   const actor=id=>({S:{name:id},x:1,z:2,baseY:0,zone:1,fixed:false,pts:[1,2,3,4],root:new THREE.Group(),col:{},colW:.3,colH:1.8});
   const actors=[actor('tortoise'),actor('raccoon'),actor('cat'),actor('walrus')];
   function tick(){frame.time+=.05;module.update(.05,frame);if(module.tram.carrier.riding)camera.position.set(module.tram.x,1.97,module.tram.z);}
-  function trip(){assert.equal(module.tram.depart(),true);for(let i=0;i<500&&module.tram.phase!=='docked';i++)tick();assert.equal(module.tram.phase,'docked');}
+  // Legs are longer now (two of them tour the whole campus loop, ~60 s): allow 100 s per trip.
+  function trip(){assert.equal(module.tram.depart(),true);for(let i=0;i<2000&&module.tram.phase!=='docked';i++)tick();assert.equal(module.tram.phase,'docked');}
   return{module,scene,camera,actors,tick,trip,messages,get fights(){return fights;}};
 }
 test('three stations loop without any surreal destination',()=>{
