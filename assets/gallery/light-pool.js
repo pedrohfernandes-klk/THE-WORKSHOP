@@ -76,7 +76,9 @@ export function createLightPool(THREE, scene, renderer, { points = 4 } = {}) {
       known.add(l);
       if (l.isPointLight && !l.castShadow) virtualize(l);
       else if (l.isDirectionalLight) { if (!release(l.castShadow ? 'shadow' : 'dir')) overflow++; }
-      else if (l.isHemisphereLight) { if (!release('hemi')) overflow++; }
+      // A hemisphere light moves to the scene root (same world position, so the same sky direction):
+      // a pass that hides its space's group, like the hall-floor mirror, then still counts it.
+      else if (l.isHemisphereLight) { if (!release('hemi')) overflow++; else if (l.parent !== scene) scene.attach(l); }
       else overflow++;   // spot or shadowed point light: drawn as is (it changes the counts once)
     }
     if (overflow && typeof console !== 'undefined') { console.debug?.(`[light-pool] ${overflow} light(s) beyond the reserved set`); overflow = 0; }
