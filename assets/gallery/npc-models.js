@@ -517,7 +517,7 @@ export function buildCharacter(THREE, M, spec = {}) {
   geometry.computeBoundingBox();geometry.computeBoundingSphere();
   const height=geometry.boundingBox.max.y,bb=geometry.boundingBox;
   mesh.boundingSphere=new THREE.Sphere(new THREE.Vector3(0,height*.5,0),Math.max(height,bb.max.x-bb.min.x,bb.max.z-bb.min.z)*.5+1.5);
-  mesh.boundingBox=bb.clone().expandByScalar(.35);   // raycasts only: rays that miss the body stop here
+  mesh.boundingBox=bb.clone().expandByVector(new THREE.Vector3(.75,.4,.75));   // raycasts only: rays that miss the body (arms out included) stop here
   mesh.frustumCulled=true;
   const mouth={bone:jaw,setOpen(v){const k=clamp(v,0,1);jaw.scale.y=1+k*1.2;jaw.position.y=-.075-k*.025;
     if(kind==='pig'){snoutBone.scale.z=1+k*.08;snoutBone.position.y=-k*.005;}}};

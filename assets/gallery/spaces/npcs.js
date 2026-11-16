@@ -1639,7 +1639,7 @@ async function buildReady(ctx) {
       } else if (n.hatState === 2) {
         n.hatT += dt;
         if (n.hatT > 2.4) {
-          n.hatState = 0;
+          n.hatState = 0; if (n.rig?.mesh) n.rig.mesh.frustumCulled = true;
           if (n.hatReal) { n.head.add(n.hat); n.hat.position.set(0, 0, 0); n.hat.rotation.set(0, 0, 0); n.hat.scale.set(1, 1, 1); } else n.hat.visible = false;
         }
       }
@@ -1934,6 +1934,7 @@ async function buildReady(ctx) {
     }
     if (n.hatState === 0) {
       const H = n.hat; group.add(H); H.visible = true; H.scale.setScalar(n.hs * n.sz); H.rotation.set(0, 0, 0);
+      if (n.rig?.mesh) n.rig.mesh.frustumCulled = false;   // the hat is skinned to its owner and can land metres outside the owner's culling sphere
       H.position.set(n.x, n.baseY + (n.bodyY0 + n.headY) * n.sz, n.z);
       const ax = n.x - pcx, az = n.z - pcz, d = Math.sqrt(ax * ax + az * az) || 1;
       n.hvx = (ax / d) * 2 + (Math.random() - 0.5) * 2.4; n.hvz = (az / d) * 2 + (Math.random() - 0.5) * 2.4;
