@@ -605,9 +605,15 @@ function sapas(n) {
   if (!n) { bursts.pop('SAPAS!', innerWidth / 2, innerHeight * 0.42, { size: 1 }); return; }
   slapStreak.count = slapStreak.n === n && now - slapStreak.at < 2.6 ? slapStreak.count + 1 : 1;
   slapStreak.n = n; slapStreak.at = now;
-  headScreen.set(n.x, (n.baseY || 0) + (n.S?.top || 1.9) * 0.92, n.z).project(camera);
+  // Over the face itself: the head bone when there is one (a slapped body is often on the floor
+  // by the second slap), else where a standing head would be.
+  if (n.head?.getWorldPosition) { n.head.getWorldPosition(headScreen); headScreen.y += 0.3; }
+  else headScreen.set(n.x, (n.baseY || 0) + (n.S?.top || 1.9) * 0.92, n.z);
+  headScreen.project(camera);
   if (headScreen.z > 1) return;   // behind the camera
-  const x = (headScreen.x * 0.5 + 0.5) * innerWidth, y = (-headScreen.y * 0.5 + 0.5) * innerHeight;
+  // Kept on screen: a word half off the top edge reads as a glitch.
+  const x = Math.min(innerWidth * 0.86, Math.max(innerWidth * 0.14, (headScreen.x * 0.5 + 0.5) * innerWidth));
+  const y = Math.min(innerHeight * 0.8, Math.max(innerHeight * 0.2, (-headScreen.y * 0.5 + 0.5) * innerHeight));
   const k = slapStreak.count;
   bursts.pop(k >= 3 ? 'CHAPADÃO' + '!'.repeat(Math.min(5, k)) : k === 2 ? 'SAPAS!!' : 'SAPAS!', x, y - 24, { size: Math.min(2.1, 0.9 + 0.35 * k), color: k >= 3 ? '#ff6b3d' : '#ffd84a' });
 }

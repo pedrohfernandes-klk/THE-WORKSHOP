@@ -10,6 +10,9 @@ export function createComedyMemory({ now = () => performance.now() / 1000 } = {}
   }
   function canSpeak(text) { const key=keyOf(text);return !!key && now()-(spoken.get(key)??-Infinity)>=600; }
   function commit(text) { if(!canSpeak(text))return false;spoken.set(keyOf(text),now());return true; }
+  // Seconds since a line was last said (Infinity if never), and saying one again on purpose.
+  function age(text) { const key=keyOf(text);return key?now()-(spoken.get(key)??-Infinity):-Infinity; }
+  function force(text) { const key=keyOf(text);if(key)spoken.set(key,now());return !!key; }
   function remember(id,event,details={}) {
     const m=get(id),t=now();
     if(event==='slap')m.chapadas++;
@@ -20,7 +23,7 @@ export function createComedyMemory({ now = () => performance.now() / 1000 } = {}
     m.grau=Math.min(3,Math.max(1,m.insistencia,m.chapadas));return m;
   }
   function choose(entries) { if(!Array.isArray(entries))return null;for(let i=0;i<entries.length;i++){const e=entries[i];if(canSpeak(typeof e==='string'?e:e?.text))return e;}return null; }
-  return {get,canSpeak,commit,remember,choose};
+  return {get,canSpeak,commit,remember,choose,age,force};
 }
 
 const EVENTS = Object.freeze({ talk:'approach',again:'repeat_talk',ignore:'ignored',ouch:'slap1',ouch2:'slap2',ouch3:'slap3',ha:'witness',run:'run',jump:'jump',sit:'sit',manguito:'gesture8',pirete:'gesture9',sun:'sunny' });
@@ -71,6 +74,8 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
     if(active&&(!emitting||n!==emitter||text!==emissionText))return false;
     if(EXCESS_WITNESS_LINES.includes(text)&&!emitting)return false;
     const record=byNpc.get(n),canonical=emitting?emissionCanonical:record?.selectedText===text?record.lastCanonical:'';
+    // A line select() chose again on purpose (the pool for a direct answer ran dry): say it anyway.
+    if(record&&record.repeat&&record.repeat===text){record.repeat='';memory.force(text);if(canonical)memory.force(canonical);record.selectedText='';debug.emitted++;return true;}
     if(canonical&&!memory.canSpeak(canonical))return false;
     if(!memory.commit(text))return false;
     if(canonical&&keyOf(text)!==keyOf(canonical))memory.commit(canonical);
@@ -99,10 +104,20 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
     let list=levels[String(m.grau)]?.[event];
     if(!Array.isArray(list)||!list.length){for(let g=m.grau-1;g>=1;g--){list=levels[String(g)]?.[event];if(Array.isArray(list)&&list.length)break;}}
     if(!Array.isArray(list))return '';
+    const usable=e=>{const raw=typeof e==='string'?e:e?.text;return typeof raw==='string'&&!(e?.score<4)&&!data.protectedLineContext?.[raw]&&permitted(e,target)?raw:null;};
     for(let i=0;i<list.length;i++){
-      const e=list[i],raw=typeof e==='string'?e:e?.text;
-      if(typeof raw!=='string'||e?.score<4||data.protectedLineContext?.[raw]||!permitted(e,target))continue;
+      const raw=usable(list[i]);if(!raw)continue;
       const text=render(raw,n);if(memory.canSpeak(raw)&&memory.canSpeak(text)){r.lastCanonical=raw;return text;}
+    }
+    // Everything in this level was said in the last ten minutes: the calmer levels first.
+    for(let g=m.grau-1;g>=1;g--){const lower=levels[String(g)]?.[event];if(!Array.isArray(lower)||lower===list)continue;
+      for(let i=0;i<lower.length;i++){const raw=usable(lower[i]);if(!raw)continue;const text=render(raw,n);if(memory.canSpeak(raw)&&memory.canSpeak(text)){r.lastCanonical=raw;return text;}}}
+    // A direct answer to the visitor is never silence: repeat the line said longest ago.
+    if(event==='approach'||event==='repeat_talk'){
+      let best=null,bestAge=-Infinity;
+      for(let g=m.grau;g>=1;g--){const pool=levels[String(g)]?.[event];if(!Array.isArray(pool))continue;
+        for(let i=0;i<pool.length;i++){const raw=usable(pool[i]);if(!raw)continue;const a=memory.age(raw);if(a>bestAge){bestAge=a;best=raw;}}}
+      if(best){const text=render(best,n);r.lastCanonical=best;r.repeat=text;return text;}
     }
     return '';
   }

@@ -1952,7 +1952,8 @@ async function buildReady(ctx) {
     if (n.pestT > 0) { endPest(n, 'talk'); flush(n); noise(n); n.lastTalk = clock; return; }   // finally listened to: they leave happy
     if (n.sillyT >= 0 && n.sillyType === 4) {
       // still down: an answer from the floor, without getting up
-      if (n.barker && Math.random() < 0.35) bark(n);
+      if (comedy) say(n, line(n, 'talk'), true);
+      else if (n.barker && Math.random() < 0.35) bark(n);
       else say(n, line(n, 'floor'), true);
       flush(n);
       return;
@@ -1961,7 +1962,11 @@ async function buildReady(ctx) {
     comedy?.notify('talk', n);
     const again = clock - n.lastTalk < 25;
     n.lastTalk = clock;
-    if (S.name === 'cat' && Math.random() < 0.25) {
+    // With the comedy engine every answer comes from its pools: it refuses the old inline texts
+    // (barks, half-barked sentences, the shout, the cat's snub, the goat's drama), so those
+    // branches left the visitor talking to a silent face. A talk always gets a visible line.
+    if (comedy) say(n, line(n, again && Math.random() < 0.55 ? 'again' : 'talk'), true);
+    else if (S.name === 'cat' && Math.random() < 0.25) {
       // the cat ignores you on purpose, and somebody enjoys it
       say(n, '…', false); n.snubT = 2.4;
       const m = nearestIdle(100, true);
