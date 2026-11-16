@@ -7,3 +7,5 @@ Reutiliza sprites eCanvas256²: letra mínima17pxCSS, largura máxima40%, margem
 Hall silencioso e porrada ocultam balões. Estátuas congelam tempo/página, mantendo projeção legível quando o visitante anda. Novas reações literais: «assim já é demais!», «Ai, que ele dá cabo do homem!», «ganda sapa, bro! hihihihi!» e «eia, ca estúpidos!», mais gargalhadasLOL/LMFAO. Escalada continua com as duas assinaturas do dono; ledger impede repetição600s. Gargalhada exagerada usa uma voz global após a leitura.
 
 Validação:247 testes cumulativos, incluindo4 de projeção390×844/1440×900, distância2/20m, duração/paginação, três próximos, silêncio/estátuas e motor real de escalada/não repetição. Patch aplicado e sintaxe verificada. Integrador: validar visualmente sobreposições, caudas, leitura em movimento e timing; não houve medição GPU deste pacote.
+
+Exceção (influencers): quando o visitante pede porrada, quem foi desafiado responde uma vez com uma das suas falas de `fight`, num balão ancorado acima da cabeça durante 2,8 s (a câmara da luta não é a câmara que os balões seguem). Todas as outras falas continuam ocultas na porrada.

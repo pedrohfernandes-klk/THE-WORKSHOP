@@ -22,7 +22,8 @@
     "snake",
     "duck",
     "photo",
-    "arraial"
+    "arraial",
+    "fight"
   ],
   "deliveryValues": [
     "dry",
@@ -33,7 +34,7 @@
     "hushed"
   ],
   "policy": {
-    "maxActive": 14,
+    "maxActive": 18,
     "loadRadius": 40,
     "globalTextCooldownSeconds": 600,
     "minEditorialScore": 4,
@@ -376,6 +377,54 @@
       "voice": {
         "family": "chirp",
         "pitch": 260
+      }
+    },
+    "tremoco_vegan": {
+      "role": "secondary",
+      "url": "./comedy/tremoco_vegan.json",
+      "signature": {
+        "text": "Olá, família! Review de tremoço vegan. Spoiler: é tremoço.",
+        "score": 5
+      },
+      "voice": {
+        "family": "chirp",
+        "pitch": 340
+      }
+    },
+    "coach_madrugada": {
+      "role": "secondary",
+      "url": "./comedy/coach_madrugada.json",
+      "signature": {
+        "text": "Acordei às quatro. Às quatro e um já te estava a vender um curso.",
+        "score": 5
+      },
+      "voice": {
+        "family": "drum",
+        "pitch": 120
+      }
+    },
+    "apanhados": {
+      "role": "secondary",
+      "url": "./comedy/apanhados.json",
+      "signature": {
+        "text": "Isto é para um apanhado! Faz de conta que não viste a câmara.",
+        "score": 5
+      },
+      "voice": {
+        "family": "chuckle",
+        "pitch": 235
+      }
+    },
+    "tia_stories": {
+      "role": "secondary",
+      "url": "./comedy/tia_stories.json",
+      "signature": {
+        "text": "Bom dia, meninas! Estou aqui na estação e isto está um escândalo!",
+        "score": 5
+      },
+      "voice": {
+        "family": "cackle",
+        "pitch": 290
       }
     }
   },
@@ -1254,6 +1303,433 @@
         }
       ],
       "score": 4
+    },
+    {
+      "id": "i01_tres_diretos",
+      "trigger": "approach",
+      "roles": [
+        "tremoco_vegan",
+        "coach_madrugada",
+        "apanhados"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "tremoco_vegan",
+          "text": "Malta, estou em direto!",
+          "pause": 0.5,
+          "delivery": "rising",
+          "score": 4
+        },
+        {
+          "speaker": "coach_madrugada",
+          "text": "Eu também! A vender-te o teu direto!",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "apanhados",
+          "text": "E eu estou a fazer um apanhado aos vossos diretos.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "tremoco_vegan",
+          "text": "Então quem é que está a ver?",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "coach_madrugada",
+          "text": "O pombo. E já pediu reembolso.",
+          "pause": 0.8,
+          "delivery": "flat",
+          "score": 5
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "i02_engagement",
+      "trigger": "approach",
+      "roles": [
+        "tremoco_vegan",
+        "coach_madrugada"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "tremoco_vegan",
+          "text": "O meu tremoço teve dez mil likes.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "coach_madrugada",
+          "text": "O meu banho gelado teve vinte mil.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "tremoco_vegan",
+          "text": "Vinte mil? Quantos eram bots?",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "coach_madrugada",
+          "text": "Todos. Mas bots com mentalidade de vencedor.",
+          "pause": 0.8,
+          "delivery": "firm",
+          "score": 5
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "i03_curso_seguidores",
+      "trigger": "repeat_talk",
+      "roles": [
+        "coach_madrugada",
+        "tremoco_vegan"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "coach_madrugada",
+          "text": "Curso: como chegar a um milhão de seguidores. 997 euros.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "tremoco_vegan",
+          "text": "E tu tens quantos?",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "coach_madrugada",
+          "text": "Trezentos. Todos compraram o curso.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "tremoco_vegan",
+          "text": "Então o curso funciona… para ti.",
+          "pause": 0.8,
+          "delivery": "flat",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "i04_apanhado_coach",
+      "trigger": "run",
+      "roles": [
+        "apanhados",
+        "coach_madrugada"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "apanhados",
+          "text": "Apanhado! São oito da manhã e tu ainda a dormir!",
+          "pause": 0.5,
+          "delivery": "rising",
+          "score": 4
+        },
+        {
+          "speaker": "coach_madrugada",
+          "text": "AAAH! O meu método!",
+          "pause": 0.5,
+          "delivery": "rising",
+          "score": 4
+        },
+        {
+          "speaker": "apanhados",
+          "text": "Calma, são quatro. Era a brincar.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "coach_madrugada",
+          "text": "Não brinques com isso, ó nabo, que eu choro em direto.",
+          "pause": 0.8,
+          "delivery": "firm",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "i05_quem_ajudou",
+      "trigger": "witness",
+      "roles": [
+        "tremoco_vegan",
+        "apanhados"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "tremoco_vegan",
+          "text": "Filmaste a chapada?",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "apanhados",
+          "text": "Filmei. E tu?",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "tremoco_vegan",
+          "text": "Filmei-te a ti a filmar.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "apanhados",
+          "text": "Então quem é que foi ajudar o coitado?",
+          "pause": 0.8,
+          "delivery": "flat",
+          "score": 5
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "i06_nao_e_de_ca",
+      "trigger": "approach",
+      "roles": [
+        "tortoise",
+        "tia_stories"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "tortoise",
+          "text": "Olhe, olhe… quem é esta gente que filma tudo?",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "tia_stories",
+          "text": "Sou eu, senhor. Moro ali na rua de cima.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "tortoise",
+          "text": "Lá está. Não é de cá.",
+          "pause": 0.6,
+          "delivery": "firm",
+          "score": 4
+        },
+        {
+          "speaker": "tia_stories",
+          "text": "Meninas, para o cágado a rua de cima já é estrangeiro!",
+          "pause": 0.8,
+          "delivery": "rising",
+          "score": 5
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "i07_no_meu_tempo",
+      "trigger": "repeat_talk",
+      "roles": [
+        "walrus",
+        "tia_stories"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "walrus",
+          "text": "No meu tempo ninguém filmava ninguém.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "tia_stories",
+          "text": "No seu tempo não havia nada para ver.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "walrus",
+          "text": "Havia eu.",
+          "pause": 0.6,
+          "delivery": "firm",
+          "score": 4
+        },
+        {
+          "speaker": "tia_stories",
+          "text": "Pois. Por isso é que ninguém filmava.",
+          "pause": 0.8,
+          "delivery": "flat",
+          "score": 5
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "i08_gato_nao_comenta",
+      "trigger": "witness",
+      "roles": [
+        "tia_stories",
+        "cat"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "tia_stories",
+          "text": "Meninas, levou uma chapada! Ó gato, viste?",
+          "pause": 0.5,
+          "delivery": "rising",
+          "score": 4
+        },
+        {
+          "speaker": "cat",
+          "text": "Vi. Não comento.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "tia_stories",
+          "text": "Então eu comento por ti.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "cat",
+          "text": "É por isso que não comento.",
+          "pause": 0.8,
+          "delivery": "flat",
+          "score": 5
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "i09_fita_cola",
+      "trigger": "ignored",
+      "roles": [
+        "tia_stories",
+        "raccoon"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "tia_stories",
+          "text": "Meninas, este senhor arranja tudo com fita-cola!",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "raccoon",
+          "text": "Arranjo tudo. Menos essa língua.",
+          "pause": 0.6,
+          "delivery": "firm",
+          "score": 4
+        },
+        {
+          "speaker": "tia_stories",
+          "text": "Ai, que malcriado! Já está nos stories!",
+          "pause": 0.8,
+          "delivery": "rising",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "i10_comboio_nao_volta",
+      "trigger": "approach",
+      "roles": [
+        "apanhados",
+        "walrus"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "apanhados",
+          "text": "Senhor, isto é um apanhado: o comboio não volta.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "walrus",
+          "text": "Ótimo. Já alinhei as cadeiras para ficar.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "apanhados",
+          "text": "…Afinal o apanhado fui eu.",
+          "pause": 0.8,
+          "delivery": "flat",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "i11_nao_sao_de_ca",
+      "trigger": "approach",
+      "roles": [
+        "mano",
+        "bull"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "mano",
+          "text": "Olha, olha aquela gente... Não são de cá... Hmmm.",
+          "pause": 0.6,
+          "delivery": "hushed",
+          "score": 5
+        },
+        {
+          "speaker": "bull",
+          "text": "São do mercado. Filmam tremoços.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "mano",
+          "text": "Isto já não é o que era, ai egrégios avós!",
+          "pause": 0.8,
+          "delivery": "firm",
+          "score": 5
+        }
+      ],
+      "score": 4
     }
   ],
   "gags": [
@@ -1581,6 +2057,166 @@
         }
       ],
       "score": 4
+    },
+    {
+      "id": "i12_quatro_da_manha",
+      "trigger": "ignored",
+      "roles": [
+        "coach_madrugada"
+      ],
+      "cooldown": 600,
+      "beats": [
+        {
+          "speaker": "coach_madrugada",
+          "text": "Quatro da manhã: acordo.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "coach_madrugada",
+          "text": "Quatro e cinco: grito ao espelho.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "coach_madrugada",
+          "text": "Quatro e dez: o vizinho grita comigo. Networking!",
+          "pause": 0.8,
+          "delivery": "rising",
+          "score": 5
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "i13_review_tremoco",
+      "trigger": "approach",
+      "roles": [
+        "tremoco_vegan"
+      ],
+      "cooldown": 600,
+      "beats": [
+        {
+          "speaker": "tremoco_vegan",
+          "text": "Review de tremoço vegan. Primeira dentada…",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "tremoco_vegan",
+          "text": "Notas de terra, de mar e de tremoço.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "tremoco_vegan",
+          "text": "Nota final: é tremoço. Link na bio.",
+          "pause": 0.8,
+          "delivery": "flat",
+          "score": 5
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "i14_susto_balanca",
+      "trigger": "jump",
+      "roles": [
+        "apanhados"
+      ],
+      "cooldown": 600,
+      "beats": [
+        {
+          "speaker": "apanhados",
+          "text": "Vou assustar aquele senhor ali. Três, dois…",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "apanhados",
+          "text": "BU!",
+          "pause": 0.5,
+          "delivery": "rising",
+          "score": 4
+        },
+        {
+          "speaker": "apanhados",
+          "text": "…Era a balança. Assustei a balança. Corta isso.",
+          "pause": 0.8,
+          "delivery": "flat",
+          "score": 5
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "i15_direto_da_estacao",
+      "trigger": "run",
+      "roles": [
+        "tia_stories"
+      ],
+      "cooldown": 600,
+      "beats": [
+        {
+          "speaker": "tia_stories",
+          "text": "Meninas, estou em direto da estação!",
+          "pause": 0.5,
+          "delivery": "rising",
+          "score": 4
+        },
+        {
+          "speaker": "tia_stories",
+          "text": "Não se passa nada. Mas há de se passar.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "tia_stories",
+          "text": "E se não se passar, eu invento. Fiquem desse lado!",
+          "pause": 0.8,
+          "delivery": "rising",
+          "score": 5
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "i16_collab_forcado",
+      "trigger": "repeat_talk",
+      "roles": [
+        "forcado"
+      ],
+      "cooldown": 600,
+      "beats": [
+        {
+          "speaker": "forcado",
+          "text": "Veio cá um influencer pedir um collab para a pega.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "forcado",
+          "text": "Perguntou se a pega tinha limites.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "forcado",
+          "text": "Limites? Quem tem limite é o cartão de crédito, hahahah!",
+          "pause": 0.8,
+          "delivery": "firm",
+          "score": 5
+        }
+      ],
+      "score": 4
     }
   ],
   "callbacks": {
@@ -1611,6 +2247,20 @@
         "speaker": "cat",
         "event": "witness",
         "text": "O {quemLevou} já recuperou. O discurso ainda não.",
+        "score": 4
+      },
+      {
+        "id": "m05_chapadas_curso",
+        "speaker": "coach_madrugada",
+        "event": "slap3",
+        "text": "{chapadas} chapadas! Já tenho conteúdo para um curso inteiro!",
+        "score": 4
+      },
+      {
+        "id": "m06_chapadas_serie",
+        "speaker": "tremoco_vegan",
+        "event": "slap3",
+        "text": "{chapadas} chapadas! Isto já dá uma série de vídeos!",
         "score": 4
       }
     ],
@@ -1700,7 +2350,10 @@
     "Gostaste? É minha.",
     "Faço concertos por MB Way.",
     "Isto é um êxito, pá!",
-    "Ganda sapa!"
+    "Ganda sapa!",
+    "Isto já não é o que era, ai egrégios avós!",
+    "Olha, olha aquela gente... Não são de cá... Hmmm.",
+    "Limites? Quem tem limite é o cartão de crédito, hahahah!"
   ],
   "protectedLineContext": {
     "Tens uma testa que parece um papo seco!": {

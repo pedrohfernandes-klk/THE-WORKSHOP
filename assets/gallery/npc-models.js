@@ -348,6 +348,8 @@ export function buildCharacter(THREE, M, spec = {}) {
     box(bones.arms[1],ink,0,.08,.08,.085,.16,.018,.3);
     box(bones.arms[1],tint(null,0x68b4c5),0,.08,.092,.07,.13,.004,.25);
     box(body,seam,0,1.22,.19,.012,.45,.012,.4);
+    // Opt-in ring light around the phone at the top of the stick (the tremoço influencer).
+    if(spec.ringLight)part(new THREE.TorusGeometry(.105,.013,6,spec.quality==='low'?14:20),bones.arms[1],tint(null,0xfff4dc),.3,0,.08,.086);
   }
   if(spec.clothing==='usher') {box(body,tint(null,0xbad36d),0,1.2,.218,.4,.42,.02);box(body,white,0,1.16,.232,.4,.04,.012,.45);}
   if(wardrobe==='neighbor') {
@@ -561,21 +563,23 @@ export function createLinePicker(random=Math.random) {
 
 // Existing NPC behaviour writes Object3D transforms. Keep those objects as
 // proxies, drawing their ground shadows and daze stars in two instanced calls.
-export function createNpcEffects(THREE, group, npcs, blobGeometry, blobMaterial, starMaterial) {
-  const shadow = blobMaterial ? new THREE.InstancedMesh(blobGeometry,blobMaterial,14) : null;
+// capacity: one instance per actor slot (npcs.js SLOT_COUNT); never draw more than were allocated.
+export function createNpcEffects(THREE, group, npcs, blobGeometry, blobMaterial, starMaterial, capacity = 14) {
+  const shadow = blobMaterial ? new THREE.InstancedMesh(blobGeometry,blobMaterial,capacity) : null;
   const starGeometry=new THREE.PlaneGeometry(1,1);
   const starSurface=new THREE.MeshBasicMaterial({map:starMaterial.map,transparent:true,depthWrite:false});
-  const stars=new THREE.InstancedMesh(starGeometry,starSurface,14);
+  const stars=new THREE.InstancedMesh(starGeometry,starSurface,capacity);
   const dummy=new THREE.Object3D(), invisible=new THREE.Matrix4().makeScale(0,0,0);
   stars.frustumCulled=false;stars.renderOrder=9;stars.raycast=()=>{};group.add(stars);
   if(shadow){shadow.frustumCulled=false;shadow.renderOrder=1;shadow.raycast=()=>{};group.add(shadow);}
   const selected=new Int16Array(3), distances=new Float64Array(3);
   const shadowBlack=new THREE.Color(0), puddleTint=new THREE.Color('#a58b43');
-  if(shadow)shadow.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(14*3),3);
+  if(shadow)shadow.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(capacity*3),3);
   stars.count=0;if(shadow)shadow.count=0;
   return {
+    capacity,
     update(camera,rotation=0) {
-      stars.count=npcs.length;if(shadow)shadow.count=npcs.length;
+      stars.count=Math.min(npcs.length,capacity);if(shadow)shadow.count=stars.count;
       selected.fill(-1);distances.fill(Infinity);
       for(let i=0;i<npcs.length;i++){
         const n=npcs[i];

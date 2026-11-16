@@ -12,7 +12,8 @@ for(const match of specs.matchAll(/\{ name: '([^']+)'[\s\S]*?home: \[([^\]]+)\]/
  const home=match[2].split(',').map(v=>Number(v.trim()));if(home.length!==2||home.some(v=>!Number.isFinite(v)))throw Error('Invalid home '+match[1]);
  slots.push({slot:slots.length,legacyId:match[1],defaultId:match[1]==='rooster'?'fabinhe':match[1],home});
 }
-if(slots.length!==14)throw Error('Expected fourteen source slots, got '+slots.length);
+// Fourteen campus slots (SPECS) and four for the influencers (EXTRA: the market and the campus stop).
+if(slots.length!==18)throw Error('Expected eighteen source slots, got '+slots.length);
 fs.mkdirSync(out,{recursive:true});
 const {characters,...metadata}=data;
 const manifest={version:1,sourceSha256:createHash('sha256').update(bytes).digest('hex'),sourceBytes:bytes.length,metadata,slots,characters:[]};
