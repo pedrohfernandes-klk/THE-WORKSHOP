@@ -54,14 +54,15 @@ export function createReadableBubbles(THREE,{renderer,userData}){
  function anchor(r,resized){
   const n=r.n;if(resized)paginate(r,r.text);
   if(n.head?.getWorldPosition)n.head.getWorldPosition(head);else head.set(n.x,(n.baseY||0)+1.7,n.z);
-  // Beside the head, on the side away from the other fighter: the fight's profile shot frames the
-  // two bodies with little room above them, so a bubble over the head went off the top of the screen.
+  // Just over the head and a little toward the other fighter: the fight's profile shot frames the
+  // pair with little room above them and puts each fighter near a side of the frame, so a bubble
+  // high over the head left the top of the screen, and one pushed outward left the side.
   const s=userData.combatState,known=s&&Number.isFinite(s.ax)&&Number.isFinite(s.bx);
   const mine=known&&Math.hypot(n.x-s.ax,n.z-s.az)<Math.hypot(n.x-s.bx,n.z-s.bz),ox=known?(mine?s.bx:s.ax):n.x,oz=known?(mine?s.bz:s.az):n.z;
-  let dx=n.x-ox,dz=n.z-oz;const l=Math.hypot(dx,dz);if(l>1e-3){dx/=l;dz/=l;}else{dx=0;dz=0;}
-  head.x+=dx*.8;head.z+=dz*.8;head.y+=.12;
+  let dx=ox-n.x,dz=oz-n.z;const l=Math.hypot(dx,dz);if(l>1e-3){dx/=l;dz/=l;}else{dx=0;dz=0;}
+  const inward=Math.min(.25,l*.2);head.x+=dx*inward;head.z+=dz*inward;head.y+=.3+Math.max(0,n.bOff||0)*.5;
   if(r.tail!==2||r.page!==0){r.tail=2;r.page=0;r.dirty=true;}if(r.dirty)paint(r);
-  if(n.sprite.parent)n.sprite.parent.worldToLocal(head);n.sprite.position.copy(head);n.sprite.scale.set(.95,.95,1);n.sprite.visible=true;
+  if(n.sprite.parent)n.sprite.parent.worldToLocal(head);n.sprite.position.copy(head);n.sprite.scale.set(.85,.85,1);n.sprite.visible=true;
  }
  function update(camera){
   const resized=viewport(),fight=!!userData.combatState?.active,hush=!!(userData.questQuiet||userData.tramHallQuiet),quiet=hush||fight;
