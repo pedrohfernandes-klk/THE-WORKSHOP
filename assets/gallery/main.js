@@ -15,6 +15,7 @@ import { loadWorkTexture } from './textures.js';
 import { createControls } from './controls.js';
 import { createUI, showFallback } from './ui.js';
 import { createAudio } from './audio.js';
+import { updateAudioListener } from './spatial-audio.js';
 import { createMaterials } from './materials.js';
 import { createWorld, areaAt } from './world.js';
 import { groundAt } from './collision.js';
@@ -145,6 +146,7 @@ const ui = createUI({
 
 const audio = createAudio();
 let music = null;     // optional procedural soundtrack (music.js)
+let combat = null;
 let player = null;    // optional first-person hands and gestures (player.js)
 const SOUND_KEY = 'workshop.sound';
 function readSoundPreference() {
@@ -396,12 +398,21 @@ import('./player.js').then((m) => {
   room.scene.add(camera);
   if (player.group && !player.group.parent) camera.add(player.group);
 }).catch(() => { /* gestures are optional */ });
+worldReady.then(async(w)=>{
+  const {createCombat}=await import('./combat.js');
+  const npcModule=w.modules.get('npcs');if(!npcModule?.combatActors)return;
+  combat=createCombat(ctx,{camera,controls,world:w,npcModule,getPlayer:()=>player,
+    canAct:()=>state.entered&&!state.overlay&&!state.exhibitionOpen,
+    canStart:()=>!charging&&!paper?.holding,
+    onSlap:()=>{state.slaps=(state.slaps||0)+1;}});
+}).catch(err=>console.warn('[combat]',err));
+
 let sfx = null;
 // Eerie and wacky sound layer: zones (the ruin's heartbeat, the stage choir)
 // and one-shots that answer the visitor (boings, slide whistles, cushions).
 import('./sfx.js').then((m) => { sfx = m.createSfx(audio); }).catch(() => { /* optional */ });
 import('./music.js').then((m) => {
-  music = m.createMusic();
+  music = m.createMusic({ audio, scene: room.scene });
   music.setMuted(audio.muted);
   if (state.entered) music.start(audio.context, audio.musicBus).catch(() => {});
 }).catch(() => { /* music is optional */ });
@@ -642,6 +653,7 @@ function act(found, hit) {
     if (hit && hit.distance > TALK_REACH) { ui.toast(state.viaUse ? 'Get closer to talk' : 'Get closer', 1200); return; }
     if (!state.viaUse && !coarsePointer && npcs && typeof npcs.slap === 'function') {
       if (hit && hit.distance > SLAP_REACH) { ui.toast('Too far to slap', 1200); return; }
+      if(combat){combat.engage(object);return;}
       npcs.slap(object);
       player?.gesture?.('slap') || player?.gesture?.('wave');
       state.slaps = (state.slaps || 0) + 1;
@@ -1088,6 +1100,7 @@ function step() {
     interactions.beforeUpdate();
     world.update(dt, { camera, time: now, level: floor > 5 ? 1 : 0, weather: weather ? weather.mode : 'sunny' });
   }
+  combat?.update(dt);
   props.update?.(dt, camera);
   if (state.entered) updateCentrePrompt(dt);
   if (state.seatHint && !controls.seated) clearSeatHint();
@@ -1199,13 +1212,16 @@ function step() {
   if (questSilence.requested && typeof speechSynthesis !== 'undefined' && (speechSynthesis.speaking || speechSynthesis.pending)) speechSynthesis.cancel();
   questSilence.confirmed = questSilence.requested && audio.quietConfirmed === true &&
     (typeof speechSynthesis === 'undefined' || (!speechSynthesis.speaking && !speechSynthesis.pending));
+  updateAudioListener(audio,camera);
   audio.update(dt);
   room.update(dt, camera);
   interactions.update(dt, interactionFrame);
   // Walking or turning: the depth of field fades out (it only serves stillness).
   post.setMoving(controls.speed > 0.3 || !!state.flying || controls.turnRate > 0.6);
   // Behind an opaque overlay the room does not need to be redrawn every frame.
-  if (!state.exhibitionOpen || state.frames % 8 === 0) post.render(dt);
+  combat?.renderCamera();
+  try { if (!state.exhibitionOpen || state.frames % 8 === 0) post.render(dt); }
+  finally { combat?.restoreCamera(); }
   // Hold the frame rate by trading resolution and passes, never by swapping the
   // room's materials mid-visit (perf.js). It only listens once the campus is in.
   perf.update(performance.now(), { active: state.entered && !!world && !state.exhibitionOpen && !state.overlay });
@@ -1266,7 +1282,7 @@ if (TEST) {
     THREE, WORKS, SLOTS, state, curator, room, camera, controls, renderer, ready,
     get quality() { return quality; },
     get world() { return world; },
-    props, ui, post, interactions,
+    props, ui, post, interactions, audio,
     get pixelRatio() { return pixelRatio; },
     // Stand in front of a slot and look at it, as a visitor would.
     async lookAtSlot(slot) {

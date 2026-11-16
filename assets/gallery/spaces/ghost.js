@@ -1,3 +1,4 @@
+import { reserveModuleVoice, finishModuleVoice, releaseModuleVoices } from '../audio-lease.js';
 // O Fantasma de 8 bits: a flat pixel-art ghost that haunts the Ruins
 // (spaces/ruins.js: x -64..-34, z -47..-18). BRIEF §6.2 space module.
 //
@@ -249,6 +250,7 @@ export function build(ctx) {
 
   // ---- sound: everything goes into ctx.audio.bus, read lazily ----
   function humStart(ac, bus) {
+    const lease = reserveModuleVoice(ctx, 0, false, 1, bus); if (!lease) return;
     try {
       const o1 = ac.createOscillator(), o2 = ac.createOscillator(), wob = ac.createOscillator(), trem = ac.createOscillator();
       const wobG = ac.createGain(), tremG = ac.createGain(), am = ac.createGain(), f = ac.createBiquadFilter(), g = ac.createGain();
@@ -263,21 +265,16 @@ export function build(ctx) {
       f.type = 'lowpass'; f.frequency.value = 300; f.Q.value = 4;
       g.gain.value = 0;
       o1.connect(f); o2.connect(f); f.connect(am); am.connect(g);
-      if (p) { g.connect(p); p.connect(bus); } else g.connect(bus);
-      const t0 = ac.currentTime;
+      if (p) { g.connect(p); p.connect(lease.gain); } else g.connect(lease.gain);
+      const t0 = Math.max(ac.currentTime, lease.startAt);
+      lease.track(o1); lease.track(o2); lease.track(wob); lease.track(trem);
       o1.start(t0); o2.start(t0); wob.start(t0); trem.start(t0);
-      hum = { ac, o1, o2, wob, trem, g, f, p, out: p || g };
-    } catch (e) { hum = null; }
+      hum = { ac, lease, o1, o2, wob, trem, g, f, p, out: p || g };
+    } catch (e) { lease.release(); hum = null; }
   }
   function humStop() {
-    const h = hum; hum = null; humFar = 0;
-    if (!h) return;
-    try {
-      const t0 = h.ac.currentTime;
-      h.g.gain.setTargetAtTime(0, t0, 0.06);
-      h.o1.stop(t0 + 0.5); h.o2.stop(t0 + 0.5); h.wob.stop(t0 + 0.5); h.trem.stop(t0 + 0.5);
-      h.o1.onended = () => { try { h.out.disconnect(); } catch (e) { /* already gone */ } };
-    } catch (e) { /* context closed */ }
+    const h = hum; hum = null; humFar = 0; if (!h) return;
+    releaseModuleVoices([h.lease], () => { try { h.out.disconnect(); } catch {} }, !!ctx.audio?.muted || !!ctx.scene.userData.questQuiet);
   }
   function audioOut() {
     const A = ctx.audio;
@@ -291,7 +288,7 @@ export function build(ctx) {
     const A = state !== 2 ? audioOut() : null;
     if (!A) { if (hum) humStop(); return; }
     const ac = A.context;
-    if (hum && hum.ac !== ac) humStop();
+    if (hum && (hum.ac !== ac || !hum.lease.renew(1000))) humStop();
     if (d > 14) { if (hum) { humFar += 0.1; if (humFar > 1) humStop(); } return; }
     humFar = 0;
     if (!hum) { if (d > 11) return; humStart(ac, A.bus); if (!hum) return; }
@@ -304,8 +301,9 @@ export function build(ctx) {
   function booSound() {
     const A = audioOut();
     if (!A) return;
+    const lease = reserveModuleVoice(ctx, 3, true, 1.15, A.bus); if (!lease) return;
     try {
-      const ac = A.context, t0 = ac.currentTime + 0.01, t1 = t0 + 0.1;
+      const ac = A.context, t0 = Math.max(ac.currentTime + 0.01, lease.startAt), t1 = t0 + 0.1;
       const o = ac.createOscillator(), vib = ac.createOscillator(), vg = ac.createGain(), f = ac.createBiquadFilter(), g = ac.createGain();
       o.type = 'square'; f.type = 'lowpass'; f.frequency.value = 2400; f.Q.value = 0.7;
       o.frequency.setValueAtTime(392, t0);                                     // "Bu"
@@ -316,9 +314,9 @@ export function build(ctx) {
       g.gain.setValueAtTime(0.09, t0 + 0.07); g.gain.linearRampToValueAtTime(0, t0 + 0.088);
       g.gain.linearRampToValueAtTime(0.1, t1 + 0.01); g.gain.setValueAtTime(0.1, t1 + 0.32);
       g.gain.exponentialRampToValueAtTime(0.0008, t1 + 0.95);
-      o.connect(f); f.connect(g); g.connect(A.bus);
-      o.start(t0); vib.start(t0); o.stop(t1 + 1); vib.stop(t1 + 1);
-    } catch (e) { /* audio unavailable */ }
+      o.connect(f); f.connect(g); g.connect(lease.gain);
+      lease.track(o); lease.track(vib); finishModuleVoice(lease, vib); o.start(t0); vib.start(t0); o.stop(t1 + 1); vib.stop(t1 + 1);
+    } catch (e) { lease.release(); /* audio unavailable */ }
   }
 
   // ---- per frame ----

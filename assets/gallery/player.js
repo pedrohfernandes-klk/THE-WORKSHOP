@@ -1,3 +1,4 @@
+import { reserveModuleVoice, finishModuleVoice } from './audio-lease.js';
 // First-person viewmodel hands with procedural gestures. Attached to the camera.
 // createPlayer(camera, { reducedMotion, audio }) -> { group, gesture(name), busy, update(dt, {speed,jumping,turnRate,stepPhase}),
 //   cameraOffset:{y,roll}, onClap, onGestureStart(name), setAudio(audio), dispose() }
@@ -131,17 +132,18 @@ function createCensor(reducedMotion) {
 function bip(audio) {
   const ac = audio && audio.context;
   if (!ac || audio.muted || ac.state !== 'running') return;
+  const lease = reserveModuleVoice({ audio }, 3, true, .3, audio.bus); if (!lease) return;
   try {
-    const t = ac.currentTime + 0.01;
+    const t = Math.max(ac.currentTime + .01, lease.startAt);
     const o = ac.createOscillator(), gn = ac.createGain();
     o.type = 'sine'; o.frequency.value = 1000;
     gn.gain.setValueAtTime(0, t);
     gn.gain.linearRampToValueAtTime(0.12, t + 0.008);
     gn.gain.setValueAtTime(0.12, t + 0.242);
     gn.gain.linearRampToValueAtTime(0, t + 0.25);
-    o.connect(gn); gn.connect(ac.destination);
+    o.connect(gn); gn.connect(lease.gain); lease.track(o); finishModuleVoice(lease, o);
     o.start(t); o.stop(t + 0.27);
-  } catch (e) { /* audio is optional */ }
+  } catch (e) { lease.release(); /* audio is optional */ }
 }
 
 function buildHand(skin, jacket, trim, geos) {

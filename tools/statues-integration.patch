@@ -194,28 +194,23 @@ index ad29bf2..5ff73a5 100644
  
  }
 diff --git a/assets/gallery/voice-manager.js b/assets/gallery/voice-manager.js
-index 07ed46d..641e59b 100644
+index 07ed46d..d2e8ad1 100644
 --- a/assets/gallery/voice-manager.js
 +++ b/assets/gallery/voice-manager.js
-@@ -1,19 +1,24 @@
--// S: one admission ledger per shared AudioContext. Sources are created by callers.
-+// One admission ledger shared by the ambient and NPC transport contexts.
- // Production never wraps native factories. Optional factory auditing is TEST-only.
- export function createVoiceManager(context, { test = false } = {}) {
-   const slots = new Array(26).fill(null);
+@@ -5,6 +5,12 @@ export function createVoiceManager(context, { test = false } = {}) {
    const sourceOwners = new WeakMap();
    let serial = 0, stolen = 0, disposed = false, draining = false, collecting = false, duckUntil = 0, gapAt = 0;
    const audit = test ? installAudit(context, sourceOwners) : null;
-+  const audits = audit ? [audit] : [], auditedContexts = new WeakSet([context]);
++  const audits = audit ? [audit] : [], registered = new WeakSet([context]);
++  function registerContext(other) {
++    if (!other || typeof other.createGain !== 'function') return false;
++    if (!registered.has(other)) { registered.add(other); if (test) audits.push(installAudit(other, sourceOwners)); }
++    return true;
++  }
    const clampPriority = n => Math.max(0, Math.min(3, Number.isFinite(n) ? Math.floor(n) : 0));
  
-+  function registerContext(ac) {
-+    if(!test||!ac||auditedContexts.has(ac)||disposed)return;
-+    auditedContexts.add(ac);audits.push(installAudit(ac,sourceOwners));
-+  }
    function retire(token, reason) {
-     if (!token || token.released || slots[token.slot] !== token) return;
-     token.released = true; token.active = false; token.fading = false;
+@@ -13,7 +19,7 @@ export function createVoiceManager(context, { test = false } = {}) {
      slots[token.slot] = null;
      for (let i = 0; i < token.sources.length; i++) {
        const source = token.sources[i];
@@ -224,64 +219,43 @@ index 07ed46d..641e59b 100644
        try { source.disconnect(); } catch { /* optional source */ }
      }
      try { token.gain.disconnect(); } catch { /* not connected */ }
-@@ -26,11 +31,11 @@ export function createVoiceManager(context, { test = false } = {}) {
-   function tick() {
-     if (collecting || disposed) return;
-     collecting = true;
--    const now = context.currentTime;
-     for (let i = 0; i < slots.length; i++) {
+@@ -31,7 +37,7 @@ export function createVoiceManager(context, { test = false } = {}) {
        const token = slots[i];
        if (!token) continue;
--      if (token.fading && now >= token.fadeEnd) retire(token, 'stolen');
-+      const now = token.context.currentTime;
-+      if (token.fading && (token.context.state === 'suspended' || now >= token.fadeEnd)) retire(token, 'stolen');
-       else if (token.active && now >= token.expires) retire(token, 'expired');
+       if (token.fading && now >= token.fadeEnd) retire(token, 'stolen');
+-      else if (token.active && now >= token.expires) retire(token, 'expired');
++      else if (token.active && token.context.currentTime >= token.expires) retire(token, 'expired');
      }
      collecting = false;
-@@ -47,7 +52,7 @@ export function createVoiceManager(context, { test = false } = {}) {
    }
- 
+@@ -49,16 +55,18 @@ export function createVoiceManager(context, { test = false } = {}) {
    function fade(token) {
--    const now = context.currentTime;
-+    const now = token.context.currentTime;
+     const now = context.currentTime;
      token.active = false; token.fading = true; token.fadeEnd = now + 0.03;
-     fadeGain(token.gain.gain, now, token.fadeEnd);
-     for (let i = 0; i < token.outputs.length; i++) fadeGain(token.outputs[i].gain, now, token.fadeEnd);
-@@ -57,8 +62,9 @@ export function createVoiceManager(context, { test = false } = {}) {
+-    fadeGain(token.gain.gain, now, token.fadeEnd);
+-    for (let i = 0; i < token.outputs.length; i++) fadeGain(token.outputs[i].gain, now, token.fadeEnd);
++    const audioNow = token.context.currentTime, audioEnd = audioNow + 0.03;
++    fadeGain(token.gain.gain, audioNow, audioEnd);
++    for (let i = 0; i < token.outputs.length; i++) fadeGain(token.outputs[i].gain, audioNow, audioEnd);
+     for (let i = 0; i < token.sources.length; i++) {
+-      try { token.sources[i].stop(token.fadeEnd); } catch { /* already ended */ }
++      try { token.sources[i].stop(audioEnd); } catch { /* already ended */ }
+     }
      stolen++;
    }
  
 -  function acquireVoice({ priority = 0, foreground = false, ms } = {}) {
--    if (disposed || draining || !Number.isFinite(ms) || ms <= 0 || ms > 3600000) return null;
 +  function acquireVoice({ priority = 0, foreground = false, ms, sourceContext = context } = {}) {
-+    if (!sourceContext || sourceContext.state !== 'running' || disposed || draining || !Number.isFinite(ms) || ms <= 0 || ms > 3600000) return null;
-+    registerContext(sourceContext);
+     if (disposed || draining || !Number.isFinite(ms) || ms <= 0 || ms > 3600000) return null;
++    if (!registerContext(sourceContext)) return null;
      tick();
      priority = clampPriority(priority); foreground = !!foreground;
      let voices = 0, fronts = 0, fades = 0, free = -1;
-@@ -69,9 +75,7 @@ export function createVoiceManager(context, { test = false } = {}) {
-       else if (token.fading) fades++;
-     }
-     const foregroundFull = foreground && fronts >= 6;
--    if (free < 0) return null;
-     if (voices >= 24 || foregroundFull) {
--      if (fades >= 2) return null;
-       let victim = null;
-       for (let i = 0; i < slots.length; i++) {
-         const candidate = slots[i];
-@@ -81,17 +85,23 @@ export function createVoiceManager(context, { test = false } = {}) {
-         if (!victim || candidate.id < victim.id) victim = candidate;
-       }
+@@ -83,15 +91,16 @@ export function createVoiceManager(context, { test = false } = {}) {
        if (!victim) return null;
--      fade(victim);
-+      if(victim.context.state==='suspended') {
-+        // Inaudible voices need no fade reservation. Normal global priority still applies.
-+        const slot=victim.slot;draining=true;try{retire(victim,'stolen');stolen++;}finally{draining=false;}
-+        if(free<0)free=slot;
-+      } else { if(free<0||fades>=2)return null;fade(victim); }
+       fade(victim);
      }
 -    const now = context.currentTime;
-+    if(free<0)return null;
 +    const now = sourceContext.currentTime;
      const token = {
 +      context: sourceContext,
@@ -297,7 +271,7 @@ index 07ed46d..641e59b 100644
          return true;
        },
        track(source) {
-@@ -108,14 +118,14 @@ export function createVoiceManager(context, { test = false } = {}) {
+@@ -108,14 +117,14 @@ export function createVoiceManager(context, { test = false } = {}) {
        },
        renew(durationMs) {
          if (!token.active || token.released || !Number.isFinite(durationMs) || durationMs <= 0 || durationMs > 3600000) return false;
@@ -311,11 +285,11 @@ index 07ed46d..641e59b 100644
      };
      token.gain.gain.value = 1;
 -    if (!foreground) applyDuck(token.gain.gain, now);
-+    if (!foreground) applyDuck(token.gain.gain, now, token.context);
++    if (!foreground) applyDuck(token.gain.gain, token.context.currentTime, token.context);
      slots[free] = token;
      return token;
    }
-@@ -126,21 +136,23 @@ export function createVoiceManager(context, { test = false } = {}) {
+@@ -126,21 +135,23 @@ export function createVoiceManager(context, { test = false } = {}) {
      else { gain.cancelScheduledValues(now); gain.setValueAtTime(gain.value, now); }
      gain.linearRampToValueAtTime(0, end);
    }
@@ -347,20 +321,24 @@ index 07ed46d..641e59b 100644
      }
      return .29;
    }
-@@ -154,13 +166,13 @@ export function createVoiceManager(context, { test = false } = {}) {
+@@ -154,13 +165,17 @@ export function createVoiceManager(context, { test = false } = {}) {
      tick();
      const c = counts();
      return { voices: c.voices, foreground: c.foreground, fading: c.fading, stolen,
 -      unmanaged: audit ? audit.unmanaged() : 0 };
-+      unmanaged: audit ? audits.reduce((sum,a)=>sum+a.unmanaged(),0) : 0 };
++      unmanaged: audit ? auditTotal() : 0 };
    }
++  function auditTotal() { let total = 0; for (const a of audits) { const value = a.unmanaged(); if (value < 0) return -1; total += value; } return total; }
    function diagnostics() {
 -    return audit ? audit.snapshot() : null;
-+    if(!audit)return null;const result={installed:true,sources:0,managedSources:0,unmanaged:0,scheduled:0,contexts:audits.length};for(const a of audits){const part=a.snapshot();result.installed=result.installed&&part.installed;for(const key of ['sources','managedSources','unmanaged','scheduled'])result[key]+=part[key];}return result;
++    if (!audit) return null;
++    const result = audit.snapshot();
++    for (let i = 1; i < audits.length; i++) { const part = audits[i].snapshot(); result.installed = result.installed && part.installed; for (const key of ['sources','managedSources','scheduled']) result[key] += part[key]; }
++    result.unmanaged = auditTotal(); return result;
    }
 -  function dispose() { if (disposed) return; disposed = true; stopAll('dispose'); audit?.restore(); }
 -  return { acquireVoice, releaseVoice, tick, stopAll, stats, diagnostics, preparePunchline, dispose };
-+  function dispose() { if (disposed) return; disposed = true; stopAll('dispose'); for(const a of audits)a.restore(); }
++  function dispose() { if (disposed) return; disposed = true; stopAll('dispose'); for (const a of audits) a.restore(); }
 +  return { registerContext, acquireVoice, releaseVoice, tick, stopAll, stats, diagnostics, preparePunchline, dispose };
  }
  

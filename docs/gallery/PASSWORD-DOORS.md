@@ -9,3 +9,5 @@ São22 frases, com as duas primeiras literais do dono;22.ª: «Pôs a ___ no tro
 Estimativa estrutural: **8draw calls, menos de12mil triângulos**, incluindo quatro porteiros e quatro portas; proxies não desenham. Sem luzes novas. Oito comparações de proximidade/entrada mantêm colisões, sem alocações por frame; porteiros invisíveis além40m. Saída automática temporária não concede recompensa nem desbloqueio.
 
 **Não testado:** cinco testes de lógica escritos, sem execução. Claude deve medir renderer, testar teclado/Enter/Esc, foco restaurado,390×844, entradas/saídas e cinema sem colisão no Hall. Avaliar porteiros visualmente antes de aprovação artística.
+
+Validação após rebase sobre #141 corrigido (main 7f17b2b): npm test 191/191 passou, zero falhas. A validação visual, colisões no browser e renderer.info continua com Claude.

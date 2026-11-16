@@ -1,3 +1,4 @@
+import { reserveModuleVoice, finishModuleVoice } from '../audio-lease.js';
 // photobooth.js — "Cabine de fotos": a restored vintage photo booth on the plaza, its back to the
 // south boundary hedge just west of the school gate, facing the hall (BRIEF §6.2).
 // Click it: three beeps, a flash, and it develops a four-frame strip of the visitor's own view —
@@ -284,7 +285,8 @@ export function build(ctx) {
   function tone(type, f0, f1, dur, gain, lp, delay = 0) {
     const ac = out(); if (!ac) return;
     try {
-      const t = ac.currentTime + 0.005 + delay;
+      const lease = reserveModuleVoice(ctx, 1, false, dur + .05, ctx.audio.bus, ac.currentTime + delay); if (!lease) return;
+      const t = Math.max(ac.currentTime + 0.005 + delay, lease.startAt);
       const o = ac.createOscillator(), f = ac.createBiquadFilter(), g = ac.createGain();
       o.type = type; o.frequency.setValueAtTime(f0, t);
       if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
@@ -293,8 +295,8 @@ export function build(ctx) {
       g.gain.exponentialRampToValueAtTime(gain, t + 0.008);
       g.gain.setValueAtTime(gain, t + dur * 0.6);
       g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      o.connect(f); f.connect(g); g.connect(ctx.audio.bus);
-      o.start(t); o.stop(t + dur + 0.03);
+      o.connect(f); f.connect(g); g.connect(lease.gain);
+      lease.track(o); finishModuleVoice(lease, o); o.start(t); o.stop(t + dur + 0.03);
     } catch (e) { /* audio unavailable */ }
   }
   function noise(dur, freq, gain, delay = 0) {
@@ -306,12 +308,13 @@ export function build(ctx) {
         const d = noiseBuf.getChannelData(0);
         for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
       }
-      const t = ac.currentTime + 0.005 + delay;
+      const lease = reserveModuleVoice(ctx, 1, false, dur + .05, ctx.audio.bus, ac.currentTime + delay); if (!lease) return;
+      const t = Math.max(ac.currentTime + 0.005 + delay, lease.startAt);
       const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
       s.buffer = noiseBuf; f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = 0.9;
       g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      s.connect(f); f.connect(g); g.connect(ctx.audio.bus);
-      s.start(t); s.stop(t + dur + 0.02);
+      s.connect(f); f.connect(g); g.connect(lease.gain);
+      lease.track(s); finishModuleVoice(lease, s); s.start(t); s.stop(t + dur + 0.02);
     } catch (e) { /* audio unavailable */ }
   }
   const beep = (last) => tone('square', last ? 1320 : 880, last ? 1320 : 880, 0.12, 0.08, 2600);
