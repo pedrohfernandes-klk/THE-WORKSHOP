@@ -261,15 +261,20 @@ function updateRoundCall(now) {
   }, () => { roundCall.busy = false; });
 }
 const interactionFrame = { camera };
-const interactionAbort = new AbortController();
-const interactionTimer = setTimeout(() => interactionAbort.abort(), 8000);
-const interactionMap = fetch(new URL('../data/interactions.json', import.meta.url), { signal: interactionAbort.signal })
+// The map is small but shares the start with the Hall's artwork, and on a slow device it
+// can arrive after the world stops waiting. Aborting it lost the map for good; instead the
+// world waits until at most 8 s after start, and a late map is installed when it lands.
+const interactionDeadline = performance.now() + 8000;
+const interactionMap = fetch(new URL('../data/interactions.json', import.meta.url))
   .then(r => { if (!r.ok) throw new Error('interaction map ' + r.status); return r.json(); })
-  .catch(err => { console.warn('[interactions]', err); return null; })
-  .finally(() => clearTimeout(interactionTimer));
+  .catch(err => { console.warn('[interactions]', err); return null; });
 ctx.prepareInteractions = async (built) => {
-  const data = await interactionMap;
-  if (data) interactions.installMap(built, data);
+  let timer = 0;
+  const late = new Promise((resolve) => { timer = setTimeout(resolve, Math.max(0, interactionDeadline - performance.now()), undefined); });
+  const data = await Promise.race([interactionMap, late]);
+  clearTimeout(timer);
+  if (data) { interactions.installMap(built, data); return; }
+  if (data === undefined) interactionMap.then((map) => { if (map) interactions.installMap(built, map); });
 };
 let world = null;
 const worldReady = createWorld(ctx, {
