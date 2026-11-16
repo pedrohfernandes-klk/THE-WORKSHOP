@@ -127,8 +127,8 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
   }
   function eligible(n,allowSeated=false){return n&&(!n.S.seated||allowSeated)&&!n.combatHidden&&!n.busy&&!n.goOn&&n.sillyT<0&&n.windT<=0&&n.pestT<=0&&n.hatState<=0;}
   function chooseDonor(target){
-    let chosen=null,best=144;
-    for(let i=0;i<npcs.length;i++){const n=npcs[i];if((n.slotIndex??npcs.indexOf(n))>=1&&(n.slotIndex??npcs.indexOf(n))<=5||n===target||!eligible(n)||n.routineMoving||n.talkT>0)continue;const dx=n.x-position.x,dz=n.z-position.z,d=dx*dx+dz*dz;if(d>best){best=d;chosen=n;}}
+    let chosen=null,best=81;
+    for(let i=0;i<npcs.length;i++){const n=npcs[i];if((n.slotIndex??npcs.indexOf(n))>=1&&(n.slotIndex??npcs.indexOf(n))<=5||n===target||!eligible(n,true)||n.routineMoving||n.talkT>0)continue;const dx=n.x-position.x,dz=n.z-position.z,d=dx*dx+dz*dz;if(d>best){best=d;chosen=n;}}
     return chosen;
   }
   function prepareCollision(){
