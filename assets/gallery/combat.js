@@ -135,7 +135,7 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
     colliders.length=0;const x=(a.n.x+b.n.x)*.5,z=(a.n.z+b.n.z)*.5;
     for(let i=0;i<world.colliders.length;i++){const c=world.colliders[i];if(c===a.n.col||c===b.n.col||c===donor?.col)continue;
       if(c.maxX<x-12||c.minX>x+12||c.maxZ<z-12||c.minZ>z+12)continue;
-      if(colliders.length>=256)return false;colliders.push(c);
+      if(colliders.length>=1024)return false;colliders.push(c);
     }return true;
   }
   function blockedSegment(x,z,tx,tz,list=colliders){
@@ -148,6 +148,9 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
       if(lo<=hi&&hi>0&&lo<1)return true;
     }return false;
   }
+  // Only what stands between the two fighters counts: a bench or a planter at either
+  // one's feet must not refuse the fight, a wall between them still does.
+  function blockedBetween(ax,az,bx,bz){const dx=bx-ax,dz=bz-az;return blockedSegment(ax+dx*.3,az+dz*.3,ax+dx*.7,az+dz*.7);}
   function placeCamera(){
     const x=(a.n.x+b.n.x)*.5,z=(a.n.z+b.n.z)*.5,dx=b.n.x-a.n.x,dz=b.n.z-a.n.z,d=Math.hypot(dx,dz)||1;
     const floor=Math.max(a.n.baseY||0,b.n.baseY||0);cameraAim.set(x,floor+1.15,z);
@@ -158,10 +161,21 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
         cameraPoint.set(carrier.x+c*cx+sn*cz,g+1.85,carrier.z-sn*cx+c*cz);return true;}return false;}
     for(let i=0;i<4;i++){
       const side=i%2===0?1:-1,along=i>=2,ox=(along?dx:(-dx*.55-dz*.84))/d*3.8*side,oz=(along?dz:(-dz*.55+dx*.84))/d*3.8*side;
-      const cx=x+ox,cz=z+oz,g=groundAt(world.regions,cx,cz,controls.floor,.65);
+      // On the fight axis the near body hid the opponent: shift over the shoulder and up.
+      const lat=along?1.3:0,cx=x+ox-dz/d*lat,cz=z+oz+dx/d*lat,g=groundAt(world.regions,cx,cz,controls.floor,.65);
+      if(g===null||blockedSegment(x,z,cx,cz))continue;
+      cameraPoint.set(cx,Math.max(g,floor)+(along?2.45:2.05),cz);return true;
+    }
+    // Crowded spots (benches, the pool edge, trees) must not refuse a fight: a tighter
+    // ring at eight angles, then a crane shot over the visitor's shoulder, then overhead.
+    for(let r=3;r>=2.2;r-=.8)for(let k=0;k<8;k++){
+      const ang=k*Math.PI/4,cx=x+Math.cos(ang)*r,cz=z+Math.sin(ang)*r,g=groundAt(world.regions,cx,cz,controls.floor,.9);
       if(g===null||blockedSegment(x,z,cx,cz))continue;
       cameraPoint.set(cx,Math.max(g+2.05,floor+2.05),cz);return true;
-    }return false;
+    }
+    const bx=a.n.x-dx/d*1.4,bz=a.n.z-dz/d*1.4;
+    if(!blockedSegment(x,z,bx,bz)){cameraPoint.set(bx,floor+3.2,bz);return true;}
+    cameraPoint.set(x-dx/d*.35,floor+4.2,z-dz/d*.35);return true;
   }
   function begin(first,second,kind,allowSeated=false,venue=''){
     if(state.active||freeze()||quiet()||!canAct()||!first||!second)return false;
@@ -173,7 +187,7 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
       donor=chooseDonor(b.n);if(!donor){toast('O palco está cheio.');a=b=null;return false;}
       a.n.x=position.x;a.n.z=position.z;a.n.baseY=position.y-1.62;a.n.shadowY=controls.floor;
     }else if(!eligible(a.n,allowSeated)||!eligible(b.n,allowSeated)||Math.hypot(a.n.x-position.x,a.n.z-position.z)>40||Math.hypot(b.n.x-position.x,b.n.z-position.z)>40||Math.hypot(a.n.x-b.n.x,a.n.z-b.n.z)>6||Math.abs((a.n.baseY||0)-(b.n.baseY||0))>.8){a=b=null;return false;}
-    if(!prepareCollision()||(kind==='visitor'&&(blockedSegment(a.n.x,a.n.z,b.n.x,b.n.z)||!placeCamera()))){toast('Sem espaço para a porrada.');a=b=null;donor=null;return false;}
+    if(!prepareCollision()||(kind==='visitor'&&(blockedBetween(a.n.x,a.n.z,b.n.x,b.n.z)||!placeCamera()))){toast('Sem espaço para a porrada.');a=b=null;donor=null;return false;}
     capture(a);capture(b);a.inPlace=b.inPlace=allowSeated;
     if(donor){donor.combatShadowProxy=avatar;donor.combatOldBusy=donor.busy;donor.busy=true;donor.combatHidden=true;donor.combatHitMask=donor.hit.layers.mask;donor.hit.layers.mask=0;}
     if(kind==='visitor')avatar.root.visible=true;
@@ -187,7 +201,7 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
     const n=npcModule.findActor(object);if(!n)return false;
     if(state.active&&state.kind==='visitor')return attack(0);
     let joining=false,oldVenue='',oldTrip='';
-    if(state.active){if(n!==a.n&&n!==b.n)return false;if(!canStart()||controls.seated||!chooseDonor(n)){toast('Levanta-te e liberta espaço.');return false;}readVisitor();if(Math.hypot(position.x-n.x,position.z-n.z)>1.8)return false;makeAvatar();const oldA=a,oldB=b;a=visitor;b=byNpc.get(n);a.n.x=position.x;a.n.z=position.z;a.n.baseY=position.y-1.62;a.n.shadowY=controls.floor;const spaceReady=prepareCollision()&&!blockedSegment(a.n.x,a.n.z,b.n.x,b.n.z)&&placeCamera();a=oldA;b=oldB;if(!spaceReady){prepareCollision();toast('Sem espaço para a porrada.');return false;}joining=true;oldVenue=state.venue;oldTrip=tripId;end('joined');}
+    if(state.active){if(n!==a.n&&n!==b.n)return false;if(!canStart()||controls.seated||!chooseDonor(n)){toast('Levanta-te e liberta espaço.');return false;}readVisitor();if(Math.hypot(position.x-n.x,position.z-n.z)>1.8)return false;makeAvatar();const oldA=a,oldB=b;a=visitor;b=byNpc.get(n);a.n.x=position.x;a.n.z=position.z;a.n.baseY=position.y-1.62;a.n.shadowY=controls.floor;const spaceReady=prepareCollision()&&!blockedBetween(a.n.x,a.n.z,b.n.x,b.n.z)&&placeCamera();a=oldA;b=oldB;if(!spaceReady){prepareCollision();toast('Sem espaço para a porrada.');return false;}joining=true;oldVenue=state.venue;oldTrip=tripId;end('joined');}
     const onTram=joining?oldVenue==='tram':!!ctx.scene.userData.tramRide?.hasPassenger?.(n);
     makeAvatar();if(!begin(visitor,byNpc.get(n),'visitor',onTram,onTram?'tram':''))return false;
     if(joining){climaxFight=true;state.venue=oldVenue;tripId=oldTrip;}return true;
