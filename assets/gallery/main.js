@@ -239,13 +239,13 @@ startup.whenMoved.then(async () => {
   houseSamples.configure({ fifthSlapVoice: 'alternate', approved: true });
 }).catch(error => console.warn('[house samples]', error));
 // The announcer calls the round when a porrada starts: first, second, third, then every
-// later one is the final round. Excerpts chosen from the 95.9 s pack (phrase bounds by
-// silence detection, words checked by offline recognition at four pitch shifts).
+// later one is the final round. The four calls were cut from the 95.9 s pack (phrase bounds by
+// silence detection, words checked by offline recognition at four pitch shifts) into a 6.8 s MP3.
 const ROUND_CALLS = [
-  { offset: 28.22, duration: 1.40 }, // "First round"
-  { offset: 31.73, duration: 1.56 }, // "Second round"
-  { offset: 35.32, duration: 1.38 }, // "Third round"
-  { offset: 75.28, duration: 1.50 }, // "Final round"
+  { offset: 0, duration: 1.40 },    // "First round"
+  { offset: 1.70, duration: 1.56 }, // "Second round"
+  { offset: 3.56, duration: 1.38 }, // "Third round"
+  { offset: 5.24, duration: 1.50 }, // "Final round"
 ];
 const roundCall = { fight: 0, calls: 0, until: 0, busy: false };
 function updateRoundCall(now) {

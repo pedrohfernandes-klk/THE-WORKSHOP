@@ -5,18 +5,18 @@ export const HOUSE_SAMPLES=Object.freeze({
  comic:{file:'short-comic.mp3',cooldown:60,gain:.24,maxDuration:1,vocal:true},
  puff:{file:'comic-puff.mp3',cooldown:90,gain:.24,maxDuration:1,vocal:false},
  voice:{file:'short-voice.mp3',cooldown:60,gain:.24,maxDuration:2,vocal:true},
- announcer:{file:'announcer.opus',cooldown:60,gain:.24,maxDuration:4,vocal:true},
+ announcer:{file:'announcer-rounds.mp3',cooldown:60,gain:.24,maxDuration:4,vocal:true},
 });
 export function createHouseSamples(ctx,{now=()=>performance.now()/1000,fetcher=globalThis.fetch,isSpeaking=()=>false}={}){
- const cache=new Map(),pending=new Map(),last=new Map(),ud=ctx.scene.userData;
+ const cache=new Map(),pending=new Map(),last=new Map(),failedUntil=new Map(),ud=ctx.scene.userData;
  let moved=false,disposed=false,active=null,lastAny=-Infinity,generation=0,combatSerial=0,wasSuppressed=false,listener=null,knockouts=0,slaps=0,fifthVoice=null,lastFifth=-Infinity,pendingVoice=null,voiceReadyAt=0,voiceExpiresAt=0,voiceTurn=0;
  const abort=new AbortController();
  function blocked(vocal){const a=ctx.audio;return disposed||!(ctx.startup?ctx.startup.moved:moved)||!a||a.muted||a.quietConfirmed||ud.questQuiet||ud.tramHallQuiet||ud.questSilence?.requested||ud.bairroEffects?.silenceUntil>now()||vocal&&ud.npcStatues;}
  function stop(){generation++;const a=active;active=null;if(!a)return;try{a.source.stop();}catch{}try{a.source.disconnect();a.gain.disconnect();a.panner?.disconnect();}catch{}a.token.release();}
  async function load(id){
-  if(cache.has(id))return cache.get(id);if(pending.has(id))return pending.get(id);
+  if(cache.has(id))return cache.get(id);if(pending.has(id))return pending.get(id);if(now()<(failedUntil.get(id)??-Infinity))return null;
   const spec=HOUSE_SAMPLES[id],ac=ctx.audio?.context;if(!spec||!ac||blocked(spec.vocal))return null;
-  const p=(async()=>{const response=await fetcher(new URL('../audio/house/'+spec.file,import.meta.url),{signal:abort.signal});if(!response.ok)throw Error('Sample HTTP '+response.status);const bytes=await response.arrayBuffer();const buffer=await ac.decodeAudioData(bytes);if(!disposed)cache.set(id,buffer);return buffer;})().catch(()=>null).finally(()=>pending.delete(id));pending.set(id,p);return p;
+  const p=(async()=>{const response=await fetcher(new URL('../audio/house/'+spec.file,import.meta.url),{signal:abort.signal});if(!response.ok)throw Error('Sample HTTP '+response.status);const bytes=await response.arrayBuffer();const buffer=await ac.decodeAudioData(bytes);if(!disposed)cache.set(id,buffer);return buffer;})().catch(()=>{if(!disposed)failedUntil.set(id,now()+30);return null;}).finally(()=>pending.delete(id));pending.set(id,p);return p;
  }
  async function play(id,{manual=false,offset,duration:requestedDuration,maxDelay=Infinity,x,z}={}){
   if(!Object.prototype.hasOwnProperty.call(HOUSE_SAMPLES,id))return false;

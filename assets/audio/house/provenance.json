@@ -3,10 +3,11 @@
   "review": "Not auditioned by this agent. Chime, impact and rare puff are contextual effects; voices require manual selection or explicitly approved configuration. Announcer requires a bounded selected interval.",
   "files": [
     {
-      "file": "announcer.opus",
+      "file": "announcer-rounds.mp3",
       "source": "voicebosch-dragon-fighting-game-announcer-pack-186256.mp3",
-      "bytes": 114566,
-      "sha256": "c3d0654d71cbf20d11baf26e96fc2e94e90007ce161f80d9d6512897c0f4698f"
+      "bytes": 54381,
+      "sha256": "0a65931240fc6ce898e0f22d73ce96fc750440f58bd440d6413ab94292170797",
+      "excerpts": "Four round calls cut from the supplied pack and joined with 0.3 s gaps: First round (28.22 s, 1.40 s), Second round (31.73 s, 1.56 s), Third round (35.32 s, 1.38 s), Final round (75.28 s, 1.50 s). MP3 mono 64 kbps: decodes everywhere, including Safari before 18.4, and keeps 6.8 s in memory instead of 95.9 s."
     },
     {
       "file": "comic-puff.mp3",

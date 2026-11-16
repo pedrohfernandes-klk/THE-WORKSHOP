@@ -151,6 +151,9 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
   // Only what stands between the two fighters counts: a bench or a planter at either
   // one's feet must not refuse the fight, a wall between them still does.
   function blockedBetween(ax,az,bx,bz){const dx=bx-ax,dz=bz-az;return blockedSegment(ax+dx*.3,az+dz*.3,ax+dx*.7,az+dz*.7);}
+  // A walking opponent closes to 1.45 m before the first blow: the fight must still be clear
+  // along that shorter line, or it would start and no blow could ever land.
+  function blockedFight(){const dx=b.n.x-a.n.x,dz=b.n.z-a.n.z,d=Math.hypot(dx,dz),k=d>1.45&&!b.n.fixed?1.45/d:1;return blockedBetween(a.n.x,a.n.z,b.n.x,b.n.z)||k<1&&blockedBetween(a.n.x,a.n.z,a.n.x+dx*k,a.n.z+dz*k);}
   function placeCamera(){
     const x=(a.n.x+b.n.x)*.5,z=(a.n.z+b.n.z)*.5,dx=b.n.x-a.n.x,dz=b.n.z-a.n.z,d=Math.hypot(dx,dz)||1;
     const floor=Math.max(a.n.baseY||0,b.n.baseY||0);cameraAim.set(x,floor+1.15,z);
@@ -173,6 +176,11 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
       if(g===null||blockedSegment(x,z,cx,cz))continue;
       cameraPoint.set(cx,Math.max(g+2.05,floor+2.05),cz);return true;
     }
+    // The crane and overhead shots are for open ground: in or beside the tram they would show
+    // the car's roof, so there the old rule stands (no camera, no fight).
+    if(state.venue==='tram')return false;
+    const car=ctx.scene.userData.tramRide?.carrier;
+    if(car){const c=Math.cos(car.yaw),s=Math.sin(car.yaw),ox=x-car.x,oz=z-car.z;if(Math.abs(c*ox-s*oz)<3.4&&Math.abs(s*ox+c*oz)<6)return false;}
     const bx=a.n.x-dx/d*1.4,bz=a.n.z-dz/d*1.4;
     if(!blockedSegment(x,z,bx,bz)){cameraPoint.set(bx,floor+3.2,bz);return true;}
     cameraPoint.set(x-dx/d*.35,floor+4.2,z-dz/d*.35);return true;
@@ -187,7 +195,7 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
       donor=chooseDonor(b.n);if(!donor){toast('O palco está cheio.');a=b=null;return false;}
       a.n.x=position.x;a.n.z=position.z;a.n.baseY=position.y-1.62;a.n.shadowY=controls.floor;
     }else if(!eligible(a.n,allowSeated)||!eligible(b.n,allowSeated)||Math.hypot(a.n.x-position.x,a.n.z-position.z)>40||Math.hypot(b.n.x-position.x,b.n.z-position.z)>40||Math.hypot(a.n.x-b.n.x,a.n.z-b.n.z)>6||Math.abs((a.n.baseY||0)-(b.n.baseY||0))>.8){a=b=null;return false;}
-    if(!prepareCollision()||(kind==='visitor'&&(blockedBetween(a.n.x,a.n.z,b.n.x,b.n.z)||!placeCamera()))){toast('Sem espaço para a porrada.');a=b=null;donor=null;return false;}
+    if(!prepareCollision()||(kind==='visitor'&&(blockedFight()||!placeCamera()))){toast('Sem espaço para a porrada.');a=b=null;donor=null;return false;}
     capture(a);capture(b);a.inPlace=b.inPlace=allowSeated;
     if(donor){donor.combatShadowProxy=avatar;donor.combatOldBusy=donor.busy;donor.busy=true;donor.combatHidden=true;donor.combatHitMask=donor.hit.layers.mask;donor.hit.layers.mask=0;}
     if(kind==='visitor')avatar.root.visible=true;
@@ -201,7 +209,7 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
     const n=npcModule.findActor(object);if(!n)return false;
     if(state.active&&state.kind==='visitor')return attack(0);
     let joining=false,oldVenue='',oldTrip='';
-    if(state.active){if(n!==a.n&&n!==b.n)return false;if(!canStart()||controls.seated||!chooseDonor(n)){toast('Levanta-te e liberta espaço.');return false;}readVisitor();if(Math.hypot(position.x-n.x,position.z-n.z)>1.8)return false;makeAvatar();const oldA=a,oldB=b;a=visitor;b=byNpc.get(n);a.n.x=position.x;a.n.z=position.z;a.n.baseY=position.y-1.62;a.n.shadowY=controls.floor;const spaceReady=prepareCollision()&&!blockedBetween(a.n.x,a.n.z,b.n.x,b.n.z)&&placeCamera();a=oldA;b=oldB;if(!spaceReady){prepareCollision();toast('Sem espaço para a porrada.');return false;}joining=true;oldVenue=state.venue;oldTrip=tripId;end('joined');}
+    if(state.active){if(n!==a.n&&n!==b.n)return false;if(!canStart()||controls.seated||!chooseDonor(n)){toast('Levanta-te e liberta espaço.');return false;}readVisitor();if(Math.hypot(position.x-n.x,position.z-n.z)>1.8)return false;makeAvatar();const oldA=a,oldB=b;a=visitor;b=byNpc.get(n);a.n.x=position.x;a.n.z=position.z;a.n.baseY=position.y-1.62;a.n.shadowY=controls.floor;const spaceReady=prepareCollision()&&!blockedFight()&&placeCamera();a=oldA;b=oldB;if(!spaceReady){prepareCollision();toast('Sem espaço para a porrada.');return false;}joining=true;oldVenue=state.venue;oldTrip=tripId;end('joined');}
     const onTram=joining?oldVenue==='tram':!!ctx.scene.userData.tramRide?.hasPassenger?.(n);
     makeAvatar();if(!begin(visitor,byNpc.get(n),'visitor',onTram,onTram?'tram':''))return false;
     if(joining){climaxFight=true;state.venue=oldVenue;tripId=oldTrip;}return true;
@@ -238,7 +246,7 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
     const dx=target.n.x-r.n.x,dz=target.n.z-r.n.z,d=Math.hypot(dx,dz);
     // Two torso spheres; extend the attacking centre along its reach, then test.
     const ux=d?dx/d:0,uz=d?dz/d:1,sx=dx-ux*.85,sz=dz-uz*.85,dy=(target.n.baseY||0)-(r.n.baseY||0);
-    if(d>move.range||sx*sx+sz*sz+dy*dy>1.05*1.05||state.venue!=='tram'&&blockedSegment(r.n.x,r.n.z,target.n.x,target.n.z))return;
+    if(d>move.range||sx*sx+sz*sz+dy*dy>1.05*1.05||state.venue!=='tram'&&blockedBetween(r.n.x,r.n.z,target.n.x,target.n.z))return;
     if(target.visitor&&(clock<dodgeUntil||(move.pose==='sweepLeg'||move.pose==='stomp')&&controls.airborne)){counterUntil=clock+.75;emit('dodge',.3,move.id);return;}
     const guarded=target.blocking,perfect=guarded&&target.visitor&&clock-blockAt<.22;
     const courage=r.visitor&&ctx.scene.userData.bairroEffects?.courageUntil>performance.now()/1000&&new Date().getDay()===2?2:1;
