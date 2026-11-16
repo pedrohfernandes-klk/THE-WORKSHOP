@@ -5,6 +5,12 @@ export function createVoiceManager(context, { test = false } = {}) {
   const sourceOwners = new WeakMap();
   let serial = 0, stolen = 0, disposed = false, draining = false, collecting = false, duckUntil = 0, gapAt = 0;
   const audit = test ? installAudit(context, sourceOwners) : null;
+  const audits = audit ? [audit] : [], registered = new WeakSet([context]);
+  function registerContext(other) {
+    if (!other || typeof other.createGain !== 'function') return false;
+    if (!registered.has(other)) { registered.add(other); if (test) audits.push(installAudit(other, sourceOwners)); }
+    return true;
+  }
   const clampPriority = n => Math.max(0, Math.min(3, Number.isFinite(n) ? Math.floor(n) : 0));
 
   function retire(token, reason) {
@@ -13,7 +19,7 @@ export function createVoiceManager(context, { test = false } = {}) {
     slots[token.slot] = null;
     for (let i = 0; i < token.sources.length; i++) {
       const source = token.sources[i];
-      try { source.stop(context.currentTime); } catch { /* already ended */ }
+      try { source.stop(token.context.currentTime); } catch { /* already ended */ }
       try { source.disconnect(); } catch { /* optional source */ }
     }
     try { token.gain.disconnect(); } catch { /* not connected */ }
@@ -31,7 +37,7 @@ export function createVoiceManager(context, { test = false } = {}) {
       const token = slots[i];
       if (!token) continue;
       if (token.fading && now >= token.fadeEnd) retire(token, 'stolen');
-      else if (token.active && now >= token.expires) retire(token, 'expired');
+      else if (token.active && token.context.currentTime >= token.expires) retire(token, 'expired');
     }
     collecting = false;
   }
@@ -49,16 +55,18 @@ export function createVoiceManager(context, { test = false } = {}) {
   function fade(token) {
     const now = context.currentTime;
     token.active = false; token.fading = true; token.fadeEnd = now + 0.03;
-    fadeGain(token.gain.gain, now, token.fadeEnd);
-    for (let i = 0; i < token.outputs.length; i++) fadeGain(token.outputs[i].gain, now, token.fadeEnd);
+    const audioNow = token.context.currentTime, audioEnd = audioNow + 0.03;
+    fadeGain(token.gain.gain, audioNow, audioEnd);
+    for (let i = 0; i < token.outputs.length; i++) fadeGain(token.outputs[i].gain, audioNow, audioEnd);
     for (let i = 0; i < token.sources.length; i++) {
-      try { token.sources[i].stop(token.fadeEnd); } catch { /* already ended */ }
+      try { token.sources[i].stop(audioEnd); } catch { /* already ended */ }
     }
     stolen++;
   }
 
-  function acquireVoice({ priority = 0, foreground = false, ms } = {}) {
+  function acquireVoice({ priority = 0, foreground = false, ms, sourceContext = context } = {}) {
     if (disposed || draining || !Number.isFinite(ms) || ms <= 0 || ms > 3600000) return null;
+    if (!registerContext(sourceContext)) return null;
     tick();
     priority = clampPriority(priority); foreground = !!foreground;
     let voices = 0, fronts = 0, fades = 0, free = -1;
@@ -83,15 +91,16 @@ export function createVoiceManager(context, { test = false } = {}) {
       if (!victim) return null;
       fade(victim);
     }
-    const now = context.currentTime;
+    const now = sourceContext.currentTime;
     const token = {
+      context: sourceContext,
       id: ++serial, slot: free, priority, foreground, startAt: now,
-      expires: now + ms / 1000, gain: context.createGain(), outputs: [], sources: [], ended: 0,
+      expires: now + ms / 1000, gain: sourceContext.createGain(), outputs: [], sources: [], ended: 0,
       active: true, fading: false, fadeEnd: 0, released: false, onRelease: null,
       addOutput(node) {
         if (!token.active || !node?.gain) return false;
         token.outputs.push(node);
-        if (!token.foreground) applyDuck(node.gain, context.currentTime);
+        if (!token.foreground) applyDuck(node.gain, sourceContext.currentTime, sourceContext);
         return true;
       },
       track(source) {
@@ -108,14 +117,14 @@ export function createVoiceManager(context, { test = false } = {}) {
       },
       renew(durationMs) {
         if (!token.active || token.released || !Number.isFinite(durationMs) || durationMs <= 0 || durationMs > 3600000) return false;
-        if (context.currentTime >= token.expires) { retire(token, 'expired'); return false; }
-        token.expires = context.currentTime + durationMs / 1000;
+        if (sourceContext.currentTime >= token.expires) { retire(token, 'expired'); return false; }
+        token.expires = sourceContext.currentTime + durationMs / 1000;
         return true;
       },
       release() { retire(token, 'released'); },
     };
     token.gain.gain.value = 1;
-    if (!foreground) applyDuck(token.gain.gain, now);
+    if (!foreground) applyDuck(token.gain.gain, token.context.currentTime, token.context);
     slots[free] = token;
     return token;
   }
@@ -126,21 +135,23 @@ export function createVoiceManager(context, { test = false } = {}) {
     else { gain.cancelScheduledValues(now); gain.setValueAtTime(gain.value, now); }
     gain.linearRampToValueAtTime(0, end);
   }
-  function applyDuck(param, now) {
-    if (now >= duckUntil) return;
+  function applyDuck(param, now, sourceContext = context) {
+    const offset = context.currentTime - sourceContext.currentTime;
+    const localUntil = duckUntil - offset, localGap = gapAt - offset;
+    if (now >= localUntil) return;
     param.cancelScheduledValues(now);
-    param.setValueAtTime(now >= gapAt ? 0 : 0.2511886432, now);
-    if (now < gapAt) { param.setValueAtTime(0.2511886432, gapAt); param.linearRampToValueAtTime(0, gapAt + .005); }
-    param.setValueAtTime(0, duckUntil);
-    param.linearRampToValueAtTime(1, duckUntil + .08);
+    param.setValueAtTime(now >= localGap ? 0 : 0.2511886432, now);
+    if (now < localGap) { param.setValueAtTime(0.2511886432, localGap); param.linearRampToValueAtTime(0, localGap + .005); }
+    param.setValueAtTime(0, localUntil);
+    param.linearRampToValueAtTime(1, localUntil + .08);
   }
   function preparePunchline() {
     const now = context.currentTime;
     gapAt = now + .25; duckUntil = now + .29;
     for (let i = 0; i < slots.length; i++) {
       const token = slots[i]; if (!token?.active || token.foreground) continue;
-      applyDuck(token.gain.gain, now);
-      for (let j = 0; j < token.outputs.length; j++) applyDuck(token.outputs[j].gain, now);
+      applyDuck(token.gain.gain, token.context.currentTime, token.context);
+      for (let j = 0; j < token.outputs.length; j++) applyDuck(token.outputs[j].gain, token.context.currentTime, token.context);
     }
     return .29;
   }
@@ -154,13 +165,17 @@ export function createVoiceManager(context, { test = false } = {}) {
     tick();
     const c = counts();
     return { voices: c.voices, foreground: c.foreground, fading: c.fading, stolen,
-      unmanaged: audit ? audit.unmanaged() : 0 };
+      unmanaged: audit ? auditTotal() : 0 };
   }
+  function auditTotal() { let total = 0; for (const a of audits) { const value = a.unmanaged(); if (value < 0) return -1; total += value; } return total; }
   function diagnostics() {
-    return audit ? audit.snapshot() : null;
+    if (!audit) return null;
+    const result = audit.snapshot();
+    for (let i = 1; i < audits.length; i++) { const part = audits[i].snapshot(); result.installed = result.installed && part.installed; for (const key of ['sources','managedSources','scheduled']) result[key] += part[key]; }
+    result.unmanaged = auditTotal(); return result;
   }
-  function dispose() { if (disposed) return; disposed = true; stopAll('dispose'); audit?.restore(); }
-  return { acquireVoice, releaseVoice, tick, stopAll, stats, diagnostics, preparePunchline, dispose };
+  function dispose() { if (disposed) return; disposed = true; stopAll('dispose'); for (const a of audits) a.restore(); }
+  return { registerContext, acquireVoice, releaseVoice, tick, stopAll, stats, diagnostics, preparePunchline, dispose };
 }
 
 function installAudit(context, owners) {

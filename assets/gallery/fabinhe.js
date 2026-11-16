@@ -140,9 +140,11 @@ export function createFabinhe(ctx, { npcs, say } = {}) {
   function before(dt, frame) {
     camera = frame?.camera || camera;
     if (!actor || destroyed) return;
+    if(ctx.scene.userData.questQuiet||ctx.audio?.muted){if(state.active)cancel('quiet');state.paused=true;return;}
+    if(forcedPause||ctx.scene.userData.npcStatues){state.paused=true;return;}
     const paused = quiet();
     if (paused) { if (!state.paused || state.active) cancel('paused'); state.paused = true; return; }
-    if (state.paused) { state.paused = false; state.phase = 'idle'; actor.rig?.setPreset?.(null); } // No queue catch-up or automatic replay on thaw.
+    if (state.paused) { state.paused = false; } // No queue catch-up or automatic replay on thaw.
     if (!near()) { if (state.active) cancel('idle'); return; }
     const step = Math.min(.05, Math.max(0, dt || 0)); state.clock += step;
     if (!state.active) return;
@@ -166,7 +168,7 @@ export function createFabinhe(ctx, { npcs, say } = {}) {
   const visibility = () => { if (typeof document !== 'undefined' && document.hidden) cancel('idle'); };
   if (typeof document !== 'undefined') document.addEventListener('visibilitychange', visibility);
   return { state, before, after, onTalk, onSlap,
-    setPaused(value) { forcedPause = !!value; if (forcedPause) { cancel('paused'); state.paused = true; } },
+    setPaused(value) { forcedPause = !!value;state.paused=forcedPause; },
     dispose() { destroyed = true; cancel('disposed'); if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', visibility); }
   };
 }

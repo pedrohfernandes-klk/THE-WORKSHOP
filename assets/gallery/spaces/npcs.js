@@ -1,3 +1,4 @@
+import { createStatueAudio, createStatueDirector } from '../statue-director.js';
 import { reserveModuleVoice, finishModuleVoice } from '../audio-lease.js';
 // NPCs: six silly animal-headed people in suits who wander small loops around the
 // campus, face the visitor when close, and talk (speech bubble + synthesised noise)
@@ -10,22 +11,12 @@ import { buildCharacter, createLinePicker, createNpcEffects, mergeNpcProps } fro
 
 export async function build(ctx) {
   const { THREE, quality } = ctx;
-  // Private NPC bus: statues never suspend the ambient AudioContext.
   const sourceAudio=ctx.audio;
-  let npcBus=null,npcContext=null,npcSpeechActive=false,npcSpeechPaused=false,statuesHeld=false,npcTime=0;
+  const statueAudio=createStatueAudio(ctx);ctx.scene.userData.statueAudio=statueAudio;
+  let npcSpeechActive=false,npcSpeechPaused=false,statuesHeld=false,npcTime=0;
   const npcFrame={camera:null,time:0,level:0,weather:null};
-  const npcAudio={
-    get context(){return sourceAudio?.context;},
-    get muted(){return !!sourceAudio?.muted||!!ctx.scene.userData.npcStatues;},
-    get bus(){const ac=sourceAudio?.context,bus=sourceAudio?.bus;if(!ac||!bus)return null;
-      if(npcContext!==ac){npcBus?.disconnect();npcContext=ac;npcBus=ac.createGain();npcBus.connect(bus);}
-      npcBus.gain.value=ctx.scene.userData.npcStatues?0:1;return npcBus;},
-    acquireVoice(options){return sourceAudio?.acquireVoice?.(options)||null;},
-    releaseVoice(token){sourceAudio?.releaseVoice?.(token);},
-    duck(seconds){sourceAudio?.duck?.(seconds);},
-    preparePunchline(){return sourceAudio?.preparePunchline?.()||0;}
-  };
-  ctx={...ctx,audio:npcAudio};
+  ctx={...ctx,audio:statueAudio.audio};
+  let statueDirector=null;
 
   let cast = [];
   try {
@@ -560,6 +551,7 @@ export async function build(ctx) {
   }
   comedy.loadManifest(); // background: never delays the Enter button
   fabinhe = createFabinhe(ctx, { npcs, say });
+  statueDirector=createStatueDirector(ctx,{actors:npcs,say:(n,text)=>comedy.thaw(n,text)});
 
   // ---------- sound ----------
   // Web Audio is read lazily from ctx.audio (null until the visitor enters) and
@@ -1285,16 +1277,12 @@ export async function build(ctx) {
   // A throw would make the world drop this module's update for good: contain it here.
   function setStatues(value){
     if(statuesHeld===!!value)return;statuesHeld=!!value;
-    if(npcBus&&npcContext)npcBus.gain.setValueAtTime(value?0:1,npcContext.currentTime);
-    comedy?.setPaused?.(!!value);
-    try{if(typeof speechSynthesis!=='undefined'){
-      if(value&&npcSpeechActive&&speechSynthesis.speaking){speechSynthesis.pause();npcSpeechPaused=true;}
-      else if(!value&&npcSpeechPaused){if(ctx.scene.userData.questQuiet)speechSynthesis.cancel();else speechSynthesis.resume();npcSpeechPaused=false;}
-    }}catch{}
+    statueAudio.setPaused(!!value);comedy?.setPaused?.(!!value);
   }
   function update(dt, frame) {
-    if (ctx.audio?.muted || ctx.scene.userData.questQuiet || ctx.scene.userData.npcStatues) stopSignatureSpeech();
+    if (ctx.audio?.muted || ctx.scene.userData.questQuiet) stopSignatureSpeech();
     if (!frame?.camera) return;
+    statueAudio.update(frame.camera);statueDirector.update(dt,frame.camera);
     fabinhe.before(dt,frame);
     npcFrame.camera=frame.camera;npcFrame.level=frame.level;npcFrame.weather=frame.weather;
     if(ctx.scene.userData.npcStatues){setStatues(true);comedy.update(0,npcFrame);effects.update(frame.camera,starMat.rotation);return;}
@@ -1963,6 +1951,6 @@ export async function build(ctx) {
     else if(move==='chapada'||move==='reves'||move==='sanduiche')comedy?.notify?.('slap',n);
   }
   return { group, regions: [], colliders, pickables, update, onPick, slap, fabinhe, setNavigation: personalities.setNavigation,
-    actors:npcs,combatActors:npcs,findActor:findNpc,combatImpact,setStatues,refreshEffects:(camera)=>effects.update(camera,starMat.rotation),get comedyMemory(){return comedy.memory;} };
+    statueDirector,statueAudio,actors:npcs,combatActors:npcs,findActor:findNpc,combatImpact,setStatues,refreshEffects:(camera)=>effects.update(camera,starMat.rotation),get comedyMemory(){return comedy.memory;} };
 
 }

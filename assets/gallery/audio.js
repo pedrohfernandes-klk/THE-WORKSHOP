@@ -3,7 +3,8 @@ import { rootEngine, managedEvent, managedLoop, maintainLoop, dropManagedLoop, t
 // audio.js — the sound of the room. Pure Web Audio, fully procedural, no files.
 // Graph builders take a context parameter so they can also render offline.
 //
-// Mix: ONE AudioContext, ONE limiter. Everything sums into E.master (mute + level), then the limiter,
+// Ambient mix: primary context/master/limiter. Statues adds one independently pausable NPC context.
+// Both contexts share the global voice ledger and reserve summing headroom. Primary sources sum into E.master, then the limiter,
 // then a soft clip that never lets the sum cross 0 dBFS (the limiter's 3 ms attack lets transients by).
 //   effects, beds, weather, sfx.js, NPC voices -> E.master (audio.bus)
 //   the score -> E.musicIn (its fader: trim, a -1.5 dB dip at 2.2 kHz for the footstep band, a duck for the
@@ -905,7 +906,7 @@ export function createAudio() {
     nextOwl: 0, nextDog: 0, nextMoan: 0, nextGust: 0,
     duckUntil: 0, duckDepth: 1, duckCur: 1, thunderAt: -10, musicCtx: null, stillFor: 0,
   };
-  const MASTER = 0.9;
+  const MASTER = 0.45; // Separate NPC transport has its own .45 master; reserve summing headroom.
 
   const usable = () => A.started && A.ctx && A.E && !A.muted && !A.quiet && !A.hidden && A.ctx.state !== 'closed';
   const gaitNow = () => clamp((A.speed - 2.3) / 0.8, 0, 1);
@@ -1013,6 +1014,7 @@ export function createAudio() {
   }
 
   const api = {
+    registerVoiceContext(context){A.E?.voiceManager.registerContext(context);},
     acquireVoice(options){if(!usable())return null;return A.E.voiceManager.acquireVoice(options);},
     releaseVoice(token){A.E?.voiceManager.releaseVoice(token);},
     preparePunchline(){
