@@ -55,18 +55,45 @@ export function areaAt(x, y, z) {
 // The campus waits for the hall: its modules are fetched only after the page's
 // own load (capped), a few at a time, with the main thread handed back between
 // module builds so the visitor can walk in the hall while the campus builds.
-const LOAD_CAP_MS = 10000;
 const IN_FLIGHT = 3;
 // Flip to true once ?batch has been checked against ?nobatch (draw calls, screenshots, clicks).
 const BATCH_BY_DEFAULT = false;
 
-function afterPageLoad(capMs = LOAD_CAP_MS) {
-  if (typeof document === 'undefined' || typeof addEventListener !== 'function' || document.readyState === 'complete') return Promise.resolve();
-  return new Promise((resolve) => {
-    const timer = setTimeout(resolve, capMs);
-    addEventListener('load', () => { clearTimeout(timer); resolve(); }, { once: true });
-  });
+const HALL_LOAD_CENTRES = Object.freeze({
+  environment: { essential: true }, facade: { essential: true }, plaza: { essential: true },
+  lift: { x: 4.3, z: 15.8 },
+  landscape: { x: 0, z: 28 },
+  pool: { x: 0, z: 31 }, parterre: { x: 0, z: 28 },
+  furniture: { x: 0, z: 32 }, wayfinding: { x: 0, z: 30 },
+  trees: { x: 0, z: 30 }, garden: { x: 40, z: 30 },
+  grass: { x: 38, z: 32 }, flowers: { x: 42, z: 30 },
+  fountain: { x: 46, z: 30 }, pergola: { x: 54, z: 39 },
+  sculptures: { x: 44, z: 36 }, amphitheatre: { x: -39, z: 30 },
+  studio: { x: -11, z: 44 }, arcade: { x: 11, z: 44 },
+  terrace: { x: 4, z: 15 }, cinema: { x: 0, z: 5 },
+  school: { x: 0, z: 54 }, birds: { x: 0, z: 32 },
+  passwords: { x: 0, z: 36 },
+  metro: { x: 82, z: 34 }, skyliner: { x: 50, z: 40 },
+  aviation: { x: 0, z: 34 }, npcs: { x: 0, z: 32 },
+  ruins: { x: -44, z: -26 }, murals: { x: 0, z: 4 },
+  vending: { x: 9, z: 22 }, cat: { x: 6, z: 24 },
+  radio: { x: 4, z: 10 }, ghost: { x: -43, z: -26, after: ['ruins'] },
+  floorsnake: { x: 0, z: 45 }, photobooth: { x: -21, z: 39 },
+  gnome: { x: 44, z: 30 }, oddities: { x: 0, z: 34 },
+  duck: { x: 0, z: 33, after: ['pool'] },
+  mercado: { x: 101, z: 31, after: ['metro'] },
+  marginal: { x: 4, z: 80, after: ['school'] },
+  'tram-ride': { x: 86, z: 29, after: ['metro', 'npcs'] },
+  arraial: { x: 71, z: 23 }, quests: { x: 0, z: 32 },
+  lightpools: { x: 0, z: 32 },
+});
+export function hallLoadOrder(names=SPACES){
+  const rank=name=>{const p=HALL_LOAD_CENTRES[name];return p?.essential?-1e6+SPACES.indexOf(name):p?(p.x*p.x+(p.z-13.5)**2):1e9;};
+  const sorted=names.slice().sort((a,b)=>rank(a)-rank(b)),result=[],seen=new Set();
+  function visit(name){if(seen.has(name))return;seen.add(name);for(const dependency of HALL_LOAD_CENTRES[name]?.after||[])if(names.includes(dependency))visit(dependency);result.push(name);}
+  for(const name of sorted)visit(name);return result;
 }
+function firstCampusIdle(){return new Promise(resolve=>{if(typeof requestIdleCallback==='function')requestIdleCallback(()=>resolve(),{timeout:300});else setTimeout(resolve,0);});}
 
 function yieldToMain() {
   return new Promise((resolve) => {
@@ -80,17 +107,22 @@ function yieldToMain() {
  * createWorld(ctx, { hallColliders, onProgress }) → world
  * ctx: { THREE, renderer, scene, M, quality, reducedMotion, audio, ui }
  */
-export async function createWorld(ctx, { hallColliders = [], onProgress } = {}) {
+export async function createWorld(ctx, { hallColliders = [], onProgress, ready, loadModule = name => import(`./spaces/${name}.js`) } = {}) {
   const built = new Array(SPACES.length);
   let done = 0, next = 0;
-  await afterPageLoad();
-  // A few workers take the modules in SPACES order (what appears first while loading).
+  await ready; // The Hall artwork owns startup bandwidth; this never prepares shaders.
+  await firstCampusIdle();
+  const loadOrder=hallLoadOrder();
+  const completed=new Map(),complete=new Map();
+  for(const name of SPACES)completed.set(name,new Promise(resolve=>complete.set(name,resolve)));
+  // Load nearby first; public registration remains in canonical SPACES order.
   async function worker() {
     while (next < SPACES.length) {
-      const i = next++;
-      const name = SPACES[i];
+      const name = loadOrder[next++];
+      const i = SPACES.indexOf(name);
       try {
-        const mod = await import(`./spaces/${name}.js`);
+        for(const dependency of HALL_LOAD_CENTRES[name]?.after||[])await completed.get(dependency);
+        const mod = await loadModule(name);
         await yieldToMain();
         const out = await mod.build(ctx);
         if (out && out.group) {
@@ -102,6 +134,7 @@ export async function createWorld(ctx, { hallColliders = [], onProgress } = {}) 
       } catch (err) {
         console.warn(`[world] ${name} skipped:`, err);
       }
+      complete.get(name)();
       done++;
       onProgress?.(done / SPACES.length);
       await yieldToMain();
@@ -142,6 +175,9 @@ export async function createWorld(ctx, { hallColliders = [], onProgress } = {}) 
   }
   syncDynamic();
 
+  function registerPickables(name, list) {
+    for (const object of list || []) if (!owner.has(object)) { owner.set(object, name); pickables.push(object); }
+  }
   function actionFor(object) {
     for (let o = object; o; o = o.parent) {
       if (o.userData && o.userData.action) return { action: o.userData.action, object: o, module: owner.get(o) || moduleOf(o) };
@@ -207,7 +243,7 @@ export async function createWorld(ctx, { hallColliders = [], onProgress } = {}) 
     }
   }
 
-  const world = { modules, groups, regions, colliders, pickables, lift, pick, actionFor, update, refreshShadows, batchStats: null };
+  const world = { modules, groups, regions, colliders, pickables, lift, pick, actionFor, registerPickables, update, refreshShadows, batchStats: null };
   if (noBatch) world.batchStats = { disabled: true, before: 0, after: 0, merged: 0, skipped: 0 };
   return world;
 }

@@ -87,7 +87,7 @@ function fixture(t,extra={}) {
   let seconds=100;
   const npcs=['bull','pig','cat','goat','pigeon'].map((id,i)=>actor(id,i));
   const spoken=[],laughs=[];
-  const ctx={scene:{userData:{}},audio:{muted:false},reducedMotion:true};
+  const ctx={yieldBuild:()=>Promise.resolve(),scene:{userData:{}},audio:{muted:false},reducedMotion:true};
   const data={characters:Object.fromEntries(npcs.map(n=>[n.S.name,{}])),duets:[
     {id:'first',trigger:'approach',roles:['bull','pig'],lines:[
       {speaker:'bull',text:'A cadeira pediu a palavra.',score:4,pause:.6},

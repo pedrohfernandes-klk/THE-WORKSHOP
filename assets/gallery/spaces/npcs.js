@@ -1,15 +1,18 @@
-import { createStatueAudio, createStatueDirector } from '../statue-director.js';
-import { reserveModuleVoice, finishModuleVoice } from '../audio-lease.js';
+import {createActorStream} from '../npc-stream.js';
+import {idleSlice,afterFirstMove} from '../startup-idle.js';
 // NPCs: six silly animal-headed people in suits who wander small loops around the
 // campus, face the visitor when close, and talk (speech bubble + synthesised noise)
 // when picked. Procedural low-poly-but-smooth models; no per-frame allocation.
 
-import { createNpcComedy } from '../npc-comedy.js';
-import { createNpcPersonalities } from '../npc-onlookers.js';
-import { createFabinhe } from '../fabinhe.js';
-import { buildCharacter, createLinePicker, createNpcEffects, mergeNpcProps } from '../npc-models.js';
 
-export async function build(ctx) {
+async function buildReady(ctx) {
+  const { createStatueAudio, createStatueDirector }=await import('../statue-director.js');
+  const { reserveModuleVoice, finishModuleVoice }=await import('../audio-lease.js');
+  const { createNpcComedy }=await import('../npc-comedy.js');
+  const { createNpcPersonalities }=await import('../npc-onlookers.js');
+  const { createFabinhe }=await import('../fabinhe.js');
+  const { buildCharacter, createLinePicker, createNpcEffects, mergeNpcProps }=await import('../npc-models.js');
+  await afterFirstMove(ctx.startup);await idleSlice();
   const { THREE, quality } = ctx;
   const sourceAudio=ctx.audio;
   const statueAudio=createStatueAudio(ctx);ctx.scene.userData.statueAudio=statueAudio;
@@ -18,12 +21,7 @@ export async function build(ctx) {
   ctx={...ctx,audio:statueAudio.audio};
   let statueDirector=null;
 
-  let cast = [];
-  try {
-    const response = await fetch(new URL('../../data/npc-cast.json', import.meta.url));
-    if (response.ok) cast = (await response.json()).characters || [];
-  } catch { /* Existing cast remains usable when optional data is unavailable. */ }
-  const castById = new Map(cast.map(c => [c.id, c]));
+  const castById = new Map();
   const chooseLine = createLinePicker();
   const lineKeys = { ouch: 'slap1', ouch2: 'slap2', ouch3: 'slap3', ha: 'bystander_laugh', sit: 'sit_beside', rude: 'gesture_rude', run: 'run_past' };
   const reduced = !!ctx.reducedMotion;
@@ -455,20 +453,28 @@ export async function build(ctx) {
 
   // ---------- build the characters ----------
   let personalities = null, comedy = null, fabinhe = null;
-  const npcs = [];
-  const pickables = [];
-  const propSource = new THREE.Group();
+  const npcs = ctx.__npcShell.actors;
+  const pickables = ctx.__npcShell.pickables;
   // A director may replace slots, never silently add another actor.
   const assignments = ctx.scene?.userData?.npcAssignments;
-  const roster = SPECS.map((legacy, i) => {
-    const entry = Array.isArray(assignments) ? castById.get(assignments[i]) : legacy.name === 'rooster' ? castById.get('fabinhe') : null;
-    if (!entry || entry.legacy) return legacy;
-    return { ...legacy, name: entry.id, head: entry.model.head, lines: entry.lines.talk,
-      pt: true, phone: entry.model.clothing === 'influencer', proud: false, fixed: false,
-      seated: false, r: Math.max(0.7, legacy.r), speed: 0.65, props: null, extra: null,
-      ...(entry.id === 'fabinhe' ? { sound: 'tut', tie: null, braces: false, hoodie: false, stock: false, fat: 1 } : {}) };
+  const stationIds=['tortoise','raccoon','cat','walrus'];
+  const slots=SPECS.map((legacy,index)=>{
+    const id=Array.isArray(assignments)&&typeof assignments[index]==='string'?assignments[index]:legacy.name==='rooster'?'fabinhe':legacy.name;
+    const berth=stationIds.indexOf(id);
+    const home=berth>=0?[83.4+(berth%2)*.45,28.45+Math.floor(berth/2)*1.1]:legacy.home.slice();
+    return {id,index,home,legacy,station:berth>=0};
   });
-  roster.forEach((S, idx) => {
+  ctx.__npcShell.slots.push(...slots);
+  const colliders=ctx.__npcShell.colliders;
+  const readyListeners=ctx.__npcShell.listeners;
+  function onActorReady(fn){readyListeners.add(fn);return()=>readyListeners.delete(fn);}
+  async function assemble(slot,entry){
+    const idx=slot.index,legacy=slot.legacy;
+    let S={...legacy,home:slot.home};
+    if(entry&&!entry.legacy)S={...S,name:entry.id,head:entry.model.head,lines:entry.lines.talk,pt:true,phone:entry.model.clothing==='influencer',proud:false,fixed:false,seated:false,r:Math.max(.7,legacy.r),speed:.65,props:null,extra:null,...(entry.id==='fabinhe'?{sound:'tut',tie:null,braces:false,hoodie:false,stock:false,fat:1}:{})};
+    if(slot.station)S={...S,r:0,speed:0,fixed:true,seated:false,props:null};
+    castById.set(S.name,entry);
+    const staged=new THREE.Group(),propSource=new THREE.Group();
     const root = new THREE.Group(); root.name = 'npc-' + S.name; root.rotation.order = 'YXZ';
     const shp = castById.get(S.name)?.model?.shape || SHAPE[S.name] || [1, 1, 1];
     const rig = buildCharacter(THREE, ctx.M, { ...S, ...castById.get(S.name)?.model, shape: shp, quality });
@@ -477,7 +483,7 @@ export async function build(ctx) {
     const { body, head, arms, legs } = rig.bones;
     const hat = rig.bones.hat, hatReal = rig.hasHat;
     const stars = new THREE.Sprite(starMat);
-    stars.scale.set(0.6, 0.6, 1); stars.visible = false; stars.renderOrder = 9; stars.raycast = noop; group.add(stars);
+    stars.scale.set(0.6, 0.6, 1); stars.visible = false; stars.renderOrder = 9; stars.raycast = noop; staged.add(stars);
     // bubble
     let bctx = null, btex = null, sprite = null;
     if (typeof document !== 'undefined') {
@@ -486,14 +492,14 @@ export async function build(ctx) {
       btex.magFilter = btex.minFilter = THREE.NearestFilter; btex.generateMipmaps = false;
       sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: btex, transparent: true, depthWrite: false }));
       sprite.center.set(0.5, 0); sprite.scale.set(0.01, 0.005, 1);
-      sprite.renderOrder = 10; sprite.visible = false; sprite.raycast = noop; group.add(sprite);
+      sprite.renderOrder = 10; sprite.visible = false; sprite.raycast = noop; staged.add(sprite);
     }
     // pick hitbox
     const hit = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 2.1, 10), hitMat);
     hit.scale.y = Math.max(0.6, topH / 2.1); hit.position.y = topH / 2; hit.userData.action = { type: 'custom', id: 'npc-' + S.name }; root.add(hit);
     hit.material.visible = false; // keep hit.visible for main.pickAt; skip drawing only
     root.userData.action = hit.userData.action;
-    pickables.push(hit, root);
+
 
     // waypoints around home
     const nPts = S.r > 1 ? 4 : 2;
@@ -503,13 +509,13 @@ export async function build(ctx) {
       pts.push(S.home[0] + Math.cos(a) * S.r, S.home[1] + Math.sin(a) * S.r * (nPts === 2 ? 0.6 : 1));
     }
     root.position.set(pts[0], 0, pts[1]); root.scale.setScalar(rig.shape[0]);
-    group.add(root);
+    staged.add(root);
     if (S.props) S.props(propSource);
     let blob = null;
     if (!S.fixed) {
       root.traverse((o) => { if (o.isMesh) o.castShadow = false; });
       if (!hatReal) hat.traverse((o) => { if (o.isMesh) o.castShadow = false; });
-      if (blobMat) { blob = new THREE.Mesh(blobGeo, blobMat); blob.raycast = noop; blob.renderOrder = 1; blob.position.set(pts[0], 0.02, pts[1]); group.add(blob); }
+      if (blobMat) { blob = new THREE.Mesh(blobGeo, blobMat); blob.raycast = noop; blob.renderOrder = 1; blob.position.set(pts[0], 0.02, pts[1]); staged.add(blob); }
     }
     const n = {
       S, rig, root, body, head, arms, legs, hit, sprite, bctx, btex, pts, nPts, ti: 1,
@@ -530,17 +536,23 @@ export async function build(ctx) {
       seqKind: 0, shoutCd: 25 + idx, fartCd: 200 + idx * 23, judgeAt: 0, murmurCd: 0, revengeAt: 0, barkFit: 0,
     };
     hit.userData.npc = n; root.userData.npc = n;
-    npcs.push(n);
-  });
-  const propsBatch = mergeNpcProps(THREE, propSource);
-  if (propsBatch) group.add(propsBatch);
-  // Keep transforms as animation proxies; the two instanced meshes render them.
-  for (const n of npcs) { group.remove(n.stars); if (n.blob) group.remove(n.blob); }
-  const effects = createNpcEffects(THREE, group, npcs, blobGeo, blobMat, starMat);
-  onFont.push(() => { for (const n of npcs) if (n.talkT > 0 && n.curText) drawBubble(n, n.curText); });
-  // One moving box per NPC. world.js keeps these very objects in its live list: mutate, never replace.
-  // Parked below the floor (inactive) until the visitor is near.
-  const colliders = npcs.map((n) => (n.col = { minX: n.x - 0.3, maxX: n.x + 0.3, minZ: n.z - 0.3, maxZ: n.z + 0.3, minY: -51, maxY: -50 }));
+    n.slotIndex=idx;n.bairroTime=0;
+    if(slot.station){n.baseY=.35;root.position.y=.35;if(blob)blob.position.y=.37;}
+    n.col=colliders[idx];
+    const own=R[S.name];n.talk=ONLY[S.name]?own.talk:S.lines.concat((own&&own.talk)||[]);
+    const propsBatch=mergeNpcProps(THREE,propSource);if(propsBatch)staged.add(propsBatch);
+    staged.remove(stars);if(blob)staged.remove(blob);
+    await (ctx.yieldBuild?ctx.yieldBuild():idleSlice());
+    n.staged=staged;return n;
+  }
+  const effects=createNpcEffects(THREE,group,npcs,blobGeo,blobMat,starMat);
+  onFont.push(()=>{for(const n of npcs)if(n.talkT>0&&n.curText)drawBubble(n,n.curText);});
+  const stream=createActorStream(ctx,{slots,assemble,commit(n){
+    group.add(n.staged);delete n.staged;npcs.push(n);pickables.push(n.hit,n.root);
+    personalities.registerActor(n);comedy.registerActor(n);fabinhe.registerActor(n);
+    if(n.S.name==='goat')GO=n;if(n.S.name==='pigeon')PG=n;if(n.S.name==='horse')HO=n;if(n.S.name==='cat')CA=n;if(n.S.name==='pig')PI=n;
+    for(const listener of readyListeners){try{listener(n);}catch(error){console.error('NPC actor-ready listener',error);}}
+  }});
   personalities = createNpcPersonalities(ctx, { npcs, castById, chooseLine, say });
   comedy = createNpcComedy(ctx, { npcs, say, startLaugh, fall: dominoFall });
   function dominoFall(n) {
@@ -1200,11 +1212,12 @@ export async function build(ctx) {
   }
 
   // ---------- drama director ----------
-  const GO = npcs[1], PG = npcs[2], HO = npcs[3], CA = npcs[4], PI = npcs[5];
+  let GO=null,PG=null,HO=null,CA=null,PI=null;
   let aSt = 0, aT = 22, aI = 0;           // argument: horse vs cat
   let cSt = 0, cT = 30, cAng = 0, cLeft = 0, cSq = 0;   // chase: pigeon after pig
   const PCX = 0, PCZ = 31, PRX = 6.2, PRZ = 9.5;
   function director(dt) {
+    if(!GO||!PG||!HO||!CA||!PI)return;
     // argument
     if (aSt === 0) {
       aT -= dt;
@@ -1283,6 +1296,7 @@ export async function build(ctx) {
     statueAudio.setPaused(!!value);comedy?.setPaused?.(!!value);
   }
   function update(dt, frame) {
+    stream.update(frame);
     if (ctx.audio?.muted || ctx.scene.userData.questQuiet) stopSignatureSpeech();
     if (!frame?.camera) return;
     statueAudio.update(frame.camera);statueDirector.update(dt,frame.camera);
@@ -1590,7 +1604,7 @@ export async function build(ctx) {
         if (floor || n.ghostT > 0 || n.pestT > 0 || (n.busy && n.goOn) || (C.maxY < 0 && d2 < 0.81)) { if (C.maxY > -50) { C.minY = -51; C.maxY = -50; } }
         else {
           const hw = n.colW;
-          C.minX = n.x - hw; C.maxX = n.x + hw; C.minZ = n.z - hw; C.maxZ = n.z + hw; C.minY = 0; C.maxY = n.colH;
+          C.minX = n.x - hw; C.maxX = n.x + hw; C.minZ = n.z - hw; C.maxZ = n.z + hw; C.minY = n.baseY || 0; C.maxY = C.minY + n.colH;
         }
       }
       if (n.hatState === 1) {
@@ -1964,7 +1978,37 @@ export async function build(ctx) {
     if(ko)comedy?.defeat?.(n);
     else if(move==='chapada'||move==='reves'||move==='sanduiche')comedy?.notify?.('slap',n);
   }
-  return { group, regions: [], colliders, pickables, update, onPick, slap, fabinhe, setNavigation: personalities.setNavigation,
-    statueDirector,statueAudio,actors:npcs,combatActors:npcs,findActor:findNpc,reconcileActor,combatImpact,setStatues,refreshEffects:(camera)=>effects.update(camera,starMat.rotation),get comedyMemory(){return comedy.memory;} };
+  function dispose(){stream.dispose();readyListeners.clear();stopSignatureSpeech();comedy.dispose();personalities.dispose();fabinhe.dispose();statueDirector.dispose();statueAudio.dispose();}
+  return { group, regions: [], colliders, pickables, update, onPick, slap, fabinhe,dispose, setNavigation: personalities.setNavigation,
+    statueDirector,statueAudio,actorSlots:slots,onActorReady,stream,actors:npcs,combatActors:npcs,findActor:findNpc,reconcileActor,combatImpact,setStatues,refreshEffects:(camera)=>effects.update(camera,starMat.rotation),get comedyMemory(){return comedy.memory;} };
 
+}
+
+// Synchronous empty shell: no actor module imports, canvases, fonts or cast requests.
+export function build(ctx){
+  const group=new ctx.THREE.Group();group.name='npcs';
+  const shell={actors:[],pickables:[],slots:[],listeners:new Set(),colliders:Array.from({length:14},()=>({minX:0,maxX:0,minZ:0,maxZ:0,minY:-51,maxY:-50}))};
+  let ready=null,loading=false,disposed=false,navigation=null,clock=0,retryAt=0,attempts=0;
+  let statues=!!ctx.scene.userData.npcStatues;
+  function onActorReady(fn){shell.listeners.add(fn);return()=>shell.listeners.delete(fn);}
+  function update(dt,frame){
+    if(disposed)return;
+    if(ready){ready.update(dt,frame);return;}
+    if(Number.isFinite(frame?.time))clock=frame.time;
+    if(loading||attempts>=3||clock<retryAt||ctx.startup&&!ctx.startup.moved)return;
+    loading=true;attempts++;shell.slots.length=0;
+    Promise.resolve().then(()=>buildReady({...ctx,__npcShell:shell})).then(out=>{
+      if(disposed){out.dispose();return;}ready=out;
+      statues=!!ctx.scene.userData.npcStatues;out.setStatues(statues);
+      group.add(out.group);if(navigation)out.setNavigation(navigation);
+    }).catch(error=>{loading=false;retryAt=clock+3;if(disposed)return;ctx.onActorError?.('npcs',error);console.warn('[npcs] startup attempt '+attempts+'/3',error);});
+  }
+  const api={group,regions:[],colliders:shell.colliders,pickables:shell.pickables,actors:shell.actors,combatActors:shell.actors,actorSlots:shell.slots,onActorReady,update,
+    setNavigation(world){navigation=world;ready?.setNavigation(world);},
+    dispose(){disposed=true;shell.listeners.clear();ready?.dispose();},
+    get fabinhe(){return ready?.fabinhe;},get statueDirector(){return ready?.statueDirector;},get statueAudio(){return ready?.statueAudio;},get stream(){return ready?.stream;},get comedyMemory(){return ready?.comedyMemory;}};
+  api.onPick=(a,b)=>ready?.onPick(a,b);api.slap=(a,b)=>ready?.slap(a,b);api.findActor=a=>ready?.findActor(a);
+  api.reconcileActor=a=>ready?.reconcileActor(a);api.combatImpact=(a,b,c,d)=>ready?.combatImpact(a,b,c,d);
+  api.setStatues=a=>{statues=!!a;ctx.scene.userData.npcStatues=statues;ready?.setStatues(statues);};api.refreshEffects=a=>ready?.refreshEffects(a);
+  return api;
 }
