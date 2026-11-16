@@ -632,7 +632,7 @@ function nearestSeat(seats, point) {
 const SIT_REACH = 4.5;
 // A slap lands at arm's length, a chat at conversation distance: no slapping
 // people from across the plaza.
-const SLAP_REACH = 1.8, TALK_REACH = 3.5;
+const SLAP_REACH = 2.1, TALK_REACH = 3.5;
 function withinReach(hit) {
   const found = world && world.actionFor(hit.object);
   if (!found) return true;
