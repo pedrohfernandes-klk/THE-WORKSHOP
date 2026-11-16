@@ -1,0 +1,7 @@
+#bairro-hud{position:fixed;left:1rem;top:5rem;z-index:35;display:flex;gap:.5rem;align-items:center;color:#f5f0df;background:#172326ed;border:1px solid #d2b66c;padding:.5rem .7rem;font:600 12px/1.5 sans-serif}
+#bairro-hud button,#bairro-dialog button{font:inherit;color:#f5f0df;background:#25363b;border:1px solid #c8b16c;padding:.6rem;min-height:44px;cursor:pointer}
+#bairro-dialog{max-width:min(33rem,calc(100vw - 2rem));max-height:85dvh;overflow:auto;background:#172326;color:#f5f0df;border:2px solid #d2b66c;padding:1.3rem;font:15px/1.6 sans-serif;z-index:110}
+#bairro-dialog::backdrop{background:#000a}#bairro-dialog h2{font-size:1.15rem}#bairro-dialog ol{padding-left:1.3rem}#bairro-dialog li{margin:.5rem 0}#bairro-dialog progress{display:block;width:100%;accent-color:#d2b66c}#bairro-dialog button{margin:.3rem}#bairro-dialog :focus-visible,#bairro-hud :focus-visible{outline:3px solid #f9d96c;outline-offset:3px}
+@media(max-width:500px){#bairro-hud{top:4.5rem;left:.4rem;right:.4rem;font-size:10px;justify-content:space-between;gap:.2rem}#bairro-hud button{padding:.35rem}}
+
+#bairro-hud[hidden]{display:none}
