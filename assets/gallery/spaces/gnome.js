@@ -1,3 +1,4 @@
+import { reserveModuleVoice, finishModuleVoice } from '../audio-lease.js';
 // gnome.js — "O Gnomo Nómada": a 40 cm glazed-terracotta garden gnome that only
 // ever moves while nobody is looking at it (the hall's own trick, as a prank).
 //
@@ -465,9 +466,10 @@ diffuseColor.rgb = mix(diffuseColor.rgb * (1.0 - 0.35 * gnRim), gnClay, gnChip);
     if (!au || au.muted) return;
     const ac = au.context, bus = au.bus;
     if (!ac || !bus || ac.state === 'closed') return;
+    const lease = reserveModuleVoice(ctx, 1, false, Math.max(.4, atS + .15), bus); if (!lease) return;
     try {
-      const t0 = ac.currentTime + 0.02, out = ac.createGain();
-      out.gain.value = gain; out.connect(bus);
+      const t0 = Math.max(ac.currentTime + .02, lease.startAt), out = ac.createGain();
+      out.gain.value = gain; out.connect(lease.gain);
       // the mutter: a closed-mouth "hm", falling
       {
         const o = ac.createOscillator(), f = ac.createBiquadFilter(), g = ac.createGain();
@@ -475,7 +477,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb * (1.0 - 0.35 * gnRim), gnClay, gnChip);
         f.type = 'lowpass'; f.frequency.value = 430; f.Q.value = 2.5;
         g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.07, t0 + 0.05);
         g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.34);
-        o.connect(f); f.connect(g); g.connect(out); o.start(t0); o.stop(t0 + 0.36);
+        o.connect(f); f.connect(g); g.connect(out); lease.track(o); o.start(t0); o.stop(t0 + 0.36);
       }
       // the tok: three inharmonic modes of a small hollow glazed shell, and the contact click
       const t1 = t0 + atS;
@@ -484,7 +486,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb * (1.0 - 0.35 * gnRim), gnClay, gnChip);
         o.frequency.setValueAtTime(hz, t1); o.frequency.exponentialRampToValueAtTime(hz * 0.985, t1 + dur);
         g.gain.setValueAtTime(0.0001, t1); g.gain.exponentialRampToValueAtTime(amp, t1 + 0.002);
         g.gain.exponentialRampToValueAtTime(0.0001, t1 + dur);
-        o.connect(g); g.connect(out); o.start(t1); o.stop(t1 + dur + 0.02);
+        o.connect(g); g.connect(out); lease.track(o); o.start(t1); o.stop(t1 + dur + 0.02);
       }
       if (!noise) {
         const n = Math.round(ac.sampleRate * 0.02);
@@ -494,9 +496,9 @@ diffuseColor.rgb = mix(diffuseColor.rgb * (1.0 - 0.35 * gnRim), gnClay, gnChip);
       }
       const src = ac.createBufferSource(), bp = ac.createBiquadFilter(), ng = ac.createGain();
       src.buffer = noise; bp.type = 'bandpass'; bp.frequency.value = 3200; bp.Q.value = 1.2; ng.gain.value = 0.12;
-      src.connect(bp); bp.connect(ng); ng.connect(out); src.start(t1);
-      setTimeout(() => { try { out.disconnect(); } catch (e) { /* gone */ } }, (atS + 0.8) * 1000);
-    } catch (e) { /* audio unavailable */ }
+      src.connect(bp); bp.connect(ng); ng.connect(out); lease.track(src); src.start(t1);
+      setTimeout(() => { lease.release(); try { out.disconnect(); } catch (e) { /* gone */ } }, (atS + 0.8) * 1000);
+    } catch (e) { lease.release(); /* audio unavailable */ }
   }
 
   return {

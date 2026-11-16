@@ -1,0 +1,2324 @@
+diff --git a/assets/gallery/spaces/npcs.js b/assets/gallery/spaces/npcs.js
+index a9a3b70..b6e3ecf 100644
+--- a/assets/gallery/spaces/npcs.js
++++ b/assets/gallery/spaces/npcs.js
+@@ -1,3 +1,4 @@
++import { reserveModuleVoice, finishModuleVoice } from '../audio-lease.js';
+ // NPCs: six silly animal-headed people in suits who wander small loops around the
+ // campus, face the visitor when close, and talk (speech bubble + synthesised noise)
+ // when picked. Procedural low-poly-but-smooth models; no per-frame allocation.
+@@ -558,6 +559,7 @@ export async function build(ctx) {
+   }
+   const lvl = (g) => Math.max(0.0002, g * vol);
+   function tone(t0, type, dur, freqs, gain, lp, vibHz, vibDepth) {
++    const lease = reserveModuleVoice(ctx, 2, true, dur + .06, bus, t0); if (!lease) return; t0 = Math.max(t0, lease.startAt);
+     const o = ac.createOscillator(), g = ac.createGain(), f = ac.createBiquadFilter();
+     o.type = type; f.type = 'lowpass'; f.frequency.value = lp; f.Q.value = 2;
+     const step = dur / (freqs.length - 1);
+@@ -566,31 +568,33 @@ export async function build(ctx) {
+     if (vibHz) {
+       const l = ac.createOscillator(), lg = ac.createGain();
+       l.frequency.value = vibHz; lg.gain.value = vibDepth; l.connect(lg); lg.connect(o.frequency);
+-      l.start(t0); l.stop(t0 + dur + 0.05);
++      lease.track(l); l.start(t0); l.stop(t0 + dur + 0.05);
+     }
+     g.gain.setValueAtTime(0.0001, t0);
+     g.gain.exponentialRampToValueAtTime(lvl(gain), t0 + Math.min(0.04, dur * 0.3));
+     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+-    o.connect(f); f.connect(g); g.connect(bus);
+-    o.start(t0); o.stop(t0 + dur + 0.05);
++    o.connect(f); f.connect(g); g.connect(lease.gain);
++    lease.track(o); finishModuleVoice(lease, o); o.start(t0); o.stop(t0 + dur + 0.05);
+   }
+   function hiss(t0, dur, ftype, freq, q, gain, attack) {
++    const lease = reserveModuleVoice(ctx, 2, true, dur + .06, bus, t0); if (!lease) return; t0 = Math.max(t0, lease.startAt);
+     buffers();
+     const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+     s.buffer = whiteBuf; s.loop = true; f.type = ftype; f.frequency.value = freq; f.Q.value = q;
+     g.gain.setValueAtTime(0.0001, t0);
+     g.gain.exponentialRampToValueAtTime(lvl(gain), t0 + attack);
+     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+-    s.connect(f); f.connect(g); g.connect(bus); s.start(t0); s.stop(t0 + dur + 0.05);
++    s.connect(f); f.connect(g); g.connect(lease.gain); lease.track(s); finishModuleVoice(lease, s); s.start(t0); s.stop(t0 + dur + 0.05);
+   }
+   // A crisp cartoon whack: a crack, a pitched "thwack" and the meat of it.
+   function whack(n, big) {
+     if (!audioOn(n)) return;
+     try {
++      const lease = reserveModuleVoice(ctx, 3, true, .2, bus); if (!lease) return;
+       buffers();
+-      const t = ac.currentTime + 0.005, src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
++      const t = Math.max(ac.currentTime + 0.005, lease.startAt), src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+       src.buffer = slapBuf; f.type = 'bandpass'; f.frequency.value = 2300 + Math.random() * 700; f.Q.value = 0.8; g.gain.value = 1.1 * vol;
+-      src.connect(f); f.connect(g); g.connect(bus); src.start(t);
++      src.connect(f); f.connect(g); g.connect(lease.gain); lease.track(src); finishModuleVoice(lease, src); src.start(t);
+       tone(t, 'triangle', 0.09, [1300 + Math.random() * 300, 320], 0.32, 4000);
+       tone(t, 'sine', 0.16, [230, 60], 0.45, 500);
+       if (big) tone(t + 0.02, 'square', 0.07, [760, 380], 0.08, 2600);
+@@ -643,6 +647,7 @@ export async function build(ctx) {
+       const base = BARK[n.S.name] || 420 + (n.seed * 97) % 200;
+       let t = ac.currentTime + 0.02;
+       for (let k = 0; k < 2; k++) {
++        const lease = reserveModuleVoice(ctx, 2, true, .22, bus, t); if (!lease) continue; t = Math.max(t, lease.startAt);
+         const f0 = base * (0.9 + Math.random() * 0.2) * (k ? 0.93 : 1);
+         const o = ac.createOscillator(), lp = ac.createBiquadFilter(), g = ac.createGain();
+         o.type = 'sawtooth';
+@@ -650,7 +655,7 @@ export async function build(ctx) {
+         lp.type = 'lowpass'; lp.Q.value = 6;
+         lp.frequency.setValueAtTime(2700, t); lp.frequency.exponentialRampToValueAtTime(650, t + 0.15);
+         g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(lvl(0.3), t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.17);
+-        o.connect(lp); lp.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.2);
++        o.connect(lp); lp.connect(g); g.connect(lease.gain); lease.track(o); finishModuleVoice(lease, o); o.start(t); o.stop(t + 0.2);
+         hiss(t, 0.05, 'bandpass', 1300, 1.2, 0.16, 0.004);
+         t += gap;
+       }
+@@ -877,25 +882,50 @@ export async function build(ctx) {
+   DEF.pt.wind = DEF.pt.wind.concat(TROMBA);
+   // Three signature lines are also heard: a pt-PT voice only, rare, low, never overlapping.
+   const SPOKEN = { 'Tá bueno!': 1, 'Já levaste na boca!': 1, "Ai, que tromba boa p'ra levar chapadões!": 1 };
+-  let ptVoice = null, lastSpoke = -99;
++  let ptVoice = null, lastSpoke = -99, ownedSpeech = null;
++  function stopSignatureSpeech() {
++    if (!ownedSpeech) return;
++    const speech = ownedSpeech; ownedSpeech = null;
++    if (ctx.scene.userData.ttsOwner === speech) {
++      ctx.scene.userData.ttsOwner = null;
++      try { speech.synth.cancel(); } catch {}
++    }
++    speech.lease.release();
++  }
+   function speakMaybe(n, text) {
+     if (!SPOKEN[text] || clock - lastSpoke < 25 || Math.random() > 0.4 || !n.near2) return;
++    let speechLease = null;
+     try {
+       const ss = typeof speechSynthesis !== 'undefined' ? speechSynthesis : null;
+-      if (!ss || ss.speaking || ss.pending || typeof SpeechSynthesisUtterance === 'undefined' || !audioOn(n)) return;
+-      // pt-PT, then any Portuguese, then whatever voice exists (the mangled accent is part of the joke)
++      if (!ss || ss.speaking || ss.pending || ctx.scene.userData.ttsOwner || typeof SpeechSynthesisUtterance === 'undefined' || !audioOn(n)) return;
++      // Local voices only: pt-PT, another Portuguese voice, then a local fallback.
+       let v = ptVoice;
+       if (!v) {
+-        const vs = ss.getVoices() || [];
++        const vs = (ss.getVoices() || []).filter(voice => voice.localService === true);
+         let br = null;
+         for (let i = 0; i < vs.length; i++) { const l = vs[i].lang || ''; if (/^pt[-_]PT/i.test(l)) { v = vs[i]; break; } if (!br && /^pt/i.test(l)) br = vs[i]; }
+         if (v || br) ptVoice = v = v || br; else v = vs[0] || null;
+       }
+       if (!v) return;
++      speechLease = reserveModuleVoice(ctx, 3, true, Math.max(2, Math.min(15, text.length * .16 + 1)), bus);
++      if (!speechLease) return;
+       const u = new SpeechSynthesisUtterance(text);
++      const speech = { utterance: u, lease: speechLease, synth: ss };
++      ownedSpeech = speech; ctx.scene.userData.ttsOwner = speech;
++      const done = () => {
++        if (ownedSpeech === speech) ownedSpeech = null;
++        if (ctx.scene.userData.ttsOwner === speech) ctx.scene.userData.ttsOwner = null;
++        speechLease.release();
++      };
++      u.onend = done; u.onerror = done;
++      speechLease.onRelease = () => {
++        if (ctx.scene.userData.ttsOwner !== speech) return;
++        ctx.scene.userData.ttsOwner = null; if (ownedSpeech === speech) ownedSpeech = null;
++        try { ss.cancel(); } catch {}
++      };
+       u.voice = v; u.lang = v.lang || 'pt-PT'; u.volume = 0.35; u.rate = 0.9 + (n.seed % 0.35); u.pitch = 0.7 + ((n.seed * 1.7) % 0.8);
+       ss.speak(u); lastSpoke = clock;
+-    } catch (e) { /* no voice */ }
++    } catch (e) { stopSignatureSpeech(); speechLease?.release(); /* no voice */ }
+   }
+   const BARK_TXT = 'Béu! Béu!';
+   const BARK_MID = {
+@@ -1216,6 +1246,7 @@ export async function build(ctx) {
+   }
+   // A throw would make the world drop this module's update for good: contain it here.
+   function update(dt, frame) {
++    if (ctx.audio?.muted || ctx.scene.userData.questQuiet || ctx.scene.userData.npcStatues) stopSignatureSpeech();
+     if (!frame?.camera) return;
+     try { personalities.before(dt, frame); step(dt, frame); personalities.after(dt, frame); effects.update(frame.camera, starMat.rotation); }
+     catch (err) { warnOnce('update', err); }
+@@ -1287,7 +1318,7 @@ export async function build(ctx) {
+       if (judgeCd <= 0) { judgeCd = 7 + Math.random() * 7; judge(0.01); }
+     } else camZone = 9;
+     director(dt);
+-    if (clock - lastSpoke < 8 || ctx.scene.userData.questQuiet) { try { const A = ctx.audio; if (A && (A.muted || ctx.scene.userData.questQuiet) && typeof speechSynthesis !== 'undefined' && speechSynthesis.speaking) speechSynthesis.cancel(); } catch (e) { /* none */ } }
++    if (clock - lastSpoke < 8 || ctx.scene.userData.questQuiet) { try { const A = ctx.audio; if (A && (A.muted || ctx.scene.userData.questQuiet)) stopSignatureSpeech(); } catch (e) { /* none */ } }
+     starMat.rotation = time * 5;
+     let budget = 2;                                        // bubble redraws per frame
+     for (let i = 0; i < npcs.length; i++) {
+diff --git a/assets/gallery/spaces/quests.js b/assets/gallery/spaces/quests.js
+index c62928e..67766ff 100644
+--- a/assets/gallery/spaces/quests.js
++++ b/assets/gallery/spaces/quests.js
+@@ -1,3 +1,4 @@
++import { reserveModuleVoice, finishModuleVoice } from '../audio-lease.js';
+ // W2: opt-in, data-driven short quests. JSON is same-origin; one PBR marker.
+ // Original actors are separate, at most one visible. No per-frame allocations.
+ import { createQuestActors } from '../quest-actors.js';
+@@ -148,33 +149,23 @@ export function build(ctx) {
+ 
+   // Initialise only on a visitor action. The reward reuses these nodes and
+   // schedules values without allocating a node or closure inside update().
+-  function armAudio() {
+-    try {
+-    const audio = ctx.audio;
+-    const ac = audio?.context, bus = audio?.bus;
+-    if (!ac || !bus || audio.muted || ac.state !== 'running') return;
+-    if (ac === audioContext && bus === audioBus) return;
+-    if (oscillator) { try { oscillator.stop(); oscillator.disconnect(); gain.disconnect(); } catch { /* already stopped */ } }
+-    audioContext = ac; audioBus = bus;
+-    oscillator = ac.createOscillator(); oscillator.type = 'triangle';
+-    gain = ac.createGain(); gain.gain.value = 0;
+-    oscillator.connect(gain); gain.connect(bus); oscillator.start();
+-    } catch { oscillator = null; gain = null; audioContext = audioBus = null; }
+-  }
++  function armAudio() { audioContext = ctx.audio?.context || null; audioBus = ctx.audio?.bus || null; }
+   function reward(m) {
++    if (m.seria || m.recompensa.som !== 'fanfarra') return;
++    armAudio(); const lease = reserveModuleVoice(ctx, 3, true, 1.35, audioBus); if (!lease) return;
+     try {
+-    if (m.seria || m.recompensa.som !== 'fanfarra' || !oscillator || ctx.audio?.muted || ctx.audio?.context !== audioContext || ctx.audio?.bus !== audioBus || audioContext.state !== 'running') return;
+-    const t = audioContext.currentTime, beat = 60 / 96 / 2;
+-    gain.gain.cancelScheduledValues(t); gain.gain.setValueAtTime(0, t);
+-    // A, C, E, A: one short UI acknowledgement, not an ambient world sound.
+-    for (let i = 0; i < 4; i++) {
+-      oscillator.frequency.setValueAtTime(i === 0 ? 440 : i === 1 ? 523.251 : i === 2 ? 659.255 : 880, t + i * beat);
+-      gain.gain.setValueAtTime(0.0001, t + i * beat);
+-      gain.gain.linearRampToValueAtTime(0.055, t + i * beat + 0.008);
+-      gain.gain.exponentialRampToValueAtTime(0.0001, t + i * beat + beat * 0.8);
+-    }
+-    gain.gain.setValueAtTime(0, t + 4 * beat);
+-    } catch { /* an optional audio failure must not interrupt completion */ }
++      const ac = audioContext, t = Math.max(ac.currentTime, lease.startAt), beat = 60 / 96 / 2;
++      if (oscillator) { try { oscillator.stop(); } catch {} }
++      const o = ac.createOscillator(), g = ac.createGain(); oscillator = o; gain = g; o.type = 'triangle';
++      o.connect(g); g.connect(lease.gain); lease.track(o); finishModuleVoice(lease, o);
++      for (let i = 0; i < 4; i++) {
++        o.frequency.setValueAtTime(i === 0 ? 440 : i === 1 ? 523.251 : i === 2 ? 659.255 : 880, t + i * beat);
++        g.gain.setValueAtTime(.0001, t + i * beat); g.gain.linearRampToValueAtTime(.055, t + i * beat + .008);
++        g.gain.exponentialRampToValueAtTime(.0001, t + i * beat + beat * .8);
++      }
++      o.addEventListener('ended', () => { o.disconnect(); g.disconnect(); if (oscillator === o) { oscillator = null; gain = null; } }, { once: true });
++      o.start(t); o.stop(t + 4 * beat + .02);
++    } catch { lease.release(); }
+   }
+   function home() {
+     actors.reset(); marker.visible = true;
+diff --git a/assets/gallery/spaces/radio.js b/assets/gallery/spaces/radio.js
+index 149f8a7..5552b92 100644
+--- a/assets/gallery/spaces/radio.js
++++ b/assets/gallery/spaces/radio.js
+@@ -1,3 +1,4 @@
++import { reserveModuleVoice, finishModuleVoice, releaseModuleVoices } from '../audio-lease.js';
+ // radio.js — "Rádio Pirata 8-bit". A battered boombox someone left on the steel
+ // cap of the skylight lantern, roof terrace (level 1), facing the walk from the
+ // lift. Click: static, then a procedural chiptune station tuned in mid-song —
+@@ -15,6 +16,7 @@
+ // (no node per note), scheduled 200 ms ahead by a 100 ms timer.
+ // Debug/QA: group.userData.radio = { toggle(), dj(), on }.
+ 
++function pentMidi(m){const pc=((m%12)+12)%12;const allowed=[0,2,4,7,9];let best=0,dist=99;for(const p of allowed){let d=p-pc;if(d>6)d-=12;if(d< -6)d+=12;if(Math.abs(d)<dist){dist=Math.abs(d);best=d;}}return m+best;}
+ const MAJOR = [0, 2, 4, 5, 7, 9, 11];
+ const MINOR = [0, 2, 3, 5, 7, 8, 10];
+ const PROGS_MAJ = [[0, 5, 3, 4], [0, 4, 5, 3], [5, 3, 0, 4], [0, 3, 0, 4], [3, 4, 0, 5]];
+@@ -23,7 +25,7 @@ const PROGS_MIN = [[0, 5, 2, 6], [0, 6, 5, 4], [5, 6, 0, 0], [0, 3, 5, 6]];
+ const CELLS_A = [[1, 0, 1, 0], [1, 0, 1, 0], [1, 0, 0, 1], [1, 0, 1, 1], [0, 0, 1, 0], [1, 0, 2, 0], [1, 1, 1, 0]];
+ const CELLS_B = [[1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 1, 0], [0, 0, 1, 0], [1, 0, 0, 1]];
+ const ARP = [0, 2, 4, 7];
+-const FORM = [0, 1, 0, 1];                 // verse, chorus, verse, chorus (~55 s a song)
++const FORM = [0, 1, 0, 1];                 // verse, chorus, verse, chorus (80 s a song at 96 BPM)
+ const STEPS = 512;                         // 4 sections × 8 bars × 16 steps
+ const KICK = 1, SNARE = 2, HAT = 4, OHAT = 8;
+ const JINGLE = [79, 84, 88, 91];
+@@ -223,8 +225,8 @@ export function build(ctx) {
+   const LEAD = new Int8Array(256), BASS = new Int8Array(256), DRUM = new Uint8Array(256), PROG = new Int8Array(8);
+   const MR = new Int8Array(32), MD = new Int8Array(32), BEAT = new Int8Array(8);
+   const FREQ = new Float32Array(128);
+-  for (let m = 0; m < 128; m++) FREQ[m] = 440 * Math.pow(2, (m - 69) / 12);
+-  let SCALE = MAJOR, ROOT = 60, BPM = 138, STEP = 15 / BPM;
++  for (let m = 0; m < 128; m++) FREQ[m] = 440 * Math.pow(2, (pentMidi(m) - 69) / 12);
++  let SCALE = MINOR, ROOT = 57, BPM = 96, STEP = 15 / BPM;
+ 
+   const midi = (d) => ROOT + 12 * Math.floor(d / 7) + SCALE[((d % 7) + 7) % 7];
+   function pick(list, mustStart) {
+@@ -300,10 +302,10 @@ export function build(ctx) {
+     }
+   }
+   function newSong() {
+-    BPM = 126 + ((rnd() * 24) | 0);
++    BPM = 96;
+     STEP = 15 / BPM;
+-    SCALE = rnd() < 0.55 ? MAJOR : MINOR;
+-    ROOT = 57 + ((rnd() * 6) | 0);
++    SCALE = MINOR;
++    ROOT = 57;
+     const progs = SCALE === MAJOR ? PROGS_MAJ : PROGS_MIN;
+     const pa = (rnd() * progs.length) | 0;
+     let pb = (rnd() * (progs.length - 1)) | 0;
+@@ -339,6 +341,7 @@ export function build(ctx) {
+ 
+   let ac = null, live = false, stopping = false, stopT0 = 0, killAt = 0, timer = 0;
+   let pos = 0, nextT = 0, quietIntro = false, presOn = false;
++  let musicLeases = [];
+   let oL = null, oA = null, oB = null, nS = null, wow = null;
+   let gL = null, gA = null, gB = null, gN = null, music = null, speaker = null, out = null, panner = null;
+   let power = false, T = 0, here = false, dist2 = 1e9, awayT = 0, awaySince = 0, camE = null;
+@@ -362,7 +365,13 @@ export function build(ctx) {
+     speaker = hp;
+     music.connect(hp); hp.connect(pk); pk.connect(lp); lp.connect(sh); sh.connect(out); out.connect(panner); panner.connect(A.bus);
+     gL = gain(0); gA = gain(0); gB = gain(0); gN = gain(0);
+-    gL.connect(music); gA.connect(music); gB.connect(music); gN.connect(music);
++    musicLeases = [];
++    for (let i = 0; i < 4; i++) {
++      const lease = reserveModuleVoice(ctx, 0, false, 1, music);
++      if (!lease) { for (const held of musicLeases) held.release(); musicLeases.length = 0; panner.disconnect(); return; }
++      musicLeases.push(lease);
++    }
++    gL.connect(musicLeases[0].gain); gA.connect(musicLeases[1].gain); gB.connect(musicLeases[2].gain); gN.connect(musicLeases[3].gain);
+     oL = ac.createOscillator(); oL.setPeriodicWave(W25); oL.connect(gL);
+     oA = ac.createOscillator(); oA.setPeriodicWave(W125); oA.connect(gA);
+     oB = ac.createOscillator(); oB.type = 'triangle'; oB.connect(gB);
+@@ -370,7 +379,8 @@ export function build(ctx) {
+     wow = ac.createOscillator(); wow.frequency.value = 0.55;     // tired tape-motor wobble
+     const wd = gain(7);
+     wow.connect(wd); wd.connect(oL.detune); wd.connect(oA.detune); wd.connect(oB.detune);
+-    const t0 = now + 0.02;
++    const t0 = Math.max(now + .02, musicLeases[0].startAt, musicLeases[1].startAt, musicLeases[2].startAt, musicLeases[3].startAt);
++    musicLeases[0].track(oL); musicLeases[0].track(wow); musicLeases[1].track(oA); musicLeases[2].track(oB); musicLeases[3].track(nS);
+     oL.start(t0); oA.start(t0); oB.start(t0); nS.start(t0); wow.start(t0);
+     live = true; stopping = false; killAt = 0; awayT = 0;
+     if (fresh) { tuneStatic(now + 0.01); nextT = now + 0.42; } else nextT = now + 0.06;
+@@ -384,9 +394,10 @@ export function build(ctx) {
+     out.gain.setTargetAtTime(v ? LEVEL : 0, now, tau);
+   }
+   function kill() {
++    const retiringLeases = musicLeases; musicLeases = [];
+     if (timer) { clearTimeout(timer); timer = 0; }
+-    try { oL.stop(); oA.stop(); oB.stop(); nS.stop(); wow.stop(); } catch (e) { /* already stopped */ }
+-    try { panner.disconnect(); } catch (e) { /* ignore */ }
++    // Leases stop all tracked sources; avoid bypassing their fade envelope.
++    const retiredPanner = panner; releaseModuleVoices(retiringLeases, () => { try { retiredPanner?.disconnect(); } catch {} }, !!ctx.audio?.muted || !!ctx.scene.userData.questQuiet);
+     oL = oA = oB = nS = wow = null;
+     gL = gA = gB = gN = music = speaker = out = panner = null;
+     live = false; stopping = false; killAt = 0; djAt = 0; quietIntro = false;
+@@ -411,24 +422,26 @@ export function build(ctx) {
+     out.gain.setTargetAtTime(0, now + STOP * 0.55, 0.12);
+   }
+   function tuneStatic(t) {
++    const lease = reserveModuleVoice(ctx, 1, false, .75, speaker, t); if (!lease) return; t = Math.max(t, lease.startAt);
+     const s = ac.createBufferSource(), bp = ac.createBiquadFilter(), g = ac.createGain();
+     s.buffer = NOISE; s.loop = true; s.playbackRate.value = 0.8;
+     bp.type = 'bandpass'; bp.Q.value = 1.8;
+     bp.frequency.setValueAtTime(3200, t); bp.frequency.exponentialRampToValueAtTime(800, t + 0.4);
+     g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.3, t + 0.03); g.gain.setTargetAtTime(0, t + 0.32, 0.05);
+-    s.connect(bp); bp.connect(g); g.connect(speaker);
+-    s.start(t); s.stop(t + 0.7);
++    s.connect(bp); bp.connect(g); g.connect(lease.gain);
++    lease.track(s); finishModuleVoice(lease, s); s.start(t); s.stop(t + 0.7);
+     const w = ac.createOscillator(), wg = ac.createGain();    // the heterodyne whistle
+     w.frequency.setValueAtTime(2900, t); w.frequency.exponentialRampToValueAtTime(600, t + 0.36);
+     wg.gain.setValueAtTime(0.035, t); wg.gain.setTargetAtTime(0, t + 0.3, 0.04);
+-    w.connect(wg); wg.connect(speaker);
+-    w.start(t); w.stop(t + 0.6);
++    w.connect(wg); wg.connect(lease.gain);
++    lease.track(w); w.start(t); w.stop(t + 0.6);
+   }
+ 
+   // ------------------------------------------------------------- scheduler
+   function tick() {
+     timer = 0;
+     if (!live) return;
++    for (let i = 0; i < musicLeases.length; i++) if (!musicLeases[i].renew(1000)) { kill(); return; }
+     const now = ac.currentTime;
+     if (!stopping && nextT < now) nextT = now + 0.03;      // stalled: skip ahead, never burst
+     while (nextT < now + 0.2) {
+@@ -530,7 +543,7 @@ export function build(ctx) {
+     music.gain.setTargetAtTime(0.3, now, 0.08);
+     jingle(now + 0.02);
+     if (ctx.ui && ctx.ui.toast) ctx.ui.toast(`Rádio Pirata 8-bit: «${line}»`);
+-    const v = ttsVoice();
++    const v = null; // Radio uses the broker-managed formant voice; NPC signature TTS remains supported.
+     if (v) {
+       try {
+         const u = new SpeechSynthesisUtterance(line);
+@@ -556,22 +569,24 @@ export function build(ctx) {
+     if (live && music) music.gain.setTargetAtTime(1, ac.currentTime, 0.3);
+   }
+   function jingle(t) {
++    const lease = reserveModuleVoice(ctx, 3, true, .5, speaker, t); if (!lease) return; t = Math.max(t, lease.startAt);
+     const o = ac.createOscillator(), g = ac.createGain();
+     o.setPeriodicWave(W125); g.gain.value = 0;
+-    o.connect(g); g.connect(speaker);
++    o.connect(g); g.connect(lease.gain);
+     for (let i = 0; i < 4; i++) {
+       const ti = t + i * 0.075;
+       o.frequency.setValueAtTime(FREQ[JINGLE[i]], ti);
+       g.gain.setValueAtTime(0.07, ti);
+       g.gain.setTargetAtTime(0, ti + 0.03, 0.02);
+     }
+-    o.start(t); o.stop(t + 0.45);
++    lease.track(o); finishModuleVoice(lease, o); o.start(t); o.stop(t + 0.45);
+   }
+   // a chirpy voice: one square blip per vowel, through that vowel's formant
+   function blips(text, t0) {
++    const lease = reserveModuleVoice(ctx, 2, true, Math.max(1, text.length * .25 + 1), speaker, t0); if (!lease) return 0; t0 = Math.max(t0, lease.startAt);
+     const o = ac.createOscillator(), bp = ac.createBiquadFilter(), g = ac.createGain();
+     o.type = 'square'; bp.type = 'bandpass'; bp.Q.value = 4.5; g.gain.value = 0;
+-    o.connect(bp); bp.connect(g); g.connect(speaker);
++    o.connect(bp); bp.connect(g); g.connect(lease.gain);
+     let t = t0, f0 = 290 + rv() * 50, n = 0;
+     const s = text.toLowerCase();
+     for (let i = 0; i < s.length; i++) {
+@@ -587,7 +602,7 @@ export function build(ctx) {
+       else if (ch === ',' || ch === ':' || ch === ';') t += 0.15;
+       else if (ch === '.' || ch === '!' || ch === '?') { t += 0.24; f0 *= 0.96; }
+     }
+-    o.start(t0); o.stop(t + 0.1);
++    lease.track(o); finishModuleVoice(lease, o); o.start(t0); o.stop(t + 0.1);
+     return t - t0;
+   }
+ 
+diff --git a/assets/gallery/spaces/arraial.js b/assets/gallery/spaces/arraial.js
+index bf80113..933190b 100644
+--- a/assets/gallery/spaces/arraial.js
++++ b/assets/gallery/spaces/arraial.js
+@@ -1,3 +1,4 @@
++import { reserveModuleVoice, finishModuleVoice, releaseModuleVoices } from '../audio-lease.js';
+ // arraial.js — a summer popular-festival corner east of the garden, beside the
+ // path to the metro stop (BRIEF §6.2). Two wooden masts carry strings of warm
+ // bulbs and paper pennants over a beaten-gravel floor; on a little plank stage
+@@ -98,7 +99,9 @@ for (const T of TUNES) {
+   T.at = new Int16Array(len).fill(-1);
+   for (let i = 0, s = 0; i < T.mel.length; i += 2) { if (T.mel[i]) T.at[s] = i; s += T.mel[i + 1]; }
+ }
+-const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
++function pentMidi(m){const pc=((m%12)+12)%12;const allowed=[0,2,4,7,9];let best=0,dist=99;for(const p of allowed){let d=p-pc;if(d>6)d-=12;if(d< -6)d+=12;if(Math.abs(d)<dist){dist=Math.abs(d);best=d;}}return m+best;}
++// Preserve rhythm and melodic contour; C-based seeds transpose to A, then pentatonic.
++const mtof = (m) => 440 * Math.pow(2, (pentMidi(m - 3) - 69) / 12);
+ 
+ export function build(ctx) {
+   const { THREE, M } = ctx;
+@@ -461,8 +464,13 @@ export function build(ctx) {
+     try { const ac = au.context, bus = au.bus; return ac && bus && !au.muted && ac.state === 'running' ? au : null; } catch (e) { return null; }
+   }
+   function startAudio(au) {
+-    const ac = au.context;
++    const ac = au.context; const leases = [];
+     try {
++      for (let i = 0; i < 6; i++) {
++        const token = reserveModuleVoice(ctx, 0, false, 1, au.bus);
++        if (!token) { for (const held of leases) held.release(); return; }
++        token.gain.disconnect(); leases.push(token); // destination is the per-instrument mix, connected below
++      }
+       const out = ac.createGain(), lp = ac.createBiquadFilter(), pan = ac.createStereoPanner ? ac.createStereoPanner() : null;
+       out.gain.value = 0; lp.type = 'lowpass'; lp.frequency.value = 7000;
+       out.connect(lp); if (pan) { lp.connect(pan); pan.connect(au.bus); } else lp.connect(au.bus);
+@@ -471,28 +479,26 @@ export function build(ctx) {
+       trem.frequency.value = 5.3; tremG.gain.value = 0.13; trem.connect(tremG); tremG.connect(acc.gain);
+       const m1 = ac.createOscillator(), m2 = ac.createOscillator(), mg = ac.createGain();
+       m1.type = m2.type = 'sawtooth'; m1.detune.value = -5; m2.detune.value = 12; mg.gain.value = 0;
+-      m1.connect(mg); m2.connect(mg); mg.connect(acc);
++      m1.connect(mg); m2.connect(mg); mg.connect(leases[0].gain); leases[0].gain.connect(acc);
+       const cg = ac.createGain(), co = []; cg.gain.value = 0; cg.connect(acc);
+-      for (let i = 0; i < 3; i++) { const o = ac.createOscillator(); o.type = 'square'; o.detune.value = i * 6 - 6; o.connect(cg); co.push(o); }
++      for (let i = 0; i < 3; i++) { const o = ac.createOscillator(); o.type = 'square'; o.detune.value = i * 6 - 6; o.connect(leases[i + 1].gain); leases[i + 1].gain.connect(cg); co.push(o); }
+       const b1 = ac.createOscillator(), bf = ac.createBiquadFilter(), bgn = ac.createGain();
+-      b1.type = 'sawtooth'; bf.type = 'lowpass'; bf.frequency.value = 380; bgn.gain.value = 0; b1.connect(bf); bf.connect(bgn); bgn.connect(out);
+-      const dr = ac.createOscillator(), dg = ac.createGain(); dr.type = 'sine'; dr.frequency.value = 50; dg.gain.value = 0; dr.connect(dg); dg.connect(out);
++      b1.type = 'sawtooth'; bf.type = 'lowpass'; bf.frequency.value = 380; bgn.gain.value = 0; b1.connect(bf); bf.connect(bgn); bgn.connect(leases[4].gain); leases[4].gain.connect(out);
++      const dr = ac.createOscillator(), dg = ac.createGain(); dr.type = 'sine'; dr.frequency.value = 50; dg.gain.value = 0; dr.connect(dg); dg.connect(leases[5].gain); leases[5].gain.connect(out);
+       const dl = ac.createDelay(1), dlg = ac.createGain(); dl.delayTime.value = 0.23; dlg.gain.value = 0.3; dl.connect(dlg); dlg.connect(dl); dlg.connect(out);
+       const noise = ac.createBuffer(1, Math.floor(ac.sampleRate * 0.6), ac.sampleRate);
+       const nd = noise.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+       const oscs = [trem, m1, m2, co[0], co[1], co[2], b1, dr];
+       const t0 = ac.currentTime + 0.03;
+-      for (const o of oscs) o.start(t0);
+-      A = { ac, au, out, lp, pan, mg, m1, m2, cg, co, bgn, b1, dr, dg, dl, noise, oscs, step: 0, stepT: t0 + 0.05, panT: 0 };
+-    } catch (e) { A = null; }
++      leases[0].track(trem); leases[0].track(m1); leases[0].track(m2);
++      for (let i = 0; i < 3; i++) leases[i + 1].track(co[i]); leases[4].track(b1); leases[5].track(dr);
++      for (const o of oscs) o.start(Math.max(t0, leases[0].startAt));
++      A = { ac, au, leases, out, lp, pan, mg, m1, m2, cg, co, bgn, b1, dr, dg, dl, noise, oscs, step: 0, stepT: t0 + 0.05, panT: 0 };
++    } catch (e) { for (const lease of leases) lease.release(); A = null; }
+   }
+   function stopAudio() {
+     const a = A; A = null; if (!a) return;
+-    try {
+-      const t = a.ac.currentTime; a.out.gain.cancelScheduledValues(t); a.out.gain.setTargetAtTime(0, t, 0.08);
+-      for (const o of a.oscs) o.stop(t + 0.6);
+-      a.oscs[0].onended = () => { try { a.lp.disconnect(); if (a.pan) a.pan.disconnect(); } catch (e) { /* gone */ } };
+-    } catch (e) { /* context closed */ }
++    releaseModuleVoices(a.leases, () => { try { a.lp.disconnect(); a.pan?.disconnect(); } catch {} }, !!ctx.audio?.muted || !!ctx.scene.userData.questQuiet);
+   }
+   function boom(t, v) {
+     const f = A.dr.frequency, g = A.dg.gain;
+@@ -501,19 +507,20 @@ export function build(ctx) {
+   }
+   function crack(t, big) {
+     const ac = A.ac;
++    const lease = reserveModuleVoice(ctx, 3, true, .7, A.out, t); if (!lease) return t; t = Math.max(t, lease.startAt);
+     try {
+       const n1 = ac.createBufferSource(), f1 = ac.createBiquadFilter(), g1 = ac.createGain();
+       n1.buffer = A.noise; f1.type = 'bandpass'; f1.frequency.value = 5200; f1.Q.value = 1.5;
+       g1.gain.setValueAtTime(0, t); g1.gain.linearRampToValueAtTime(0.04, t + 0.04); g1.gain.linearRampToValueAtTime(0, t + 0.3);
+-      n1.connect(f1); f1.connect(g1); g1.connect(A.out); n1.start(t, 0, 0.32);
++      n1.connect(f1); f1.connect(g1); g1.connect(lease.gain); lease.track(n1); n1.start(t, 0, 0.32);
+       const tb = t + 0.3, n2 = ac.createBufferSource(), f2 = ac.createBiquadFilter(), g2 = ac.createGain();
+       n2.buffer = A.noise; f2.type = 'highpass'; f2.frequency.value = 450;
+       g2.gain.setValueAtTime(0.0001, tb); g2.gain.exponentialRampToValueAtTime(big ? 0.55 : 0.4, tb + 0.004); g2.gain.exponentialRampToValueAtTime(0.0008, tb + 0.24);
+-      n2.connect(f2); f2.connect(g2); g2.connect(A.out); g2.connect(A.dl); n2.start(tb, 0.2, 0.3);
++      n2.connect(f2); f2.connect(g2); g2.connect(lease.gain); lease.gain.connect(A.dl); lease.track(n2); finishModuleVoice(lease, n2); n2.start(tb, 0.2, 0.3);
+       boom(tb, big ? 0.5 : 0.35);
+       n2.onended = () => { try { g1.disconnect(); g2.disconnect(); } catch (e) { /* gone */ } };
+       return tb;
+-    } catch (e) { return t; }
++    } catch (e) { lease.release(); return t; }
+   }
+   function schedStep(t) {
+     let T = TUNES[cur];
+@@ -595,6 +602,7 @@ export function build(ctx) {
+     const au = playing ? audioOut() : null;
+     if (au && (!A || A.ac !== au.context)) { if (A) stopAudio(); startAudio(au); }
+     if (A && (!au || !playing)) stopAudio();
++    if (A) { for (let i = 0; i < A.leases.length; i++) if (!A.leases[i].renew(1000)) { stopAudio(); break; } }
+     if (A) {
+       const now = A.ac.currentTime;
+       if (A.stepT < now) A.stepT = now + 0.03;
+diff --git a/assets/gallery/spaces/duck.js b/assets/gallery/spaces/duck.js
+index fb73cf4..674082f 100644
+--- a/assets/gallery/spaces/duck.js
++++ b/assets/gallery/spaces/duck.js
+@@ -1,3 +1,4 @@
++import { reserveModuleVoice, finishModuleVoice } from '../audio-lease.js';
+ // duck.js — "O Pato": a 3 m inflatable rubber duck afloat in the reflecting pool
+ // (pool.js: water x ±3.5, z 24–38, surface y 0.40). The attentive room's mascot: it
+ // bobs, turns slowly to face the visitor while its printed pupils follow them at once,
+@@ -518,6 +519,7 @@ export function build(ctx) {
+   // ---- the squeak: a big rubber reed, pitch bending down, then the 'eek' of air back in --
+   let noise = null, noiseCtx = null;
+   function voice(ac, out, t0, dur, f0, fPeak, fEnd, amp) {
++    const lease = reserveModuleVoice(ctx, 1, false, dur + .06, out, t0); if (!lease) return; t0 = Math.max(t0, lease.startAt);
+     const o = ac.createOscillator(), am = ac.createGain(), lfo = ac.createOscillator(), lfoG = ac.createGain();
+     const vib = ac.createOscillator(), vibG = ac.createGain(), env = ac.createGain();
+     const f1 = ac.createBiquadFilter(), f2 = ac.createBiquadFilter(), g2 = ac.createGain(), body = ac.createBiquadFilter(), gb = ac.createGain();
+@@ -542,12 +544,14 @@ export function build(ctx) {
+     am.connect(f1); f1.connect(env);
+     am.connect(f2); f2.connect(g2); g2.connect(env);
+     am.connect(body); body.connect(gb); gb.connect(env);
+-    env.connect(out);
++    env.connect(lease.gain);
+     const end = t0 + dur + 0.05;
++    lease.track(o); lease.track(lfo); lease.track(vib); finishModuleVoice(lease, vib);
+     o.start(t0); lfo.start(t0); vib.start(t0);
+     o.stop(end); lfo.stop(end); vib.stop(end);
+   }
+   function hiss(ac, out, t0, dur, amp) {
++    const lease = reserveModuleVoice(ctx, 1, false, dur + .04, out, t0); if (!lease) return; t0 = Math.max(t0, lease.startAt);
+     if (!noise || noiseCtx !== ac) {
+       const n = Math.floor(ac.sampleRate * 0.5);
+       noise = ac.createBuffer(1, n, ac.sampleRate); noiseCtx = ac;
+@@ -559,8 +563,8 @@ export function build(ctx) {
+     g.gain.setValueAtTime(0.0001, t0);
+     g.gain.exponentialRampToValueAtTime(amp, t0 + 0.012);
+     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+-    src.connect(f); f.connect(g); g.connect(out);
+-    src.start(t0); src.stop(t0 + dur + 0.02);
++    src.connect(f); f.connect(g); g.connect(lease.gain);
++    lease.track(src); finishModuleVoice(lease, src); src.start(t0); src.stop(t0 + dur + 0.02);
+   }
+   function squeak(gain, pan) {
+     const A = ctx.audio;
+diff --git a/assets/gallery/spaces/vending.js b/assets/gallery/spaces/vending.js
+index ca60458..a083469 100644
+--- a/assets/gallery/spaces/vending.js
++++ b/assets/gallery/spaces/vending.js
+@@ -1,3 +1,4 @@
++import { reserveModuleVoice, finishModuleVoice } from '../audio-lease.js';
+ // vending.js — "Máquina de vending existencial" (BRIEF §6.2 space module).
+ // A believable retro snack machine against the arcade's west wall, just south of
+ // its door: enamelled steel body, lit interior behind glass, coin slot, pickup tray.
+@@ -426,28 +427,32 @@ export function build(ctx) {
+     setTimeout(() => { try { out.disconnect(); } catch (e) { /* already gone */ } }, (len + 0.6) * 1000);
+     return { ac, out, t: ac.currentTime + 0.02 };
+   }
+-  function env(v, t, peak, a, d) {
++  function env(v, t, peak, a, d, destination) {
+     const gn = v.ac.createGain();
+     gn.gain.setValueAtTime(0.0001, t);
+     gn.gain.exponentialRampToValueAtTime(peak, t + a);
+     gn.gain.exponentialRampToValueAtTime(0.0001, t + a + d);
+-    gn.connect(v.out);
++    gn.connect(destination || v.out);
+     return gn;
+   }
+   function tone(v, t, type, f0, f1, peak, a, d) {
++    const lease = reserveModuleVoice(ctx, 1, false, a + d + .06, v.out, t); if (!lease) return; t = Math.max(t, lease.startAt);
+     const o = v.ac.createOscillator();
+     o.type = type;
+     o.frequency.setValueAtTime(f0, t);
+     if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + a + d);
+-    o.connect(env(v, t, peak, a, d));
++    o.connect(env(v, t, peak, a, d, lease.gain));
++    lease.track(o); finishModuleVoice(lease, o);
+     o.start(t); o.stop(t + a + d + 0.05);
+   }
+   function hiss(v, t, type, f, q, peak, a, d) {
++    const lease = reserveModuleVoice(ctx, 1, false, a + d + .06, v.out, t); if (!lease) return; t = Math.max(t, lease.startAt);
+     const s = v.ac.createBufferSource();
+     s.buffer = noiseBuf;
+     const bq = v.ac.createBiquadFilter();
+     bq.type = type; bq.frequency.value = f; bq.Q.value = q;
+-    s.connect(bq); bq.connect(env(v, t, peak, a, d));
++    s.connect(bq); bq.connect(env(v, t, peak, a, d, lease.gain));
++    lease.track(s); finishModuleVoice(lease, s);
+     s.start(t, Math.random() * 0.5); s.stop(t + a + d + 0.05);
+   }
+   function sndCoin() {
+@@ -460,7 +465,8 @@ export function build(ctx) {
+   }
+   function sndWhirr(delay, dur) {
+     const v = voice(delay + dur + 0.3); if (!v) return;
+-    const ac = v.ac, t = v.t + delay;
++    const lease = reserveModuleVoice(ctx, 1, false, dur + .06, v.out, v.t + delay); if (!lease) return;
++    const ac = v.ac, t = Math.max(v.t + delay, lease.startAt);
+     const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 58;
+     const lfo = ac.createOscillator(); lfo.frequency.value = 11;
+     const lg = ac.createGain(); lg.gain.value = 4; lfo.connect(lg); lg.connect(o.frequency);
+@@ -468,13 +474,14 @@ export function build(ctx) {
+     const gn = ac.createGain();
+     gn.gain.setValueAtTime(0.0001, t); gn.gain.linearRampToValueAtTime(0.08, t + 0.07);
+     gn.gain.setValueAtTime(0.08, t + dur - 0.12); gn.gain.linearRampToValueAtTime(0.0001, t + dur);
+-    o.connect(lp); lp.connect(gn); gn.connect(v.out);
++    o.connect(lp); lp.connect(gn); gn.connect(lease.gain);
+     const w = ac.createOscillator(); w.frequency.setValueAtTime(820, t); w.frequency.linearRampToValueAtTime(900, t + dur);
+     const wg = ac.createGain();
+     wg.gain.setValueAtTime(0.0001, t); wg.gain.linearRampToValueAtTime(0.012, t + 0.1);
+     wg.gain.setValueAtTime(0.012, t + dur - 0.12); wg.gain.linearRampToValueAtTime(0.0001, t + dur);
+-    w.connect(wg); wg.connect(v.out);
+-    for (const n of [o, lfo, w]) { n.start(t); n.stop(t + dur + 0.05); }
++    w.connect(wg); wg.connect(lease.gain);
++    finishModuleVoice(lease, w);
++    for (const n of [o, lfo, w]) { lease.track(n); n.start(t); n.stop(t + dur + 0.05); }
+     tone(v, t + dur - 0.02, 'square', 190, 95, 0.03, 0.002, 0.04);   // relay clack
+   }
+   function sndThunk() {
+diff --git a/assets/gallery/spaces/photobooth.js b/assets/gallery/spaces/photobooth.js
+index 513e72c..3c8d5c4 100644
+--- a/assets/gallery/spaces/photobooth.js
++++ b/assets/gallery/spaces/photobooth.js
+@@ -1,3 +1,4 @@
++import { reserveModuleVoice, finishModuleVoice } from '../audio-lease.js';
+ // photobooth.js — "Cabine de fotos": a restored vintage photo booth on the plaza, its back to the
+ // south boundary hedge just west of the school gate, facing the hall (BRIEF §6.2).
+ // Click it: three beeps, a flash, and it develops a four-frame strip of the visitor's own view —
+@@ -284,7 +285,8 @@ export function build(ctx) {
+   function tone(type, f0, f1, dur, gain, lp, delay = 0) {
+     const ac = out(); if (!ac) return;
+     try {
+-      const t = ac.currentTime + 0.005 + delay;
++      const lease = reserveModuleVoice(ctx, 1, false, dur + .05, ctx.audio.bus, ac.currentTime + delay); if (!lease) return;
++      const t = Math.max(ac.currentTime + 0.005 + delay, lease.startAt);
+       const o = ac.createOscillator(), f = ac.createBiquadFilter(), g = ac.createGain();
+       o.type = type; o.frequency.setValueAtTime(f0, t);
+       if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+@@ -293,8 +295,8 @@ export function build(ctx) {
+       g.gain.exponentialRampToValueAtTime(gain, t + 0.008);
+       g.gain.setValueAtTime(gain, t + dur * 0.6);
+       g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+-      o.connect(f); f.connect(g); g.connect(ctx.audio.bus);
+-      o.start(t); o.stop(t + dur + 0.03);
++      o.connect(f); f.connect(g); g.connect(lease.gain);
++      lease.track(o); finishModuleVoice(lease, o); o.start(t); o.stop(t + dur + 0.03);
+     } catch (e) { /* audio unavailable */ }
+   }
+   function noise(dur, freq, gain, delay = 0) {
+@@ -306,12 +308,13 @@ export function build(ctx) {
+         const d = noiseBuf.getChannelData(0);
+         for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+       }
+-      const t = ac.currentTime + 0.005 + delay;
++      const lease = reserveModuleVoice(ctx, 1, false, dur + .05, ctx.audio.bus, ac.currentTime + delay); if (!lease) return;
++      const t = Math.max(ac.currentTime + 0.005 + delay, lease.startAt);
+       const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+       s.buffer = noiseBuf; f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = 0.9;
+       g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+-      s.connect(f); f.connect(g); g.connect(ctx.audio.bus);
+-      s.start(t); s.stop(t + dur + 0.02);
++      s.connect(f); f.connect(g); g.connect(lease.gain);
++      lease.track(s); finishModuleVoice(lease, s); s.start(t); s.stop(t + dur + 0.02);
+     } catch (e) { /* audio unavailable */ }
+   }
+   const beep = (last) => tone('square', last ? 1320 : 880, last ? 1320 : 880, 0.12, 0.08, 2600);
+diff --git a/assets/gallery/spaces/ghost.js b/assets/gallery/spaces/ghost.js
+index 9fedf23..3e35f00 100644
+--- a/assets/gallery/spaces/ghost.js
++++ b/assets/gallery/spaces/ghost.js
+@@ -1,3 +1,4 @@
++import { reserveModuleVoice, finishModuleVoice, releaseModuleVoices } from '../audio-lease.js';
+ // O Fantasma de 8 bits: a flat pixel-art ghost that haunts the Ruins
+ // (spaces/ruins.js: x -64..-34, z -47..-18). BRIEF §6.2 space module.
+ //
+@@ -249,6 +250,7 @@ export function build(ctx) {
+ 
+   // ---- sound: everything goes into ctx.audio.bus, read lazily ----
+   function humStart(ac, bus) {
++    const lease = reserveModuleVoice(ctx, 0, false, 1, bus); if (!lease) return;
+     try {
+       const o1 = ac.createOscillator(), o2 = ac.createOscillator(), wob = ac.createOscillator(), trem = ac.createOscillator();
+       const wobG = ac.createGain(), tremG = ac.createGain(), am = ac.createGain(), f = ac.createBiquadFilter(), g = ac.createGain();
+@@ -263,21 +265,16 @@ export function build(ctx) {
+       f.type = 'lowpass'; f.frequency.value = 300; f.Q.value = 4;
+       g.gain.value = 0;
+       o1.connect(f); o2.connect(f); f.connect(am); am.connect(g);
+-      if (p) { g.connect(p); p.connect(bus); } else g.connect(bus);
+-      const t0 = ac.currentTime;
++      if (p) { g.connect(p); p.connect(lease.gain); } else g.connect(lease.gain);
++      const t0 = Math.max(ac.currentTime, lease.startAt);
++      lease.track(o1); lease.track(o2); lease.track(wob); lease.track(trem);
+       o1.start(t0); o2.start(t0); wob.start(t0); trem.start(t0);
+-      hum = { ac, o1, o2, wob, trem, g, f, p, out: p || g };
+-    } catch (e) { hum = null; }
++      hum = { ac, lease, o1, o2, wob, trem, g, f, p, out: p || g };
++    } catch (e) { lease.release(); hum = null; }
+   }
+   function humStop() {
+-    const h = hum; hum = null; humFar = 0;
+-    if (!h) return;
+-    try {
+-      const t0 = h.ac.currentTime;
+-      h.g.gain.setTargetAtTime(0, t0, 0.06);
+-      h.o1.stop(t0 + 0.5); h.o2.stop(t0 + 0.5); h.wob.stop(t0 + 0.5); h.trem.stop(t0 + 0.5);
+-      h.o1.onended = () => { try { h.out.disconnect(); } catch (e) { /* already gone */ } };
+-    } catch (e) { /* context closed */ }
++    const h = hum; hum = null; humFar = 0; if (!h) return;
++    releaseModuleVoices([h.lease], () => { try { h.out.disconnect(); } catch {} }, !!ctx.audio?.muted || !!ctx.scene.userData.questQuiet);
+   }
+   function audioOut() {
+     const A = ctx.audio;
+@@ -291,7 +288,7 @@ export function build(ctx) {
+     const A = state !== 2 ? audioOut() : null;
+     if (!A) { if (hum) humStop(); return; }
+     const ac = A.context;
+-    if (hum && hum.ac !== ac) humStop();
++    if (hum && (hum.ac !== ac || !hum.lease.renew(1000))) humStop();
+     if (d > 14) { if (hum) { humFar += 0.1; if (humFar > 1) humStop(); } return; }
+     humFar = 0;
+     if (!hum) { if (d > 11) return; humStart(ac, A.bus); if (!hum) return; }
+@@ -304,8 +301,9 @@ export function build(ctx) {
+   function booSound() {
+     const A = audioOut();
+     if (!A) return;
++    const lease = reserveModuleVoice(ctx, 3, true, 1.15, A.bus); if (!lease) return;
+     try {
+-      const ac = A.context, t0 = ac.currentTime + 0.01, t1 = t0 + 0.1;
++      const ac = A.context, t0 = Math.max(ac.currentTime + 0.01, lease.startAt), t1 = t0 + 0.1;
+       const o = ac.createOscillator(), vib = ac.createOscillator(), vg = ac.createGain(), f = ac.createBiquadFilter(), g = ac.createGain();
+       o.type = 'square'; f.type = 'lowpass'; f.frequency.value = 2400; f.Q.value = 0.7;
+       o.frequency.setValueAtTime(392, t0);                                     // "Bu"
+@@ -316,9 +314,9 @@ export function build(ctx) {
+       g.gain.setValueAtTime(0.09, t0 + 0.07); g.gain.linearRampToValueAtTime(0, t0 + 0.088);
+       g.gain.linearRampToValueAtTime(0.1, t1 + 0.01); g.gain.setValueAtTime(0.1, t1 + 0.32);
+       g.gain.exponentialRampToValueAtTime(0.0008, t1 + 0.95);
+-      o.connect(f); f.connect(g); g.connect(A.bus);
+-      o.start(t0); vib.start(t0); o.stop(t1 + 1); vib.stop(t1 + 1);
+-    } catch (e) { /* audio unavailable */ }
++      o.connect(f); f.connect(g); g.connect(lease.gain);
++      lease.track(o); lease.track(vib); finishModuleVoice(lease, vib); o.start(t0); vib.start(t0); o.stop(t1 + 1); vib.stop(t1 + 1);
++    } catch (e) { lease.release(); /* audio unavailable */ }
+   }
+ 
+   // ---- per frame ----
+diff --git a/assets/gallery/spaces/floorsnake.js b/assets/gallery/spaces/floorsnake.js
+index 432aeb5..07fd03e 100644
+--- a/assets/gallery/spaces/floorsnake.js
++++ b/assets/gallery/spaces/floorsnake.js
+@@ -1,3 +1,4 @@
++import { reserveModuleVoice, finishModuleVoice } from '../audio-lease.js';
+ // floorsnake.js — "Cobra de chão": a giant pixel snake game projected onto the plaza paving.
+ //
+ // Where: the open forecourt beside the Studio door, west side of the plaza. Field x −10.75…−2.75,
+@@ -366,6 +367,7 @@ export function build(ctx) {
+   }
+   const hz = (m) => 440 * Math.pow(2, (m - 69) / 12);
+   function tone(c, t, f, dur, type, vol, f2, att) {
++    const lease = reserveModuleVoice(ctx, 1, false, dur + .05, sIn, t); if (!lease) return null; t = Math.max(t, lease.startAt);
+     const o = c.createOscillator(), g = c.createGain(), a = att || 0.006;
+     o.type = type; o.frequency.setValueAtTime(f, t);
+     if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+@@ -373,7 +375,8 @@ export function build(ctx) {
+     g.gain.exponentialRampToValueAtTime(vol, t + a);
+     g.gain.setValueAtTime(vol, t + Math.max(a, dur * 0.55));
+     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+-    o.connect(g); g.connect(sIn);
++    o.connect(g); g.connect(lease.gain);
++    lease.track(o); finishModuleVoice(lease, o); o.moduleVoice = lease;
+     o.start(t); o.stop(t + dur + 0.03);
+     return o;
+   }
+@@ -404,7 +407,9 @@ export function build(ctx) {
+         const m = [64, 62, 60];
+         for (let k = 0; k < 3; k++) tone(c, t + k * 2 * S16, hz(m[k]), 1.8 * S16, 'sawtooth', 0.26, hz(m[k] - 0.3), 0.05);
+         const o = tone(c, t + 6 * S16, hz(57), 6 * S16, 'sawtooth', 0.28, hz(55), 0.05);
++        if (!o) return;
+         const lfo = c.createOscillator(), lg = c.createGain();
++        o.moduleVoice.track(lfo);
+         lfo.frequency.value = 5.5; lg.gain.value = 7;
+         lfo.connect(lg); lg.connect(o.frequency);
+         lfo.start(t + 7 * S16); lfo.stop(t + 12.2 * S16);
+diff --git a/assets/gallery/spaces/cat.js b/assets/gallery/spaces/cat.js
+index 818fbcb..622dc1f 100644
+--- a/assets/gallery/spaces/cat.js
++++ b/assets/gallery/spaces/cat.js
+@@ -1,3 +1,4 @@
++import { reserveModuleVoice, finishModuleVoice } from '../audio-lease.js';
+ // cat.js — "O Gato Crítico": a chunky ginger tabby on the cap of the south pier of the east
+ // (garden) gate of the plaza (plaza.js: cap block x 23.62…24.72, z 26.40…26.90, top y 1.83),
+ // looking west over the plaza and its two east litter bins. It judges the visitor in small
+@@ -392,7 +393,7 @@ export function build(ctx) {
+ 
+   // ---------- sound (lazy; nothing until the visitor has entered, nothing when muted) ----------
+   let brown = null, white = null;
+-  function audioNodes() {
++  function audioNodes(seconds) {
+     const A = ctx.audio;
+     if (!A || A.muted) return null;
+     const ac = A.context, bus = A.bus;
+@@ -411,17 +412,18 @@ export function build(ctx) {
+       const e = lastCam.matrixWorld.elements, dx = HX - e[12], dy = HY - e[13], dz = HZ - e[14], L = Math.hypot(dx, dy, dz) || 1;
+       pan = Math.max(-0.8, Math.min(0.8, (e[0] * dx + e[1] * dy + e[2] * dz) / L));
+     }
++    const lease = reserveModuleVoice(ctx, 1, false, seconds + .06, bus); if (!lease) return null;
+     const out = ac.createGain();
+     out.gain.value = Math.max(0.08, Math.min(1, 1 - dist / 30));
+     let tail = out;
+     if (ac.createStereoPanner) { const p = ac.createStereoPanner(); p.pan.value = pan; out.connect(p); tail = p; }
+-    tail.connect(bus);
+-    return { ac, out, tail };
++    tail.connect(lease.gain);
++    return { ac, out, tail, lease };
+   }
+   function purrSound() {
+     try {
+-      const N = audioNodes(); if (!N) return;
+-      const { ac, out, tail } = N, t0 = ac.currentTime + 0.02, T = 3.0, g = 0.42;
++      const N = audioNodes(3.1); if (!N) return;
++      const { ac, out, tail, lease } = N, t0 = Math.max(ac.currentTime + 0.02, lease.startAt), T = 3.0, g = 0.42;
+       const src = ac.createBufferSource(); src.buffer = brown; src.loop = true;
+       const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 380; lp.Q.value = 0.9;
+       const tone = ac.createOscillator(); tone.type = 'triangle';
+@@ -437,6 +439,7 @@ export function build(ctx) {
+       eg.setValueAtTime(g * 0.7, t0 + 2.5); eg.linearRampToValueAtTime(0, t0 + 2.95);
+       src.connect(lp); tone.connect(toneG); toneG.connect(lp); lp.connect(am); am.connect(env); env.connect(out);
+       lfo.connect(depth); depth.connect(am.gain);
++      lease.track(src); lease.track(tone); lease.track(lfo); finishModuleVoice(lease, lfo);
+       src.start(t0, Math.random()); tone.start(t0); lfo.start(t0);
+       src.stop(t0 + T); tone.stop(t0 + T); lfo.stop(t0 + T);
+       src.onended = () => { try { out.disconnect(); if (tail !== out) tail.disconnect(); } catch (e) { /* gone */ } };
+@@ -444,15 +447,15 @@ export function build(ctx) {
+   }
+   function sniffSound() {
+     try {
+-      const N = audioNodes(); if (!N) return;
+-      const { ac, out, tail } = N, t0 = ac.currentTime + 0.02;
++      const N = audioNodes(.4); if (!N) return;
++      const { ac, out, tail, lease } = N, t0 = Math.max(ac.currentTime + 0.02, lease.startAt);
+       const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2300; bp.Q.value = 0.8;
+       bp.connect(out);
+       for (let k = 0; k < 2; k++) {
+         const s = ac.createBufferSource(); s.buffer = white;
+         const gg = ac.createGain(), ts = t0 + k * 0.17;
+         gg.gain.setValueAtTime(0.0001, ts); gg.gain.exponentialRampToValueAtTime(0.09, ts + 0.02); gg.gain.exponentialRampToValueAtTime(0.0001, ts + 0.12);
+-        s.connect(gg); gg.connect(bp); s.start(ts, Math.random() * 0.2); s.stop(ts + 0.14);
++        s.connect(gg); gg.connect(bp); lease.track(s); if (k === 1) finishModuleVoice(lease, s); s.start(ts, Math.random() * 0.2); s.stop(ts + 0.14);
+         if (k === 1) s.onended = () => { try { out.disconnect(); if (tail !== out) tail.disconnect(); } catch (e) { /* gone */ } };
+       }
+     } catch (e) { /* sound is optional */ }
+diff --git a/assets/gallery/spaces/gnome.js b/assets/gallery/spaces/gnome.js
+index 590e2f9..3f95f43 100644
+--- a/assets/gallery/spaces/gnome.js
++++ b/assets/gallery/spaces/gnome.js
+@@ -1,3 +1,4 @@
++import { reserveModuleVoice, finishModuleVoice } from '../audio-lease.js';
+ // gnome.js — "O Gnomo Nómada": a 40 cm glazed-terracotta garden gnome that only
+ // ever moves while nobody is looking at it (the hall's own trick, as a prank).
+ //
+@@ -465,9 +466,10 @@ diffuseColor.rgb = mix(diffuseColor.rgb * (1.0 - 0.35 * gnRim), gnClay, gnChip);
+     if (!au || au.muted) return;
+     const ac = au.context, bus = au.bus;
+     if (!ac || !bus || ac.state === 'closed') return;
++    const lease = reserveModuleVoice(ctx, 1, false, Math.max(.4, atS + .15), bus); if (!lease) return;
+     try {
+-      const t0 = ac.currentTime + 0.02, out = ac.createGain();
+-      out.gain.value = gain; out.connect(bus);
++      const t0 = Math.max(ac.currentTime + .02, lease.startAt), out = ac.createGain();
++      out.gain.value = gain; out.connect(lease.gain);
+       // the mutter: a closed-mouth "hm", falling
+       {
+         const o = ac.createOscillator(), f = ac.createBiquadFilter(), g = ac.createGain();
+@@ -475,7 +477,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb * (1.0 - 0.35 * gnRim), gnClay, gnChip);
+         f.type = 'lowpass'; f.frequency.value = 430; f.Q.value = 2.5;
+         g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.07, t0 + 0.05);
+         g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.34);
+-        o.connect(f); f.connect(g); g.connect(out); o.start(t0); o.stop(t0 + 0.36);
++        o.connect(f); f.connect(g); g.connect(out); lease.track(o); o.start(t0); o.stop(t0 + 0.36);
+       }
+       // the tok: three inharmonic modes of a small hollow glazed shell, and the contact click
+       const t1 = t0 + atS;
+@@ -484,7 +486,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb * (1.0 - 0.35 * gnRim), gnClay, gnChip);
+         o.frequency.setValueAtTime(hz, t1); o.frequency.exponentialRampToValueAtTime(hz * 0.985, t1 + dur);
+         g.gain.setValueAtTime(0.0001, t1); g.gain.exponentialRampToValueAtTime(amp, t1 + 0.002);
+         g.gain.exponentialRampToValueAtTime(0.0001, t1 + dur);
+-        o.connect(g); g.connect(out); o.start(t1); o.stop(t1 + dur + 0.02);
++        o.connect(g); g.connect(out); lease.track(o); o.start(t1); o.stop(t1 + dur + 0.02);
+       }
+       if (!noise) {
+         const n = Math.round(ac.sampleRate * 0.02);
+@@ -494,9 +496,9 @@ diffuseColor.rgb = mix(diffuseColor.rgb * (1.0 - 0.35 * gnRim), gnClay, gnChip);
+       }
+       const src = ac.createBufferSource(), bp = ac.createBiquadFilter(), ng = ac.createGain();
+       src.buffer = noise; bp.type = 'bandpass'; bp.frequency.value = 3200; bp.Q.value = 1.2; ng.gain.value = 0.12;
+-      src.connect(bp); bp.connect(ng); ng.connect(out); src.start(t1);
+-      setTimeout(() => { try { out.disconnect(); } catch (e) { /* gone */ } }, (atS + 0.8) * 1000);
+-    } catch (e) { /* audio unavailable */ }
++      src.connect(bp); bp.connect(ng); ng.connect(out); lease.track(src); src.start(t1);
++      setTimeout(() => { lease.release(); try { out.disconnect(); } catch (e) { /* gone */ } }, (atS + 0.8) * 1000);
++    } catch (e) { lease.release(); /* audio unavailable */ }
+   }
+ 
+   return {
+diff --git a/assets/gallery/npc-onlookers.js b/assets/gallery/npc-onlookers.js
+index b51f1a0..a4357b9 100644
+--- a/assets/gallery/npc-onlookers.js
++++ b/assets/gallery/npc-onlookers.js
+@@ -1,3 +1,4 @@
++import { reserveModuleVoice, finishModuleVoice } from './audio-lease.js';
+ // Opt-in cast personalities. No new actors, geometry, lights or per-frame objects.
+ // The legacy NPC module remains authoritative for talking, impacts and recovery.
+ import { groundAt } from './collision.js';
+@@ -113,10 +114,11 @@ export function createNpcPersonalities(ctx, { npcs, castById, chooseLine, say })
+     let slot=-1;for(let i=0;i<voices.length;i++)if(!voices[i]){slot=i;break;}
+     if(slot<0)return true;
+     r.lastSound=now;
++    const lease = reserveModuleVoice(ctx, name === 'slap' ? 3 : 2, true, .55, bus); if (!lease) return true;
+     let oscillator,gain,filter;
+     try {
+       oscillator=ac.createOscillator();gain=ac.createGain();filter=ac.createBiquadFilter();
+-      const pig=r.kind==='sniffer',t=ac.currentTime,duration=name==='laugh' ? .48 : .28;
++      const pig=r.kind==='sniffer',t=Math.max(ac.currentTime,lease.startAt),duration=name==='laugh' ? .48 : .28;
+       const dx=n.x-camera.position.x,dz=n.z-camera.position.z;
+       const distance=Math.sqrt(dx*dx+dz*dz),volume=.12*Math.max(0,1-distance/18)**2;
+       oscillator.type=pig?'sawtooth':'triangle';
+@@ -132,10 +134,10 @@ export function createNpcPersonalities(ctx, { npcs, castById, chooseLine, say })
+         gain.gain.exponentialRampToValueAtTime(Math.max(.0002,volume*.6),t+.33);
+       }
+       gain.gain.exponentialRampToValueAtTime(.0001,t+duration);
+-      oscillator.connect(filter);filter.connect(gain);gain.connect(bus);voices[slot]=oscillator;
++      oscillator.connect(filter);filter.connect(gain);gain.connect(lease.gain); lease.track(oscillator); finishModuleVoice(lease, oscillator); voices[slot]=oscillator;
+       oscillator.onended=()=>{oscillator.disconnect();filter.disconnect();gain.disconnect();if(voices[slot]===oscillator)voices[slot]=null;};
+       oscillator.start(t);oscillator.stop(t+duration+.02);
+-    }catch{try{oscillator?.stop();}catch{}oscillator?.disconnect();filter?.disconnect();gain?.disconnect();voices[slot]=null;}
++    }catch{lease.release();try{oscillator?.stop();}catch{}oscillator?.disconnect();filter?.disconnect();gain?.disconnect();voices[slot]=null;}
+     return true;
+   }
+   function silence() {for(let i=0;i<voices.length;i++)if(voices[i]){try{voices[i].stop();}catch{}voices[i]=null;}}
+diff --git a/assets/gallery/interactions.js b/assets/gallery/interactions.js
+index 9f03988..de5b07c 100644
+--- a/assets/gallery/interactions.js
++++ b/assets/gallery/interactions.js
+@@ -1,3 +1,4 @@
++import { reserveModuleVoice, finishModuleVoice } from './audio-lease.js';
+ // W4: short, local feedback. Existing actions always retain ownership.
+ // No external dependencies, textures, lights or allocations in update().
+ // For merged geometry the pixel contact bubble moves, never the whole building.
+@@ -107,6 +108,7 @@ export function createInteractions(ctx) {
+     try { ac = audio.context; bus = audio.bus; } catch { return; }
+     if (!ac || !bus || ac.state !== 'running') return;
+     lastSound = now;
++    const lease = reserveModuleVoice(ctx, 1, false, .4, bus); if (!lease) return;
+     let oscillator, gain, filter, pan;
+     try {
+       const p = camera.position;
+@@ -114,7 +116,7 @@ export function createInteractions(ctx) {
+       const attenuation = Math.max(0,1-distance/20);
+       oscillator=ac.createOscillator(); gain=ac.createGain(); filter=ac.createBiquadFilter();
+       pan=ac.createStereoPanner ? ac.createStereoPanner() : null;
+-      const t=ac.currentTime, duration=Math.min(.35,reaction.duration*.45);
++      const t=Math.max(ac.currentTime,lease.startAt), duration=Math.min(.35,reaction.duration*.45);
+       oscillator.type=reaction.wave;
+       oscillator.frequency.setValueAtTime(reaction.hz,t);
+       oscillator.frequency.exponentialRampToValueAtTime(reaction.end,t+duration);
+@@ -126,15 +128,16 @@ export function createInteractions(ctx) {
+       if (pan) {
+         right.setFromMatrixColumn(camera.matrixWorld,0);
+         pan.pan.value=Math.max(-.8,Math.min(.8,(dx*right.x+dy*right.y+dz*right.z)/Math.max(1,distance)));
+-        gain.connect(pan); pan.connect(bus);
+-      } else gain.connect(bus);
++        gain.connect(pan); pan.connect(lease.gain);
++      } else gain.connect(lease.gain);
+       let voiceSlot=-1;
+       for(let i=0;i<MAX;i++)if(!voices[i]){voiceSlot=i;break;}
+-      if(voiceSlot<0){oscillator.disconnect();filter.disconnect();gain.disconnect();pan?.disconnect();return;}
++      if(voiceSlot<0){lease.release();oscillator.disconnect();filter.disconnect();gain.disconnect();pan?.disconnect();return;}
+       voices[voiceSlot]=oscillator;
+       oscillator.onended=()=>{ oscillator.disconnect();filter.disconnect();gain.disconnect();pan?.disconnect();if(voices[voiceSlot]===oscillator)voices[voiceSlot]=null; };
+-      oscillator.start(t); oscillator.stop(t+duration+.02);
++      lease.track(oscillator); finishModuleVoice(lease, oscillator); oscillator.start(t); oscillator.stop(t+duration+.02);
+     } catch {
++      lease.release();
+       try { oscillator?.stop(); } catch { /* not started */ }
+       oscillator?.disconnect();gain?.disconnect();filter?.disconnect();pan?.disconnect();
+       for(let i=0;i<MAX;i++)if(voices[i]===oscillator)voices[i]=null;
+diff --git a/assets/gallery/player.js b/assets/gallery/player.js
+index f083b66..58197f2 100644
+--- a/assets/gallery/player.js
++++ b/assets/gallery/player.js
+@@ -1,3 +1,4 @@
++import { reserveModuleVoice, finishModuleVoice } from './audio-lease.js';
+ // First-person viewmodel hands with procedural gestures. Attached to the camera.
+ // createPlayer(camera, { reducedMotion, audio }) -> { group, gesture(name), busy, update(dt, {speed,jumping,turnRate,stepPhase}),
+ //   cameraOffset:{y,roll}, onClap, onGestureStart(name), setAudio(audio), dispose() }
+@@ -131,17 +132,18 @@ function createCensor(reducedMotion) {
+ function bip(audio) {
+   const ac = audio && audio.context;
+   if (!ac || audio.muted || ac.state !== 'running') return;
++  const lease = reserveModuleVoice({ audio }, 3, true, .3, audio.bus); if (!lease) return;
+   try {
+-    const t = ac.currentTime + 0.01;
++    const t = Math.max(ac.currentTime + .01, lease.startAt);
+     const o = ac.createOscillator(), gn = ac.createGain();
+     o.type = 'sine'; o.frequency.value = 1000;
+     gn.gain.setValueAtTime(0, t);
+     gn.gain.linearRampToValueAtTime(0.12, t + 0.008);
+     gn.gain.setValueAtTime(0.12, t + 0.242);
+     gn.gain.linearRampToValueAtTime(0, t + 0.25);
+-    o.connect(gn); gn.connect(ac.destination);
++    o.connect(gn); gn.connect(lease.gain); lease.track(o); finishModuleVoice(lease, o);
+     o.start(t); o.stop(t + 0.27);
+-  } catch (e) { /* audio is optional */ }
++  } catch (e) { lease.release(); /* audio is optional */ }
+ }
+ 
+ function buildHand(skin, jacket, trim, geos) {
+diff --git a/assets/gallery/music.js b/assets/gallery/music.js
+index 9596048..fbf04fc 100644
+--- a/assets/gallery/music.js
++++ b/assets/gallery/music.js
+@@ -1,5 +1,5 @@
+ // THE WORKSHOP: the score. Procedural Web Audio: no files, no network, nothing built before the first gesture.
+-// French-touch filter house crossed with action-game scoring and a pinch of chiptune. G minor / dorian, 118 BPM,
++// French-touch filter house crossed with action-game scoring and a pinch of chiptune. A minor pentatonic, 96 BPM,
+ // swung 16ths, a kick-keyed sidechain pump, a resonant chord loop that sweeps open over 16 bars and closes in the
+ // breaks, a warm octave bass, a vowel-formant ("talking") lead through a phaser, a pulse-wave arp for sprints.
+ // It follows the visitor: keys and pad in the hall, the groove outdoors, a sprint layer, a drone and metal pings
+@@ -17,17 +17,18 @@
+ //   update(dt)         every frame; the score also keeps its own 25 ms clock
+ // }
+ 
+-const BPM = 118;
++const BPM = 96;
+ const BEAT = 60 / BPM, STEP = BEAT / 4, BAR = BEAT * 4;
+ const LOOK = 0.2;     // s scheduled ahead of the audio clock (survives a 150 ms frame hitch)
+-const CAP = 64;       // short-lived voices alive at once (drums, keys, bells, fx); persistent synths are extra
+-const MASTER = 0.65;  // calibrated offline: score master ~ -16 LUFS outdoors at a walk, sample peaks < -1.5 dBFS
++const MASTER = 0.65;  // retained starting trim; the revised arrangement awaits listening/level QA
+ const TRIM = 0.4;     // -8 dB seat in the game mix, after the score's own dynamics, used ONLY on the score's own
+                       // destination. Handed a bus (audio.musicBus already carries the audio director's -8 dB),
+                       // the score goes in at 0 dB so the trim is never applied twice.
+ const ENTRY = 3.2;    // s after the click: the lights' relays land in the clear, then the score comes in
+ 
+-const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
++const PENT=[0,3,5,7,10];
++const pentMidi = m => { let best=m, distance=Infinity; for(let o=-1;o<=1;o++)for(const p of PENT){const n=69+12*(Math.floor((m-69)/12)+o)+p,d=Math.abs(n-m);if(d<distance){best=n;distance=d;}}return best; };
++const mtof = m => 440 * Math.pow(2, (pentMidi(m) - 69) / 12);
+ const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+ const sm = (a, b, x) => { x = clamp((x - a) / (b - a)); return x * x * (3 - 2 * x); };
+ function mulberry32(a) {
+@@ -40,9 +41,9 @@ function mulberry32(a) {
+ }
+ 
+ // ---------------------------------------------------------------- harmony --
+-// Scales as semitones above G. A chord: b = bass root (midi), v = 4-note voicing, s = scale for the lead.
+-const DOR = [0, 2, 3, 5, 7, 9, 10], AEO = [0, 2, 3, 5, 7, 8, 10], HMI = [0, 2, 3, 5, 7, 8, 11], PHR = [0, 1, 3, 5, 7, 8, 10];
+-const ch = (b, v, s) => ({ b, v, s, pcs: new Set([b, ...v].map((n) => n % 12)) });
++// Scales as semitones above A; the inherited voicings are transposed and quantized. A chord: b = bass root (midi), v = 4-note voicing, s = scale for the lead.
++const DOR=PENT, AEO=PENT, HMI=PENT, PHR=PENT;
++const ch=(b,v,s)=>{b=pentMidi(b+2);v=v.map(n=>pentMidi(n+2));return {b,v,s,pcs:new Set([b,...v].map(n=>n%12))};};
+ const HARM = {
+   main: { bars: 2, ch: [
+     ch(31, [58, 62, 65, 69], DOR), // Gm9
+@@ -141,7 +142,7 @@ export function createMusic(opts = {}) {
+   const solo = typeof opts.solo === 'string' ? opts.solo : '';   // dev harness: hear one layer
+   let ctx = null, N = null, started = false, starting = null, muted = false, hidden = false, offline = false, shared = false;
+   let timer = null, nextTime = 0, step = Math.max(0, (opts.bar | 0) * 16), lastTick = 0, mixClock = 0, made = 0, entryAt = 0;
+-  let noiseBuf = null, alive = [], rng = mulberry32(7);
++  let noiseBuf = null, rng = mulberry32(7);
+   let harm = 'main', harmSet = false, chordKey = '', curSec = 'intro', bassPat = BASS_S.hall0, stabPat = null, keysPat = KEYS_S[0], phrase = null;
+   let sceneDriven = false, wasAir = false, boost = 0, duckAmt = 0, swing = 0.18;
+   const T = { out: 0, hall: 1, room: 0, night: 0, storm: 0, ruin: 0, arcade: 0, want: 0 };   // where the scene asks to be
+@@ -168,11 +169,18 @@ export function createMusic(opts = {}) {
+     lastSet.set(p, v);
+     if (snapping) p.setValueAtTime(v, now); else p.setTargetAtTime(v, now, tc);
+   }
+-  function room(end) {
+-    if (alive.length >= CAP) { const now = ctx.currentTime; alive = alive.filter((e) => e > now); }
+-    if (alive.length >= CAP) return false;
+-    alive.push(end); made++; return true;
++  // The shared broker admits EACH scheduled note before any source is created.
++  // A chord is several notes; a note's detuned oscillators/LFO share its token.
++  function admit(t,duration) {
++    if(muted||hidden||journeyMode!=='home'||!ctx||typeof opts.audio?.acquireVoice!=='function')return null;
++    const token=opts.audio.acquireVoice({priority:0,foreground:false,ms:Math.ceil((Math.max(0,t-ctx.currentTime)+duration+.08)*1000)});
++    if(!token)return null; made++; return token;
+   }
++  function startVoice(token,source,t,end) {
++    token.track(source); source.start(t); source.stop(end);
++  }
++  function routeVoice(token,from,destination) {from.connect(token.gain);token.gain.connect(destination);}
++  let currentChord = null, journeyMode = 'home';
+   const hum = () => (rng() - 0.5) * 0.005;
+ 
+   // ------------------------------------------------------------- graph --
+@@ -192,9 +200,9 @@ export function createMusic(opts = {}) {
+       for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1, a = Math.abs(x); cv[i] = Math.sign(x) * (a <= k ? a : k + (top - k) * Math.tanh((a - k) / (top - k))); }
+       clip.curve = cv; clip.oversample = 'none'; } // sample peaks can never pass -1.5 dBFS
+     const toBus = !!(out && out.context === c);
+-    const duck = G(1), mute = G(muted ? 0 : 1), trim = G(trimOpt ?? (toBus ? 1 : TRIM));
++    const travel = G(1), duck = G(1), mute = G(muted ? 0 : 1), trim = G(trimOpt ?? (toBus ? 1 : TRIM));
+     sum.connect(hp); hp.connect(dip); dip.connect(air); air.connect(glue); glue.connect(level); level.connect(clip);
+-    clip.connect(duck); duck.connect(mute); mute.connect(trim);
++    clip.connect(duck); duck.connect(travel); travel.connect(mute); mute.connect(trim);
+     trim.connect(toBus ? out : c.destination);
+ 
+     // kick-keyed sidechain: A = chords, pad and returns (soft pump), B = bass (deep and quick)
+@@ -211,8 +219,7 @@ export function createMusic(opts = {}) {
+     pL.connect(delOut); pR.connect(delOut); delOut.connect(duckA);
+     const wideIn = G(1), cdL = c.createDelay(0.05), cdR = c.createDelay(0.05);
+     cdL.delayTime.value = 0.011; cdR.delayTime.value = 0.017; kr(cdL.delayTime, cdR.delayTime);
+-    const cl = O('sine', 0.23), clL = G(0.0025), clR = G(-0.0025), wL = pan(-0.9), wR = pan(0.9), wOut = G(0.5);
+-    cl.connect(clL); cl.connect(clR); clL.connect(cdL.delayTime); clR.connect(cdR.delayTime); cl.start();
++    const wL=pan(-.9),wR=pan(.9),wOut=G(.5);
+     wideIn.connect(cdL); wideIn.connect(cdR); cdL.connect(wL); cdR.connect(wR); wL.connect(wOut); wR.connect(wOut); wOut.connect(duckA);
+     const send = (from, to, v) => { const s = G(v); from.connect(s); s.connect(to); return s; };
+ 
+@@ -228,82 +235,22 @@ export function createMusic(opts = {}) {
+     hatP.connect(drumLP); ohatP.connect(drumLP); shakeP.connect(drumLP);
+     send(L.shaker, revIn, 0.2); send(L.ohat, revIn, 0.06);
+ 
+-    // bass: one mono voice (two saws + sine), warmed, mud cut, rumble cut, pumped by the kick
+-    const bo1 = O('sawtooth'), bo2 = O('sawtooth'), bsub = O('sine');
+-    bo2.detune.value = 8;
+-    const bSaw = G(0.4), bSub = G(0.45), bLP = F('lowpass', 300, 2.2), bAmp = G(0);
+-    bo1.connect(bSaw); bo2.connect(bSaw); bSaw.connect(bLP); bLP.connect(bAmp); bsub.connect(bSub); bSub.connect(bAmp);
+-    for (const o of [bo1, bo2, bsub]) o.start();
+-    const bSat = shaper(1.8), bMud = F('peaking', 210, 1.1), bHP = F('highpass', 34, -3);
+-    bMud.gain.value = -2.5;
+-    mk('bass', bSat); bAmp.connect(L.bass); bSat.connect(bMud); bMud.connect(bHP); bHP.connect(duckB);
+-
+-    // chord stabs: 4 voices x 2 saws held, chopped by one gate, through the sweeping resonant filter and a phaser
+-    const stabO = [], sMix = G(0.2), sHP = F('highpass', 180, 0.7), sLP = F('lowpass', 600, 5), sAmp = G(0);
+-    for (let i = 0; i < 8; i++) { const o = O('sawtooth'); o.detune.value = (i & 1) ? 7 : -6; o.connect(sMix); o.start(); stabO.push(o); }
+-    sMix.connect(sHP); sHP.connect(sLP); sLP.connect(sAmp);
+-    mk('stab', duckA); phaser(sAmp, [500, 900, 1500, 2400], 0.11).connect(L.stab);
+-    send(L.stab, wideIn, 0.5); send(L.stab, revIn, 0.18); send(L.stab, delIn, 0.08);
+-
+-    // pad: 4 voices x 2 soft saws, slow filter drift, a breath at each chord, chorus-wide
+-    const W = waves();
+-    const padO = [], pMix = G(0.075), pLP = F('lowpass', 900, 0.8), pBreath = G(1);
+-    for (let i = 0; i < 8; i++) { const o = O(W.warm); o.detune.value = (i & 1) ? 9 : -9; o.connect(pMix); o.start(); padO.push(o); }
+-    const pl = O('sine', 0.07), plD = G(320); pl.connect(plD); plD.connect(pLP.frequency); pl.start();
+-    pMix.connect(pLP); pLP.connect(pBreath);
+-    mk('pad', duckA); pBreath.connect(L.pad);
+-    send(L.pad, wideIn, 0.6); send(L.pad, revIn, 0.5);
+-
+-    // lead: saw + square through three formant band-passes (a talking, vocoder-like vowel) and a phaser
+-    const lo1 = O('sawtooth'), lo2 = O('square'), lSrc = G(0.1), lvib = O('sine', 5.3), lvD = G(9);
+-    lo2.detune.value = -5; lvib.connect(lvD); lvD.connect(lo1.detune); lvD.connect(lo2.detune);
+-    lo1.connect(lSrc); lo2.connect(lSrc);
+-    const lForm = G(1), bp = [F('bandpass', 800, 7), F('bandpass', 1150, 9), F('bandpass', 2900, 10)];
+-    [4, 2.6, 0.7].forEach((v, i) => { lSrc.connect(bp[i]); send(bp[i], lForm, v); });
+-    const lBody = F('lowpass', 1300, 0.7); lSrc.connect(lBody); send(lBody, lForm, 0.35);
+-    const lAmp = G(0); lForm.connect(lAmp);
+-    for (const o of [lo1, lo2, lvib]) o.start();
+-    mk('lead', sum); phaser(lAmp, [600, 1300, 2600], 0.37).connect(L.lead);
+-    send(L.lead, revIn, 0.25); send(L.lead, delIn, 0.32);
+-
+-    // chip: one pulse-wave voice, ping-ponged by note
+-    const co = O(W.pulse), cAmp = G(0), cPan = pan(0);
+-    co.connect(cAmp); cAmp.connect(cPan); co.start();
+-    mk('chip', sum); cPan.connect(L.chip);
+-    send(L.chip, delIn, 0.35); send(L.chip, revIn, 0.12);
+-
+-    // keys (additive electric piano) with a slow stereo tremolo; bells; ruin drone and wind; fx
+-    const kP = pan(0); mk('keys', kP); kP.connect(sum);
+-    if (kP.pan) { const kl = O('sine', 2.4), kd = G(0.28); kl.connect(kd); kd.connect(kP.pan); kl.start(); }
+-    send(L.keys, revIn, 0.45); send(L.keys, delIn, 0.14);
+-    mk('bell', sum); send(L.bell, revIn, 0.7); send(L.bell, delIn, 0.35);
+-    mk('ruin', sum); send(L.ruin, revIn, 0.8);
+-    const d1 = O('sawtooth', mtof(43)), d2 = O('sawtooth', mtof(50)), dBP = F('bandpass', 520, 5), dG = G(0.22);
+-    d2.detune.value = 11;
+-    const dl = O('sine', 0.045), dlD = G(260); dl.connect(dlD); dlD.connect(dBP.frequency);
+-    d1.connect(dBP); d2.connect(dBP); dBP.connect(dG); dG.connect(L.ruin);
+-    const wn = c.createBufferSource(); wn.buffer = noiseBuf; wn.loop = true;
+-    const wBP = F('bandpass', 700, 9), wl = O('sine', 0.08), wlD = G(300), wG = G(0.5);
+-    wl.connect(wlD); wlD.connect(wBP.frequency); wn.connect(wBP); wBP.connect(wG); wG.connect(L.ruin);
+-    for (const o of [d1, d2, dl, wl]) o.start(); wn.start();
+-    mk('fx', sum); send(L.fx, revIn, 0.4);
+-
+-    N = { W, sum, dip, level, duck, mute, duckA, duckB, revIn, revOut, revLP, delIn, fbL, fbR, drumLP, L,
+-      bass: { o: [bo1, bo2, bsub], saw: bSaw, sub: bSub, lp: bLP, amp: bAmp },
+-      stab: { o: stabO, lp: sLP, amp: sAmp }, pad: { o: padO, breath: pBreath, lp: pLP },
+-      lead: { o: [lo1, lo2], bp, amp: lAmp, last: 0, end: 0 }, chip: { o: co, amp: cAmp, pan: cPan } };
+-  }
+-
+-  function phaser(input, freqs, rate) {
+-    const out = G(1), dry = G(0.62), wet = G(0.62), lfo = O('sine', rate);
+-    input.connect(dry); dry.connect(out);
+-    let prev = input;
+-    for (const f of freqs) {
+-      const ap = F('allpass', f, 0.6), d = G(f * 0.55);
+-      lfo.connect(d); d.connect(ap.frequency); prev.connect(ap); prev = ap;
+-    }
+-    prev.connect(wet); wet.connect(out); lfo.start();
+-    return out;
++    // Source-free layer graph. Every sound source is made by an admitted note.
++    const W=waves(), bSat=shaper(1.8),bHP=F('highpass',34,-3);
++    mk('bass',bSat);bSat.connect(bHP);bHP.connect(duckB);
++    const sLP=F('lowpass',600,5);mk('stab',duckA);sLP.connect(L.stab);
++    send(L.stab,wideIn,.5);send(L.stab,revIn,.18);send(L.stab,delIn,.08);
++    const pLP=F('lowpass',900,.8);mk('pad',duckA);pLP.connect(L.pad);
++    send(L.pad,wideIn,.6);send(L.pad,revIn,.5);
++    mk('lead',sum);send(L.lead,revIn,.25);send(L.lead,delIn,.32);
++    mk('chip',sum);send(L.chip,delIn,.35);send(L.chip,revIn,.12);
++    const kP=pan(0);mk('keys',kP);kP.connect(sum);
++    send(L.keys,revIn,.45);send(L.keys,delIn,.14);
++    mk('bell',sum);send(L.bell,revIn,.7);send(L.bell,delIn,.35);
++    mk('ruin',sum);send(L.ruin,revIn,.8);
++    mk('fx',sum);send(L.fx,revIn,.4);
++    N={W,sum,dip,level,duck,mute,travel,duckA,duckB,revIn,revOut,revLP,delIn,fbL,fbR,drumLP,L,
++      bass:{saw:G(.4)},stab:{lp:sLP},pad:{lp:pLP}};
+   }
+ 
+   function waves() {
+@@ -343,114 +290,101 @@ export function createMusic(opts = {}) {
+   }
+ 
+   // ------------------------------------------------------------ voices --
+-  function nz(t, dur, type, f, q, v, dest, atk = 0.001) {
+-    if (!room(t + dur)) return;
+-    const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+-    const fl = F(type, f, q), e = G(0);
+-    e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(v, t + atk); e.gain.setTargetAtTime(0, t + atk, dur / 6);
+-    s.connect(fl); fl.connect(e); e.connect(dest);
+-    s.start(t, rng() * 1.8); s.stop(t + dur + 0.02);
++  function nz(t,dur,type,f,q,v,dest,atk=.001) {
++    const token=admit(t,dur+.03);if(!token)return;t=Math.max(t,token.startAt);
++    const source=ctx.createBufferSource();source.buffer=noiseBuf;source.loop=true;
++    const filter=F(type,f,q),gain=G(0);
++    gain.gain.setValueAtTime(0,t);gain.gain.linearRampToValueAtTime(v,t+atk);gain.gain.setTargetAtTime(0,t+atk,dur/6);
++    source.connect(filter);filter.connect(gain);routeVoice(token,gain,dest);
++    startVoice(token,source,t,t+dur+.02);
+   }
+-  function kick(t, v) {
+-    if (!room(t + 0.45)) return;
+-    const o = O('sine'), e = G(0);
+-    o.frequency.setValueAtTime(170, t); o.frequency.exponentialRampToValueAtTime(58, t + 0.06); o.frequency.exponentialRampToValueAtTime(46, t + 0.35);
+-    e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(0.85 * v, t + 0.0015); e.gain.setTargetAtTime(0, t + 0.07, 0.075);
+-    o.connect(e); e.connect(N.L.kick); o.start(t); o.stop(t + 0.45);
+-    nz(t, 0.012, 'highpass', 3500, 0.7, 0.3 * v, N.L.kick, 0.0005);           // beater click: the transient
+-    // the pump: only as deep as the kick is loud, so a silent kick never pumps a sustained pad
+-    const k = lvl.kick || 0, A = N.duckA.gain, B = N.duckB.gain;
+-    A.setTargetAtTime(1 - 0.5 * k * v, t, 0.004); A.setTargetAtTime(1, t + 0.04, 0.1);
+-    B.setTargetAtTime(1 - 0.72 * k * v, t, 0.003); B.setTargetAtTime(1, t + 0.03, 0.06);
++  function kick(t,v) {
++    const token=admit(t,.46);if(!token)return;t=Math.max(t,token.startAt);
++    const o=O('sine'),e=G(0);o.frequency.setValueAtTime(170,t);o.frequency.exponentialRampToValueAtTime(58,t+.06);o.frequency.exponentialRampToValueAtTime(46,t+.35);
++    e.gain.setValueAtTime(0,t);e.gain.linearRampToValueAtTime(.85*v,t+.0015);e.gain.setTargetAtTime(0,t+.07,.075);
++    o.connect(e);routeVoice(token,e,N.L.kick);startVoice(token,o,t,t+.45);
++    const k=lvl.kick||0,A=N.duckA.gain,B=N.duckB.gain;
++    A.setTargetAtTime(1-.5*k*v,t,.004);A.setTargetAtTime(1,t+.04,.1);
++    B.setTargetAtTime(1-.72*k*v,t,.003);B.setTargetAtTime(1,t+.03,.06);
+   }
+-  function clap(t, v) {
+-    for (let k = 0; k < 3; k++) nz(t + k * 0.009, 0.014, 'bandpass', 1150, 1.1, 1.5 * v, N.L.clap);
+-    nz(t + 0.027, 0.17, 'bandpass', 1050, 0.9, 1.3 * v, N.L.clap);
+-    nz(t, 0.09, 'highpass', 5200, 0.6, 0.55 * v, N.L.clap);
+-    if (!room(t + 0.1)) return;
+-    const o = O('triangle'), e = G(0);
+-    o.frequency.setValueAtTime(195, t); o.frequency.exponentialRampToValueAtTime(150, t + 0.07);
+-    e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(0.6 * v, t + 0.001); e.gain.setTargetAtTime(0, t + 0.002, 0.03);
+-    o.connect(e); e.connect(N.L.clap); o.start(t); o.stop(t + 0.16);
++  function clap(t,v) {
++    // One logical clap: a single noise source, three envelope transients.
++    const token=admit(t,.24);if(!token)return;t=Math.max(t,token.startAt);
++    const source=ctx.createBufferSource();source.buffer=noiseBuf;source.loop=true;
++    const filter=F('bandpass',1150,1.1),e=G(0);source.connect(filter);filter.connect(e);
++    for(let i=0;i<3;i++){e.gain.setValueAtTime(.00001,t+i*.012);e.gain.linearRampToValueAtTime(v*1.25,t+i*.012+.002);e.gain.exponentialRampToValueAtTime(.00001,t+i*.012+.011);}
++    e.gain.linearRampToValueAtTime(v*.6,t+.04);e.gain.exponentialRampToValueAtTime(.00001,t+.21);
++    routeVoice(token,e,N.L.clap);startVoice(token,source,t,t+.23);
+   }
+-  function snare(t, v) { nz(t, 0.08, 'bandpass', 1000, 0.8, 0.45 * v, N.L.clap); nz(t, 0.06, 'highpass', 5000, 0.6, 0.2 * v, N.L.clap); }
+-  const chat = (t, v) => nz(t, 0.035 + 0.012 * v, 'highpass', 8200, 0.9, 1.3 * v, N.L.hat, 0.0008);
+-  const ohat = (t, v) => nz(t, 0.2, 'highpass', 7000, 0.8, 0.58 * v, N.L.ohat, 0.003);
+-  const shake = (t, v) => nz(t, 0.05, 'bandpass', 7000, 1.4, 1.6 * v, N.L.shaker, 0.007);
+-  function tom(t, v, p) {
+-    if (!room(t + 0.4)) return;
+-    const f = 105 * [1, 0.84, 0.7][p], o = O('sine'), e = G(0);
+-    o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 0.55, t + 0.2);
+-    e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(0.7 * v, t + 0.002); e.gain.setTargetAtTime(0, t + 0.01, 0.07);
+-    o.connect(e); e.connect(N.L.perc); o.start(t); o.stop(t + 0.4);
+-    nz(t, 0.05, 'lowpass', 900, 0.7, 0.25 * v, N.L.perc);
++  function snare(t,v){nz(t,.09,'bandpass',1800,.8,.6*v,N.L.clap);}
++  const chat=(t,v)=>nz(t,.035+.012*v,'highpass',8200,.9,1.3*v,N.L.hat,.0008);
++  const ohat=(t,v)=>nz(t,.2,'highpass',7000,.8,.58*v,N.L.ohat,.003);
++  const shake=(t,v)=>nz(t,.05,'bandpass',7000,1.4,1.6*v,N.L.shaker,.007);
++  function tom(t,v,p){
++    const token=admit(t,.41);if(!token)return;t=Math.max(t,token.startAt);
++    const f=105*[1,.84,.7][p],o=O('sine',f),e=G(0);o.frequency.exponentialRampToValueAtTime(f*.55,t+.2);
++    e.gain.setValueAtTime(0,t);e.gain.linearRampToValueAtTime(.7*v,t+.002);e.gain.setTargetAtTime(0,t+.01,.07);
++    o.connect(e);routeVoice(token,e,N.L.perc);startVoice(token,o,t,t+.4);
+   }
+-  function bassNote(t, midi, len, v) {
+-    const b = N.bass, f = mtof(midi), br = S.bright ?? 0.3, end = t + len * STEP * 0.92;
+-    for (const o of b.o) o.frequency.setValueAtTime(f, t);
+-    b.sub.gain.setValueAtTime(midi < 40 ? 0.45 : 0.22, t);
+-    const A = b.amp.gain; A.cancelScheduledValues(t - 0.004); A.setTargetAtTime(0, t - 0.004, 0.0015);
+-    A.setTargetAtTime(v, t, 0.003); A.setTargetAtTime(v * 0.72, t + 0.03, 0.15); A.setTargetAtTime(0, end, 0.02);
+-    const Q = b.lp.frequency; Q.cancelScheduledValues(t);
+-    Q.setTargetAtTime(Math.min(9000, f * (4 + 10 * br)), t, 0.002); Q.setTargetAtTime(f * (1.6 + 2.5 * br), t + 0.01, 0.09 + 0.1 * (1 - br));
++  function bassNote(t,midi,len,v){
++    const dur=len*STEP*.92+.12,token=admit(t,dur);if(!token)return;t=Math.max(t,token.startAt);
++    const f=mtof(midi),filter=F('lowpass',f*(4+10*(S.bright||.3)),2.2),e=G(0),mix=G(.34);
++    filter.frequency.setTargetAtTime(f*(1.6+2.5*(S.bright||.3)),t+.01,.12);
++    e.gain.setValueAtTime(0,t);e.gain.linearRampToValueAtTime(v,t+.004);e.gain.setTargetAtTime(0,t+dur-.1,.025);
++    mix.connect(filter);filter.connect(e);routeVoice(token,e,N.L.bass);
++    const a=O('sawtooth',f),b=O('sawtooth',f),sub=O('sine',f);b.detune.value=8;
++    for(const o of [a,b,sub]){o.connect(mix);startVoice(token,o,t,t+dur);}
+   }
+-  function stabHit(t, len, v) {
+-    const A = N.stab.amp.gain, end = t + len * STEP * 0.85;
+-    A.cancelScheduledValues(t - 0.005); A.setTargetAtTime(0, t - 0.005, 0.0015);
+-    A.setTargetAtTime(v, t, 0.002); A.setTargetAtTime(v * 0.55, t + 0.012, 0.07); A.setTargetAtTime(0, end, 0.025);
++  function chordVoice(t,midi,dur,v,pad){
++    const token=admit(t,dur);if(!token)return;t=Math.max(t,token.startAt);
++    const e=G(0),a=O(pad?N.W.warm:'sawtooth',mtof(midi)),b=O(pad?N.W.warm:'sawtooth',mtof(midi));
++    a.detune.value=pad?-9:-6;b.detune.value=pad?9:7;
++    e.gain.setValueAtTime(0,t);e.gain.linearRampToValueAtTime(v*(pad?.075:.2),t+(pad?.18:.004));
++    e.gain.setTargetAtTime(0,t+Math.max(.2,dur-(pad?.6:.1)),pad?.15:.025);
++    a.connect(e);b.connect(e);routeVoice(token,e,pad?N.pad.lp:N.stab.lp);
++    startVoice(token,a,t,t+dur);startVoice(token,b,t,t+dur);
+   }
+-  function leadNote(t, midi, len, v, vowel) {
+-    const l = N.lead, f = mtof(midi), end = t + len * STEP * 0.9;
+-    const slide = l.last && Math.abs(midi - l.last) <= 4 && t - l.end < 0.04;
+-    for (const o of l.o) o.frequency.setTargetAtTime(f, t, slide ? 0.03 : 0.002);
+-    const A = l.amp.gain; A.cancelScheduledValues(t - 0.003);
+-    if (!slide) A.setTargetAtTime(0, t - 0.003, 0.001);
+-    A.setTargetAtTime(v, t, 0.006); A.setTargetAtTime(v * 0.8, t + 0.05, 0.25); A.setTargetAtTime(0, end, 0.05);
+-    const fm = FORM[vowel] || FORM.a, dark = 1 - 0.18 * S.night;
+-    for (let i = 0; i < 3; i++) l.bp[i].frequency.setTargetAtTime(fm[i] * dark, t, 0.035);
+-    l.last = midi; l.end = end;
++  function stabHit(t,len,v){if(!currentChord)return;for(let i=0;i<4;i++)chordVoice(t,currentChord.v[i],len*STEP*.85+.15,v,false);}
++  function leadNote(t,midi,len,v,vowel){
++    const dur=len*STEP*.9+.25,token=admit(t,dur);if(!token)return;t=Math.max(t,token.startAt);
++    const f=mtof(midi),a=O('sawtooth',f),b=O('square',f),vib=O('sine',5.3),vd=G(9),mix=G(.1),e=G(0);b.detune.value=-5;
++    vib.connect(vd);vd.connect(a.detune);vd.connect(b.detune);a.connect(mix);b.connect(mix);
++    const fm=FORM[vowel]||FORM.a;for(let i=0;i<3;i++){const band=F('bandpass',fm[i]*(1-.18*S.night),[7,9,10][i]),g=G([4,2.6,.7][i]);mix.connect(band);band.connect(g);g.connect(e);}
++    e.gain.setValueAtTime(0,t);e.gain.linearRampToValueAtTime(v,t+.006);e.gain.setTargetAtTime(0,t+dur-.2,.05);routeVoice(token,e,N.L.lead);
++    startVoice(token,a,t,t+dur);startVoice(token,b,t,t+dur);startVoice(token,vib,t,t+dur);
+   }
+-  function chipNote(t, midi, v, p) {
+-    const c = N.chip;
+-    c.o.frequency.setValueAtTime(mtof(midi), t);
+-    const A = c.amp.gain; A.cancelScheduledValues(t - 0.002); A.setTargetAtTime(0, t - 0.002, 0.0008);
+-    A.setTargetAtTime(v * 0.3, t, 0.001); A.setTargetAtTime(0, t + STEP * 0.55, 0.02);
+-    if (c.pan.pan) c.pan.pan.setValueAtTime(p, t);
++  function chipNote(t,midi,v,p){
++    const dur=STEP*.55+.12,token=admit(t,dur);if(!token)return;t=Math.max(t,token.startAt);
++    const o=O(N.W.pulse,mtof(midi)),e=G(0),stereo=pan(p);
++    e.gain.setValueAtTime(0,t);e.gain.linearRampToValueAtTime(v*.3,t+.002);e.gain.setTargetAtTime(0,t+STEP*.55,.02);
++    o.connect(e);e.connect(stereo);routeVoice(token,stereo,N.L.chip);startVoice(token,o,t,t+dur);
+   }
+-  function key(t, midi, v) {      // electric piano: a mellow body and a short bright tine on top
+-    const f = mtof(midi), dur = midi < 55 ? 3.0 : 2.3;
+-    if (!room(t + dur + 0.2)) return;
+-    const o = O(N.W.ep, f), e = G(0), tn = O('sine', Math.min(f * 7, 12000)), te = G(0);
+-    e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(v * 0.56, t + 0.003);
+-    e.gain.setTargetAtTime(v * 0.2, t + 0.005, 0.5); e.gain.setTargetAtTime(0, t + dur - 0.4, 0.15);
+-    te.gain.setValueAtTime(0, t); te.gain.linearRampToValueAtTime(v * 0.1, t + 0.001); te.gain.setTargetAtTime(0, t + 0.002, 0.035);
+-    o.connect(e); tn.connect(te); e.connect(N.L.keys); te.connect(N.L.keys);
+-    o.start(t); tn.start(t); o.stop(t + dur + 0.2); tn.stop(t + 0.3);
++  function key(t,midi,v){
++    const dur=midi<55?3:2.3,token=admit(t,dur+.2);if(!token)return;t=Math.max(t,token.startAt);
++    const f=mtof(midi),o=O(N.W.ep,f),tn=O('sine',Math.min(f*7,12000)),e=G(0),te=G(0),mix=G(1);
++    e.gain.setValueAtTime(0,t);e.gain.linearRampToValueAtTime(v*.56,t+.003);e.gain.setTargetAtTime(v*.2,t+.005,.5);e.gain.setTargetAtTime(0,t+dur-.4,.15);
++    te.gain.setValueAtTime(0,t);te.gain.linearRampToValueAtTime(v*.1,t+.001);te.gain.setTargetAtTime(0,t+.002,.035);
++    o.connect(e);tn.connect(te);e.connect(mix);te.connect(mix);routeVoice(token,mix,N.L.keys);
++    startVoice(token,o,t,t+dur+.2);startVoice(token,tn,t,t+.3);
+   }
+-  function bell(t, midi, v, ratio, dur) {
+-    if (!room(t + dur)) return;
+-    const f = mtof(midi), c = O('sine', f), m = O('sine', f * ratio), mg = G(0), e = G(0);
+-    mg.gain.setValueAtTime(f * 2, t); mg.gain.setTargetAtTime(f * 0.1, t, dur * 0.18);
+-    m.connect(mg); mg.connect(c.frequency);
+-    e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(v * 0.25, t + 0.002); e.gain.setTargetAtTime(0, t + 0.002, dur / 5);
+-    c.connect(e); e.connect(N.L.bell); c.start(t); m.start(t); c.stop(t + dur); m.stop(t + dur);
++  function bell(t,midi,v,ratio,dur){
++    const token=admit(t,dur);if(!token)return;t=Math.max(t,token.startAt);
++    const f=mtof(midi),c=O('sine',f),m=O('sine',f*ratio),mg=G(0),e=G(0);
++    mg.gain.setValueAtTime(f*2,t);mg.gain.setTargetAtTime(f*.1,t,dur*.18);m.connect(mg);mg.connect(c.frequency);
++    e.gain.setValueAtTime(0,t);e.gain.linearRampToValueAtTime(v*.25,t+.002);e.gain.setTargetAtTime(0,t+.002,dur/5);
++    c.connect(e);routeVoice(token,e,N.L.bell);startVoice(token,c,t,t+dur);startVoice(token,m,t,t+dur);
+   }
+-  function sweep(t, dur, v, f0, f1, dest, cut = true) {    // risers, reversed swells
+-    if (!room(t + dur + 0.1)) return;
+-    const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+-    const fl = F('bandpass', f0, 1.6), e = G(0);
+-    fl.frequency.setValueAtTime(f0, t); fl.frequency.exponentialRampToValueAtTime(f1, t + dur);
+-    e.gain.setValueAtTime(0.0001, t); e.gain.exponentialRampToValueAtTime(v, t + dur);
+-    e.gain.linearRampToValueAtTime(0, t + dur + (cut ? 0.02 : 0.3));
+-    s.connect(fl); fl.connect(e); e.connect(dest); s.start(t, rng()); s.stop(t + dur + 0.35);
++  function sweep(t,dur,v,f0,f1,dest,cut=true){
++    const token=admit(t,dur+.36);if(!token)return;t=Math.max(t,token.startAt);
++    const source=ctx.createBufferSource();source.buffer=noiseBuf;source.loop=true;
++    const filter=F('bandpass',f0,1.6),e=G(0);filter.frequency.setValueAtTime(f0,t);filter.frequency.exponentialRampToValueAtTime(f1,t+dur);
++    e.gain.setValueAtTime(.0001,t);e.gain.exponentialRampToValueAtTime(v,t+dur);e.gain.linearRampToValueAtTime(0,t+dur+(cut?.02:.3));
++    source.connect(filter);filter.connect(e);routeVoice(token,e,dest);startVoice(token,source,t,t+dur+.35);
+   }
+-  function impact(t, v) {
+-    if (!room(t + 1.4)) return;
+-    const o = O('sine'), e = G(0);
+-    o.frequency.setValueAtTime(75, t); o.frequency.exponentialRampToValueAtTime(34, t + 0.9);
+-    e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(0.55 * v, t + 0.004); e.gain.setTargetAtTime(0, t + 0.01, 0.3);
+-    o.connect(e); e.connect(N.L.fx); o.start(t); o.stop(t + 1.4);
+-    nz(t, 0.9, 'lowpass', 1400, 0.6, 0.22 * v, N.L.fx, 0.002);
++  function impact(t,v){
++    const token=admit(t,1.41);if(!token)return;t=Math.max(t,token.startAt);
++    const o=O('sine',75),e=G(0);o.frequency.exponentialRampToValueAtTime(34,t+.9);e.gain.setValueAtTime(0,t);e.gain.linearRampToValueAtTime(.55*v,t+.004);e.gain.setTargetAtTime(0,t+.01,.3);
++    o.connect(e);routeVoice(token,e,N.L.fx);startVoice(token,o,t,t+1.4);
+   }
+ 
+   // --------------------------------------------------------- sequencer --
+@@ -473,19 +407,16 @@ export function createMusic(opts = {}) {
+     return bars;
+   }
+   function resolve(n, C) {
+-    const sc = C.s, oct = Math.floor(n.d / 7), i = ((n.d % 7) + 7) % 7;
+-    let m = 67 + 12 * oct + sc[i];
++    const sc = C.s, oct = Math.floor(n.d / sc.length), i = ((n.d % sc.length) + sc.length) % sc.length;
++    let m = 69 + 12 * oct + sc[i];
+     if (n.strong && !C.pcs.has(m % 12)) for (const dm of [1, -1, 2, -2]) if (C.pcs.has((m + dm + 120) % 12)) { m += dm; break; }
+     return clamp(m, 62, 86);
+   }
+-  function setChord(t, C) {
+-    const so = N.stab.o, po = N.pad.o;
+-    for (let i = 0; i < 4; i++) {
+-      const fs = mtof(C.v[i]), fp = mtof(i === 0 ? C.v[i] - 12 : C.v[i]);
+-      so[i * 2].frequency.setValueAtTime(fs, t); so[i * 2 + 1].frequency.setValueAtTime(fs, t);
+-      po[i * 2].frequency.setTargetAtTime(fp, t, 0.012); po[i * 2 + 1].frequency.setTargetAtTime(fp, t, 0.012);
+-    }
+-    const B = N.pad.breath.gain; B.setTargetAtTime(0.62, Math.max(0, t - 0.06), 0.03); B.setTargetAtTime(1, t + 0.01, 0.6);
++  function setChord(t,C) {
++    currentChord=C;
++    if(muted||journeyMode!=='home'||(lvl.pad||0)<.01)return;
++    const dur=HARM[harm].bars*BAR+.1;
++    for(let i=0;i<4;i++)chordVoice(t,i===0?C.v[i]-12:C.v[i],dur,1,true);
+   }
+   function barStart(bar, sec, t) {
+     const b64 = bar % 64, cyc = Math.floor(bar / 64), groove = S.groove, e = S.energy;
+@@ -523,7 +454,7 @@ export function createMusic(opts = {}) {
+     const sb = s16 & 15, bar = s16 >> 4, sec = section(bar);
+     if (sb === 0 && (bar % 4 === 0 || !harmSet)) { harm = S.ruin > 0.5 ? 'ruin' : S.storm > 0.5 ? 'storm' : 'main'; harmSet = true; }
+     const H = HARM[harm], ci = Math.floor(bar / H.bars) % H.ch.length, C = H.ch[ci];
+-    if (harm + ci !== chordKey) { chordKey = harm + ci; setChord(t0, C); }
++    if (harm + ci !== chordKey || sb === 0 && bar % H.bars === 0) { chordKey = harm + ci; setChord(t0, C); }
+     if (sb === 0) { curSec = sec; barStart(bar, sec, t0); }
+     if (muted || !stabPat) return;
+     const t = t0 + ((sb & 1) ? swing * STEP : 0), b64 = bar % 64;
+@@ -609,6 +540,8 @@ export function createMusic(opts = {}) {
+   function tick() {
+     if (!ctx || !N) return;
+     const now = ctx.currentTime;
++    const requested=opts.scene?.userData?.tramMusic?.mode||'home';
++    if(requested!==journeyMode){journeyMode=requested;N.travel.gain.cancelScheduledValues(now);N.travel.gain.setTargetAtTime(journeyMode==='home'?1:0,now,.08);}
+     let dt = now - lastTick; lastTick = now;
+     if (!(dt > 0)) dt = 0; else if (dt > 0.5) dt = 0.5;
+     // places crossfade over ~3 s; energy rises with ~2 s of effort and settles over ~6 s
+@@ -644,7 +577,7 @@ export function createMusic(opts = {}) {
+           offline = typeof ctx.startRendering === 'function';
+           build(out);
+           const t0 = ctx.currentTime;
+-          entryAt = t0 + entry; nextTime = entryAt; lastTick = t0;
++          entryAt = Math.ceil((t0 + entry) / BEAT) * BEAT; nextTime = entryAt; lastTick = t0;
+           Object.assign(S, T); S.energy = T.want;            // begin where the visitor already is
+           snapping = true; applyMix(t0, 0.1); snapping = false;
+           setChord(t0, HARM.main.ch[0]);
+@@ -713,7 +646,7 @@ export function createMusic(opts = {}) {
+       N.dip.gain.setTargetAtTime(-2.5 - 4 * v, now, tc);
+     },
+     update() { if (started) tick(); },
+-    get stats() { return { voices: made, alive: alive.length, bar: step >> 4, harm, section: curSec, energy: S.energy, lvl: { ...lvl } }; },
++    get stats() { return { voices: made, alive: opts.audio?.stats?.()?.voices || 0, bar: step >> 4, harm, section: curSec, energy: S.energy, lvl: { ...lvl } }; },
+   };
+   return api;
+ }
+diff --git a/assets/gallery/main.js b/assets/gallery/main.js
+index f8e32b4..4d5d901 100644
+--- a/assets/gallery/main.js
++++ b/assets/gallery/main.js
+@@ -15,6 +15,7 @@ import { loadWorkTexture } from './textures.js';
+ import { createControls } from './controls.js';
+ import { createUI, showFallback } from './ui.js';
+ import { createAudio } from './audio.js';
++import { updateAudioListener } from './spatial-audio.js';
+ import { createMaterials } from './materials.js';
+ import { createWorld, areaAt } from './world.js';
+ import { groundAt } from './collision.js';
+@@ -401,7 +402,7 @@ let sfx = null;
+ // and one-shots that answer the visitor (boings, slide whistles, cushions).
+ import('./sfx.js').then((m) => { sfx = m.createSfx(audio); }).catch(() => { /* optional */ });
+ import('./music.js').then((m) => {
+-  music = m.createMusic();
++  music = m.createMusic({ audio, scene: room.scene });
+   music.setMuted(audio.muted);
+   if (state.entered) music.start(audio.context, audio.musicBus).catch(() => {});
+ }).catch(() => { /* music is optional */ });
+@@ -1199,6 +1200,7 @@ function step() {
+   if (questSilence.requested && typeof speechSynthesis !== 'undefined' && (speechSynthesis.speaking || speechSynthesis.pending)) speechSynthesis.cancel();
+   questSilence.confirmed = questSilence.requested && audio.quietConfirmed === true &&
+     (typeof speechSynthesis === 'undefined' || (!speechSynthesis.speaking && !speechSynthesis.pending));
++  updateAudioListener(audio,camera);
+   audio.update(dt);
+   room.update(dt, camera);
+   interactions.update(dt, interactionFrame);
+@@ -1266,7 +1268,7 @@ if (TEST) {
+     THREE, WORKS, SLOTS, state, curator, room, camera, controls, renderer, ready,
+     get quality() { return quality; },
+     get world() { return world; },
+-    props, ui, post, interactions,
++    props, ui, post, interactions, audio,
+     get pixelRatio() { return pixelRatio; },
+     // Stand in front of a slot and look at it, as a visitor would.
+     async lookAtSlot(slot) {
+diff --git a/assets/gallery/sfx.js b/assets/gallery/sfx.js
+index 0ff9948..59adc38 100644
+--- a/assets/gallery/sfx.js
++++ b/assets/gallery/sfx.js
+@@ -68,13 +68,13 @@ const inGarden = (x, y, z) => x > GARDEN.minX && x < GARDEN.maxX && z > GARDEN.m
+ // ---------- graph helpers ----------
+ // Every node made through a kit is listed, so a voice or a bed can free it all.
+ // Note: Web Audio reads Q in dB for lowpass/highpass and as a ratio for bandpass.
+-function kit(ctx, nodes, srcs) {
++function kit(ctx, nodes, srcs, lease = null) {
+   const add = (n) => { nodes.push(n); return n; };
+   return {
+     gain(v = 1) { const n = add(ctx.createGain()); n.gain.value = v; return n; },
+     filter(type, f, q) { const n = add(ctx.createBiquadFilter()); n.type = type; n.frequency.value = f; if (q !== undefined) n.Q.value = q; return n; },
+-    osc(type, f) { const n = add(ctx.createOscillator()); n.type = type; n.frequency.value = f; srcs.push(n); return n; },
+-    loop(buf) { const n = add(ctx.createBufferSource()); n.buffer = buf; n.loop = true; srcs.push(n); return n; },
++    osc(type, f) { const n = add(ctx.createOscillator()); n.type = type; n.frequency.value = f; srcs.push(n); lease?.track(n); return n; },
++    loop(buf) { const n = add(ctx.createBufferSource()); n.buffer = buf; n.loop = true; srcs.push(n); lease?.track(n); return n; },
+     pan(p) {
+       const n = add(ctx.createStereoPanner ? ctx.createStereoPanner() : ctx.createGain());
+       if (n.pan) n.pan.value = clamp(p, -1, 1);
+@@ -86,6 +86,8 @@ function kit(ctx, nodes, srcs) {
+ }
+ function release(group) {
+   if (!group) return;
++  if(group.lease?.fading){if(!group.releaseQueued){group.releaseQueued=true;const before=group.lease.onRelease;group.lease.onRelease=reason=>{try{before?.(reason);}finally{release(group);}};}return;}
++  group.lease?.release();
+   for (const s of group.srcs) { try { s.stop(); } catch (e) { /* never started or already stopped */ } }
+   for (const n of group.nodes) { try { n.disconnect(); } catch (e) { /* ignore */ } }
+ }
+@@ -116,9 +118,7 @@ function buildEngine(ctx, bus, rnd) {
+     dA.connect(lpA); lpA.connect(fbA); fbA.connect(dB);
+     dB.connect(lpB); lpB.connect(fbB); fbB.connect(dA);
+     lpA.connect(pA); lpB.connect(pB); pA.connect(ret); pB.connect(ret); ret.connect(out);
+-    const wob = k.osc('sine', 0.11), wa = k.gain(0.0025), wb = k.gain(-0.002);
+-    wob.connect(wa); wob.connect(wb); wa.connect(dA.delayTime); wb.connect(dB.delayTime);
+-    wob.start(ctx.currentTime);
++    // Fixed echo: no inaudible perpetual oscillator consumes a voice.
+     out.connect(bus);
+     return { ctx, bus, out, echo, white, drip: null, curve: null, nodes, srcs };
+   } catch (e) { release({ nodes, srcs }); throw e; }   // half-built: free what was made
+@@ -153,11 +153,13 @@ function dripLoop(ctx, rnd) {
+ // a loop buffer, or a start delay for an oscillator, which sets its phase). If
+ // anything throws half-way, whatever was made is released again.
+ function makeBed(E, withWet, body) {
+-  const nodes = [], srcs = [], k = kit(E.ctx, nodes, srcs);
+-  const B = { nodes, srcs, dry: null, wet: null };
++  const lease=E.audio.acquireVoice({priority:0,foreground:false,ms:2000});
++  if(!lease)return null;
++  const nodes = [], srcs = [], k = kit(E.ctx, nodes, srcs,lease);
++  const B = { nodes, srcs, lease, dry: null, wet: null };
+   try {
+-    B.dry = k.gain(0); B.dry.connect(E.out);
+-    if (withWet) { B.wet = k.gain(0); B.wet.connect(E.echo); }
++    B.dry = k.gain(0); const dg=k.gain(1); lease.addOutput(dg); B.dry.connect(dg); dg.connect(E.out);
++    if (withWet) { B.wet = k.gain(0); const wg=k.gain(1); lease.addOutput(wg); B.wet.connect(wg); wg.connect(E.echo); }
+     const offsets = body(B, k) || null, t = E.ctx.currentTime;
+     for (const s of srcs) {
+       const o = offsets && offsets.get(s);
+@@ -447,6 +449,7 @@ export function createSfx(audio) {
+   function finish(v) {
+     if (v.done) return;
+     v.done = true;
++    v.lease?.release();
+     for (const n of v.nodes) { try { n.disconnect(); } catch (e) { /* ignore */ } }
+     const i = voices.indexOf(v);
+     if (i >= 0) voices.splice(i, 1);
+@@ -455,8 +458,10 @@ export function createSfx(audio) {
+   // feeds the echo. Returns false when the voice cap is reached.
+   function oneShot(name, fn, pan, dry, wet, arg) {
+     if (!E || free() <= 0) { played.dropped++; return false; }
+-    const nodes = [], srcs = [], k = kit(E.ctx, nodes, srcs);
+-    const v = { E, nodes, srcs, end: 0, last: null, done: false, inp: null, pan: null };
++    const lease=audio.acquireVoice?.({priority:1,foreground:false,ms:12000});
++    if(!lease){played.dropped++;return false;}
++    const nodes = [], srcs = [], k = kit(E.ctx, nodes, srcs,lease);
++    const v = { E, nodes, srcs, lease, end: 0, last: null, done: false, inp: null, pan: null };
+     v.play = (src, t0, t1, offset) => {
+       if (offset !== undefined) src.start(t0, offset); else src.start(t0);
+       src.stop(t1);
+@@ -465,8 +470,8 @@ export function createSfx(audio) {
+     try {
+       v.inp = k.gain(1); v.pan = k.pan(pan);
+       const d = k.gain(dry);
+-      v.inp.connect(v.pan); v.pan.connect(d); d.connect(E.out);
+-      if (wet > 0) { const w = k.gain(wet); v.inp.connect(w); w.connect(E.echo); }
++      v.inp.connect(lease.gain); lease.gain.connect(v.pan); v.pan.connect(d); d.connect(E.out);
++      if (wet > 0) { const w = k.gain(wet); lease.gain.connect(w); w.connect(E.echo); }
+       fn(v, k, E.ctx.currentTime + 0.02, rnd, arg);
+       if (!v.last) throw new Error('silent voice');
+       v.last.onended = () => finish(v);
+@@ -496,11 +501,11 @@ export function createSfx(audio) {
+     let ctx = null, bus = null;
+     try { ctx = (audio && audio.context) || null; bus = (audio && audio.bus) || null; } catch (e) { /* ignore */ }
+     if (E && (E.ctx !== ctx || ctx.state === 'closed')) dropAll();
+-    if (!ctx || !bus || ctx.state !== 'running') return false;
++    if (!ctx || !bus || ctx.state !== 'running' || audio.muted || audio.quietConfirmed) { if(E)dropAll(); return false; }
+     if (E && E.bus !== bus) { try { E.out.disconnect(); E.out.connect(bus); E.bus = bus; } catch (e) { dropAll(); } }
+     if (!E) {
+       if (st.t < retryAt) return false;
+-      try { E = buildEngine(ctx, bus, rnd); }
++      try { E = buildEngine(ctx, bus, rnd); E.audio=audio; }
+       catch (e) { if (E) release(E); E = null; retryAt = st.t + 5; return false; }
+     }
+     return true;
+@@ -509,6 +514,7 @@ export function createSfx(audio) {
+   // Follow a target weight (rate = fraction per second), building the bed on
+   // approach and releasing it after a while of silence.
+   function manage(b, target, up, down, dt, build) {
++    if(b.B && !b.B.lease.renew(2000)){release(b.B);b.B=null;b.retry=st.t+.4;}
+     if (!b.B) {
+       b.w = 0;
+       if (target > 0.001 && free() > 0 && st.t >= b.retry) {
+diff --git a/assets/gallery/audio.js b/assets/gallery/audio.js
+index 851bf7e..9629633 100644
+--- a/assets/gallery/audio.js
++++ b/assets/gallery/audio.js
+@@ -1,3 +1,5 @@
++import { createVoiceManager } from './voice-manager.js';
++import { rootEngine, managedEvent, managedLoop, maintainLoop, dropManagedLoop, trackAudioSource } from './audio-managed.js';
+ // audio.js — the sound of the room. Pure Web Audio, fully procedural, no files.
+ // Graph builders take a context parameter so they can also render offline.
+ //
+@@ -25,7 +27,6 @@ const MIX = {
+   duck: { cinema: 0.22, speech: 0.42, thunder: 0.5, rest: 0.2, night: 0 },
+   rain: 0.12,       // full storm rain outdoors: ~-30 dBFS RMS on stone
+ };
+-const MAX_VOICES = 32; // one-shot events alive at once (steps, breaths, calls, hits); garnish is dropped first
+ 
+ // ---------- helpers ----------
+ function ramp(param, value, ctx, dur = 0.3) {
+@@ -50,14 +51,7 @@ function env(param, t, peak, attack, decay) {
+   param.exponentialRampToValueAtTime(0.00001, t + attack + decay);
+ }
+ 
+-function voiceOk(E, t, dur, prio = 1) {
+-  const now = E.ctx.currentTime, v = E.voices || (E.voices = []);
+-  let n = 0;
+-  for (let i = 0; i < v.length; i++) if (v[i] > now) v[n++] = v[i];
+-  v.length = n;
+-  if (n >= MAX_VOICES + (prio >= 2 ? 8 : prio === 1 ? 0 : -10)) return false;
+-  v.push(t + dur); return true;
+-}
++function voiceOk(E) { return !!E._voice?.active; }
+ 
+ function makeNoise(ctx, kind, seconds) {
+   const sr = ctx.sampleRate, n = Math.floor(sr * seconds);
+@@ -157,6 +151,7 @@ function routedContext(ctx, dest) {
+ 
+ // ---------- engine: bus + reverb + limiter ----------
+ export function buildEngine(ctx, destination) {
++  const voiceManager=createVoiceManager(ctx,{test:typeof location!=='undefined'&&new URLSearchParams(location.search).has('test')});
+   const master = ctx.createGain();
+   master.gain.value = 0;
+   const limiter = ctx.createDynamicsCompressor();
+@@ -189,17 +184,17 @@ export function buildEngine(ctx, destination) {
+   musicIn.connect(musicEq); musicEq.connect(musicDuck); musicDuck.connect(master);
+ 
+   const noise = { white: makeNoise(ctx, 'white', 2), pink: makeNoise(ctx, 'pink', 6), brown: makeNoise(ctx, 'brown', 8) };
+-  return { ctx, master, effects, questGate, limiter, dry, wetIn, noise, envs, env: 'hall', tone: null, bed: null, lastReveal: -10, hum: null, musicIn, musicDuck, voices: [] };
++  return { ctx, voiceManager, managedLoops:Object.create(null), blocked:false, master, effects, questGate, limiter, dry, wetIn, wetOut, noise, envs, env: 'hall', tone: null, bed: null, lastReveal: -10, hum: null, musicIn, musicDuck, voices: [] };
+ }
+ 
+ function noiseSrc(E, kind, loop = true) {
+-  const s = E.ctx.createBufferSource();
++  const s = trackAudioSource(E, E.ctx.createBufferSource());
+   s.buffer = E.noise[kind]; s.loop = loop;
+   return s;
+ }
+ 
+ // ---------- room tone ----------
+-export function buildRoomTone(E, level = 1, fade = 3) {
++function raw_buildRoomTone(E, level = 1, fade = 3) {
+   const ctx = E.ctx, t0 = ctx.currentTime;
+   const out = ctx.createGain(); out.gain.setValueAtTime(0, t0); out.gain.linearRampToValueAtTime(level, t0 + fade);
+   out.connect(E.dry);
+@@ -210,10 +205,10 @@ export function buildRoomTone(E, level = 1, fade = 3) {
+   air.loopStart = 0; air.start(t0, rand(0, 5));
+   const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 480; lp.Q.value = 0.5;
+   const airG = ctx.createGain(); airG.gain.value = 0.0075;
+-  const lfo = ctx.createOscillator(); lfo.frequency.value = 0.063;
++  const lfo = trackAudioSource(E, ctx.createOscillator()); lfo.frequency.value = 0.063;
+   const lfoD = ctx.createGain(); lfoD.gain.value = 0.0022;
+   lfo.connect(lfoD); lfoD.connect(airG.gain); lfo.start(t0);
+-  const lfoF = ctx.createOscillator(); lfoF.frequency.value = 0.037;
++  const lfoF = trackAudioSource(E, ctx.createOscillator()); lfoF.frequency.value = 0.037;
+   const lfoFD = ctx.createGain(); lfoFD.gain.value = 90;
+   lfoF.connect(lfoFD); lfoFD.connect(lp.frequency); lfoF.start(t0);
+   air.connect(lp); lp.connect(airG); airG.connect(out);
+@@ -226,7 +221,7 @@ export function buildRoomTone(E, level = 1, fade = 3) {
+ 
+   // HVAC hum 55 Hz + harmonics, barely there
+   [[55, 0.0016], [110, 0.0009], [165, 0.0004], [220, 0.00018]].forEach(([f, a], i) => {
+-    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f * (1 + (i ? 0.0007 * i : 0));
++    const o = trackAudioSource(E, ctx.createOscillator()); o.type = 'sine'; o.frequency.value = f * (1 + (i ? 0.0007 * i : 0));
+     const g = ctx.createGain(); g.gain.value = a; o.connect(g); g.connect(out); o.start(t0);
+   });
+ 
+@@ -235,7 +230,7 @@ export function buildRoomTone(E, level = 1, fade = 3) {
+   const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 650; bp.Q.value = 0.6;
+   const lp2 = ctx.createBiquadFilter(); lp2.type = 'lowpass'; lp2.frequency.value = 1600;
+   const odG = ctx.createGain(); odG.gain.value = 0.0042;
+-  const odL = ctx.createOscillator(); odL.frequency.value = 0.11;
++  const odL = trackAudioSource(E, ctx.createOscillator()); odL.frequency.value = 0.11;
+   const odLD = ctx.createGain(); odLD.gain.value = 0.002;
+   odL.connect(odLD); odLD.connect(odG.gain); odL.start(t0);
+   od.connect(bp); bp.connect(lp2); lp2.connect(odG); odG.connect(out);
+@@ -326,7 +321,7 @@ function nextRR(E) {
+ 
+ // One step on the given surface (leather sole on polished concrete by default).
+ // gait: 0 walk (long heel-to-toe roll) ... 1 run (forefoot strike, heavier, a scuff); wet: rain on the ground.
+-export function scheduleStep(E, t, { level = 1, pan = 0, soft = 1, pitch = 1, surface = 'concrete', thudMul = 1, rustle = 0.035, gait = 0, wet = 0 } = {}) {
++function raw_scheduleStep(E, t, { level = 1, pan = 0, soft = 1, pitch = 1, surface = 'concrete', thudMul = 1, rustle = 0.035, gait = 0, wet = 0 } = {}) {
+   const ctx = E.ctx;
+   const S = SURF[surface] || SURF.concrete;
+   if (!voiceOk(E, t, 0.3, 1)) return;
+@@ -348,12 +343,12 @@ export function scheduleStep(E, t, { level = 1, pan = 0, soft = 1, pitch = 1, su
+     n.start(tt, rand(0, 1.5)); n.stop(tt + att + decay + 0.05);
+   };
+   const tone = (tt, f0, amp, decay) => {
+-    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f0;
++    const o = trackAudioSource(E, ctx.createOscillator()); o.type = 'sine'; o.frequency.value = f0;
+     const og = ctx.createGain(); env(og.gain, tt, amp, 0.0008, decay);
+     o.connect(og); og.connect(panner); o.start(tt); o.stop(tt + decay + 0.05);
+   };
+   const play = (buf, tt, amp, rate, hpf) => {
+-    const s = ctx.createBufferSource(); s.buffer = buf; s.playbackRate.value = rate;
++    const s = trackAudioSource(E, ctx.createBufferSource()); s.buffer = buf; s.playbackRate.value = rate;
+     const g = ctx.createGain(); g.gain.value = amp;
+     if (hpf) { const h = ctx.createBiquadFilter(); h.type = 'highpass'; h.frequency.value = hpf; s.connect(h); h.connect(g); } else s.connect(g);
+     g.connect(panner); s.start(tt);
+@@ -376,7 +371,7 @@ export function scheduleStep(E, t, { level = 1, pan = 0, soft = 1, pitch = 1, su
+   }
+   if (wet > 0.05 && !S.soft) play(take(E, 'splash', 5), t + 0.004, 0.2 * wet * lv, rand(0.85, 1.15), 400);
+   // body thud
+-  const th = ctx.createOscillator(); th.type = 'sine';
++  const th = trackAudioSource(E, ctx.createOscillator()); th.type = 'sine';
+   th.frequency.setValueAtTime(S.tf * p, t); th.frequency.exponentialRampToValueAtTime(Math.max(40, S.tf * 0.47), t + 0.09);
+   const thg = ctx.createGain(); env(thg.gain, t, S.thud * lv * thudMul * (1 + 0.5 * gait), 0.004, 0.09 + 0.05 * thudMul);
+   th.connect(thg); thg.connect(panner); th.start(t); th.stop(t + 0.25);
+@@ -384,14 +379,14 @@ export function scheduleStep(E, t, { level = 1, pan = 0, soft = 1, pitch = 1, su
+   if (rustle > 0) burst(t - 0.01, rustle * lv, rand(1800, 3500), 0.5, 0.03, 0.12, 1000);
+ }
+ function creak(E, out, t, amp) { // a board's stick-slip
+-  const ctx = E.ctx, o = ctx.createOscillator(); o.type = 'sawtooth';
++  const ctx = E.ctx, o = trackAudioSource(E, ctx.createOscillator()); o.type = 'sawtooth';
+   o.frequency.setValueAtTime(rand(38, 55), t); o.frequency.linearRampToValueAtTime(rand(60, 90), t + 0.2);
+   const b = ctx.createBiquadFilter(); b.type = 'bandpass'; b.frequency.value = rand(900, 1500); b.Q.value = 5;
+   const g = ctx.createGain(); g.gain.setValueAtTime(0.00001, t); g.gain.linearRampToValueAtTime(amp, t + 0.05); g.gain.exponentialRampToValueAtTime(0.00001, t + 0.26);
+   o.connect(b); b.connect(g); g.connect(out); o.start(t); o.stop(t + 0.3);
+ }
+ // cloth: an arm swing between running steps, or a jacket settling
+-export function scheduleSwish(E, t, amp, pan = 0) {
++function raw_scheduleSwish(E, t, amp, pan = 0) {
+   const ctx = E.ctx; if (!voiceOk(E, t, 0.2, 0)) return;
+   const n = noiseSrc(E, 'pink', false), p = makePan(ctx, pan * 0.3);
+   const b = ctx.createBiquadFilter(); b.type = 'bandpass'; b.frequency.value = rand(900, 1700); b.Q.value = 0.7;
+@@ -401,7 +396,7 @@ export function scheduleSwish(E, t, amp, pan = 0) {
+   n.start(t, rand(0, 4)); n.stop(t + 0.22);
+ }
+ // breath: one half of a breath, right at the ears (inhale higher and softer, exhale fuller)
+-export function scheduleBreath(E, t, amt, inhale) {
++function raw_scheduleBreath(E, t, amt, inhale) {
+   const ctx = E.ctx; if (!voiceOk(E, t, 0.6, 1)) return;
+   const n = noiseSrc(E, 'pink', false);
+   const f1 = ctx.createBiquadFilter(); f1.type = 'bandpass'; f1.frequency.value = (inhale ? 1900 : 1150) * rand(0.9, 1.1); f1.Q.value = inhale ? 1.4 : 1.0;
+@@ -414,7 +409,7 @@ export function scheduleBreath(E, t, amt, inhale) {
+ }
+ 
+ // ---------- lights on ----------
+-export function scheduleRelay(E, t, i, count) {
++function raw_scheduleRelay(E, t, i, count) {
+   const ctx = E.ctx;
+   const f = count > 1 ? clamp(i / (count - 1), 0, 1) : 0; // 0 near the entrance, 1 far end
+   const level = 0.24 * (1 - 0.55 * f);
+@@ -427,7 +422,7 @@ export function scheduleRelay(E, t, i, count) {
+   panner.connect(lp); lp.connect(dry); dry.connect(E.dry); lp.connect(send); send.connect(E.wetIn);
+ 
+   // contactor body: low thump
+-  const o = ctx.createOscillator(); o.type = 'sine';
++  const o = trackAudioSource(E, ctx.createOscillator()); o.type = 'sine';
+   o.frequency.setValueAtTime(95, t); o.frequency.exponentialRampToValueAtTime(38, t + 0.22);
+   const og = ctx.createGain(); env(og.gain, t, level * 0.9, 0.004, 0.24);
+   o.connect(og); og.connect(panner); o.start(t); o.stop(t + 0.35);
+@@ -438,7 +433,7 @@ export function scheduleRelay(E, t, i, count) {
+     const b = ctx.createBiquadFilter(); b.type = 'bandpass'; b.frequency.value = fc; b.Q.value = 1.1;
+     const g = ctx.createGain(); env(g.gain, tt, amp, 0.001, dec);
+     n.connect(b); b.connect(g); g.connect(panner); n.start(tt, rand(0, 1.5)); n.stop(tt + dec + 0.05);
+-    const r = ctx.createOscillator(); r.type = 'square'; r.frequency.value = fc * 1.7;
++    const r = trackAudioSource(E, ctx.createOscillator()); r.type = 'square'; r.frequency.value = fc * 1.7;
+     const rf = ctx.createBiquadFilter(); rf.type = 'bandpass'; rf.frequency.value = fc * 1.7; rf.Q.value = 8;
+     const rg = ctx.createGain(); env(rg.gain, tt, amp * 0.18, 0.001, dec * 1.5);
+     r.connect(rf); rf.connect(rg); rg.connect(panner); r.start(tt); r.stop(tt + dec * 2 + 0.05);
+@@ -447,14 +442,14 @@ export function scheduleRelay(E, t, i, count) {
+   click(t + 0.004, level * 0.5, 2400, 0.045);
+   click(t + 0.075, level * 0.5, 1300, 0.05); // armature settles
+   const t2 = t + 0.075; // tiny second thump
+-  const o2 = ctx.createOscillator(); o2.type = 'sine';
++  const o2 = trackAudioSource(E, ctx.createOscillator()); o2.type = 'sine';
+   o2.frequency.setValueAtTime(70, t2); o2.frequency.exponentialRampToValueAtTime(45, t2 + 0.1);
+   const o2g = ctx.createGain(); env(o2g.gain, t2, level * 0.35, 0.004, 0.1);
+   o2.connect(o2g); o2g.connect(panner); o2.start(t2); o2.stop(t2 + 0.2);
+ }
+ 
+ // gentle rising ballast hum that settles at a whisper
+-export function buildBallast(E, t) {
++function raw_buildBallast(E, t) {
+   const ctx = E.ctx;
+   const out = ctx.createGain();
+   out.gain.setValueAtTime(0.00001, t);
+@@ -465,7 +460,7 @@ export function buildBallast(E, t) {
+   lp.connect(out); out.connect(E.dry);
+   const send = ctx.createGain(); send.gain.value = 0.8; out.connect(send); send.connect(E.wetIn);
+   [[100, 1], [200, 0.55], [300, 0.3], [400, 0.12]].forEach(([f, a]) => {
+-    const o = ctx.createOscillator(); o.type = 'sawtooth';
++    const o = trackAudioSource(E, ctx.createOscillator()); o.type = 'sawtooth';
+     o.frequency.setValueAtTime(f * 0.93, t); o.frequency.linearRampToValueAtTime(f, t + 2.4);
+     const g = ctx.createGain(); g.gain.value = a * 0.5; o.connect(g); g.connect(lp); o.start(t);
+   });
+@@ -473,7 +468,7 @@ export function buildBallast(E, t) {
+ }
+ 
+ // ---------- reveal ----------
+-export function scheduleReveal(E, t) {
++function raw_scheduleReveal(E, t) {
+   const ctx = E.ctx;
+   const out = ctx.createGain(); out.gain.value = 1;
+   const send = ctx.createGain(); send.gain.value = 1.0;
+@@ -488,7 +483,7 @@ export function scheduleReveal(E, t) {
+   g.gain.exponentialRampToValueAtTime(0.00001, t + 1.55);
+   n.connect(bp); bp.connect(hp); hp.connect(g); g.connect(out);
+   n.start(t, rand(0, 4)); n.stop(t + 1.6);
+-  const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = 2637;
++  const o = trackAudioSource(E, ctx.createOscillator()); o.type = 'sine'; o.frequency.value = 2637;
+   const og = ctx.createGain();
+   og.gain.setValueAtTime(0.00001, t); og.gain.linearRampToValueAtTime(0.0055, t + 0.5);
+   og.gain.exponentialRampToValueAtTime(0.00001, t + 1.5);
+@@ -496,7 +491,7 @@ export function scheduleReveal(E, t) {
+ }
+ 
+ // ---------- movement extras ----------
+-export function scheduleJump(E, t, surface, gait = 0) {
++function raw_scheduleJump(E, t, surface, gait = 0) {
+   const ctx = E.ctx;
+   const panner = makePan(ctx, 0); panner.connect(E.dry);
+   const nz = (fc, q, amp, att, dec, hpf, dt = 0, f1) => {
+@@ -512,13 +507,13 @@ export function scheduleJump(E, t, surface, gait = 0) {
+   nz(500, 0.7, 0.05, 0.08, 0.2, 250, 0.02, 1500);                                                  // cloth: the body lifts
+   nz(1100, 0.9, 0.035 + 0.02 * gait, 0.02, 0.16, 400, 0.02);                                       // effort: a short "hup"
+ }
+-export function scheduleLand(E, t, strength, surface) {
++function raw_scheduleLand(E, t, strength, surface) {
+   const s = clamp(strength, 0, 1), ctx = E.ctx;
+   const o = { level: 0.75 + 0.5 * s, surface, thudMul: 1 + 1.6 * s, rustle: 0.05 + 0.05 * s, soft: 1, gait: 0.5 };
+   scheduleStep(E, t, Object.assign({ pan: -0.08 }, o));
+   scheduleStep(E, t + rand(0.014, 0.03), Object.assign({ pan: 0.08 }, o, { level: o.level * 0.8, rustle: 0 }));
+   // the body's weight: a low thump felt more than heard (stays under the limiter's threshold)
+-  const th = ctx.createOscillator(); th.type = 'sine';
++  const th = trackAudioSource(E, ctx.createOscillator()); th.type = 'sine';
+   th.frequency.setValueAtTime(70, t); th.frequency.exponentialRampToValueAtTime(34, t + 0.2);
+   const g = ctx.createGain(); env(g.gain, t, 0.08 + 0.14 * s, 0.006, 0.2 + 0.15 * s);
+   th.connect(g); g.connect(E.dry); th.start(t); th.stop(t + 0.5);
+@@ -534,16 +529,16 @@ function oneShotOut(E, sendAmt, pan = 0) {
+ function bell(E, out, t, f, amp, dec) {
+   const ctx = E.ctx;
+   [[1, 1], [2.76, 0.3], [5.4, 0.1]].forEach(([m, a]) => {
+-    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f * m;
++    const o = trackAudioSource(E, ctx.createOscillator()); o.type = 'sine'; o.frequency.value = f * m;
+     const g = ctx.createGain(); env(g.gain, t, amp * a, 0.004, dec / m);
+     o.connect(g); g.connect(out); o.start(t); o.stop(t + dec + 0.1);
+   });
+ }
+-export function scheduleChime(E, t) {
++function raw_scheduleChime(E, t) {
+   const out = oneShotOut(E, 0.9);
+   bell(E, out, t, 880, 0.05, 1.6); bell(E, out, t + 0.5, 659, 0.05, 2.0);
+ }
+-export function scheduleScore(E, t) {
++function raw_scheduleScore(E, t) {
+   const out = oneShotOut(E, 0.4, 0.1);
+   bell(E, out, t, 1318, 0.04, 0.5); bell(E, out, t + 0.09, 1760, 0.04, 0.7);
+   const n = noiseSrc(E, 'white', false);
+@@ -551,7 +546,7 @@ export function scheduleScore(E, t) {
+   n.connect(h); h.connect(g); g.connect(out); n.start(t, rand(0, 1)); n.stop(t + 0.3);
+ }
+ function ctx_hp(E, f) { const h = E.ctx.createBiquadFilter(); h.type = 'highpass'; h.frequency.value = f; return h; }
+-export function scheduleDoors(E, t) {
++function raw_scheduleDoors(E, t) {
+   const ctx = E.ctx, out = oneShotOut(E, 0.5);
+   const n = noiseSrc(E, 'pink', false);
+   const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.8;
+@@ -561,21 +556,21 @@ export function scheduleDoors(E, t) {
+   n.connect(bp); bp.connect(g); g.connect(out); n.start(t, rand(0, 4)); n.stop(t + 0.9);
+   const n2 = noiseSrc(E, 'white', false), h = ctx_hp(E, 5000), g2 = ctx.createGain(); env(g2.gain, t + 0.5, 0.03, 0.01, 0.18);
+   n2.connect(h); h.connect(g2); g2.connect(out); n2.start(t + 0.5, 0); n2.stop(t + 0.8);
+-  const o = ctx.createOscillator(); o.frequency.value = 80; const og = ctx.createGain(); env(og.gain, t + 0.62, 0.05, 0.005, 0.12);
++  const o = trackAudioSource(E, ctx.createOscillator()); o.frequency.value = 80; const og = ctx.createGain(); env(og.gain, t + 0.62, 0.05, 0.005, 0.12);
+   o.connect(og); og.connect(out); o.start(t + 0.62); o.stop(t + 0.85);
+ }
+-export function scheduleClick(E, t) {
++function raw_scheduleClick(E, t) {
+   const ctx = E.ctx, out = oneShotOut(E, 0.1);
+   const n = noiseSrc(E, 'white', false), b = ctx.createBiquadFilter(); b.type = 'bandpass'; b.frequency.value = 3200; b.Q.value = 1.5;
+   const g = ctx.createGain(); env(g.gain, t, 0.05, 0.0008, 0.012);
+   n.connect(b); b.connect(g); g.connect(out); n.start(t, rand(0, 1)); n.stop(t + 0.05);
+-  const o = ctx.createOscillator(); o.frequency.value = 1900; const og = ctx.createGain(); env(og.gain, t, 0.018, 0.0008, 0.015);
++  const o = trackAudioSource(E, ctx.createOscillator()); o.frequency.value = 1900; const og = ctx.createGain(); env(og.gain, t, 0.018, 0.0008, 0.015);
+   o.connect(og); og.connect(out); o.start(t); o.stop(t + 0.05);
+ }
+ // Thunder from a strike `dist` metres away (sound takes dist/343 s: the caller delays `t`).
+ // Near: a tearing crack, then the boom; far: only a low roll. Indoors (muffle) the walls take the top off.
+ // At most two roll at once. Returns its duration (0 if skipped).
+-export function scheduleThunder(E, t, dist = 1200, muffle = 0) {
++function raw_scheduleThunder(E, t, dist = 1200, muffle = 0) {
+   const ctx = E.ctx, now = ctx.currentTime;
+   E.thunders = (E.thunders || []).filter((x) => x > now);
+   if (E.thunders.length >= 2 || !voiceOk(E, t, 6, 2)) return 0;
+@@ -605,30 +600,32 @@ export function scheduleThunder(E, t, dist = 1200, muffle = 0) {
+   g.gain.exponentialRampToValueAtTime(0.00001, t + dur);
+   n.connect(lp); lp.connect(g); g.connect(wall); n.start(t, rand(0, 3)); n.stop(t + dur + 0.1);
+   // the sub: felt in the chest
+-  const o = ctx.createOscillator(); o.type = 'sine';
++  const o = trackAudioSource(E, ctx.createOscillator()); o.type = 'sine';
+   o.frequency.setValueAtTime(52 + 10 * near, t); o.frequency.exponentialRampToValueAtTime(30, t + 2.5);
+   const og = ctx.createGain(); og.gain.setValueAtTime(0.00001, t); og.gain.linearRampToValueAtTime(0.2 * lvl, t + 0.12); og.gain.exponentialRampToValueAtTime(0.00001, t + 3);
+   o.connect(og); og.connect(wall); o.start(t); o.stop(t + 3.1);
+   return dur;
+ }
+-export function scheduleBird(E, t) {
++function raw_scheduleBird(E, t) {
+   const ctx = E.ctx; if (!voiceOk(E, t, 0.7, 0)) return;
+   const out = oneShotOut(E, 0.25, rand(-0.8, 0.8));
+   const f0 = rand(2800, 5200), n = 2 + Math.floor(Math.random() * 4);
+   for (let k = 0; k < n; k++) {
+     const tt = t + k * rand(0.07, 0.13);
+-    const o = ctx.createOscillator(); o.type = 'sine';
++    const o = trackAudioSource(E, ctx.createOscillator()); o.type = 'sine';
+     o.frequency.setValueAtTime(f0 * rand(0.95, 1.1), tt); o.frequency.exponentialRampToValueAtTime(f0 * rand(0.75, 1.3), tt + 0.06);
+     const g = ctx.createGain(); env(g.gain, tt, 0.008, 0.008, 0.05);
+     o.connect(g); g.connect(out); o.start(tt); o.stop(tt + 0.1);
+   }
+ }
+-export function scheduleClack(E, t, gain) {
+-  const ctx = E.ctx, out = E.srcOut.tram;
++function raw_scheduleClack(E, t, gain) {
++  const ctx = E.ctx, out = ctx.createGain();
++  // Clack has its own admission gate before the tram's distance bus.
++  E._voice.addOutput(out);out.connect(E.srcOut.tram);
+   const n = noiseSrc(E, 'white', false), b = ctx.createBiquadFilter(); b.type = 'bandpass'; b.frequency.value = rand(900, 1400); b.Q.value = 1.2;
+   const g = ctx.createGain(); env(g.gain, t, 0.5 * gain, 0.001, 0.05);
+   n.connect(b); b.connect(g); g.connect(out); n.start(t, rand(0, 1)); n.stop(t + 0.08);
+-  const o = ctx.createOscillator(); o.frequency.value = 70; const og = ctx.createGain(); env(og.gain, t, 0.3 * gain, 0.003, 0.08);
++  const o = trackAudioSource(E, ctx.createOscillator()); o.frequency.value = 70; const og = ctx.createGain(); env(og.gain, t, 0.3 * gain, 0.003, 0.08);
+   o.connect(og); og.connect(out); o.start(t); o.stop(t + 0.12);
+ }
+ 
+@@ -649,11 +646,11 @@ function pulseWave(ctx, duty, H = 24) {
+ function buildCricket(E, out, f, pulseHz, chirpHz, pan, amp, wob, stop) {
+   const ctx = E.ctx, t0 = ctx.currentTime;
+   const P = E.pw || (E.pw = { pulse: pulseWave(ctx, 0.55), gate: pulseWave(ctx, 0.26) });
+-  const car = ctx.createOscillator(); car.frequency.value = f;
++  const car = trackAudioSource(E, ctx.createOscillator()); car.frequency.value = f;
+   const v1 = ctx.createGain(); v1.gain.value = P.pulse.mean;
+   const v2 = ctx.createGain(); v2.gain.value = amp * P.gate.mean;
+-  const l1 = ctx.createOscillator(); l1.setPeriodicWave(P.pulse.wave); l1.frequency.value = pulseHz;
+-  const l2 = ctx.createOscillator(); l2.setPeriodicWave(P.gate.wave); l2.frequency.value = chirpHz;
++  const l1 = trackAudioSource(E, ctx.createOscillator()); l1.setPeriodicWave(P.pulse.wave); l1.frequency.value = pulseHz;
++  const l2 = trackAudioSource(E, ctx.createOscillator()); l2.setPeriodicWave(P.gate.wave); l2.frequency.value = chirpHz;
+   const d2 = ctx.createGain(); d2.gain.value = amp; l1.connect(v1.gain); l2.connect(d2); d2.connect(v2.gain);
+   const wd = ctx.createGain(); wd.gain.value = chirpHz * 0.06; wob.connect(wd); wd.connect(l2.frequency);
+   const pn = makePan(ctx, pan);
+@@ -661,16 +658,16 @@ function buildCricket(E, out, f, pulseHz, chirpHz, pan, amp, wob, stop) {
+   car.start(t0); l1.start(t0 + rand(0, 0.05)); l2.start(t0 + rand(0, 0.5));
+   stop.push(car, l1, l2);
+ }
+-export function buildNight(E) {
++function raw_buildNight(E) {
+   const ctx = E.ctx, t0 = ctx.currentTime, stop = [];
+   const out = ctx.createGain(); out.gain.value = 0;
+   const send = ctx.createGain(); send.gain.value = 0.35;
+   out.connect(E.dry); out.connect(send); send.connect(E.wetIn);
+-  const wob = ctx.createOscillator(); wob.frequency.value = 0.13; wob.start(t0); stop.push(wob);
++  const wob = trackAudioSource(E, ctx.createOscillator()); wob.frequency.value = 0.13; wob.start(t0); stop.push(wob);
+   // two groups of crickets that swell and recede on their own slow tides
+   const groups = [[0.027, 0], [0.041, 7]].map(([rate, dt]) => {
+     const g = ctx.createGain(); g.gain.value = 0.55; g.connect(out);
+-    const sw = ctx.createOscillator(); sw.frequency.value = rate;
++    const sw = trackAudioSource(E, ctx.createOscillator()); sw.frequency.value = rate;
+     const sd = ctx.createGain(); sd.gain.value = 0.45; sw.connect(sd); sd.connect(g.gain); sw.start(t0 + dt); stop.push(sw);
+     return g;
+   });
+@@ -680,21 +677,22 @@ export function buildNight(E) {
+   return E.nightL;
+ }
+ function dropNight(E) {
++  dropManagedLoop(E,'night');
+   const L = E.nightL; if (!L) return;
+   L.stop.forEach((s) => { try { s.stop(); } catch (e) { /* already stopped */ } });
+   try { L.out.disconnect(); } catch (e) { /* ignore */ }
+   E.nightL = null; if (E.last) delete E.last.night;
+ }
+ // a tawny owl, far off: "hoo ... hu-hu-hoooooo"
+-export function scheduleOwl(E, t, pan = rand(-0.8, 0.8), level = 1) {
++function raw_scheduleOwl(E, t, pan = rand(-0.8, 0.8), level = 1) {
+   const ctx = E.ctx; if (!voiceOk(E, t, 3.5, 0)) return;
+   const out = oneShotOut(E, 1.4, pan);
+   const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1100; lp.connect(out);
+   const f0 = rand(360, 430), a = 0.05 * level;
+   const hoot = (tt, dur, vib) => {
+-    const o = ctx.createOscillator(); o.type = 'sine';
++    const o = trackAudioSource(E, ctx.createOscillator()); o.type = 'sine';
+     o.frequency.setValueAtTime(f0 * 0.94, tt); o.frequency.linearRampToValueAtTime(f0, tt + dur * 0.3); o.frequency.linearRampToValueAtTime(f0 * 0.9, tt + dur);
+-    if (vib) { const v = ctx.createOscillator(); v.frequency.value = 6.5; const vd = ctx.createGain(); vd.gain.value = f0 * 0.025; v.connect(vd); vd.connect(o.frequency); v.start(tt); v.stop(tt + dur + 0.05); }
++    if (vib) { const v = trackAudioSource(E, ctx.createOscillator()); v.frequency.value = 6.5; const vd = ctx.createGain(); vd.gain.value = f0 * 0.025; v.connect(vd); vd.connect(o.frequency); v.start(tt); v.stop(tt + dur + 0.05); }
+     const g = ctx.createGain(); g.gain.setValueAtTime(0.00001, tt); g.gain.linearRampToValueAtTime(a, tt + 0.05);
+     g.gain.setValueAtTime(a, tt + dur - 0.12); g.gain.exponentialRampToValueAtTime(0.00001, tt + dur);
+     o.connect(g); g.connect(lp); o.start(tt); o.stop(tt + dur + 0.05);
+@@ -704,7 +702,7 @@ export function scheduleOwl(E, t, pan = rand(-0.8, 0.8), level = 1) {
+   hoot(t2, 0.13, false); hoot(t2 + 0.2, 0.13, false); hoot(t2 + 0.42, 0.95, true);
+ }
+ // a dog, a few gardens away: 2-5 barks
+-export function scheduleDog(E, t, pan = rand(-0.9, 0.9), level = 1) {
++function raw_scheduleDog(E, t, pan = rand(-0.9, 0.9), level = 1) {
+   const ctx = E.ctx, n = 2 + Math.floor(Math.random() * 4);
+   if (!voiceOk(E, t, n * 0.6, 0)) return;
+   const out = oneShotOut(E, 1.6, pan);
+@@ -712,7 +710,7 @@ export function scheduleDog(E, t, pan = rand(-0.9, 0.9), level = 1) {
+   const f0 = rand(380, 560), gap = rand(0.32, 0.5);
+   for (let k = 0; k < n; k++) {
+     const tt = t + k * gap * rand(0.85, 1.2);
+-    const o = ctx.createOscillator(); o.type = 'sawtooth';
++    const o = trackAudioSource(E, ctx.createOscillator()); o.type = 'sawtooth';
+     o.frequency.setValueAtTime(f0 * 0.85, tt); o.frequency.linearRampToValueAtTime(f0 * 1.15, tt + 0.025); o.frequency.exponentialRampToValueAtTime(f0 * 0.6, tt + 0.16);
+     const fm = ctx.createBiquadFilter(); fm.type = 'bandpass'; fm.frequency.value = rand(800, 1100); fm.Q.value = 1.6;
+     const g = ctx.createGain(); g.gain.setValueAtTime(0.00001, tt); g.gain.linearRampToValueAtTime(0.15 * level, tt + 0.012); g.gain.exponentialRampToValueAtTime(0.00001, tt + 0.18);
+@@ -720,7 +718,7 @@ export function scheduleDog(E, t, pan = rand(-0.9, 0.9), level = 1) {
+   }
+ }
+ // wind moaning through broken stone: two resonant bands a fourth apart, swelling in and out
+-export function scheduleMoan(E, t, amt = 1) {
++function raw_scheduleMoan(E, t, amt = 1) {
+   const ctx = E.ctx, dur = rand(6, 9); if (!voiceOk(E, t, dur, 0)) return;
+   const out = oneShotOut(E, 1.2, rand(-0.5, 0.5));
+   const n = noiseSrc(E, 'pink', false);
+@@ -733,11 +731,11 @@ export function scheduleMoan(E, t, amt = 1) {
+   n.start(t, rand(0, 3)); n.stop(t + dur + 0.1);
+ }
+ // the night arrives: a slow low swell with a high shimmer, mostly reverb
+-export function scheduleNightfall(E, t) {
++function raw_scheduleNightfall(E, t) {
+   const ctx = E.ctx; if (!voiceOk(E, t, 8, 2)) return;
+   const out = oneShotOut(E, 1.5, 0);
+   [[55, 0.06], [82.4, 0.035], [110, 0.02]].forEach(([f, a]) => {
+-    const o = ctx.createOscillator(); o.frequency.value = f;
++    const o = trackAudioSource(E, ctx.createOscillator()); o.frequency.value = f;
+     const g = ctx.createGain(); g.gain.setValueAtTime(0.00001, t); g.gain.linearRampToValueAtTime(a, t + 3); g.gain.exponentialRampToValueAtTime(0.00001, t + 7.5);
+     o.connect(g); g.connect(out); o.start(t); o.stop(t + 7.6);
+   });
+@@ -748,7 +746,7 @@ export function scheduleNightfall(E, t) {
+ }
+ 
+ // ---------- storm: gusts ----------
+-export function buildStorm(E) {
++function raw_buildStorm(E) {
+   const ctx = E.ctx, t0 = ctx.currentTime;
+   const out = ctx.createGain(); out.gain.value = 0;
+   const send = ctx.createGain(); send.gain.value = 0.3; out.connect(E.dry); out.connect(send); send.connect(E.wetIn);
+@@ -773,6 +771,7 @@ export function scheduleGust(E, t, k) {
+   return up + hold + down;
+ }
+ function dropStorm(E) {
++  dropManagedLoop(E,'storm');
+   const L = E.stormL; if (!L) return;
+   try { L.n.stop(); } catch (e) { /* ignore */ }
+   try { L.out.disconnect(); } catch (e) { /* ignore */ }
+@@ -780,23 +779,23 @@ function dropStorm(E) {
+ }
+ 
+ // ---------- ambient beds & positional sources ----------
+-export function buildOutdoorBed(E) {
++function raw_buildOutdoorBed(E) {
+   const ctx = E.ctx, t0 = ctx.currentTime;
+   const out = ctx.createGain(); out.gain.value = 0; out.connect(E.dry);
+   const send = ctx.createGain(); send.gain.value = 0.3; out.connect(send); send.connect(E.wetIn);
+   const wind = noiseSrc(E, 'pink'); wind.start(t0, rand(0, 4));
+   const wf = ctx.createBiquadFilter(); wf.type = 'lowpass'; wf.frequency.value = 650; wf.Q.value = 0.7;
+   const wg = ctx.createGain(); wg.gain.value = 0.014;
+-  const l = ctx.createOscillator(); l.frequency.value = 0.09; const ld = ctx.createGain(); ld.gain.value = 0.009;
++  const l = trackAudioSource(E, ctx.createOscillator()); l.frequency.value = 0.09; const ld = ctx.createGain(); ld.gain.value = 0.009;
+   l.connect(ld); ld.connect(wg.gain); l.start(t0);
+-  const l2 = ctx.createOscillator(); l2.frequency.value = 0.05; const l2d = ctx.createGain(); l2d.gain.value = 220;
++  const l2 = trackAudioSource(E, ctx.createOscillator()); l2.frequency.value = 0.05; const l2d = ctx.createGain(); l2d.gain.value = 220;
+   l2.connect(l2d); l2d.connect(wf.frequency); l2.start(t0);
+   wind.connect(wf); wf.connect(wg); wg.connect(out);
+   // the far city: a brown-noise wash under 240 Hz, breathing like a distant road
+   const city = noiseSrc(E, 'brown'); city.start(t0, rand(0, 4));
+   const cf = ctx.createBiquadFilter(); cf.type = 'lowpass'; cf.frequency.value = 240;
+   const cg = ctx.createGain(); cg.gain.value = 0.006; city.connect(cf); cf.connect(cg); cg.connect(out);
+-  const cl = ctx.createOscillator(); cl.frequency.value = 0.021; const cld = ctx.createGain(); cld.gain.value = 0.002;
++  const cl = trackAudioSource(E, ctx.createOscillator()); cl.frequency.value = 0.021; const cld = ctx.createGain(); cld.gain.value = 0.002;
+   cl.connect(cld); cld.connect(cg.gain); cl.start(t0);
+   E.bed = out; E.bedWind = wg; E.bedCity = cg; return out;
+ }
+@@ -820,39 +819,57 @@ const RAIN_SURF = {
+ };
+ 
+ export function buildSources(E) {
+-  const ctx = E.ctx, t0 = ctx.currentTime;
+-  const mk = (sendAmt) => { const g = ctx.createGain(); g.gain.value = 0; const s = ctx.createGain(); s.gain.value = sendAmt; g.connect(E.dry); g.connect(s); s.connect(E.wetIn); return g; };
+-  const S = E.srcOut = { fountain: mk(0.15), tram: mk(0.25), rain: mk(0.3) };
+-  const lp = {};
++  const root=rootEngine(E);if(root.srcOut)return root.srcOut;
++  root.srcOut={fountain:E.ctx.createGain(),tram:E.ctx.createGain(),rain:E.ctx.createGain()};
++  root.srcLp={fountain:E.ctx.createBiquadFilter(),tram:E.ctx.createBiquadFilter()};root.srcClack=0;
++  return root.srcOut;
++}
++function sourceOutput(E,sendAmt){const g=E.ctx.createGain(),send=E.ctx.createGain();g.gain.value=0;send.gain.value=sendAmt;g.connect(E.dry);g.connect(send);send.connect(E.wetIn);return g;}
++function build_fountain(E){
++  buildSources(E);E=managedLoop(E,'fountain');if(!E)return null;
++  const ctx=E.ctx,t0=ctx.currentTime,S=E.srcOut,lp=E.srcLp;S.fountain=sourceOutput(E,0.15);
+   // fountain: splashing water = noise wash + random burbles
+   const fl = ctx.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = 6000; fl.connect(S.fountain); lp.fountain = fl;
+   loopNoise(E, 'white', [['bandpass', 2200, 0.5]], fl);
+   loopNoise(E, 'pink', [['bandpass', 900, 0.7]], fl);
+   [[1.3, 700], [2.1, 1100], [3.4, 1700]].forEach(([r, fc]) => {
+-    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = fc;
+-    const m = ctx.createOscillator(); m.frequency.value = r * 2.3; const md = ctx.createGain(); md.gain.value = fc * 0.35; m.connect(md); md.connect(o.frequency);
+-    const g = ctx.createGain(); g.gain.value = 0.02; const am = ctx.createOscillator(); am.frequency.value = r; const amd = ctx.createGain(); amd.gain.value = 0.02; am.connect(amd); amd.connect(g.gain);
++    const o = trackAudioSource(E, ctx.createOscillator()); o.type = 'sine'; o.frequency.value = fc;
++    const m = trackAudioSource(E, ctx.createOscillator()); m.frequency.value = r * 2.3; const md = ctx.createGain(); md.gain.value = fc * 0.35; m.connect(md); md.connect(o.frequency);
++    const g = ctx.createGain(); g.gain.value = 0.02; const am = trackAudioSource(E, ctx.createOscillator()); am.frequency.value = r; const amd = ctx.createGain(); amd.gain.value = 0.02; am.connect(amd); amd.connect(g.gain);
+     o.connect(g); g.connect(fl); o.start(t0); m.start(t0); am.start(t0);
+   });
++
++  return S.fountain;
++}
++function build_tram(E){
++  buildSources(E);E=managedLoop(E,'tram');if(!E)return null;
++  const ctx=E.ctx,t0=ctx.currentTime,S=E.srcOut,lp=E.srcLp;S.tram=sourceOutput(E,0.25);
+   // tram: electric whine
+   const tl = ctx.createBiquadFilter(); tl.type = 'lowpass'; tl.frequency.value = 3000; tl.connect(S.tram); lp.tram = tl;
+   [[420, 0.012, 'sawtooth'], [840, 0.008, 'sine'], [1260, 0.004, 'sine']].forEach(([f, a, ty]) => {
+-    const o = ctx.createOscillator(); o.type = ty; o.frequency.value = f;
+-    const w = ctx.createOscillator(); w.frequency.value = 0.3; const wd = ctx.createGain(); wd.gain.value = f * 0.02; w.connect(wd); wd.connect(o.frequency);
++    const o = trackAudioSource(E, ctx.createOscillator()); o.type = ty; o.frequency.value = f;
++    const w = trackAudioSource(E, ctx.createOscillator()); w.frequency.value = 0.3; const wd = ctx.createGain(); wd.gain.value = f * 0.02; w.connect(wd); wd.connect(o.frequency);
+     const g = ctx.createGain(); g.gain.value = a; o.connect(g); g.connect(tl); o.start(t0); w.start(t0);
+   });
+   loopNoise(E, 'brown', [['lowpass', 300]], tl);
++
++  return S.tram;
++}
++function build_rain(E){
++  buildSources(E);E=managedLoop(E,'rain');if(!E)return null;
++  const ctx=E.ctx,t0=ctx.currentTime,S=E.srcOut,lp=E.srcLp;S.rain=sourceOutput(E,0.3);
+   // rain: a hiss, the hits on whatever it falls on (a looped take through a surface EQ), the roof indoors
+   const rlp = ctx.createBiquadFilter(); rlp.type = 'lowpass'; rlp.frequency.value = 9000; rlp.connect(S.rain);
+   const hiss = ctx.createGain(); hiss.gain.value = 0.5; hiss.connect(rlp);
+   loopNoise(E, 'white', [['highpass', 1500]], hiss);
+-  const dsrc = ctx.createBufferSource(); dsrc.buffer = take(E, 'drops', 1); dsrc.loop = true; dsrc.start(t0, rand(0, 2.5));
++  const dsrc = trackAudioSource(E, ctx.createBufferSource()); dsrc.buffer = take(E, 'drops', 1); dsrc.loop = true; dsrc.start(t0, rand(0, 2.5));
+   const pk = ctx.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = 4200; pk.Q.value = 1.2; pk.gain.value = 4;
+   const drops = ctx.createGain(); drops.gain.value = 0.35; dsrc.connect(pk); pk.connect(drops); drops.connect(rlp);
+   const roof = ctx.createGain(); roof.gain.value = 0; roof.connect(S.rain);
+   loopNoise(E, 'brown', [['lowpass', 500]], roof);
+   E.rain = { lp: rlp, hiss, drops, pk, roof };
+-  E.srcLp = lp; E.srcClack = 0; return S;
++
++  return S.rain;
+ }
+ 
+ export function applyEnvironment(E, name, dur = 1.5) {
+@@ -890,20 +907,38 @@ export function createAudio() {
+   };
+   const MASTER = 0.9;
+ 
+-  const usable = () => A.started && A.ctx && A.E && !A.muted && !A.hidden && A.ctx.state !== 'closed';
++  const usable = () => A.started && A.ctx && A.E && !A.muted && !A.quiet && !A.hidden && A.ctx.state !== 'closed';
+   const gaitNow = () => clamp((A.speed - 2.3) / 0.8, 0, 1);
+ 
+   function onVis() {
+     const c = A.ctx; if (!c) return;
+     A.hidden = typeof document !== 'undefined' && !!document.hidden;
++    if(A.E){A.E.blocked=A.hidden||A.muted||A.quiet;if(A.hidden)A.E.voiceManager.stopAll('hidden');}
+     try {
+       if (A.hidden) c.suspend && c.suspend().catch(() => {});
+       else c.resume && c.resume().catch(() => {});
+     } catch (e) { /* ignore */ }
+   }
+ 
++  function maintainAmbience() {
++    const E=A.E;if(!E)return;E.voiceManager.tick();E.blocked=A.quiet||A.muted||A.hidden;
++    const outdoors=A.env==='outdoor',audible=!E.blocked;
++    maintainLoop(E,'tone',audible&&!outdoors&&A.env!=='cinema',buildRoomTone);
++    maintainLoop(E,'bed',audible&&outdoors,buildOutdoorBed);
++    maintainLoop(E,'night',audible&&A.wx.night>.02&&(OUTSIDE[A.env]??1)>.01,buildNight);
++    maintainLoop(E,'storm',audible&&A.wx.storm>.02,buildStorm);
++    maintainLoop(E,'fountain',audible&&A.src.fountain<32,build_fountain);
++    maintainLoop(E,'tram',audible&&A.src.tram<70,build_tram);
++    maintainLoop(E,'rain',audible&&A.src.rain>.005,build_rain);
++    maintainLoop(E,'hum',audible&&A.lightsHum&&!outdoors,renewBallast);
++    if(E.tone)rampIf(E,'toneManaged',E.tone.gain,A.env==='hall'?1:A.env==='small'?.6:.35,.4);
++    if(E.bed)rampIf(E,'bedManaged',E.bed.gain,outdoors?3:0,.4);
++  }
++  function renewBallast(E){return buildBallast(E,E.ctx.currentTime);}
++
+   function applySources() {
+     const E = A.E; if (!E || !E.srcOut) return;
++    maintainAmbience();
+     const c = A.ctx, S = A.src;
+     const att = (d, range) => { const x = clamp(1 - (Number.isFinite(d) ? d : 1e9) / range, 0, 1); return x * x; };
+     const dFn = (d) => clamp(7000 - (Number.isFinite(d) ? d : 99) * 140, 1200, 7000);
+@@ -923,13 +958,13 @@ export function createAudio() {
+   // night, storm and what reaches you of them: ~10 Hz from update()
+   function applyWeather(dt) {
+     const E = A.E, W = A.wx, out = OUTSIDE[A.env] ?? 1;
+-    if (W.night > 0.02 && !E.nightL) buildNight(E);
++    maintainAmbience();
+     if (E.nightL) {
+       rampIf(E, 'night', E.nightL.out.gain, W.night * out * (1 - 0.75 * W.storm), 0.6);  // the rain silences the crickets
+       E.nightL.idle = W.night < 0.005 ? E.nightL.idle + dt : 0;
+       if (E.nightL.idle > 8) dropNight(E);
+     }
+-    if (W.storm > 0.02 && !E.stormL) buildStorm(E);
++
+     if (E.stormL) {
+       rampIf(E, 'storm', E.stormL.out.gain, W.storm * (A.env === 'outdoor' ? 1 : 0.3), 0.6);
+       rampIf(E, 'stormLp', E.stormL.lp.frequency, A.env === 'outdoor' ? 5000 : 420, 0.8);
+@@ -978,6 +1013,18 @@ export function createAudio() {
+   }
+ 
+   const api = {
++    acquireVoice(options){if(!usable())return null;return A.E.voiceManager.acquireVoice(options);},
++    releaseVoice(token){A.E?.voiceManager.releaseVoice(token);},
++    preparePunchline(){
++      if(!usable())return 0;
++      const t=A.ctx.currentTime,g=A.E.wetOut.gain;
++      g.cancelScheduledValues(t);g.setValueAtTime(.9*.2511886432,t);
++      g.setValueAtTime(.9*.2511886432,t+.25);g.linearRampToValueAtTime(0,t+.255);
++      g.setValueAtTime(0,t+.29);g.linearRampToValueAtTime(.9,t+.37);
++      return A.E.voiceManager.preparePunchline();
++    },
++    stats(){return A.E?.voiceManager.stats()||{voices:0,foreground:0,fading:0,stolen:0,unmanaged:0};},
++    diagnostics(){return A.E?.voiceManager.diagnostics()||null;},
+     get muted() { return A.muted; },
+     get quietConfirmed() {
+       return A.quiet && (!A.E || (A.ctx.currentTime >= A.quietAt && A.E.questGate.gain.value <= 0.00001));
+@@ -1003,17 +1050,17 @@ export function createAudio() {
+           if (!AC) return;
+           const ctx = new AC({ latencyHint: 'interactive' });
+           const E = buildEngine(ctx);
+-          A.ctx = ctx; A.E = E; E.effects.gain.value = A.quiet ? 0 : 1;
++          A.ctx = ctx; A.E = E; E.blocked=A.muted||A.quiet; E.effects.gain.value = A.quiet ? 0 : 1;
+           E.questGate.gain.value = A.quiet ? 0 : 1; A.quietAt = ctx.currentTime;
+           if (typeof document !== 'undefined') {
+-            A.hidden = !!document.hidden;
++            A.hidden = !!document.hidden;E.blocked=A.muted||A.quiet||A.hidden;
+             document.addEventListener('visibilitychange', onVis);
+           }
+           try { if (ctx.state === 'suspended' && !A.hidden) await ctx.resume(); } catch (e) {}
+           buildRoomTone(E, 1, 3);
+           ramp(E.master.gain, A.muted ? 0 : MASTER, ctx, 1.2);
+           A.nextStep = ctx.currentTime;
+-          buildOutdoorBed(E); buildSources(E);
++          buildSources(E);
+           A.started = true;
+           applyEnvironment(E, A.env, 0.05); applySources();
+         } catch (e) { A.ctx = null; A.E = null; A.started = false; A.musicCtx = null; }
+@@ -1027,6 +1074,7 @@ export function createAudio() {
+       if (quiet === A.quiet) return;
+       A.quiet = quiet;
+       if (A.E) {
++        A.E.blocked=A.quiet||A.muted||A.hidden;if(quiet)A.E.voiceManager.stopAll('quiet');
+         ramp(A.E.effects.gain, quiet ? 0 : 1, A.ctx, 0.25);
+         ramp(A.E.questGate.gain, quiet ? 0 : 1, A.ctx, 0.35);
+         A.quietAt = A.ctx.currentTime + 0.35;
+@@ -1035,6 +1083,7 @@ export function createAudio() {
+ 
+     setMuted(m) {
+       A.muted = !!m;
++      if(A.E){A.E.blocked=A.muted||A.quiet||A.hidden;if(A.muted)A.E.voiceManager.stopAll('mute');}
+       if (!A.started || !A.E) return;
+       try { ramp(A.E.master.gain, A.muted ? 0 : MASTER, A.ctx, A.muted ? 0.25 : 0.6); } catch (e) {}
+     },
+@@ -1132,6 +1181,7 @@ export function createAudio() {
+     update(dt) {
+       try {
+         if (!A.started || !A.ctx || A.hidden || A.ctx.state !== 'running') { A.wasMoving = A.moving; return; }
++        A.E.voiceManager.tick();if(A.quiet||A.muted){A.wasMoving=A.moving;return;}
+         const now = A.ctx.currentTime, W = A.wx, step = Number.isFinite(dt) ? clamp(dt, 0, 0.25) : 0;
+         // weather follows its targets over ~1 s, applied at 10 Hz
+         const kW = 1 - Math.exp(-step / 1.2);
+@@ -1196,5 +1246,31 @@ export function createAudio() {
+   return api;
+ }
+ 
++
++// Admission happens before each existing timbre builder; nested helpers reuse it.
++export function scheduleStep(E,t,...args){const scoped=managedEvent(E,t,0.9,1);if(!scoped)return 0;try{return raw_scheduleStep(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
++export function scheduleSwish(E,t,...args){const scoped=managedEvent(E,t,0.4,0);if(!scoped)return 0;try{return raw_scheduleSwish(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
++export function scheduleBreath(E,t,...args){const scoped=managedEvent(E,t,2,0);if(!scoped)return 0;try{return raw_scheduleBreath(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
++export function scheduleRelay(E,t,...args){const scoped=managedEvent(E,t,2.5,1);if(!scoped)return 0;try{return raw_scheduleRelay(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
++export function scheduleReveal(E,t,...args){const scoped=managedEvent(E,t,2,1);if(!scoped)return 0;try{return raw_scheduleReveal(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
++export function scheduleJump(E,t,...args){const scoped=managedEvent(E,t,1,1);if(!scoped)return 0;try{return raw_scheduleJump(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
++export function scheduleLand(E,t,...args){const scoped=managedEvent(E,t,1.5,2);if(!scoped)return 0;try{return raw_scheduleLand(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
++export function scheduleChime(E,t,...args){const scoped=managedEvent(E,t,4,2);if(!scoped)return 0;try{return raw_scheduleChime(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
++export function scheduleScore(E,t,...args){const scoped=managedEvent(E,t,4,2);if(!scoped)return 0;try{return raw_scheduleScore(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
++export function scheduleDoors(E,t,...args){const scoped=managedEvent(E,t,1.3,1);if(!scoped)return 0;try{return raw_scheduleDoors(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
++export function scheduleClick(E,t,...args){const scoped=managedEvent(E,t,0.2,1);if(!scoped)return 0;try{return raw_scheduleClick(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
++export function scheduleThunder(E,t,...args){const scoped=managedEvent(E,t,10,2);if(!scoped)return 0;try{return raw_scheduleThunder(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
++export function scheduleBird(E,t,...args){const scoped=managedEvent(E,t,1,0);if(!scoped)return 0;try{return raw_scheduleBird(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
++export function scheduleClack(E,t,...args){const scoped=managedEvent(E,t,0.3,0);if(!scoped)return 0;try{return raw_scheduleClack(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
++export function scheduleOwl(E,t,...args){const scoped=managedEvent(E,t,6,0);if(!scoped)return 0;try{return raw_scheduleOwl(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
++export function scheduleDog(E,t,...args){const scoped=managedEvent(E,t,2,0);if(!scoped)return 0;try{return raw_scheduleDog(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
++export function scheduleMoan(E,t,...args){const scoped=managedEvent(E,t,12,0);if(!scoped)return 0;try{return raw_scheduleMoan(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
++export function scheduleNightfall(E,t,...args){const scoped=managedEvent(E,t,9,1);if(!scoped)return 0;try{return raw_scheduleNightfall(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
++export function buildRoomTone(E,...args){const root=rootEngine(E);if(root.managedLoops?.tone?.token?.active)return root.tone;const scoped=managedLoop(root,'tone');if(!scoped)return null;const result=raw_buildRoomTone(scoped,...args);root.tone=result;return result;}
++export function buildOutdoorBed(E,...args){const root=rootEngine(E);if(root.managedLoops?.bed?.token?.active)return root.bed;const scoped=managedLoop(root,'bed');if(!scoped)return null;const result=raw_buildOutdoorBed(scoped,...args);root.bed=result;return result;}
++export function buildNight(E,...args){const root=rootEngine(E);if(root.managedLoops?.night?.token?.active)return root.nightL;const scoped=managedLoop(root,'night');if(!scoped)return null;const result=raw_buildNight(scoped,...args);root.nightL=result;return result;}
++export function buildStorm(E,...args){const root=rootEngine(E);if(root.managedLoops?.storm?.token?.active)return root.stormL;const scoped=managedLoop(root,'storm');if(!scoped)return null;const result=raw_buildStorm(scoped,...args);root.stormL=result;return result;}
++export function buildBallast(E,...args){const root=rootEngine(E);if(root.managedLoops?.hum?.token?.active)return root.hum;const scoped=managedLoop(root,'hum');if(!scoped)return null;const result=raw_buildBallast(scoped,...args);root.hum=result;return result;}
++
+ // Offline-render hook (dev harness only; not part of the Audio object)
+ createAudio.__graph = { scheduleJump, scheduleLand, scheduleChime, scheduleScore, scheduleDoors, scheduleClick, scheduleThunder, scheduleBird, buildOutdoorBed, buildSources, applyEnvironment, buildEngine, buildRoomTone, scheduleStep, scheduleRelay, buildBallast, scheduleReveal, makeImpulse, scheduleSwish, scheduleBreath, buildNight, scheduleOwl, scheduleDog, scheduleMoan, scheduleNightfall, buildStorm, scheduleGust, routedContext, MIX };

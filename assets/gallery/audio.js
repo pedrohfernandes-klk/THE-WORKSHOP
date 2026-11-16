@@ -1,3 +1,5 @@
+import { createVoiceManager } from './voice-manager.js';
+import { rootEngine, managedEvent, managedLoop, maintainLoop, dropManagedLoop, trackAudioSource } from './audio-managed.js';
 // audio.js — the sound of the room. Pure Web Audio, fully procedural, no files.
 // Graph builders take a context parameter so they can also render offline.
 //
@@ -25,7 +27,6 @@ const MIX = {
   duck: { cinema: 0.22, speech: 0.42, thunder: 0.5, rest: 0.2, night: 0 },
   rain: 0.12,       // full storm rain outdoors: ~-30 dBFS RMS on stone
 };
-const MAX_VOICES = 32; // one-shot events alive at once (steps, breaths, calls, hits); garnish is dropped first
 
 // ---------- helpers ----------
 function ramp(param, value, ctx, dur = 0.3) {
@@ -50,14 +51,7 @@ function env(param, t, peak, attack, decay) {
   param.exponentialRampToValueAtTime(0.00001, t + attack + decay);
 }
 
-function voiceOk(E, t, dur, prio = 1) {
-  const now = E.ctx.currentTime, v = E.voices || (E.voices = []);
-  let n = 0;
-  for (let i = 0; i < v.length; i++) if (v[i] > now) v[n++] = v[i];
-  v.length = n;
-  if (n >= MAX_VOICES + (prio >= 2 ? 8 : prio === 1 ? 0 : -10)) return false;
-  v.push(t + dur); return true;
-}
+function voiceOk(E) { return !!E._voice?.active; }
 
 function makeNoise(ctx, kind, seconds) {
   const sr = ctx.sampleRate, n = Math.floor(sr * seconds);
@@ -157,6 +151,7 @@ function routedContext(ctx, dest) {
 
 // ---------- engine: bus + reverb + limiter ----------
 export function buildEngine(ctx, destination) {
+  const voiceManager=createVoiceManager(ctx,{test:typeof location!=='undefined'&&new URLSearchParams(location.search).has('test')});
   const master = ctx.createGain();
   master.gain.value = 0;
   const limiter = ctx.createDynamicsCompressor();
@@ -189,17 +184,17 @@ export function buildEngine(ctx, destination) {
   musicIn.connect(musicEq); musicEq.connect(musicDuck); musicDuck.connect(master);
 
   const noise = { white: makeNoise(ctx, 'white', 2), pink: makeNoise(ctx, 'pink', 6), brown: makeNoise(ctx, 'brown', 8) };
-  return { ctx, master, effects, questGate, limiter, dry, wetIn, noise, envs, env: 'hall', tone: null, bed: null, lastReveal: -10, hum: null, musicIn, musicDuck, voices: [] };
+  return { ctx, voiceManager, managedLoops:Object.create(null), blocked:false, master, effects, questGate, limiter, dry, wetIn, wetOut, noise, envs, env: 'hall', tone: null, bed: null, lastReveal: -10, hum: null, musicIn, musicDuck, voices: [] };
 }
 
 function noiseSrc(E, kind, loop = true) {
-  const s = E.ctx.createBufferSource();
+  const s = trackAudioSource(E, E.ctx.createBufferSource());
   s.buffer = E.noise[kind]; s.loop = loop;
   return s;
 }
 
 // ---------- room tone ----------
-export function buildRoomTone(E, level = 1, fade = 3) {
+function raw_buildRoomTone(E, level = 1, fade = 3) {
   const ctx = E.ctx, t0 = ctx.currentTime;
   const out = ctx.createGain(); out.gain.setValueAtTime(0, t0); out.gain.linearRampToValueAtTime(level, t0 + fade);
   out.connect(E.dry);
@@ -210,10 +205,10 @@ export function buildRoomTone(E, level = 1, fade = 3) {
   air.loopStart = 0; air.start(t0, rand(0, 5));
   const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 480; lp.Q.value = 0.5;
   const airG = ctx.createGain(); airG.gain.value = 0.0075;
-  const lfo = ctx.createOscillator(); lfo.frequency.value = 0.063;
+  const lfo = trackAudioSource(E, ctx.createOscillator()); lfo.frequency.value = 0.063;
   const lfoD = ctx.createGain(); lfoD.gain.value = 0.0022;
   lfo.connect(lfoD); lfoD.connect(airG.gain); lfo.start(t0);
-  const lfoF = ctx.createOscillator(); lfoF.frequency.value = 0.037;
+  const lfoF = trackAudioSource(E, ctx.createOscillator()); lfoF.frequency.value = 0.037;
   const lfoFD = ctx.createGain(); lfoFD.gain.value = 90;
   lfoF.connect(lfoFD); lfoFD.connect(lp.frequency); lfoF.start(t0);
   air.connect(lp); lp.connect(airG); airG.connect(out);
@@ -226,7 +221,7 @@ export function buildRoomTone(E, level = 1, fade = 3) {
 
   // HVAC hum 55 Hz + harmonics, barely there
   [[55, 0.0016], [110, 0.0009], [165, 0.0004], [220, 0.00018]].forEach(([f, a], i) => {
-    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f * (1 + (i ? 0.0007 * i : 0));
+    const o = trackAudioSource(E, ctx.createOscillator()); o.type = 'sine'; o.frequency.value = f * (1 + (i ? 0.0007 * i : 0));
     const g = ctx.createGain(); g.gain.value = a; o.connect(g); g.connect(out); o.start(t0);
   });
 
@@ -235,7 +230,7 @@ export function buildRoomTone(E, level = 1, fade = 3) {
   const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 650; bp.Q.value = 0.6;
   const lp2 = ctx.createBiquadFilter(); lp2.type = 'lowpass'; lp2.frequency.value = 1600;
   const odG = ctx.createGain(); odG.gain.value = 0.0042;
-  const odL = ctx.createOscillator(); odL.frequency.value = 0.11;
+  const odL = trackAudioSource(E, ctx.createOscillator()); odL.frequency.value = 0.11;
   const odLD = ctx.createGain(); odLD.gain.value = 0.002;
   odL.connect(odLD); odLD.connect(odG.gain); odL.start(t0);
   od.connect(bp); bp.connect(lp2); lp2.connect(odG); odG.connect(out);
@@ -326,7 +321,7 @@ function nextRR(E) {
 
 // One step on the given surface (leather sole on polished concrete by default).
 // gait: 0 walk (long heel-to-toe roll) ... 1 run (forefoot strike, heavier, a scuff); wet: rain on the ground.
-export function scheduleStep(E, t, { level = 1, pan = 0, soft = 1, pitch = 1, surface = 'concrete', thudMul = 1, rustle = 0.035, gait = 0, wet = 0 } = {}) {
+function raw_scheduleStep(E, t, { level = 1, pan = 0, soft = 1, pitch = 1, surface = 'concrete', thudMul = 1, rustle = 0.035, gait = 0, wet = 0 } = {}) {
   const ctx = E.ctx;
   const S = SURF[surface] || SURF.concrete;
   if (!voiceOk(E, t, 0.3, 1)) return;
@@ -348,12 +343,12 @@ export function scheduleStep(E, t, { level = 1, pan = 0, soft = 1, pitch = 1, su
     n.start(tt, rand(0, 1.5)); n.stop(tt + att + decay + 0.05);
   };
   const tone = (tt, f0, amp, decay) => {
-    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f0;
+    const o = trackAudioSource(E, ctx.createOscillator()); o.type = 'sine'; o.frequency.value = f0;
     const og = ctx.createGain(); env(og.gain, tt, amp, 0.0008, decay);
     o.connect(og); og.connect(panner); o.start(tt); o.stop(tt + decay + 0.05);
   };
   const play = (buf, tt, amp, rate, hpf) => {
-    const s = ctx.createBufferSource(); s.buffer = buf; s.playbackRate.value = rate;
+    const s = trackAudioSource(E, ctx.createBufferSource()); s.buffer = buf; s.playbackRate.value = rate;
     const g = ctx.createGain(); g.gain.value = amp;
     if (hpf) { const h = ctx.createBiquadFilter(); h.type = 'highpass'; h.frequency.value = hpf; s.connect(h); h.connect(g); } else s.connect(g);
     g.connect(panner); s.start(tt);
@@ -376,7 +371,7 @@ export function scheduleStep(E, t, { level = 1, pan = 0, soft = 1, pitch = 1, su
   }
   if (wet > 0.05 && !S.soft) play(take(E, 'splash', 5), t + 0.004, 0.2 * wet * lv, rand(0.85, 1.15), 400);
   // body thud
-  const th = ctx.createOscillator(); th.type = 'sine';
+  const th = trackAudioSource(E, ctx.createOscillator()); th.type = 'sine';
   th.frequency.setValueAtTime(S.tf * p, t); th.frequency.exponentialRampToValueAtTime(Math.max(40, S.tf * 0.47), t + 0.09);
   const thg = ctx.createGain(); env(thg.gain, t, S.thud * lv * thudMul * (1 + 0.5 * gait), 0.004, 0.09 + 0.05 * thudMul);
   th.connect(thg); thg.connect(panner); th.start(t); th.stop(t + 0.25);
@@ -384,14 +379,14 @@ export function scheduleStep(E, t, { level = 1, pan = 0, soft = 1, pitch = 1, su
   if (rustle > 0) burst(t - 0.01, rustle * lv, rand(1800, 3500), 0.5, 0.03, 0.12, 1000);
 }
 function creak(E, out, t, amp) { // a board's stick-slip
-  const ctx = E.ctx, o = ctx.createOscillator(); o.type = 'sawtooth';
+  const ctx = E.ctx, o = trackAudioSource(E, ctx.createOscillator()); o.type = 'sawtooth';
   o.frequency.setValueAtTime(rand(38, 55), t); o.frequency.linearRampToValueAtTime(rand(60, 90), t + 0.2);
   const b = ctx.createBiquadFilter(); b.type = 'bandpass'; b.frequency.value = rand(900, 1500); b.Q.value = 5;
   const g = ctx.createGain(); g.gain.setValueAtTime(0.00001, t); g.gain.linearRampToValueAtTime(amp, t + 0.05); g.gain.exponentialRampToValueAtTime(0.00001, t + 0.26);
   o.connect(b); b.connect(g); g.connect(out); o.start(t); o.stop(t + 0.3);
 }
 // cloth: an arm swing between running steps, or a jacket settling
-export function scheduleSwish(E, t, amp, pan = 0) {
+function raw_scheduleSwish(E, t, amp, pan = 0) {
   const ctx = E.ctx; if (!voiceOk(E, t, 0.2, 0)) return;
   const n = noiseSrc(E, 'pink', false), p = makePan(ctx, pan * 0.3);
   const b = ctx.createBiquadFilter(); b.type = 'bandpass'; b.frequency.value = rand(900, 1700); b.Q.value = 0.7;
@@ -401,7 +396,7 @@ export function scheduleSwish(E, t, amp, pan = 0) {
   n.start(t, rand(0, 4)); n.stop(t + 0.22);
 }
 // breath: one half of a breath, right at the ears (inhale higher and softer, exhale fuller)
-export function scheduleBreath(E, t, amt, inhale) {
+function raw_scheduleBreath(E, t, amt, inhale) {
   const ctx = E.ctx; if (!voiceOk(E, t, 0.6, 1)) return;
   const n = noiseSrc(E, 'pink', false);
   const f1 = ctx.createBiquadFilter(); f1.type = 'bandpass'; f1.frequency.value = (inhale ? 1900 : 1150) * rand(0.9, 1.1); f1.Q.value = inhale ? 1.4 : 1.0;
@@ -414,7 +409,7 @@ export function scheduleBreath(E, t, amt, inhale) {
 }
 
 // ---------- lights on ----------
-export function scheduleRelay(E, t, i, count) {
+function raw_scheduleRelay(E, t, i, count) {
   const ctx = E.ctx;
   const f = count > 1 ? clamp(i / (count - 1), 0, 1) : 0; // 0 near the entrance, 1 far end
   const level = 0.24 * (1 - 0.55 * f);
@@ -427,7 +422,7 @@ export function scheduleRelay(E, t, i, count) {
   panner.connect(lp); lp.connect(dry); dry.connect(E.dry); lp.connect(send); send.connect(E.wetIn);
 
   // contactor body: low thump
-  const o = ctx.createOscillator(); o.type = 'sine';
+  const o = trackAudioSource(E, ctx.createOscillator()); o.type = 'sine';
   o.frequency.setValueAtTime(95, t); o.frequency.exponentialRampToValueAtTime(38, t + 0.22);
   const og = ctx.createGain(); env(og.gain, t, level * 0.9, 0.004, 0.24);
   o.connect(og); og.connect(panner); o.start(t); o.stop(t + 0.35);
@@ -438,7 +433,7 @@ export function scheduleRelay(E, t, i, count) {
     const b = ctx.createBiquadFilter(); b.type = 'bandpass'; b.frequency.value = fc; b.Q.value = 1.1;
     const g = ctx.createGain(); env(g.gain, tt, amp, 0.001, dec);
     n.connect(b); b.connect(g); g.connect(panner); n.start(tt, rand(0, 1.5)); n.stop(tt + dec + 0.05);
-    const r = ctx.createOscillator(); r.type = 'square'; r.frequency.value = fc * 1.7;
+    const r = trackAudioSource(E, ctx.createOscillator()); r.type = 'square'; r.frequency.value = fc * 1.7;
     const rf = ctx.createBiquadFilter(); rf.type = 'bandpass'; rf.frequency.value = fc * 1.7; rf.Q.value = 8;
     const rg = ctx.createGain(); env(rg.gain, tt, amp * 0.18, 0.001, dec * 1.5);
     r.connect(rf); rf.connect(rg); rg.connect(panner); r.start(tt); r.stop(tt + dec * 2 + 0.05);
@@ -447,14 +442,14 @@ export function scheduleRelay(E, t, i, count) {
   click(t + 0.004, level * 0.5, 2400, 0.045);
   click(t + 0.075, level * 0.5, 1300, 0.05); // armature settles
   const t2 = t + 0.075; // tiny second thump
-  const o2 = ctx.createOscillator(); o2.type = 'sine';
+  const o2 = trackAudioSource(E, ctx.createOscillator()); o2.type = 'sine';
   o2.frequency.setValueAtTime(70, t2); o2.frequency.exponentialRampToValueAtTime(45, t2 + 0.1);
   const o2g = ctx.createGain(); env(o2g.gain, t2, level * 0.35, 0.004, 0.1);
   o2.connect(o2g); o2g.connect(panner); o2.start(t2); o2.stop(t2 + 0.2);
 }
 
 // gentle rising ballast hum that settles at a whisper
-export function buildBallast(E, t) {
+function raw_buildBallast(E, t) {
   const ctx = E.ctx;
   const out = ctx.createGain();
   out.gain.setValueAtTime(0.00001, t);
@@ -465,7 +460,7 @@ export function buildBallast(E, t) {
   lp.connect(out); out.connect(E.dry);
   const send = ctx.createGain(); send.gain.value = 0.8; out.connect(send); send.connect(E.wetIn);
   [[100, 1], [200, 0.55], [300, 0.3], [400, 0.12]].forEach(([f, a]) => {
-    const o = ctx.createOscillator(); o.type = 'sawtooth';
+    const o = trackAudioSource(E, ctx.createOscillator()); o.type = 'sawtooth';
     o.frequency.setValueAtTime(f * 0.93, t); o.frequency.linearRampToValueAtTime(f, t + 2.4);
     const g = ctx.createGain(); g.gain.value = a * 0.5; o.connect(g); g.connect(lp); o.start(t);
   });
@@ -473,7 +468,7 @@ export function buildBallast(E, t) {
 }
 
 // ---------- reveal ----------
-export function scheduleReveal(E, t) {
+function raw_scheduleReveal(E, t) {
   const ctx = E.ctx;
   const out = ctx.createGain(); out.gain.value = 1;
   const send = ctx.createGain(); send.gain.value = 1.0;
@@ -488,7 +483,7 @@ export function scheduleReveal(E, t) {
   g.gain.exponentialRampToValueAtTime(0.00001, t + 1.55);
   n.connect(bp); bp.connect(hp); hp.connect(g); g.connect(out);
   n.start(t, rand(0, 4)); n.stop(t + 1.6);
-  const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = 2637;
+  const o = trackAudioSource(E, ctx.createOscillator()); o.type = 'sine'; o.frequency.value = 2637;
   const og = ctx.createGain();
   og.gain.setValueAtTime(0.00001, t); og.gain.linearRampToValueAtTime(0.0055, t + 0.5);
   og.gain.exponentialRampToValueAtTime(0.00001, t + 1.5);
@@ -496,7 +491,7 @@ export function scheduleReveal(E, t) {
 }
 
 // ---------- movement extras ----------
-export function scheduleJump(E, t, surface, gait = 0) {
+function raw_scheduleJump(E, t, surface, gait = 0) {
   const ctx = E.ctx;
   const panner = makePan(ctx, 0); panner.connect(E.dry);
   const nz = (fc, q, amp, att, dec, hpf, dt = 0, f1) => {
@@ -512,13 +507,13 @@ export function scheduleJump(E, t, surface, gait = 0) {
   nz(500, 0.7, 0.05, 0.08, 0.2, 250, 0.02, 1500);                                                  // cloth: the body lifts
   nz(1100, 0.9, 0.035 + 0.02 * gait, 0.02, 0.16, 400, 0.02);                                       // effort: a short "hup"
 }
-export function scheduleLand(E, t, strength, surface) {
+function raw_scheduleLand(E, t, strength, surface) {
   const s = clamp(strength, 0, 1), ctx = E.ctx;
   const o = { level: 0.75 + 0.5 * s, surface, thudMul: 1 + 1.6 * s, rustle: 0.05 + 0.05 * s, soft: 1, gait: 0.5 };
   scheduleStep(E, t, Object.assign({ pan: -0.08 }, o));
   scheduleStep(E, t + rand(0.014, 0.03), Object.assign({ pan: 0.08 }, o, { level: o.level * 0.8, rustle: 0 }));
   // the body's weight: a low thump felt more than heard (stays under the limiter's threshold)
-  const th = ctx.createOscillator(); th.type = 'sine';
+  const th = trackAudioSource(E, ctx.createOscillator()); th.type = 'sine';
   th.frequency.setValueAtTime(70, t); th.frequency.exponentialRampToValueAtTime(34, t + 0.2);
   const g = ctx.createGain(); env(g.gain, t, 0.08 + 0.14 * s, 0.006, 0.2 + 0.15 * s);
   th.connect(g); g.connect(E.dry); th.start(t); th.stop(t + 0.5);
@@ -534,16 +529,16 @@ function oneShotOut(E, sendAmt, pan = 0) {
 function bell(E, out, t, f, amp, dec) {
   const ctx = E.ctx;
   [[1, 1], [2.76, 0.3], [5.4, 0.1]].forEach(([m, a]) => {
-    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f * m;
+    const o = trackAudioSource(E, ctx.createOscillator()); o.type = 'sine'; o.frequency.value = f * m;
     const g = ctx.createGain(); env(g.gain, t, amp * a, 0.004, dec / m);
     o.connect(g); g.connect(out); o.start(t); o.stop(t + dec + 0.1);
   });
 }
-export function scheduleChime(E, t) {
+function raw_scheduleChime(E, t) {
   const out = oneShotOut(E, 0.9);
   bell(E, out, t, 880, 0.05, 1.6); bell(E, out, t + 0.5, 659, 0.05, 2.0);
 }
-export function scheduleScore(E, t) {
+function raw_scheduleScore(E, t) {
   const out = oneShotOut(E, 0.4, 0.1);
   bell(E, out, t, 1318, 0.04, 0.5); bell(E, out, t + 0.09, 1760, 0.04, 0.7);
   const n = noiseSrc(E, 'white', false);
@@ -551,7 +546,7 @@ export function scheduleScore(E, t) {
   n.connect(h); h.connect(g); g.connect(out); n.start(t, rand(0, 1)); n.stop(t + 0.3);
 }
 function ctx_hp(E, f) { const h = E.ctx.createBiquadFilter(); h.type = 'highpass'; h.frequency.value = f; return h; }
-export function scheduleDoors(E, t) {
+function raw_scheduleDoors(E, t) {
   const ctx = E.ctx, out = oneShotOut(E, 0.5);
   const n = noiseSrc(E, 'pink', false);
   const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.8;
@@ -561,21 +556,21 @@ export function scheduleDoors(E, t) {
   n.connect(bp); bp.connect(g); g.connect(out); n.start(t, rand(0, 4)); n.stop(t + 0.9);
   const n2 = noiseSrc(E, 'white', false), h = ctx_hp(E, 5000), g2 = ctx.createGain(); env(g2.gain, t + 0.5, 0.03, 0.01, 0.18);
   n2.connect(h); h.connect(g2); g2.connect(out); n2.start(t + 0.5, 0); n2.stop(t + 0.8);
-  const o = ctx.createOscillator(); o.frequency.value = 80; const og = ctx.createGain(); env(og.gain, t + 0.62, 0.05, 0.005, 0.12);
+  const o = trackAudioSource(E, ctx.createOscillator()); o.frequency.value = 80; const og = ctx.createGain(); env(og.gain, t + 0.62, 0.05, 0.005, 0.12);
   o.connect(og); og.connect(out); o.start(t + 0.62); o.stop(t + 0.85);
 }
-export function scheduleClick(E, t) {
+function raw_scheduleClick(E, t) {
   const ctx = E.ctx, out = oneShotOut(E, 0.1);
   const n = noiseSrc(E, 'white', false), b = ctx.createBiquadFilter(); b.type = 'bandpass'; b.frequency.value = 3200; b.Q.value = 1.5;
   const g = ctx.createGain(); env(g.gain, t, 0.05, 0.0008, 0.012);
   n.connect(b); b.connect(g); g.connect(out); n.start(t, rand(0, 1)); n.stop(t + 0.05);
-  const o = ctx.createOscillator(); o.frequency.value = 1900; const og = ctx.createGain(); env(og.gain, t, 0.018, 0.0008, 0.015);
+  const o = trackAudioSource(E, ctx.createOscillator()); o.frequency.value = 1900; const og = ctx.createGain(); env(og.gain, t, 0.018, 0.0008, 0.015);
   o.connect(og); og.connect(out); o.start(t); o.stop(t + 0.05);
 }
 // Thunder from a strike `dist` metres away (sound takes dist/343 s: the caller delays `t`).
 // Near: a tearing crack, then the boom; far: only a low roll. Indoors (muffle) the walls take the top off.
 // At most two roll at once. Returns its duration (0 if skipped).
-export function scheduleThunder(E, t, dist = 1200, muffle = 0) {
+function raw_scheduleThunder(E, t, dist = 1200, muffle = 0) {
   const ctx = E.ctx, now = ctx.currentTime;
   E.thunders = (E.thunders || []).filter((x) => x > now);
   if (E.thunders.length >= 2 || !voiceOk(E, t, 6, 2)) return 0;
@@ -605,30 +600,32 @@ export function scheduleThunder(E, t, dist = 1200, muffle = 0) {
   g.gain.exponentialRampToValueAtTime(0.00001, t + dur);
   n.connect(lp); lp.connect(g); g.connect(wall); n.start(t, rand(0, 3)); n.stop(t + dur + 0.1);
   // the sub: felt in the chest
-  const o = ctx.createOscillator(); o.type = 'sine';
+  const o = trackAudioSource(E, ctx.createOscillator()); o.type = 'sine';
   o.frequency.setValueAtTime(52 + 10 * near, t); o.frequency.exponentialRampToValueAtTime(30, t + 2.5);
   const og = ctx.createGain(); og.gain.setValueAtTime(0.00001, t); og.gain.linearRampToValueAtTime(0.2 * lvl, t + 0.12); og.gain.exponentialRampToValueAtTime(0.00001, t + 3);
   o.connect(og); og.connect(wall); o.start(t); o.stop(t + 3.1);
   return dur;
 }
-export function scheduleBird(E, t) {
+function raw_scheduleBird(E, t) {
   const ctx = E.ctx; if (!voiceOk(E, t, 0.7, 0)) return;
   const out = oneShotOut(E, 0.25, rand(-0.8, 0.8));
   const f0 = rand(2800, 5200), n = 2 + Math.floor(Math.random() * 4);
   for (let k = 0; k < n; k++) {
     const tt = t + k * rand(0.07, 0.13);
-    const o = ctx.createOscillator(); o.type = 'sine';
+    const o = trackAudioSource(E, ctx.createOscillator()); o.type = 'sine';
     o.frequency.setValueAtTime(f0 * rand(0.95, 1.1), tt); o.frequency.exponentialRampToValueAtTime(f0 * rand(0.75, 1.3), tt + 0.06);
     const g = ctx.createGain(); env(g.gain, tt, 0.008, 0.008, 0.05);
     o.connect(g); g.connect(out); o.start(tt); o.stop(tt + 0.1);
   }
 }
-export function scheduleClack(E, t, gain) {
-  const ctx = E.ctx, out = E.srcOut.tram;
+function raw_scheduleClack(E, t, gain) {
+  const ctx = E.ctx, out = ctx.createGain();
+  // Clack has its own admission gate before the tram's distance bus.
+  E._voice.addOutput(out);out.connect(E.srcOut.tram);
   const n = noiseSrc(E, 'white', false), b = ctx.createBiquadFilter(); b.type = 'bandpass'; b.frequency.value = rand(900, 1400); b.Q.value = 1.2;
   const g = ctx.createGain(); env(g.gain, t, 0.5 * gain, 0.001, 0.05);
   n.connect(b); b.connect(g); g.connect(out); n.start(t, rand(0, 1)); n.stop(t + 0.08);
-  const o = ctx.createOscillator(); o.frequency.value = 70; const og = ctx.createGain(); env(og.gain, t, 0.3 * gain, 0.003, 0.08);
+  const o = trackAudioSource(E, ctx.createOscillator()); o.frequency.value = 70; const og = ctx.createGain(); env(og.gain, t, 0.3 * gain, 0.003, 0.08);
   o.connect(og); og.connect(out); o.start(t); o.stop(t + 0.12);
 }
 
@@ -649,11 +646,11 @@ function pulseWave(ctx, duty, H = 24) {
 function buildCricket(E, out, f, pulseHz, chirpHz, pan, amp, wob, stop) {
   const ctx = E.ctx, t0 = ctx.currentTime;
   const P = E.pw || (E.pw = { pulse: pulseWave(ctx, 0.55), gate: pulseWave(ctx, 0.26) });
-  const car = ctx.createOscillator(); car.frequency.value = f;
+  const car = trackAudioSource(E, ctx.createOscillator()); car.frequency.value = f;
   const v1 = ctx.createGain(); v1.gain.value = P.pulse.mean;
   const v2 = ctx.createGain(); v2.gain.value = amp * P.gate.mean;
-  const l1 = ctx.createOscillator(); l1.setPeriodicWave(P.pulse.wave); l1.frequency.value = pulseHz;
-  const l2 = ctx.createOscillator(); l2.setPeriodicWave(P.gate.wave); l2.frequency.value = chirpHz;
+  const l1 = trackAudioSource(E, ctx.createOscillator()); l1.setPeriodicWave(P.pulse.wave); l1.frequency.value = pulseHz;
+  const l2 = trackAudioSource(E, ctx.createOscillator()); l2.setPeriodicWave(P.gate.wave); l2.frequency.value = chirpHz;
   const d2 = ctx.createGain(); d2.gain.value = amp; l1.connect(v1.gain); l2.connect(d2); d2.connect(v2.gain);
   const wd = ctx.createGain(); wd.gain.value = chirpHz * 0.06; wob.connect(wd); wd.connect(l2.frequency);
   const pn = makePan(ctx, pan);
@@ -661,16 +658,16 @@ function buildCricket(E, out, f, pulseHz, chirpHz, pan, amp, wob, stop) {
   car.start(t0); l1.start(t0 + rand(0, 0.05)); l2.start(t0 + rand(0, 0.5));
   stop.push(car, l1, l2);
 }
-export function buildNight(E) {
+function raw_buildNight(E) {
   const ctx = E.ctx, t0 = ctx.currentTime, stop = [];
   const out = ctx.createGain(); out.gain.value = 0;
   const send = ctx.createGain(); send.gain.value = 0.35;
   out.connect(E.dry); out.connect(send); send.connect(E.wetIn);
-  const wob = ctx.createOscillator(); wob.frequency.value = 0.13; wob.start(t0); stop.push(wob);
+  const wob = trackAudioSource(E, ctx.createOscillator()); wob.frequency.value = 0.13; wob.start(t0); stop.push(wob);
   // two groups of crickets that swell and recede on their own slow tides
   const groups = [[0.027, 0], [0.041, 7]].map(([rate, dt]) => {
     const g = ctx.createGain(); g.gain.value = 0.55; g.connect(out);
-    const sw = ctx.createOscillator(); sw.frequency.value = rate;
+    const sw = trackAudioSource(E, ctx.createOscillator()); sw.frequency.value = rate;
     const sd = ctx.createGain(); sd.gain.value = 0.45; sw.connect(sd); sd.connect(g.gain); sw.start(t0 + dt); stop.push(sw);
     return g;
   });
@@ -680,21 +677,22 @@ export function buildNight(E) {
   return E.nightL;
 }
 function dropNight(E) {
+  dropManagedLoop(E,'night');
   const L = E.nightL; if (!L) return;
   L.stop.forEach((s) => { try { s.stop(); } catch (e) { /* already stopped */ } });
   try { L.out.disconnect(); } catch (e) { /* ignore */ }
   E.nightL = null; if (E.last) delete E.last.night;
 }
 // a tawny owl, far off: "hoo ... hu-hu-hoooooo"
-export function scheduleOwl(E, t, pan = rand(-0.8, 0.8), level = 1) {
+function raw_scheduleOwl(E, t, pan = rand(-0.8, 0.8), level = 1) {
   const ctx = E.ctx; if (!voiceOk(E, t, 3.5, 0)) return;
   const out = oneShotOut(E, 1.4, pan);
   const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1100; lp.connect(out);
   const f0 = rand(360, 430), a = 0.05 * level;
   const hoot = (tt, dur, vib) => {
-    const o = ctx.createOscillator(); o.type = 'sine';
+    const o = trackAudioSource(E, ctx.createOscillator()); o.type = 'sine';
     o.frequency.setValueAtTime(f0 * 0.94, tt); o.frequency.linearRampToValueAtTime(f0, tt + dur * 0.3); o.frequency.linearRampToValueAtTime(f0 * 0.9, tt + dur);
-    if (vib) { const v = ctx.createOscillator(); v.frequency.value = 6.5; const vd = ctx.createGain(); vd.gain.value = f0 * 0.025; v.connect(vd); vd.connect(o.frequency); v.start(tt); v.stop(tt + dur + 0.05); }
+    if (vib) { const v = trackAudioSource(E, ctx.createOscillator()); v.frequency.value = 6.5; const vd = ctx.createGain(); vd.gain.value = f0 * 0.025; v.connect(vd); vd.connect(o.frequency); v.start(tt); v.stop(tt + dur + 0.05); }
     const g = ctx.createGain(); g.gain.setValueAtTime(0.00001, tt); g.gain.linearRampToValueAtTime(a, tt + 0.05);
     g.gain.setValueAtTime(a, tt + dur - 0.12); g.gain.exponentialRampToValueAtTime(0.00001, tt + dur);
     o.connect(g); g.connect(lp); o.start(tt); o.stop(tt + dur + 0.05);
@@ -704,7 +702,7 @@ export function scheduleOwl(E, t, pan = rand(-0.8, 0.8), level = 1) {
   hoot(t2, 0.13, false); hoot(t2 + 0.2, 0.13, false); hoot(t2 + 0.42, 0.95, true);
 }
 // a dog, a few gardens away: 2-5 barks
-export function scheduleDog(E, t, pan = rand(-0.9, 0.9), level = 1) {
+function raw_scheduleDog(E, t, pan = rand(-0.9, 0.9), level = 1) {
   const ctx = E.ctx, n = 2 + Math.floor(Math.random() * 4);
   if (!voiceOk(E, t, n * 0.6, 0)) return;
   const out = oneShotOut(E, 1.6, pan);
@@ -712,7 +710,7 @@ export function scheduleDog(E, t, pan = rand(-0.9, 0.9), level = 1) {
   const f0 = rand(380, 560), gap = rand(0.32, 0.5);
   for (let k = 0; k < n; k++) {
     const tt = t + k * gap * rand(0.85, 1.2);
-    const o = ctx.createOscillator(); o.type = 'sawtooth';
+    const o = trackAudioSource(E, ctx.createOscillator()); o.type = 'sawtooth';
     o.frequency.setValueAtTime(f0 * 0.85, tt); o.frequency.linearRampToValueAtTime(f0 * 1.15, tt + 0.025); o.frequency.exponentialRampToValueAtTime(f0 * 0.6, tt + 0.16);
     const fm = ctx.createBiquadFilter(); fm.type = 'bandpass'; fm.frequency.value = rand(800, 1100); fm.Q.value = 1.6;
     const g = ctx.createGain(); g.gain.setValueAtTime(0.00001, tt); g.gain.linearRampToValueAtTime(0.15 * level, tt + 0.012); g.gain.exponentialRampToValueAtTime(0.00001, tt + 0.18);
@@ -720,7 +718,7 @@ export function scheduleDog(E, t, pan = rand(-0.9, 0.9), level = 1) {
   }
 }
 // wind moaning through broken stone: two resonant bands a fourth apart, swelling in and out
-export function scheduleMoan(E, t, amt = 1) {
+function raw_scheduleMoan(E, t, amt = 1) {
   const ctx = E.ctx, dur = rand(6, 9); if (!voiceOk(E, t, dur, 0)) return;
   const out = oneShotOut(E, 1.2, rand(-0.5, 0.5));
   const n = noiseSrc(E, 'pink', false);
@@ -733,11 +731,11 @@ export function scheduleMoan(E, t, amt = 1) {
   n.start(t, rand(0, 3)); n.stop(t + dur + 0.1);
 }
 // the night arrives: a slow low swell with a high shimmer, mostly reverb
-export function scheduleNightfall(E, t) {
+function raw_scheduleNightfall(E, t) {
   const ctx = E.ctx; if (!voiceOk(E, t, 8, 2)) return;
   const out = oneShotOut(E, 1.5, 0);
   [[55, 0.06], [82.4, 0.035], [110, 0.02]].forEach(([f, a]) => {
-    const o = ctx.createOscillator(); o.frequency.value = f;
+    const o = trackAudioSource(E, ctx.createOscillator()); o.frequency.value = f;
     const g = ctx.createGain(); g.gain.setValueAtTime(0.00001, t); g.gain.linearRampToValueAtTime(a, t + 3); g.gain.exponentialRampToValueAtTime(0.00001, t + 7.5);
     o.connect(g); g.connect(out); o.start(t); o.stop(t + 7.6);
   });
@@ -748,7 +746,7 @@ export function scheduleNightfall(E, t) {
 }
 
 // ---------- storm: gusts ----------
-export function buildStorm(E) {
+function raw_buildStorm(E) {
   const ctx = E.ctx, t0 = ctx.currentTime;
   const out = ctx.createGain(); out.gain.value = 0;
   const send = ctx.createGain(); send.gain.value = 0.3; out.connect(E.dry); out.connect(send); send.connect(E.wetIn);
@@ -773,6 +771,7 @@ export function scheduleGust(E, t, k) {
   return up + hold + down;
 }
 function dropStorm(E) {
+  dropManagedLoop(E,'storm');
   const L = E.stormL; if (!L) return;
   try { L.n.stop(); } catch (e) { /* ignore */ }
   try { L.out.disconnect(); } catch (e) { /* ignore */ }
@@ -780,23 +779,23 @@ function dropStorm(E) {
 }
 
 // ---------- ambient beds & positional sources ----------
-export function buildOutdoorBed(E) {
+function raw_buildOutdoorBed(E) {
   const ctx = E.ctx, t0 = ctx.currentTime;
   const out = ctx.createGain(); out.gain.value = 0; out.connect(E.dry);
   const send = ctx.createGain(); send.gain.value = 0.3; out.connect(send); send.connect(E.wetIn);
   const wind = noiseSrc(E, 'pink'); wind.start(t0, rand(0, 4));
   const wf = ctx.createBiquadFilter(); wf.type = 'lowpass'; wf.frequency.value = 650; wf.Q.value = 0.7;
   const wg = ctx.createGain(); wg.gain.value = 0.014;
-  const l = ctx.createOscillator(); l.frequency.value = 0.09; const ld = ctx.createGain(); ld.gain.value = 0.009;
+  const l = trackAudioSource(E, ctx.createOscillator()); l.frequency.value = 0.09; const ld = ctx.createGain(); ld.gain.value = 0.009;
   l.connect(ld); ld.connect(wg.gain); l.start(t0);
-  const l2 = ctx.createOscillator(); l2.frequency.value = 0.05; const l2d = ctx.createGain(); l2d.gain.value = 220;
+  const l2 = trackAudioSource(E, ctx.createOscillator()); l2.frequency.value = 0.05; const l2d = ctx.createGain(); l2d.gain.value = 220;
   l2.connect(l2d); l2d.connect(wf.frequency); l2.start(t0);
   wind.connect(wf); wf.connect(wg); wg.connect(out);
   // the far city: a brown-noise wash under 240 Hz, breathing like a distant road
   const city = noiseSrc(E, 'brown'); city.start(t0, rand(0, 4));
   const cf = ctx.createBiquadFilter(); cf.type = 'lowpass'; cf.frequency.value = 240;
   const cg = ctx.createGain(); cg.gain.value = 0.006; city.connect(cf); cf.connect(cg); cg.connect(out);
-  const cl = ctx.createOscillator(); cl.frequency.value = 0.021; const cld = ctx.createGain(); cld.gain.value = 0.002;
+  const cl = trackAudioSource(E, ctx.createOscillator()); cl.frequency.value = 0.021; const cld = ctx.createGain(); cld.gain.value = 0.002;
   cl.connect(cld); cld.connect(cg.gain); cl.start(t0);
   E.bed = out; E.bedWind = wg; E.bedCity = cg; return out;
 }
@@ -820,39 +819,57 @@ const RAIN_SURF = {
 };
 
 export function buildSources(E) {
-  const ctx = E.ctx, t0 = ctx.currentTime;
-  const mk = (sendAmt) => { const g = ctx.createGain(); g.gain.value = 0; const s = ctx.createGain(); s.gain.value = sendAmt; g.connect(E.dry); g.connect(s); s.connect(E.wetIn); return g; };
-  const S = E.srcOut = { fountain: mk(0.15), tram: mk(0.25), rain: mk(0.3) };
-  const lp = {};
+  const root=rootEngine(E);if(root.srcOut)return root.srcOut;
+  root.srcOut={fountain:E.ctx.createGain(),tram:E.ctx.createGain(),rain:E.ctx.createGain()};
+  root.srcLp={fountain:E.ctx.createBiquadFilter(),tram:E.ctx.createBiquadFilter()};root.srcClack=0;
+  return root.srcOut;
+}
+function sourceOutput(E,sendAmt){const g=E.ctx.createGain(),send=E.ctx.createGain();g.gain.value=0;send.gain.value=sendAmt;g.connect(E.dry);g.connect(send);send.connect(E.wetIn);return g;}
+function build_fountain(E){
+  buildSources(E);E=managedLoop(E,'fountain');if(!E)return null;
+  const ctx=E.ctx,t0=ctx.currentTime,S=E.srcOut,lp=E.srcLp;S.fountain=sourceOutput(E,0.15);
   // fountain: splashing water = noise wash + random burbles
   const fl = ctx.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = 6000; fl.connect(S.fountain); lp.fountain = fl;
   loopNoise(E, 'white', [['bandpass', 2200, 0.5]], fl);
   loopNoise(E, 'pink', [['bandpass', 900, 0.7]], fl);
   [[1.3, 700], [2.1, 1100], [3.4, 1700]].forEach(([r, fc]) => {
-    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = fc;
-    const m = ctx.createOscillator(); m.frequency.value = r * 2.3; const md = ctx.createGain(); md.gain.value = fc * 0.35; m.connect(md); md.connect(o.frequency);
-    const g = ctx.createGain(); g.gain.value = 0.02; const am = ctx.createOscillator(); am.frequency.value = r; const amd = ctx.createGain(); amd.gain.value = 0.02; am.connect(amd); amd.connect(g.gain);
+    const o = trackAudioSource(E, ctx.createOscillator()); o.type = 'sine'; o.frequency.value = fc;
+    const m = trackAudioSource(E, ctx.createOscillator()); m.frequency.value = r * 2.3; const md = ctx.createGain(); md.gain.value = fc * 0.35; m.connect(md); md.connect(o.frequency);
+    const g = ctx.createGain(); g.gain.value = 0.02; const am = trackAudioSource(E, ctx.createOscillator()); am.frequency.value = r; const amd = ctx.createGain(); amd.gain.value = 0.02; am.connect(amd); amd.connect(g.gain);
     o.connect(g); g.connect(fl); o.start(t0); m.start(t0); am.start(t0);
   });
+
+  return S.fountain;
+}
+function build_tram(E){
+  buildSources(E);E=managedLoop(E,'tram');if(!E)return null;
+  const ctx=E.ctx,t0=ctx.currentTime,S=E.srcOut,lp=E.srcLp;S.tram=sourceOutput(E,0.25);
   // tram: electric whine
   const tl = ctx.createBiquadFilter(); tl.type = 'lowpass'; tl.frequency.value = 3000; tl.connect(S.tram); lp.tram = tl;
   [[420, 0.012, 'sawtooth'], [840, 0.008, 'sine'], [1260, 0.004, 'sine']].forEach(([f, a, ty]) => {
-    const o = ctx.createOscillator(); o.type = ty; o.frequency.value = f;
-    const w = ctx.createOscillator(); w.frequency.value = 0.3; const wd = ctx.createGain(); wd.gain.value = f * 0.02; w.connect(wd); wd.connect(o.frequency);
+    const o = trackAudioSource(E, ctx.createOscillator()); o.type = ty; o.frequency.value = f;
+    const w = trackAudioSource(E, ctx.createOscillator()); w.frequency.value = 0.3; const wd = ctx.createGain(); wd.gain.value = f * 0.02; w.connect(wd); wd.connect(o.frequency);
     const g = ctx.createGain(); g.gain.value = a; o.connect(g); g.connect(tl); o.start(t0); w.start(t0);
   });
   loopNoise(E, 'brown', [['lowpass', 300]], tl);
+
+  return S.tram;
+}
+function build_rain(E){
+  buildSources(E);E=managedLoop(E,'rain');if(!E)return null;
+  const ctx=E.ctx,t0=ctx.currentTime,S=E.srcOut,lp=E.srcLp;S.rain=sourceOutput(E,0.3);
   // rain: a hiss, the hits on whatever it falls on (a looped take through a surface EQ), the roof indoors
   const rlp = ctx.createBiquadFilter(); rlp.type = 'lowpass'; rlp.frequency.value = 9000; rlp.connect(S.rain);
   const hiss = ctx.createGain(); hiss.gain.value = 0.5; hiss.connect(rlp);
   loopNoise(E, 'white', [['highpass', 1500]], hiss);
-  const dsrc = ctx.createBufferSource(); dsrc.buffer = take(E, 'drops', 1); dsrc.loop = true; dsrc.start(t0, rand(0, 2.5));
+  const dsrc = trackAudioSource(E, ctx.createBufferSource()); dsrc.buffer = take(E, 'drops', 1); dsrc.loop = true; dsrc.start(t0, rand(0, 2.5));
   const pk = ctx.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = 4200; pk.Q.value = 1.2; pk.gain.value = 4;
   const drops = ctx.createGain(); drops.gain.value = 0.35; dsrc.connect(pk); pk.connect(drops); drops.connect(rlp);
   const roof = ctx.createGain(); roof.gain.value = 0; roof.connect(S.rain);
   loopNoise(E, 'brown', [['lowpass', 500]], roof);
   E.rain = { lp: rlp, hiss, drops, pk, roof };
-  E.srcLp = lp; E.srcClack = 0; return S;
+
+  return S.rain;
 }
 
 export function applyEnvironment(E, name, dur = 1.5) {
@@ -890,20 +907,38 @@ export function createAudio() {
   };
   const MASTER = 0.9;
 
-  const usable = () => A.started && A.ctx && A.E && !A.muted && !A.hidden && A.ctx.state !== 'closed';
+  const usable = () => A.started && A.ctx && A.E && !A.muted && !A.quiet && !A.hidden && A.ctx.state !== 'closed';
   const gaitNow = () => clamp((A.speed - 2.3) / 0.8, 0, 1);
 
   function onVis() {
     const c = A.ctx; if (!c) return;
     A.hidden = typeof document !== 'undefined' && !!document.hidden;
+    if(A.E){A.E.blocked=A.hidden||A.muted||A.quiet;if(A.hidden)A.E.voiceManager.stopAll('hidden');}
     try {
       if (A.hidden) c.suspend && c.suspend().catch(() => {});
       else c.resume && c.resume().catch(() => {});
     } catch (e) { /* ignore */ }
   }
 
+  function maintainAmbience() {
+    const E=A.E;if(!E)return;E.voiceManager.tick();E.blocked=A.quiet||A.muted||A.hidden;
+    const outdoors=A.env==='outdoor',audible=!E.blocked;
+    maintainLoop(E,'tone',audible&&!outdoors&&A.env!=='cinema',buildRoomTone);
+    maintainLoop(E,'bed',audible&&outdoors,buildOutdoorBed);
+    maintainLoop(E,'night',audible&&A.wx.night>.02&&(OUTSIDE[A.env]??1)>.01,buildNight);
+    maintainLoop(E,'storm',audible&&A.wx.storm>.02,buildStorm);
+    maintainLoop(E,'fountain',audible&&A.src.fountain<32,build_fountain);
+    maintainLoop(E,'tram',audible&&A.src.tram<70,build_tram);
+    maintainLoop(E,'rain',audible&&A.src.rain>.005,build_rain);
+    maintainLoop(E,'hum',audible&&A.lightsHum&&!outdoors,renewBallast);
+    if(E.tone)rampIf(E,'toneManaged',E.tone.gain,A.env==='hall'?1:A.env==='small'?.6:.35,.4);
+    if(E.bed)rampIf(E,'bedManaged',E.bed.gain,outdoors?3:0,.4);
+  }
+  function renewBallast(E){return buildBallast(E,E.ctx.currentTime);}
+
   function applySources() {
     const E = A.E; if (!E || !E.srcOut) return;
+    maintainAmbience();
     const c = A.ctx, S = A.src;
     const att = (d, range) => { const x = clamp(1 - (Number.isFinite(d) ? d : 1e9) / range, 0, 1); return x * x; };
     const dFn = (d) => clamp(7000 - (Number.isFinite(d) ? d : 99) * 140, 1200, 7000);
@@ -923,13 +958,13 @@ export function createAudio() {
   // night, storm and what reaches you of them: ~10 Hz from update()
   function applyWeather(dt) {
     const E = A.E, W = A.wx, out = OUTSIDE[A.env] ?? 1;
-    if (W.night > 0.02 && !E.nightL) buildNight(E);
+    maintainAmbience();
     if (E.nightL) {
       rampIf(E, 'night', E.nightL.out.gain, W.night * out * (1 - 0.75 * W.storm), 0.6);  // the rain silences the crickets
       E.nightL.idle = W.night < 0.005 ? E.nightL.idle + dt : 0;
       if (E.nightL.idle > 8) dropNight(E);
     }
-    if (W.storm > 0.02 && !E.stormL) buildStorm(E);
+
     if (E.stormL) {
       rampIf(E, 'storm', E.stormL.out.gain, W.storm * (A.env === 'outdoor' ? 1 : 0.3), 0.6);
       rampIf(E, 'stormLp', E.stormL.lp.frequency, A.env === 'outdoor' ? 5000 : 420, 0.8);
@@ -978,6 +1013,18 @@ export function createAudio() {
   }
 
   const api = {
+    acquireVoice(options){if(!usable())return null;return A.E.voiceManager.acquireVoice(options);},
+    releaseVoice(token){A.E?.voiceManager.releaseVoice(token);},
+    preparePunchline(){
+      if(!usable())return 0;
+      const t=A.ctx.currentTime,g=A.E.wetOut.gain;
+      g.cancelScheduledValues(t);g.setValueAtTime(.9*.2511886432,t);
+      g.setValueAtTime(.9*.2511886432,t+.25);g.linearRampToValueAtTime(0,t+.255);
+      g.setValueAtTime(0,t+.29);g.linearRampToValueAtTime(.9,t+.37);
+      return A.E.voiceManager.preparePunchline();
+    },
+    stats(){return A.E?.voiceManager.stats()||{voices:0,foreground:0,fading:0,stolen:0,unmanaged:0};},
+    diagnostics(){return A.E?.voiceManager.diagnostics()||null;},
     get muted() { return A.muted; },
     get quietConfirmed() {
       return A.quiet && (!A.E || (A.ctx.currentTime >= A.quietAt && A.E.questGate.gain.value <= 0.00001));
@@ -1003,17 +1050,17 @@ export function createAudio() {
           if (!AC) return;
           const ctx = new AC({ latencyHint: 'interactive' });
           const E = buildEngine(ctx);
-          A.ctx = ctx; A.E = E; E.effects.gain.value = A.quiet ? 0 : 1;
+          A.ctx = ctx; A.E = E; E.blocked=A.muted||A.quiet; E.effects.gain.value = A.quiet ? 0 : 1;
           E.questGate.gain.value = A.quiet ? 0 : 1; A.quietAt = ctx.currentTime;
           if (typeof document !== 'undefined') {
-            A.hidden = !!document.hidden;
+            A.hidden = !!document.hidden;E.blocked=A.muted||A.quiet||A.hidden;
             document.addEventListener('visibilitychange', onVis);
           }
           try { if (ctx.state === 'suspended' && !A.hidden) await ctx.resume(); } catch (e) {}
           buildRoomTone(E, 1, 3);
           ramp(E.master.gain, A.muted ? 0 : MASTER, ctx, 1.2);
           A.nextStep = ctx.currentTime;
-          buildOutdoorBed(E); buildSources(E);
+          buildSources(E);
           A.started = true;
           applyEnvironment(E, A.env, 0.05); applySources();
         } catch (e) { A.ctx = null; A.E = null; A.started = false; A.musicCtx = null; }
@@ -1027,6 +1074,7 @@ export function createAudio() {
       if (quiet === A.quiet) return;
       A.quiet = quiet;
       if (A.E) {
+        A.E.blocked=A.quiet||A.muted||A.hidden;if(quiet)A.E.voiceManager.stopAll('quiet');
         ramp(A.E.effects.gain, quiet ? 0 : 1, A.ctx, 0.25);
         ramp(A.E.questGate.gain, quiet ? 0 : 1, A.ctx, 0.35);
         A.quietAt = A.ctx.currentTime + 0.35;
@@ -1035,6 +1083,7 @@ export function createAudio() {
 
     setMuted(m) {
       A.muted = !!m;
+      if(A.E){A.E.blocked=A.muted||A.quiet||A.hidden;if(A.muted)A.E.voiceManager.stopAll('mute');}
       if (!A.started || !A.E) return;
       try { ramp(A.E.master.gain, A.muted ? 0 : MASTER, A.ctx, A.muted ? 0.25 : 0.6); } catch (e) {}
     },
@@ -1132,6 +1181,7 @@ export function createAudio() {
     update(dt) {
       try {
         if (!A.started || !A.ctx || A.hidden || A.ctx.state !== 'running') { A.wasMoving = A.moving; return; }
+        A.E.voiceManager.tick();if(A.quiet||A.muted){A.wasMoving=A.moving;return;}
         const now = A.ctx.currentTime, W = A.wx, step = Number.isFinite(dt) ? clamp(dt, 0, 0.25) : 0;
         // weather follows its targets over ~1 s, applied at 10 Hz
         const kW = 1 - Math.exp(-step / 1.2);
@@ -1195,6 +1245,32 @@ export function createAudio() {
   };
   return api;
 }
+
+
+// Admission happens before each existing timbre builder; nested helpers reuse it.
+export function scheduleStep(E,t,...args){const scoped=managedEvent(E,t,0.9,1);if(!scoped)return 0;try{return raw_scheduleStep(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
+export function scheduleSwish(E,t,...args){const scoped=managedEvent(E,t,0.4,0);if(!scoped)return 0;try{return raw_scheduleSwish(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
+export function scheduleBreath(E,t,...args){const scoped=managedEvent(E,t,2,0);if(!scoped)return 0;try{return raw_scheduleBreath(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
+export function scheduleRelay(E,t,...args){const scoped=managedEvent(E,t,2.5,1);if(!scoped)return 0;try{return raw_scheduleRelay(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
+export function scheduleReveal(E,t,...args){const scoped=managedEvent(E,t,2,1);if(!scoped)return 0;try{return raw_scheduleReveal(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
+export function scheduleJump(E,t,...args){const scoped=managedEvent(E,t,1,1);if(!scoped)return 0;try{return raw_scheduleJump(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
+export function scheduleLand(E,t,...args){const scoped=managedEvent(E,t,1.5,2);if(!scoped)return 0;try{return raw_scheduleLand(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
+export function scheduleChime(E,t,...args){const scoped=managedEvent(E,t,4,2);if(!scoped)return 0;try{return raw_scheduleChime(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
+export function scheduleScore(E,t,...args){const scoped=managedEvent(E,t,4,2);if(!scoped)return 0;try{return raw_scheduleScore(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
+export function scheduleDoors(E,t,...args){const scoped=managedEvent(E,t,1.3,1);if(!scoped)return 0;try{return raw_scheduleDoors(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
+export function scheduleClick(E,t,...args){const scoped=managedEvent(E,t,0.2,1);if(!scoped)return 0;try{return raw_scheduleClick(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
+export function scheduleThunder(E,t,...args){const scoped=managedEvent(E,t,10,2);if(!scoped)return 0;try{return raw_scheduleThunder(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
+export function scheduleBird(E,t,...args){const scoped=managedEvent(E,t,1,0);if(!scoped)return 0;try{return raw_scheduleBird(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
+export function scheduleClack(E,t,...args){const scoped=managedEvent(E,t,0.3,0);if(!scoped)return 0;try{return raw_scheduleClack(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
+export function scheduleOwl(E,t,...args){const scoped=managedEvent(E,t,6,0);if(!scoped)return 0;try{return raw_scheduleOwl(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
+export function scheduleDog(E,t,...args){const scoped=managedEvent(E,t,2,0);if(!scoped)return 0;try{return raw_scheduleDog(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
+export function scheduleMoan(E,t,...args){const scoped=managedEvent(E,t,12,0);if(!scoped)return 0;try{return raw_scheduleMoan(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
+export function scheduleNightfall(E,t,...args){const scoped=managedEvent(E,t,9,1);if(!scoped)return 0;try{return raw_scheduleNightfall(scoped,Math.max(t,scoped._voice.startAt),...args);}catch(error){scoped._voice.release();throw error;}finally{if(!scoped._tracked)scoped._voice.release();}}
+export function buildRoomTone(E,...args){const root=rootEngine(E);if(root.managedLoops?.tone?.token?.active)return root.tone;const scoped=managedLoop(root,'tone');if(!scoped)return null;const result=raw_buildRoomTone(scoped,...args);root.tone=result;return result;}
+export function buildOutdoorBed(E,...args){const root=rootEngine(E);if(root.managedLoops?.bed?.token?.active)return root.bed;const scoped=managedLoop(root,'bed');if(!scoped)return null;const result=raw_buildOutdoorBed(scoped,...args);root.bed=result;return result;}
+export function buildNight(E,...args){const root=rootEngine(E);if(root.managedLoops?.night?.token?.active)return root.nightL;const scoped=managedLoop(root,'night');if(!scoped)return null;const result=raw_buildNight(scoped,...args);root.nightL=result;return result;}
+export function buildStorm(E,...args){const root=rootEngine(E);if(root.managedLoops?.storm?.token?.active)return root.stormL;const scoped=managedLoop(root,'storm');if(!scoped)return null;const result=raw_buildStorm(scoped,...args);root.stormL=result;return result;}
+export function buildBallast(E,...args){const root=rootEngine(E);if(root.managedLoops?.hum?.token?.active)return root.hum;const scoped=managedLoop(root,'hum');if(!scoped)return null;const result=raw_buildBallast(scoped,...args);root.hum=result;return result;}
 
 // Offline-render hook (dev harness only; not part of the Audio object)
 createAudio.__graph = { scheduleJump, scheduleLand, scheduleChime, scheduleScore, scheduleDoors, scheduleClick, scheduleThunder, scheduleBird, buildOutdoorBed, buildSources, applyEnvironment, buildEngine, buildRoomTone, scheduleStep, scheduleRelay, buildBallast, scheduleReveal, makeImpulse, scheduleSwish, scheduleBreath, buildNight, scheduleOwl, scheduleDog, scheduleMoan, scheduleNightfall, buildStorm, scheduleGust, routedContext, MIX };

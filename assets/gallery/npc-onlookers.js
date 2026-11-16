@@ -1,3 +1,4 @@
+import { reserveModuleVoice, finishModuleVoice } from './audio-lease.js';
 // Opt-in cast personalities. No new actors, geometry, lights or per-frame objects.
 // The legacy NPC module remains authoritative for talking, impacts and recovery.
 import { groundAt } from './collision.js';
@@ -113,10 +114,11 @@ export function createNpcPersonalities(ctx, { npcs, castById, chooseLine, say })
     let slot=-1;for(let i=0;i<voices.length;i++)if(!voices[i]){slot=i;break;}
     if(slot<0)return true;
     r.lastSound=now;
+    const lease = reserveModuleVoice(ctx, name === 'slap' ? 3 : 2, true, .55, bus); if (!lease) return true;
     let oscillator,gain,filter;
     try {
       oscillator=ac.createOscillator();gain=ac.createGain();filter=ac.createBiquadFilter();
-      const pig=r.kind==='sniffer',t=ac.currentTime,duration=name==='laugh' ? .48 : .28;
+      const pig=r.kind==='sniffer',t=Math.max(ac.currentTime,lease.startAt),duration=name==='laugh' ? .48 : .28;
       const dx=n.x-camera.position.x,dz=n.z-camera.position.z;
       const distance=Math.sqrt(dx*dx+dz*dz),volume=.12*Math.max(0,1-distance/18)**2;
       oscillator.type=pig?'sawtooth':'triangle';
@@ -132,10 +134,10 @@ export function createNpcPersonalities(ctx, { npcs, castById, chooseLine, say })
         gain.gain.exponentialRampToValueAtTime(Math.max(.0002,volume*.6),t+.33);
       }
       gain.gain.exponentialRampToValueAtTime(.0001,t+duration);
-      oscillator.connect(filter);filter.connect(gain);gain.connect(bus);voices[slot]=oscillator;
+      oscillator.connect(filter);filter.connect(gain);gain.connect(lease.gain); lease.track(oscillator); finishModuleVoice(lease, oscillator); voices[slot]=oscillator;
       oscillator.onended=()=>{oscillator.disconnect();filter.disconnect();gain.disconnect();if(voices[slot]===oscillator)voices[slot]=null;};
       oscillator.start(t);oscillator.stop(t+duration+.02);
-    }catch{try{oscillator?.stop();}catch{}oscillator?.disconnect();filter?.disconnect();gain?.disconnect();voices[slot]=null;}
+    }catch{lease.release();try{oscillator?.stop();}catch{}oscillator?.disconnect();filter?.disconnect();gain?.disconnect();voices[slot]=null;}
     return true;
   }
   function silence() {for(let i=0;i<voices.length;i++)if(voices[i]){try{voices[i].stop();}catch{}voices[i]=null;}}

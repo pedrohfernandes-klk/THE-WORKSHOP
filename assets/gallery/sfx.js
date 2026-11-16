@@ -68,13 +68,13 @@ const inGarden = (x, y, z) => x > GARDEN.minX && x < GARDEN.maxX && z > GARDEN.m
 // ---------- graph helpers ----------
 // Every node made through a kit is listed, so a voice or a bed can free it all.
 // Note: Web Audio reads Q in dB for lowpass/highpass and as a ratio for bandpass.
-function kit(ctx, nodes, srcs) {
+function kit(ctx, nodes, srcs, lease = null) {
   const add = (n) => { nodes.push(n); return n; };
   return {
     gain(v = 1) { const n = add(ctx.createGain()); n.gain.value = v; return n; },
     filter(type, f, q) { const n = add(ctx.createBiquadFilter()); n.type = type; n.frequency.value = f; if (q !== undefined) n.Q.value = q; return n; },
-    osc(type, f) { const n = add(ctx.createOscillator()); n.type = type; n.frequency.value = f; srcs.push(n); return n; },
-    loop(buf) { const n = add(ctx.createBufferSource()); n.buffer = buf; n.loop = true; srcs.push(n); return n; },
+    osc(type, f) { const n = add(ctx.createOscillator()); n.type = type; n.frequency.value = f; srcs.push(n); lease?.track(n); return n; },
+    loop(buf) { const n = add(ctx.createBufferSource()); n.buffer = buf; n.loop = true; srcs.push(n); lease?.track(n); return n; },
     pan(p) {
       const n = add(ctx.createStereoPanner ? ctx.createStereoPanner() : ctx.createGain());
       if (n.pan) n.pan.value = clamp(p, -1, 1);
@@ -86,6 +86,8 @@ function kit(ctx, nodes, srcs) {
 }
 function release(group) {
   if (!group) return;
+  if(group.lease?.fading){if(!group.releaseQueued){group.releaseQueued=true;const before=group.lease.onRelease;group.lease.onRelease=reason=>{try{before?.(reason);}finally{release(group);}};}return;}
+  group.lease?.release();
   for (const s of group.srcs) { try { s.stop(); } catch (e) { /* never started or already stopped */ } }
   for (const n of group.nodes) { try { n.disconnect(); } catch (e) { /* ignore */ } }
 }
@@ -116,9 +118,7 @@ function buildEngine(ctx, bus, rnd) {
     dA.connect(lpA); lpA.connect(fbA); fbA.connect(dB);
     dB.connect(lpB); lpB.connect(fbB); fbB.connect(dA);
     lpA.connect(pA); lpB.connect(pB); pA.connect(ret); pB.connect(ret); ret.connect(out);
-    const wob = k.osc('sine', 0.11), wa = k.gain(0.0025), wb = k.gain(-0.002);
-    wob.connect(wa); wob.connect(wb); wa.connect(dA.delayTime); wb.connect(dB.delayTime);
-    wob.start(ctx.currentTime);
+    // Fixed echo: no inaudible perpetual oscillator consumes a voice.
     out.connect(bus);
     return { ctx, bus, out, echo, white, drip: null, curve: null, nodes, srcs };
   } catch (e) { release({ nodes, srcs }); throw e; }   // half-built: free what was made
@@ -153,11 +153,13 @@ function dripLoop(ctx, rnd) {
 // a loop buffer, or a start delay for an oscillator, which sets its phase). If
 // anything throws half-way, whatever was made is released again.
 function makeBed(E, withWet, body) {
-  const nodes = [], srcs = [], k = kit(E.ctx, nodes, srcs);
-  const B = { nodes, srcs, dry: null, wet: null };
+  const lease=E.audio.acquireVoice({priority:0,foreground:false,ms:2000});
+  if(!lease)return null;
+  const nodes = [], srcs = [], k = kit(E.ctx, nodes, srcs,lease);
+  const B = { nodes, srcs, lease, dry: null, wet: null };
   try {
-    B.dry = k.gain(0); B.dry.connect(E.out);
-    if (withWet) { B.wet = k.gain(0); B.wet.connect(E.echo); }
+    B.dry = k.gain(0); const dg=k.gain(1); lease.addOutput(dg); B.dry.connect(dg); dg.connect(E.out);
+    if (withWet) { B.wet = k.gain(0); const wg=k.gain(1); lease.addOutput(wg); B.wet.connect(wg); wg.connect(E.echo); }
     const offsets = body(B, k) || null, t = E.ctx.currentTime;
     for (const s of srcs) {
       const o = offsets && offsets.get(s);
@@ -447,6 +449,7 @@ export function createSfx(audio) {
   function finish(v) {
     if (v.done) return;
     v.done = true;
+    v.lease?.release();
     for (const n of v.nodes) { try { n.disconnect(); } catch (e) { /* ignore */ } }
     const i = voices.indexOf(v);
     if (i >= 0) voices.splice(i, 1);
@@ -455,8 +458,10 @@ export function createSfx(audio) {
   // feeds the echo. Returns false when the voice cap is reached.
   function oneShot(name, fn, pan, dry, wet, arg) {
     if (!E || free() <= 0) { played.dropped++; return false; }
-    const nodes = [], srcs = [], k = kit(E.ctx, nodes, srcs);
-    const v = { E, nodes, srcs, end: 0, last: null, done: false, inp: null, pan: null };
+    const lease=audio.acquireVoice?.({priority:1,foreground:false,ms:12000});
+    if(!lease){played.dropped++;return false;}
+    const nodes = [], srcs = [], k = kit(E.ctx, nodes, srcs,lease);
+    const v = { E, nodes, srcs, lease, end: 0, last: null, done: false, inp: null, pan: null };
     v.play = (src, t0, t1, offset) => {
       if (offset !== undefined) src.start(t0, offset); else src.start(t0);
       src.stop(t1);
@@ -465,8 +470,8 @@ export function createSfx(audio) {
     try {
       v.inp = k.gain(1); v.pan = k.pan(pan);
       const d = k.gain(dry);
-      v.inp.connect(v.pan); v.pan.connect(d); d.connect(E.out);
-      if (wet > 0) { const w = k.gain(wet); v.inp.connect(w); w.connect(E.echo); }
+      v.inp.connect(lease.gain); lease.gain.connect(v.pan); v.pan.connect(d); d.connect(E.out);
+      if (wet > 0) { const w = k.gain(wet); lease.gain.connect(w); w.connect(E.echo); }
       fn(v, k, E.ctx.currentTime + 0.02, rnd, arg);
       if (!v.last) throw new Error('silent voice');
       v.last.onended = () => finish(v);
@@ -496,11 +501,11 @@ export function createSfx(audio) {
     let ctx = null, bus = null;
     try { ctx = (audio && audio.context) || null; bus = (audio && audio.bus) || null; } catch (e) { /* ignore */ }
     if (E && (E.ctx !== ctx || ctx.state === 'closed')) dropAll();
-    if (!ctx || !bus || ctx.state !== 'running') return false;
+    if (!ctx || !bus || ctx.state !== 'running' || audio.muted || audio.quietConfirmed) { if(E)dropAll(); return false; }
     if (E && E.bus !== bus) { try { E.out.disconnect(); E.out.connect(bus); E.bus = bus; } catch (e) { dropAll(); } }
     if (!E) {
       if (st.t < retryAt) return false;
-      try { E = buildEngine(ctx, bus, rnd); }
+      try { E = buildEngine(ctx, bus, rnd); E.audio=audio; }
       catch (e) { if (E) release(E); E = null; retryAt = st.t + 5; return false; }
     }
     return true;
@@ -509,6 +514,7 @@ export function createSfx(audio) {
   // Follow a target weight (rate = fraction per second), building the bed on
   // approach and releasing it after a while of silence.
   function manage(b, target, up, down, dt, build) {
+    if(b.B && !b.B.lease.renew(2000)){release(b.B);b.B=null;b.retry=st.t+.4;}
     if (!b.B) {
       b.w = 0;
       if (target > 0.001 && free() > 0 && st.t >= b.retry) {

@@ -1,3 +1,4 @@
+import { reserveModuleVoice, finishModuleVoice } from '../audio-lease.js';
 // floorsnake.js — "Cobra de chão": a giant pixel snake game projected onto the plaza paving.
 //
 // Where: the open forecourt beside the Studio door, west side of the plaza. Field x −10.75…−2.75,
@@ -366,6 +367,7 @@ export function build(ctx) {
   }
   const hz = (m) => 440 * Math.pow(2, (m - 69) / 12);
   function tone(c, t, f, dur, type, vol, f2, att) {
+    const lease = reserveModuleVoice(ctx, 1, false, dur + .05, sIn, t); if (!lease) return null; t = Math.max(t, lease.startAt);
     const o = c.createOscillator(), g = c.createGain(), a = att || 0.006;
     o.type = type; o.frequency.setValueAtTime(f, t);
     if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
@@ -373,7 +375,8 @@ export function build(ctx) {
     g.gain.exponentialRampToValueAtTime(vol, t + a);
     g.gain.setValueAtTime(vol, t + Math.max(a, dur * 0.55));
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(sIn);
+    o.connect(g); g.connect(lease.gain);
+    lease.track(o); finishModuleVoice(lease, o); o.moduleVoice = lease;
     o.start(t); o.stop(t + dur + 0.03);
     return o;
   }
@@ -404,7 +407,9 @@ export function build(ctx) {
         const m = [64, 62, 60];
         for (let k = 0; k < 3; k++) tone(c, t + k * 2 * S16, hz(m[k]), 1.8 * S16, 'sawtooth', 0.26, hz(m[k] - 0.3), 0.05);
         const o = tone(c, t + 6 * S16, hz(57), 6 * S16, 'sawtooth', 0.28, hz(55), 0.05);
+        if (!o) return;
         const lfo = c.createOscillator(), lg = c.createGain();
+        o.moduleVoice.track(lfo);
         lfo.frequency.value = 5.5; lg.gain.value = 7;
         lfo.connect(lg); lg.connect(o.frequency);
         lfo.start(t + 7 * S16); lfo.stop(t + 12.2 * S16);

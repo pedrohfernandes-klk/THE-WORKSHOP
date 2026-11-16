@@ -1,3 +1,4 @@
+import { reserveModuleVoice, finishModuleVoice, releaseModuleVoices } from '../audio-lease.js';
 // arraial.js — a summer popular-festival corner east of the garden, beside the
 // path to the metro stop (BRIEF §6.2). Two wooden masts carry strings of warm
 // bulbs and paper pennants over a beaten-gravel floor; on a little plank stage
@@ -98,7 +99,9 @@ for (const T of TUNES) {
   T.at = new Int16Array(len).fill(-1);
   for (let i = 0, s = 0; i < T.mel.length; i += 2) { if (T.mel[i]) T.at[s] = i; s += T.mel[i + 1]; }
 }
-const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
+function pentMidi(m){const pc=((m%12)+12)%12;const allowed=[0,2,4,7,9];let best=0,dist=99;for(const p of allowed){let d=p-pc;if(d>6)d-=12;if(d< -6)d+=12;if(Math.abs(d)<dist){dist=Math.abs(d);best=d;}}return m+best;}
+// Preserve rhythm and melodic contour; C-based seeds transpose to A, then pentatonic.
+const mtof = (m) => 440 * Math.pow(2, (pentMidi(m - 3) - 69) / 12);
 
 export function build(ctx) {
   const { THREE, M } = ctx;
@@ -461,8 +464,13 @@ export function build(ctx) {
     try { const ac = au.context, bus = au.bus; return ac && bus && !au.muted && ac.state === 'running' ? au : null; } catch (e) { return null; }
   }
   function startAudio(au) {
-    const ac = au.context;
+    const ac = au.context; const leases = [];
     try {
+      for (let i = 0; i < 6; i++) {
+        const token = reserveModuleVoice(ctx, 0, false, 1, au.bus);
+        if (!token) { for (const held of leases) held.release(); return; }
+        token.gain.disconnect(); leases.push(token); // destination is the per-instrument mix, connected below
+      }
       const out = ac.createGain(), lp = ac.createBiquadFilter(), pan = ac.createStereoPanner ? ac.createStereoPanner() : null;
       out.gain.value = 0; lp.type = 'lowpass'; lp.frequency.value = 7000;
       out.connect(lp); if (pan) { lp.connect(pan); pan.connect(au.bus); } else lp.connect(au.bus);
@@ -471,28 +479,26 @@ export function build(ctx) {
       trem.frequency.value = 5.3; tremG.gain.value = 0.13; trem.connect(tremG); tremG.connect(acc.gain);
       const m1 = ac.createOscillator(), m2 = ac.createOscillator(), mg = ac.createGain();
       m1.type = m2.type = 'sawtooth'; m1.detune.value = -5; m2.detune.value = 12; mg.gain.value = 0;
-      m1.connect(mg); m2.connect(mg); mg.connect(acc);
+      m1.connect(mg); m2.connect(mg); mg.connect(leases[0].gain); leases[0].gain.connect(acc);
       const cg = ac.createGain(), co = []; cg.gain.value = 0; cg.connect(acc);
-      for (let i = 0; i < 3; i++) { const o = ac.createOscillator(); o.type = 'square'; o.detune.value = i * 6 - 6; o.connect(cg); co.push(o); }
+      for (let i = 0; i < 3; i++) { const o = ac.createOscillator(); o.type = 'square'; o.detune.value = i * 6 - 6; o.connect(leases[i + 1].gain); leases[i + 1].gain.connect(cg); co.push(o); }
       const b1 = ac.createOscillator(), bf = ac.createBiquadFilter(), bgn = ac.createGain();
-      b1.type = 'sawtooth'; bf.type = 'lowpass'; bf.frequency.value = 380; bgn.gain.value = 0; b1.connect(bf); bf.connect(bgn); bgn.connect(out);
-      const dr = ac.createOscillator(), dg = ac.createGain(); dr.type = 'sine'; dr.frequency.value = 50; dg.gain.value = 0; dr.connect(dg); dg.connect(out);
+      b1.type = 'sawtooth'; bf.type = 'lowpass'; bf.frequency.value = 380; bgn.gain.value = 0; b1.connect(bf); bf.connect(bgn); bgn.connect(leases[4].gain); leases[4].gain.connect(out);
+      const dr = ac.createOscillator(), dg = ac.createGain(); dr.type = 'sine'; dr.frequency.value = 50; dg.gain.value = 0; dr.connect(dg); dg.connect(leases[5].gain); leases[5].gain.connect(out);
       const dl = ac.createDelay(1), dlg = ac.createGain(); dl.delayTime.value = 0.23; dlg.gain.value = 0.3; dl.connect(dlg); dlg.connect(dl); dlg.connect(out);
       const noise = ac.createBuffer(1, Math.floor(ac.sampleRate * 0.6), ac.sampleRate);
       const nd = noise.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
       const oscs = [trem, m1, m2, co[0], co[1], co[2], b1, dr];
       const t0 = ac.currentTime + 0.03;
-      for (const o of oscs) o.start(t0);
-      A = { ac, au, out, lp, pan, mg, m1, m2, cg, co, bgn, b1, dr, dg, dl, noise, oscs, step: 0, stepT: t0 + 0.05, panT: 0 };
-    } catch (e) { A = null; }
+      leases[0].track(trem); leases[0].track(m1); leases[0].track(m2);
+      for (let i = 0; i < 3; i++) leases[i + 1].track(co[i]); leases[4].track(b1); leases[5].track(dr);
+      for (const o of oscs) o.start(Math.max(t0, leases[0].startAt));
+      A = { ac, au, leases, out, lp, pan, mg, m1, m2, cg, co, bgn, b1, dr, dg, dl, noise, oscs, step: 0, stepT: t0 + 0.05, panT: 0 };
+    } catch (e) { for (const lease of leases) lease.release(); A = null; }
   }
   function stopAudio() {
     const a = A; A = null; if (!a) return;
-    try {
-      const t = a.ac.currentTime; a.out.gain.cancelScheduledValues(t); a.out.gain.setTargetAtTime(0, t, 0.08);
-      for (const o of a.oscs) o.stop(t + 0.6);
-      a.oscs[0].onended = () => { try { a.lp.disconnect(); if (a.pan) a.pan.disconnect(); } catch (e) { /* gone */ } };
-    } catch (e) { /* context closed */ }
+    releaseModuleVoices(a.leases, () => { try { a.lp.disconnect(); a.pan?.disconnect(); } catch {} }, !!ctx.audio?.muted || !!ctx.scene.userData.questQuiet);
   }
   function boom(t, v) {
     const f = A.dr.frequency, g = A.dg.gain;
@@ -501,19 +507,20 @@ export function build(ctx) {
   }
   function crack(t, big) {
     const ac = A.ac;
+    const lease = reserveModuleVoice(ctx, 3, true, .7, A.out, t); if (!lease) return t; t = Math.max(t, lease.startAt);
     try {
       const n1 = ac.createBufferSource(), f1 = ac.createBiquadFilter(), g1 = ac.createGain();
       n1.buffer = A.noise; f1.type = 'bandpass'; f1.frequency.value = 5200; f1.Q.value = 1.5;
       g1.gain.setValueAtTime(0, t); g1.gain.linearRampToValueAtTime(0.04, t + 0.04); g1.gain.linearRampToValueAtTime(0, t + 0.3);
-      n1.connect(f1); f1.connect(g1); g1.connect(A.out); n1.start(t, 0, 0.32);
+      n1.connect(f1); f1.connect(g1); g1.connect(lease.gain); lease.track(n1); n1.start(t, 0, 0.32);
       const tb = t + 0.3, n2 = ac.createBufferSource(), f2 = ac.createBiquadFilter(), g2 = ac.createGain();
       n2.buffer = A.noise; f2.type = 'highpass'; f2.frequency.value = 450;
       g2.gain.setValueAtTime(0.0001, tb); g2.gain.exponentialRampToValueAtTime(big ? 0.55 : 0.4, tb + 0.004); g2.gain.exponentialRampToValueAtTime(0.0008, tb + 0.24);
-      n2.connect(f2); f2.connect(g2); g2.connect(A.out); g2.connect(A.dl); n2.start(tb, 0.2, 0.3);
+      n2.connect(f2); f2.connect(g2); g2.connect(lease.gain); lease.gain.connect(A.dl); lease.track(n2); finishModuleVoice(lease, n2); n2.start(tb, 0.2, 0.3);
       boom(tb, big ? 0.5 : 0.35);
       n2.onended = () => { try { g1.disconnect(); g2.disconnect(); } catch (e) { /* gone */ } };
       return tb;
-    } catch (e) { return t; }
+    } catch (e) { lease.release(); return t; }
   }
   function schedStep(t) {
     let T = TUNES[cur];
@@ -595,6 +602,7 @@ export function build(ctx) {
     const au = playing ? audioOut() : null;
     if (au && (!A || A.ac !== au.context)) { if (A) stopAudio(); startAudio(au); }
     if (A && (!au || !playing)) stopAudio();
+    if (A) { for (let i = 0; i < A.leases.length; i++) if (!A.leases[i].renew(1000)) { stopAudio(); break; } }
     if (A) {
       const now = A.ac.currentTime;
       if (A.stepT < now) A.stepT = now + 0.03;

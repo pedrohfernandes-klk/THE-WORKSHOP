@@ -1,3 +1,4 @@
+import { reserveModuleVoice, finishModuleVoice } from './audio-lease.js';
 // W4: short, local feedback. Existing actions always retain ownership.
 // No external dependencies, textures, lights or allocations in update().
 // For merged geometry the pixel contact bubble moves, never the whole building.
@@ -107,6 +108,7 @@ export function createInteractions(ctx) {
     try { ac = audio.context; bus = audio.bus; } catch { return; }
     if (!ac || !bus || ac.state !== 'running') return;
     lastSound = now;
+    const lease = reserveModuleVoice(ctx, 1, false, .4, bus); if (!lease) return;
     let oscillator, gain, filter, pan;
     try {
       const p = camera.position;
@@ -114,7 +116,7 @@ export function createInteractions(ctx) {
       const attenuation = Math.max(0,1-distance/20);
       oscillator=ac.createOscillator(); gain=ac.createGain(); filter=ac.createBiquadFilter();
       pan=ac.createStereoPanner ? ac.createStereoPanner() : null;
-      const t=ac.currentTime, duration=Math.min(.35,reaction.duration*.45);
+      const t=Math.max(ac.currentTime,lease.startAt), duration=Math.min(.35,reaction.duration*.45);
       oscillator.type=reaction.wave;
       oscillator.frequency.setValueAtTime(reaction.hz,t);
       oscillator.frequency.exponentialRampToValueAtTime(reaction.end,t+duration);
@@ -126,15 +128,16 @@ export function createInteractions(ctx) {
       if (pan) {
         right.setFromMatrixColumn(camera.matrixWorld,0);
         pan.pan.value=Math.max(-.8,Math.min(.8,(dx*right.x+dy*right.y+dz*right.z)/Math.max(1,distance)));
-        gain.connect(pan); pan.connect(bus);
-      } else gain.connect(bus);
+        gain.connect(pan); pan.connect(lease.gain);
+      } else gain.connect(lease.gain);
       let voiceSlot=-1;
       for(let i=0;i<MAX;i++)if(!voices[i]){voiceSlot=i;break;}
-      if(voiceSlot<0){oscillator.disconnect();filter.disconnect();gain.disconnect();pan?.disconnect();return;}
+      if(voiceSlot<0){lease.release();oscillator.disconnect();filter.disconnect();gain.disconnect();pan?.disconnect();return;}
       voices[voiceSlot]=oscillator;
       oscillator.onended=()=>{ oscillator.disconnect();filter.disconnect();gain.disconnect();pan?.disconnect();if(voices[voiceSlot]===oscillator)voices[voiceSlot]=null; };
-      oscillator.start(t); oscillator.stop(t+duration+.02);
+      lease.track(oscillator); finishModuleVoice(lease, oscillator); oscillator.start(t); oscillator.stop(t+duration+.02);
     } catch {
+      lease.release();
       try { oscillator?.stop(); } catch { /* not started */ }
       oscillator?.disconnect();gain?.disconnect();filter?.disconnect();pan?.disconnect();
       for(let i=0;i<MAX;i++)if(voices[i]===oscillator)voices[i]=null;
