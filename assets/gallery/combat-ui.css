@@ -2,7 +2,8 @@
 .combat-hud button,.combat-actions button{min-width:44px;min-height:44px;border:1px solid #eee7d8;border-radius:50%;background:#181a20;color:#fff7e7;font:700 19px/1 system-ui,sans-serif;touch-action:manipulation;cursor:pointer}
 .combat-hud button:focus-visible,.combat-actions button:focus-visible{outline:3px solid #f4d86d;outline-offset:3px}
 .combat-panel{position:fixed;z-index:36;left:50%;bottom:max(14px,env(safe-area-inset-bottom));transform:translateX(-50%);width:min(430px,calc(100vw - 24px));display:grid;grid-template-columns:1fr 1fr;gap:18px;pointer-events:none}
-.combat-panel[hidden],.combat-hud[hidden]{display:none!important}
+.combat-panel[hidden],.combat-hud[hidden],.combat-charge[hidden]{display:none!important}
+.combat-charge{position:fixed;left:50%;top:50%;width:40px;height:40px;margin:-20px 0 0 -20px;z-index:31;pointer-events:none;border-radius:50%;background:conic-gradient(#ead064 calc(var(--charge,0)*1turn),#181a2099 0);-webkit-mask:radial-gradient(closest-side,#0000 calc(100% - 4px),#000 calc(100% - 3px));mask:radial-gradient(closest-side,#0000 calc(100% - 4px),#000 calc(100% - 3px))}
 .combat-pill{height:8px;border-radius:8px;overflow:hidden;background:#26282e;position:relative;box-shadow:0 0 0 1px #f3ecd566}
 .combat-pill i{position:absolute;inset:0;transform-origin:left center;border-radius:inherit;will-change:transform}
 .combat-pill-value{background:#ead064;transition:transform 70ms ease-out}.combat-pill-lag{background:#d67558;transition:transform 400ms 150ms ease-out}

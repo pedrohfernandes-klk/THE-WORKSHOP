@@ -91,7 +91,9 @@ export async function build(ctx) {
   // Aerial perspective converges on the horizon sky as drawn (sky.hdr median at
   // ~5 deg: 0.39/0.40/0.47 x 0.9), a touch cooler, so distance reads paler and
   // bluer and never glows brighter than the sky behind it.
-  scene.fog = new THREE.FogExp2(0xa3a9b8, 0.0012);
+  // Tune the fog reserved at boot in place (a new fog object would make every material re-check).
+  if (scene.fog && scene.fog.isFogExp2) { scene.fog.color.setHex(0xa3a9b8); scene.fog.density = 0.0012; }
+  else scene.fog = new THREE.FogExp2(0xa3a9b8, 0.0012);
 
   // Sun direction: sanity-check, fall back to elevation 30deg, azimuth from +z/-x.
   let dir = sky.sunDirection ? sky.sunDirection.clone().normalize() : null;

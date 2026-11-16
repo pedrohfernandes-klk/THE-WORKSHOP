@@ -127,7 +127,12 @@ export async function createWorld(ctx, { hallColliders = [], onProgress, ready, 
         const out = await mod.build(ctx);
         if (out && out.group) {
           out.group.name = out.group.name || name;
+          // Compile the space's shaders before it is drawn: in parallel where the GPU allows, so
+          // its first frame does not stall (bounded, so a slow driver never holds the campus back).
+          const globalLights = ctx.lightPool?.prepare(out.group);
+          if (!globalLights && ctx.precompile) await Promise.race([ctx.precompile(out.group), new Promise((r) => setTimeout(r, 3000))]);
           ctx.scene.add(out.group);
+          ctx.lightPool?.adoptScene();
           if (FOLIAGE.has(name)) out.group.traverse((o) => o.layers.set(1));
         }
         built[i] = out || {};
