@@ -41,8 +41,8 @@ export const AREAS = [
   { name: 'The Amphitheatre', minX: -68, maxX: -28, minZ: 12, maxZ: 48, minY: -6, maxY: 6 },
   { name: 'The Garden', minX: 24, maxX: 66, minZ: 12, maxZ: 52, minY: -1, maxY: 6 },
   { name: 'The Plaza', minX: -24, maxX: 24, minZ: 17.4, maxZ: 52.4, minY: -1, maxY: 6 },
-  { name: 'Mercado', minX: 92, maxX: 112, minZ: 20, maxZ: 44, minY: -1, maxY: 6 },
-  { name: 'Marginal', minX: -20, maxX: 28, minZ: 76, maxZ: 84, minY: -1, maxY: 6 },
+  { name: 'Mercado', minX: 92, maxX: 117, minZ: 20, maxZ: 44, minY: -1, maxY: 6 },   // to the tram stop at x 115
+  { name: 'Marginal', minX: -20, maxX: 34, minZ: 76, maxZ: 86, minY: -1, maxY: 6 },   // to the tram stop at x 32
 ];
 
 export function areaAt(x, y, z) {

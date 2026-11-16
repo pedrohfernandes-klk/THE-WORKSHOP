@@ -32,7 +32,21 @@ function trackTable(pts){
   const n=pts.length,x=new Float32Array(n),z=new Float32Array(n),s=new Float32Array(n),tx=new Float32Array(n),tz=new Float32Array(n);
   for(let i=0;i<n;i++){x[i]=pts[i][0];z[i]=pts[i][1];if(i)s[i]=s[i-1]+Math.hypot(x[i]-x[i-1],z[i]-z[i-1]);}
   for(let i=0;i<n;i++){const a=Math.max(0,i-1),b=Math.min(n-1,i+1),dx=x[b]-x[a],dz=z[b]-z[a],l=Math.hypot(dx,dz)||1;tx[i]=dx/l;tz[i]=dz/l;}
-  return {x,z,s,tx,tz,length:s[n-1],n};
+  // Pacing: a tram slows for curves. Curvature (smoothed over ±3 m, so speed changes gently at
+  // a curve's ends) weighs each metre; a leg's time is spread evenly over that weight.
+  const k=new Float32Array(n),c=new Float32Array(n);
+  for(let i=1;i<n-1;i++){const da=Math.atan2(tx[i+1]*tz[i-1]-tz[i+1]*tx[i-1],tx[i+1]*tx[i-1]+tz[i+1]*tz[i-1]),ds=s[i+1]-s[i-1];k[i]=ds>0?Math.abs(da)/ds:0;}
+  for(let i=1;i<n;i++){let sum=0,cnt=0;for(let j=Math.max(0,i-12);j<=Math.min(n-1,i+12);j++){sum+=k[j];cnt++;}c[i]=c[i-1]+(s[i]-s[i-1])*(1+CURVE_WEIGHT*sum/cnt);}
+  return {x,z,s,tx,tz,c,length:s[n-1],cost:c[n-1],n};
+}
+const CURVE_WEIGHT=22;
+// Accelerate over the first fifth, cruise, brake over the last fifth (peak 1.25× the mean speed).
+const RAMP=.2,easeTrip=u=>u<RAMP?u*u/(2*RAMP*(1-RAMP)):u>1-RAMP?1-(1-u)*(1-u)/(2*RAMP*(1-RAMP)):(u-RAMP/2)/(1-RAMP);
+// The two long legs get a little more time (the commuter tests allow up to 21.8 s of travel).
+const LEG_SECONDS=[18,21,20];
+function costToDistance(t,cost){
+  cost=Math.max(0,Math.min(t.cost,cost));let lo=0,hi=t.n-1;while(hi-lo>1){const m=(lo+hi)>>1;if(t.c[m]<=cost)lo=m;else hi=m;}
+  const span=t.c[hi]-t.c[lo];return t.s[lo]+(span>0?(cost-t.c[lo])/span:0)*(t.s[hi]-t.s[lo]);
 }
 const LEG_TABLES=LEGS.map(leg=>{const pts=[];for(const [piece,rev] of leg)samplePiece(piece,.25,pts,!!rev);return trackTable(pts);});
 function trackAt(t,d,o){
@@ -134,7 +148,7 @@ export function build(ctx){
   const eventState=ctx.scene.userData.lastTramEvent={type:'',sequence:0,tripId:0,value:null};
   const impulse=ctx.scene.userData.tramImpulse={sequence:0,x:0,z:0,duration:.3};
   const carrier={x:86,z:29,yaw:0,fromX:86,fromZ:29,fromYaw:0,riding:false,localWorld:{regions:localRegions,colliders:localColliders}};
-  let stationIndex=0,nextStation=1,phase='docked',phaseTime=0,tripId=0,travelTime=0,travelProgress=0,smallUntil=0,route=LEG_TABLES[0],routeLength=0,facing=1;
+  let stationIndex=0,nextStation=1,phase='docked',phaseTime=0,tripId=0,travelTime=0,travelProgress=0,smallUntil=0,route=LEG_TABLES[0],routeLength=0,facing=1,finalFrom=0;
   const trackPoint={x:0,z:0,tx:0,tz:1};
   let readVisitor=null;const visitorPosition={x:86,y:1.97,z:29};
   function readVisitorPosition(){if(readVisitor)readVisitor(visitorPosition);else if(camera){visitorPosition.x=camera.position.x;visitorPosition.y=camera.position.y;visitorPosition.z=camera.position.z;}return visitorPosition;}
@@ -161,7 +175,7 @@ export function build(ctx){
     readVisitorPosition();if(!contains(visitorPosition.x,visitorPosition.z)||Math.abs(visitorPosition.y-1.97)>1.6){ctx.ui?.toast?.('Entre pela porta aberta.');return false;}
     if(candidates)for(const n of candidates){if(passengers.indexOf(null)<0)break;if(!n.combatControlled&&!n.busy&&!n.S.seated)api.board(n);}
     nextStation=(stationIndex+1)%3;
-    configureRoute();tripId++;phase='closing';phaseTime=0;travelTime=0;travelProgress=0;smallUntil=0;incident=climax=fightStarted=rideSurvived=false;visitorWasInside=true;score.arm();score.doorClose();tramMusic.mode='journey';announce('Próxima paragem: '+STOPS[nextStation].id+'.');return true;
+    configureRoute();tripId++;phase='closing';phaseTime=0;travelTime=0;travelProgress=0;finalFrom=0;smallUntil=0;incident=climax=fightStarted=rideSurvived=false;visitorWasInside=true;score.arm();score.doorClose();tramMusic.mode='journey';announce('Próxima paragem: '+STOPS[nextStation].id+'.');return true;
   }
   function pose(){
     car.position.set(carrier.x,0,carrier.z);car.rotation.y=carrier.yaw;
@@ -183,7 +197,8 @@ export function build(ctx){
     quiet=!!ctx.scene.userData.questQuiet||(ctx.scene.userData.bairroEffects?.silenceUntil||0)>frame.time;if(quiet||ctx.audio?.muted)stopAnnouncement();
     if(phase==='closing'){phaseTime+=dt;doorOpen=Math.max(0,1-phaseTime/1.2);if(phaseTime>=1.2){phaseTime=0;carrier.riding=contains(visitorPosition.x,visitorPosition.z);visitorWasInside=carrier.riding;if(carrier.riding)phase='travel';else{phase='opening';tramMusic.mode='home';score.hush();announce('Partida cancelada. Porta a abrir.');}}}
     else if(phase==='travel'){
-      travelTime+=dt;const duration=18;travelProgress+=dt/duration*(accelUntil>frame.time?1.7:1);const u=travelTime<duration-2?Math.min(.96,travelProgress):Math.min(1,.96+.04*(travelTime-(duration-2))/2),ease=u*u*(3-2*u),distance=routeLength*ease;
+      travelTime+=dt;const duration=LEG_SECONDS[stationIndex];travelProgress+=dt/duration*(accelUntil>frame.time?1.7:1);let u;if(travelTime<duration-2){u=Math.min(.96,travelProgress);finalFrom=u;}else u=Math.min(1,finalFrom+(1-finalFrom)*(travelTime-(duration-2))/2);
+      const distance=costToDistance(route,route.cost*easeTrip(u));
       trackAt(route,distance,trackPoint);carrier.x=trackPoint.x;carrier.z=trackPoint.z;carrier.yaw=Math.atan2(facing*trackPoint.tx,facing*trackPoint.tz);
       if(!incident&&travelTime>4){incident=true;smallUntil=frame.time+2;if(!quiet)ctx.ui?.toast?.('A mala pediu outro lugar.');}
       if(!climax&&travelTime>7){climax=true;let a=null,b=null;for(let i=0;i<4;i++)if(passengers[i]){if(!a)a=passengers[i];else if(!b)b=passengers[i];}
@@ -215,7 +230,7 @@ export function build(ctx){
     }
   }
   function restoreAssignments(){for(const a of assigned){const n=a.n;n.x=a.x;n.z=a.z;n.baseY=a.baseY;n.zone=a.zone;n.fixed=a.fixed;for(let i=0;i<a.pts.length;i++)n.pts[i]=a.pts[i];n.root.position.set(a.x,a.rootY,a.z);}assigned.length=0;}
-  const api={getVisitorPosition(out){readVisitorPosition();out.x=visitorPosition.x;out.y=visitorPosition.y;out.z=visitorPosition.z;return out;},bindControls(controls){readVisitor=controls?.readPosition?controls.readPosition.bind(controls):null;},isVisitorAboard(){return carrier.riding;},get travelProgress(){return travelTime/18;},get travelDuration(){return 18;},carrierGroup:car,windowApertures:Object.freeze([{x:-1.55,y:1.96,z:-2.6,w:2.7,h:1.43,yaw:Math.PI/2},{x:-1.55,y:1.96,z:2.6,w:2.7,h:1.43,yaw:Math.PI/2},{x:1.55,y:1.96,z:-2.6,w:2.7,h:1.43,yaw:Math.PI/2},{x:1.55,y:1.96,z:2.6,w:2.7,h:1.43,yaw:Math.PI/2},{x:1.55,y:1.96,z:0,w:2.38,h:1.43,yaw:Math.PI/2},{x:0,y:1.99,z:-4.065,w:1.55,h:1.55,yaw:0},{x:0,y:1.99,z:4.065,w:1.55,h:1.55,yaw:0}]),initializePassengers,beforeRender,afterRender,get station(){return STOPS[stationIndex].id;},get phase(){return phase;},get doorsOpen(){return doorOpen>.92&&phase==='docked';},get tripId(){return tripId;},get x(){return carrier.x;},get z(){return carrier.z;},get yaw(){return carrier.yaw;},carrier,
+  const api={getVisitorPosition(out){readVisitorPosition();out.x=visitorPosition.x;out.y=visitorPosition.y;out.z=visitorPosition.z;return out;},bindControls(controls){readVisitor=controls?.readPosition?controls.readPosition.bind(controls):null;},isVisitorAboard(){return carrier.riding;},get travelProgress(){return travelTime/LEG_SECONDS[stationIndex];},get travelDuration(){return LEG_SECONDS[stationIndex];},carrierGroup:car,windowApertures:Object.freeze([{x:-1.55,y:1.96,z:-2.6,w:2.7,h:1.43,yaw:Math.PI/2},{x:-1.55,y:1.96,z:2.6,w:2.7,h:1.43,yaw:Math.PI/2},{x:1.55,y:1.96,z:-2.6,w:2.7,h:1.43,yaw:Math.PI/2},{x:1.55,y:1.96,z:2.6,w:2.7,h:1.43,yaw:Math.PI/2},{x:1.55,y:1.96,z:0,w:2.38,h:1.43,yaw:Math.PI/2},{x:0,y:1.99,z:-4.065,w:1.55,h:1.55,yaw:0},{x:0,y:1.99,z:4.065,w:1.55,h:1.55,yaw:0}]),initializePassengers,beforeRender,afterRender,get station(){return STOPS[stationIndex].id;},get phase(){return phase;},get doorsOpen(){return doorOpen>.92&&phase==='docked';},get tripId(){return tripId;},get x(){return carrier.x;},get z(){return carrier.z;},get yaw(){return carrier.yaw;},carrier,
     getStation(id){for(let i=0;i<STOPS.length;i++)if(STOPS[i].id===id)return STOPS[i];return null;},hasPassenger(n){return passengers.includes(n);},depart,
     board(n,index=-1){if(phase!=='docked'||!n||passengers.includes(n))return false;const s=STOPS[stationIndex];if(Math.hypot(n.x-s.boardX,n.z-s.boardZ)>2)return false;if(index<0)index=passengers.indexOf(null);if(index<0||index>3||passengers[index])return false;passengers[index]=n;previousFixed[index]=!!n.fixed;if(n.pts){previousWaypoint[index*2]=n.pts[0];previousWaypoint[index*2+1]=n.pts[1];}previousTilt[index]=(n.root||n.group||n.mesh)?.rotation.x||0;n.fixed=true;pose();return true;},
     leave(n){if(phase!=='docked')return false;const i=passengers.indexOf(n);if(i<0)return false;passengers[i]=null;n.fixed=previousFixed[i];const s=STOPS[stationIndex],x=s.boardX-.7,z=s.boardZ+(i%2?.55:-.55),dx=x-n.x,dz=z-n.z;if(n.pts)for(let k=0;k<n.pts.length;k+=2){n.pts[k]+=dx;n.pts[k+1]+=dz;}n.x=x;n.z=z;n.baseY=s.y;const root=n.root||n.group||n.mesh;if(root)root.position.set(x,s.y,z);if(n.col){const w=n.colW||.3;Object.assign(n.col,{minX:x-w,maxX:x+w,minZ:z-w,maxZ:z+w,minY:s.y,maxY:s.y+(n.colH||1.8)});}if(n.blob)n.blob.position.set(x,s.y+.02,z);return true;},
