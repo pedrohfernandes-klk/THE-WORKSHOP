@@ -1,3 +1,4 @@
+import { reserveModuleVoice, finishModuleVoice, releaseModuleVoices } from '../audio-lease.js';
 // radio.js — "Rádio Pirata 8-bit". A battered boombox someone left on the steel
 // cap of the skylight lantern, roof terrace (level 1), facing the walk from the
 // lift. Click: static, then a procedural chiptune station tuned in mid-song —
@@ -15,6 +16,7 @@
 // (no node per note), scheduled 200 ms ahead by a 100 ms timer.
 // Debug/QA: group.userData.radio = { toggle(), dj(), on }.
 
+function pentMidi(m){const pc=((m%12)+12)%12;const allowed=[0,2,4,7,9];let best=0,dist=99;for(const p of allowed){let d=p-pc;if(d>6)d-=12;if(d< -6)d+=12;if(Math.abs(d)<dist){dist=Math.abs(d);best=d;}}return m+best;}
 const MAJOR = [0, 2, 4, 5, 7, 9, 11];
 const MINOR = [0, 2, 3, 5, 7, 8, 10];
 const PROGS_MAJ = [[0, 5, 3, 4], [0, 4, 5, 3], [5, 3, 0, 4], [0, 3, 0, 4], [3, 4, 0, 5]];
@@ -23,7 +25,7 @@ const PROGS_MIN = [[0, 5, 2, 6], [0, 6, 5, 4], [5, 6, 0, 0], [0, 3, 5, 6]];
 const CELLS_A = [[1, 0, 1, 0], [1, 0, 1, 0], [1, 0, 0, 1], [1, 0, 1, 1], [0, 0, 1, 0], [1, 0, 2, 0], [1, 1, 1, 0]];
 const CELLS_B = [[1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 1, 0], [0, 0, 1, 0], [1, 0, 0, 1]];
 const ARP = [0, 2, 4, 7];
-const FORM = [0, 1, 0, 1];                 // verse, chorus, verse, chorus (~55 s a song)
+const FORM = [0, 1, 0, 1];                 // verse, chorus, verse, chorus (80 s a song at 96 BPM)
 const STEPS = 512;                         // 4 sections × 8 bars × 16 steps
 const KICK = 1, SNARE = 2, HAT = 4, OHAT = 8;
 const JINGLE = [79, 84, 88, 91];
@@ -223,8 +225,8 @@ export function build(ctx) {
   const LEAD = new Int8Array(256), BASS = new Int8Array(256), DRUM = new Uint8Array(256), PROG = new Int8Array(8);
   const MR = new Int8Array(32), MD = new Int8Array(32), BEAT = new Int8Array(8);
   const FREQ = new Float32Array(128);
-  for (let m = 0; m < 128; m++) FREQ[m] = 440 * Math.pow(2, (m - 69) / 12);
-  let SCALE = MAJOR, ROOT = 60, BPM = 138, STEP = 15 / BPM;
+  for (let m = 0; m < 128; m++) FREQ[m] = 440 * Math.pow(2, (pentMidi(m) - 69) / 12);
+  let SCALE = MINOR, ROOT = 57, BPM = 96, STEP = 15 / BPM;
 
   const midi = (d) => ROOT + 12 * Math.floor(d / 7) + SCALE[((d % 7) + 7) % 7];
   function pick(list, mustStart) {
@@ -300,10 +302,10 @@ export function build(ctx) {
     }
   }
   function newSong() {
-    BPM = 126 + ((rnd() * 24) | 0);
+    BPM = 96;
     STEP = 15 / BPM;
-    SCALE = rnd() < 0.55 ? MAJOR : MINOR;
-    ROOT = 57 + ((rnd() * 6) | 0);
+    SCALE = MINOR;
+    ROOT = 57;
     const progs = SCALE === MAJOR ? PROGS_MAJ : PROGS_MIN;
     const pa = (rnd() * progs.length) | 0;
     let pb = (rnd() * (progs.length - 1)) | 0;
@@ -339,6 +341,7 @@ export function build(ctx) {
 
   let ac = null, live = false, stopping = false, stopT0 = 0, killAt = 0, timer = 0;
   let pos = 0, nextT = 0, quietIntro = false, presOn = false;
+  let musicLeases = [];
   let oL = null, oA = null, oB = null, nS = null, wow = null;
   let gL = null, gA = null, gB = null, gN = null, music = null, speaker = null, out = null, panner = null;
   let power = false, T = 0, here = false, dist2 = 1e9, awayT = 0, awaySince = 0, camE = null;
@@ -362,7 +365,13 @@ export function build(ctx) {
     speaker = hp;
     music.connect(hp); hp.connect(pk); pk.connect(lp); lp.connect(sh); sh.connect(out); out.connect(panner); panner.connect(A.bus);
     gL = gain(0); gA = gain(0); gB = gain(0); gN = gain(0);
-    gL.connect(music); gA.connect(music); gB.connect(music); gN.connect(music);
+    musicLeases = [];
+    for (let i = 0; i < 4; i++) {
+      const lease = reserveModuleVoice(ctx, 0, false, 1, music);
+      if (!lease) { for (const held of musicLeases) held.release(); musicLeases.length = 0; panner.disconnect(); return; }
+      musicLeases.push(lease);
+    }
+    gL.connect(musicLeases[0].gain); gA.connect(musicLeases[1].gain); gB.connect(musicLeases[2].gain); gN.connect(musicLeases[3].gain);
     oL = ac.createOscillator(); oL.setPeriodicWave(W25); oL.connect(gL);
     oA = ac.createOscillator(); oA.setPeriodicWave(W125); oA.connect(gA);
     oB = ac.createOscillator(); oB.type = 'triangle'; oB.connect(gB);
@@ -370,7 +379,8 @@ export function build(ctx) {
     wow = ac.createOscillator(); wow.frequency.value = 0.55;     // tired tape-motor wobble
     const wd = gain(7);
     wow.connect(wd); wd.connect(oL.detune); wd.connect(oA.detune); wd.connect(oB.detune);
-    const t0 = now + 0.02;
+    const t0 = Math.max(now + .02, musicLeases[0].startAt, musicLeases[1].startAt, musicLeases[2].startAt, musicLeases[3].startAt);
+    musicLeases[0].track(oL); musicLeases[0].track(wow); musicLeases[1].track(oA); musicLeases[2].track(oB); musicLeases[3].track(nS);
     oL.start(t0); oA.start(t0); oB.start(t0); nS.start(t0); wow.start(t0);
     live = true; stopping = false; killAt = 0; awayT = 0;
     if (fresh) { tuneStatic(now + 0.01); nextT = now + 0.42; } else nextT = now + 0.06;
@@ -384,9 +394,10 @@ export function build(ctx) {
     out.gain.setTargetAtTime(v ? LEVEL : 0, now, tau);
   }
   function kill() {
+    const retiringLeases = musicLeases; musicLeases = [];
     if (timer) { clearTimeout(timer); timer = 0; }
-    try { oL.stop(); oA.stop(); oB.stop(); nS.stop(); wow.stop(); } catch (e) { /* already stopped */ }
-    try { panner.disconnect(); } catch (e) { /* ignore */ }
+    // Leases stop all tracked sources; avoid bypassing their fade envelope.
+    const retiredPanner = panner; releaseModuleVoices(retiringLeases, () => { try { retiredPanner?.disconnect(); } catch {} }, !!ctx.audio?.muted || !!ctx.scene.userData.questQuiet);
     oL = oA = oB = nS = wow = null;
     gL = gA = gB = gN = music = speaker = out = panner = null;
     live = false; stopping = false; killAt = 0; djAt = 0; quietIntro = false;
@@ -411,24 +422,26 @@ export function build(ctx) {
     out.gain.setTargetAtTime(0, now + STOP * 0.55, 0.12);
   }
   function tuneStatic(t) {
+    const lease = reserveModuleVoice(ctx, 1, false, .75, speaker, t); if (!lease) return; t = Math.max(t, lease.startAt);
     const s = ac.createBufferSource(), bp = ac.createBiquadFilter(), g = ac.createGain();
     s.buffer = NOISE; s.loop = true; s.playbackRate.value = 0.8;
     bp.type = 'bandpass'; bp.Q.value = 1.8;
     bp.frequency.setValueAtTime(3200, t); bp.frequency.exponentialRampToValueAtTime(800, t + 0.4);
     g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.3, t + 0.03); g.gain.setTargetAtTime(0, t + 0.32, 0.05);
-    s.connect(bp); bp.connect(g); g.connect(speaker);
-    s.start(t); s.stop(t + 0.7);
+    s.connect(bp); bp.connect(g); g.connect(lease.gain);
+    lease.track(s); finishModuleVoice(lease, s); s.start(t); s.stop(t + 0.7);
     const w = ac.createOscillator(), wg = ac.createGain();    // the heterodyne whistle
     w.frequency.setValueAtTime(2900, t); w.frequency.exponentialRampToValueAtTime(600, t + 0.36);
     wg.gain.setValueAtTime(0.035, t); wg.gain.setTargetAtTime(0, t + 0.3, 0.04);
-    w.connect(wg); wg.connect(speaker);
-    w.start(t); w.stop(t + 0.6);
+    w.connect(wg); wg.connect(lease.gain);
+    lease.track(w); w.start(t); w.stop(t + 0.6);
   }
 
   // ------------------------------------------------------------- scheduler
   function tick() {
     timer = 0;
     if (!live) return;
+    for (let i = 0; i < musicLeases.length; i++) if (!musicLeases[i].renew(1000)) { kill(); return; }
     const now = ac.currentTime;
     if (!stopping && nextT < now) nextT = now + 0.03;      // stalled: skip ahead, never burst
     while (nextT < now + 0.2) {
@@ -530,7 +543,7 @@ export function build(ctx) {
     music.gain.setTargetAtTime(0.3, now, 0.08);
     jingle(now + 0.02);
     if (ctx.ui && ctx.ui.toast) ctx.ui.toast(`Rádio Pirata 8-bit: «${line}»`);
-    const v = ttsVoice();
+    const v = null; // Radio uses the broker-managed formant voice; NPC signature TTS remains supported.
     if (v) {
       try {
         const u = new SpeechSynthesisUtterance(line);
@@ -556,22 +569,24 @@ export function build(ctx) {
     if (live && music) music.gain.setTargetAtTime(1, ac.currentTime, 0.3);
   }
   function jingle(t) {
+    const lease = reserveModuleVoice(ctx, 3, true, .5, speaker, t); if (!lease) return; t = Math.max(t, lease.startAt);
     const o = ac.createOscillator(), g = ac.createGain();
     o.setPeriodicWave(W125); g.gain.value = 0;
-    o.connect(g); g.connect(speaker);
+    o.connect(g); g.connect(lease.gain);
     for (let i = 0; i < 4; i++) {
       const ti = t + i * 0.075;
       o.frequency.setValueAtTime(FREQ[JINGLE[i]], ti);
       g.gain.setValueAtTime(0.07, ti);
       g.gain.setTargetAtTime(0, ti + 0.03, 0.02);
     }
-    o.start(t); o.stop(t + 0.45);
+    lease.track(o); finishModuleVoice(lease, o); o.start(t); o.stop(t + 0.45);
   }
   // a chirpy voice: one square blip per vowel, through that vowel's formant
   function blips(text, t0) {
+    const lease = reserveModuleVoice(ctx, 2, true, Math.max(1, text.length * .25 + 1), speaker, t0); if (!lease) return 0; t0 = Math.max(t0, lease.startAt);
     const o = ac.createOscillator(), bp = ac.createBiquadFilter(), g = ac.createGain();
     o.type = 'square'; bp.type = 'bandpass'; bp.Q.value = 4.5; g.gain.value = 0;
-    o.connect(bp); bp.connect(g); g.connect(speaker);
+    o.connect(bp); bp.connect(g); g.connect(lease.gain);
     let t = t0, f0 = 290 + rv() * 50, n = 0;
     const s = text.toLowerCase();
     for (let i = 0; i < s.length; i++) {
@@ -587,7 +602,7 @@ export function build(ctx) {
       else if (ch === ',' || ch === ':' || ch === ';') t += 0.15;
       else if (ch === '.' || ch === '!' || ch === '?') { t += 0.24; f0 *= 0.96; }
     }
-    o.start(t0); o.stop(t + 0.1);
+    lease.track(o); finishModuleVoice(lease, o); o.start(t0); o.stop(t + 0.1);
     return t - t0;
   }
 

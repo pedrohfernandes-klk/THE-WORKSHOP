@@ -1,3 +1,4 @@
+import { reserveModuleVoice, finishModuleVoice } from '../audio-lease.js';
 // W2: opt-in, data-driven short quests. JSON is same-origin; one PBR marker.
 // Original actors are separate, at most one visible. No per-frame allocations.
 import { createQuestActors } from '../quest-actors.js';
@@ -148,33 +149,23 @@ export function build(ctx) {
 
   // Initialise only on a visitor action. The reward reuses these nodes and
   // schedules values without allocating a node or closure inside update().
-  function armAudio() {
-    try {
-    const audio = ctx.audio;
-    const ac = audio?.context, bus = audio?.bus;
-    if (!ac || !bus || audio.muted || ac.state !== 'running') return;
-    if (ac === audioContext && bus === audioBus) return;
-    if (oscillator) { try { oscillator.stop(); oscillator.disconnect(); gain.disconnect(); } catch { /* already stopped */ } }
-    audioContext = ac; audioBus = bus;
-    oscillator = ac.createOscillator(); oscillator.type = 'triangle';
-    gain = ac.createGain(); gain.gain.value = 0;
-    oscillator.connect(gain); gain.connect(bus); oscillator.start();
-    } catch { oscillator = null; gain = null; audioContext = audioBus = null; }
-  }
+  function armAudio() { audioContext = ctx.audio?.context || null; audioBus = ctx.audio?.bus || null; }
   function reward(m) {
+    if (m.seria || m.recompensa.som !== 'fanfarra') return;
+    armAudio(); const lease = reserveModuleVoice(ctx, 3, true, 1.35, audioBus); if (!lease) return;
     try {
-    if (m.seria || m.recompensa.som !== 'fanfarra' || !oscillator || ctx.audio?.muted || ctx.audio?.context !== audioContext || ctx.audio?.bus !== audioBus || audioContext.state !== 'running') return;
-    const t = audioContext.currentTime, beat = 60 / 96 / 2;
-    gain.gain.cancelScheduledValues(t); gain.gain.setValueAtTime(0, t);
-    // A, C, E, A: one short UI acknowledgement, not an ambient world sound.
-    for (let i = 0; i < 4; i++) {
-      oscillator.frequency.setValueAtTime(i === 0 ? 440 : i === 1 ? 523.251 : i === 2 ? 659.255 : 880, t + i * beat);
-      gain.gain.setValueAtTime(0.0001, t + i * beat);
-      gain.gain.linearRampToValueAtTime(0.055, t + i * beat + 0.008);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + i * beat + beat * 0.8);
-    }
-    gain.gain.setValueAtTime(0, t + 4 * beat);
-    } catch { /* an optional audio failure must not interrupt completion */ }
+      const ac = audioContext, t = Math.max(ac.currentTime, lease.startAt), beat = 60 / 96 / 2;
+      if (oscillator) { try { oscillator.stop(); } catch {} }
+      const o = ac.createOscillator(), g = ac.createGain(); oscillator = o; gain = g; o.type = 'triangle';
+      o.connect(g); g.connect(lease.gain); lease.track(o); finishModuleVoice(lease, o);
+      for (let i = 0; i < 4; i++) {
+        o.frequency.setValueAtTime(i === 0 ? 440 : i === 1 ? 523.251 : i === 2 ? 659.255 : 880, t + i * beat);
+        g.gain.setValueAtTime(.0001, t + i * beat); g.gain.linearRampToValueAtTime(.055, t + i * beat + .008);
+        g.gain.exponentialRampToValueAtTime(.0001, t + i * beat + beat * .8);
+      }
+      o.addEventListener('ended', () => { o.disconnect(); g.disconnect(); if (oscillator === o) { oscillator = null; gain = null; } }, { once: true });
+      o.start(t); o.stop(t + 4 * beat + .02);
+    } catch { lease.release(); }
   }
   function home() {
     actors.reset(); marker.visible = true;

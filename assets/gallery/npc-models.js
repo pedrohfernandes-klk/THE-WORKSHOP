@@ -25,7 +25,8 @@ export function buildCharacter(THREE, M, spec = {}) {
   const kind = spec.head || spec.kind || 'human';
   const human=['human','velho','mano','chubby','forcado'].includes(kind);
   const wardrobe=spec.clothing, tank=wardrobe==='tank_onlooker', swim=wardrobe==='swim_onlooker';
-  const robe=wardrobe==='robe_onlooker', tracksuit=wardrobe==='bear_tracksuit';
+  const fabinhe=wardrobe==='fabinhe_tracksuit';
+  const robe=wardrobe==='robe_onlooker', tracksuit=wardrobe==='bear_tracksuit'||wardrobe==='tracksuit'||fabinhe;
   const bareArms=tank||swim, shorts=tank||swim||wardrobe==='tourist'||kind==='forcado';
   const tailored=!wardrobe||wardrobe==='business_pig'||wardrobe==='critic'||kind==='forcado';
   const bodyWidth=clamp(spec.bodyWidth||1,.65,1.4);
@@ -54,7 +55,7 @@ export function buildCharacter(THREE, M, spec = {}) {
   bones.lids=lids;
   bones.body=body; bones.brows=brows;
   function part(g,b,c,rough=.8,x=0,y=0,z=0,sx=1,sy=1,sz=1,rz=0,rx=0) {
-    if((tracksuit||wardrobe==='influencer')&&(c===cloth||c===trousers))rough=.43;
+    if((tracksuit||wardrobe==='influencer')&&(c===cloth||c===trousers))rough=wardrobe==='tracksuit'?.82:.43;
     const m = new THREE.Matrix4().compose(new THREE.Vector3(x,y,z),new THREE.Quaternion().setFromEuler(new THREE.Euler(rx,0,rz)),new THREE.Vector3(sx*(b===body?bodyWidth:1),sy,sz));
     pelvis.updateMatrixWorld(true); g.applyMatrix4(m); M?.boxUV?.(g); g.applyMatrix4(b.matrixWorld);
     const n=g.attributes.position.count;
@@ -84,7 +85,7 @@ export function buildCharacter(THREE, M, spec = {}) {
     part(new THREE.LatheGeometry(profile.map(p=>new THREE.Vector2(...p)),spec.quality==='low'?8:12),b,c,rough,x,y,z);
   };
   const hem=kind==='forcado'?.99:.72;
-  const torsoProfile=[[0,hem],[.18,hem],[.21,hem+.06],[.195,1.08],[.23,1.29],[.255,1.38],[.23,1.45],[.12,1.52],[.10,1.55],[0,1.55]];
+  const torsoProfile=fabinhe ? [[0,hem],[.185,hem],[.24,hem+.06],[.23,1.08],[.255,1.29],[.275,1.38],[.24,1.45],[.12,1.52],[.10,1.55],[0,1.55]] : [[0,hem],[.18,hem],[.21,hem+.06],[.195,1.08],[.23,1.29],[.255,1.38],[.23,1.45],[.12,1.52],[.10,1.55],[0,1.55]];
   part(new THREE.LatheGeometry(torsoProfile.map(p=>new THREE.Vector2(...p)),spec.quality==='low'?10:14),body,(swim||tank)?skin:cloth,(swim||tank)?.63:.85,0,0,0,1,1,.78);
   if(tank) {
     // The garment actually ends below the exposed chest and shoulders.
@@ -117,7 +118,8 @@ export function buildCharacter(THREE, M, spec = {}) {
     const sign=i?1:-1;
     part(new THREE.SphereGeometry(1,8,6),a,skin,.62,-sign*.061,-.637,.035,.022,.04,.024,sign*.35);
     for(let f=0;f<4;f++)part(new THREE.SphereGeometry(1,6,6),a,skin,.63,(f-1.5)*.028,-.713+Math.abs(f-1.5)*.005,.019,.016,.036,.021);
-    cap(l,trousers,0,shorts?-.19:-.39,0,.087,shorts?.2:.55);
+    cap(l,trousers,0,shorts?-.19:-.39,0,fabinhe?.112:.087,shorts?.2:.55);
+    if(fabinhe){cap(l,seam,0,-.70,0,.089,.045,.85);box(a,seam,0,-.48,.077,.13,.018,.014,.9);}
     if(shorts)cap(l,skin,0,-.54,0,.071,.28,.65);
     const sockFoot=tank||wardrobe==='tourist';
     sph(l,sockFoot?white:(bareArms||robe)?skin:shoe,0,-.775,.06,.105,.065,.175,sockFoot?.9:(bareArms||robe)?.64:.36);
@@ -135,7 +137,7 @@ export function buildCharacter(THREE, M, spec = {}) {
     // Cuff seam, pressed trouser crease and small sleeve buttons.
     if(!bareArms)box(a,seam,0,-.51,.061,.095,.009,.006,.9);
     if(!shorts)box(l,trousers,0,-.38,.087,.005,.43,.004,.88);
-    if(spec.quality!=='low'&&!bareArms) {
+    if(spec.quality!=='low'&&!bareArms&&!fabinhe) {
       box(l,sole,0,-.798,.145,.17,.01,.005,.8);
       for(const y of [-.49,-.465])part(new THREE.CylinderGeometry(.008,.008,.005,8),a,ink,.45,.05,y,.047,1,1,1,0,Math.PI/2);
     }
@@ -207,11 +209,15 @@ export function buildCharacter(THREE, M, spec = {}) {
     tube(head,lip,[[-.064,-.102,.177],[-.032,-.083,.188],[0,-.087,.193],[.033,-.084,.189],[.065,-.101,.177]],.008,.48);
     tube(jaw,lip,[[-.064,-.028,.028],[-.034,-.06,.04],[0,-.066,.045],[.034,-.06,.04],[.065,-.028,.028]],.009,.46);
     tube(head,gum,[[-.048,-.101,.184],[0,-.096,.193],[.048,-.102,.184]],.01,.55);
-    for(let i=0;i<6;i++){
+    if(fabinhe) {
+      // Two separate enamel incisors, with a small natural gap; face anatomy is unchanged.
+      for(const sign of [-1,1])part(new THREE.SphereGeometry(1,8,6),head,white,.29,sign*.018,-.116,.205,.014,.024,.009,sign*.025);
+    }
+    for(let i=0;i<(fabinhe?0:6);i++){
       const x=(i-2.5)*.017,z=.198-.012*Math.abs(i-2.5)/2.5;
       part(new THREE.SphereGeometry(1,8,6),head,white,.29,x,-.11-(i===2?.003:0),z,.009,.014,.006,0,(i-2.5)*.025);
     }
-    if(spec.quality!=='low')for(let i=0;i<4;i++)
+    if(!fabinhe&&spec.quality!=='low')for(let i=0;i<4;i++)
       part(new THREE.SphereGeometry(1,8,6),jaw,white,.32,(i-1.5)*.019,-.052,.042,.009,.01,.006);
   }
   if(human) {
@@ -284,6 +290,7 @@ export function buildCharacter(THREE, M, spec = {}) {
       } else if(wardrobe==='critic')part(new THREE.SphereGeometry(1,seg,8),hat,hc,.88,.018,.25,-.025,.22,.035,.19,.16);
       else sph(hat,hc,0,.25,-.025,.195,.08,.18,.9);
       if(wardrobe==='influencer')box(hat,hc,0,.2,.19,.23,.018,.16,.65);
+      if(fabinhe)part(new THREE.BoxGeometry(.23,.018,.16).rotateY(.95),hat,hc,.65,Math.sin(.95)*.19,.2,Math.cos(.95)*.19);
     }
   }
   const glasses=(y,z,round=false)=>{
@@ -366,9 +373,17 @@ export function buildCharacter(THREE, M, spec = {}) {
       box(bones.arms[i],white,(i?1:-1)*.061,-.28,.025,.012,.43,.06,.75);
       box(bones.legs[i],white,(i?1:-1)*.084,-.39,.01,.012,.54,.08,.75);
     }
+    if(fabinhe) {
+      // Stitched zipper, dropped pockets and elastic hem; no borrowed gold-chain costume.
+      box(body,seam,0,1.12,.193,.013,.55,.013,.65);
+      for(const sign of [-1,1])box(body,seam,sign*.15,.94,.177,.12,.014,.014,.86,sign*.15);
+      box(body,seam,0,.76,.15,.37,.035,.014,.85);
+    }
+    if(!fabinhe) {
     const gold=tint(null,0xd3aa4b);
     tube(body,gold,[[-.13,1.47,.12],[-.11,1.33,.21],[0,1.27,.23],[.11,1.33,.21],[.13,1.47,.12]],.009,.3);
     part(new THREE.CylinderGeometry(.027,.027,.007,10),body,gold,.3,0,1.25,.235,1,1,1,0,Math.PI/2);
+    }
   }
   if(kind==='tortoise')sph(body,tint(null,0x72623c),0,1.15,-.27,.29,.31,.23,.8);
   if(kind==='raccoon')for(let i=0;i<6;i++)sph(body,i%2?ink:white,0,.85-i*.04,-.3-i*.09,.07,.065,.075,.9);
@@ -511,18 +526,32 @@ export function createNpcEffects(THREE, group, npcs, blobGeometry, blobMaterial,
   stars.frustumCulled=false;stars.renderOrder=9;stars.raycast=()=>{};group.add(stars);
   if(shadow){shadow.frustumCulled=false;shadow.renderOrder=1;shadow.raycast=()=>{};group.add(shadow);}
   const selected=new Int16Array(3), distances=new Float64Array(3);
+  const shadowBlack=new THREE.Color(0), puddleTint=new THREE.Color('#a58b43');
+  if(shadow)shadow.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(npcs.length*3),3);
   return {
     update(camera,rotation=0) {
       selected.fill(-1);distances.fill(Infinity);
       for(let i=0;i<npcs.length;i++){
         const n=npcs[i];
-        if(shadow){if(n.blob?.visible){n.blob.updateMatrix();shadow.setMatrixAt(i,n.blob.matrix);}else shadow.setMatrixAt(i,invisible);}
+        if(shadow){
+          const owner=n.combatShadowProxy||n;
+          const puddle=owner.comedyPuddle||0;
+          if(puddle>0&&owner.root.visible){
+            dummy.position.set(owner.x,(owner.shadowY??Math.max(0,owner.baseY||0))+.025,owner.z);dummy.rotation.set(0,0,0);
+            dummy.scale.set((owner.colW*2+.45)*puddle,1,(owner.colW*2+.2)*puddle);dummy.updateMatrix();
+            shadow.setMatrixAt(i,dummy.matrix);shadow.setColorAt(i,puddleTint);
+          }else{
+            shadow.setColorAt(i,shadowBlack);
+            if(n.combatShadowProxy&&owner.root.visible){dummy.position.set(owner.x,(owner.shadowY??Math.max(0,owner.baseY||0))+.018,owner.z);dummy.rotation.set(0,0,0);dummy.scale.set(.8,1,.6);dummy.updateMatrix();shadow.setMatrixAt(i,dummy.matrix);}
+            else if(n.blob?.visible){n.blob.updateMatrix();shadow.setMatrixAt(i,n.blob.matrix);}else shadow.setMatrixAt(i,invisible);
+          }
+        }
         if(n.stars.visible && n.root.visible){dummy.position.copy(n.stars.position);dummy.quaternion.copy(camera.quaternion);dummy.rotateZ(rotation);dummy.scale.copy(n.stars.scale);dummy.updateMatrix();stars.setMatrixAt(i,dummy.matrix);}else stars.setMatrixAt(i,invisible);
         if(n.sprite?.visible){for(let j=0;j<3;j++)if(n.d2<distances[j]){for(let k=2;k>j;k--){distances[k]=distances[k-1];selected[k]=selected[k-1];}distances[j]=n.d2;selected[j]=i;break;}}
       }
       // Deterministic nearest-three presentation; speech state/queues unchanged.
       for(let i=0;i<npcs.length;i++)if(npcs[i].sprite)npcs[i].sprite.visible=npcs[i].sprite.visible && (i===selected[0]||i===selected[1]||i===selected[2]);
-      stars.instanceMatrix.needsUpdate=true;if(shadow)shadow.instanceMatrix.needsUpdate=true;
+      stars.instanceMatrix.needsUpdate=true;if(shadow){shadow.instanceMatrix.needsUpdate=true;shadow.instanceColor.needsUpdate=true;}
     }
   };
 }

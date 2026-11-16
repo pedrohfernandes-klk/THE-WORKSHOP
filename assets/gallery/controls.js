@@ -178,6 +178,29 @@ export function createControls(camera, dom, opts = {}) {
     startFlight(from.x, from.floor + eyeHeight, from.z, yaw, pitch * 0.5, reduced ? 0.2 : 0.55);
   };
 
+  // Shared combat/tram displacement: additive, collision checked, no teleport reset.
+  let impulseX=0, impulseZ=0, impulseLeft=0;
+  controls.readPosition = (out) => { out.x=px;out.y=py;out.z=pz;return out; };
+  controls.combatMove = (dx,dz) => {
+    if(typeof controls.moveCarrierDelta === 'function' && controls.moveCarrierDelta(dx,dz)) return;
+    const before=floor;
+    if(world){moveInWorld(px,pz,floor,dx,dz,RADIUS,world.regions,world.colliders,active,wtmp);px=wtmp.x;pz=wtmp.z;floor=wtmp.floor;}
+    else{moveWithCollision(px,pz,dx,dz,RADIUS,bounds,colliders,tmp);px=tmp.x;pz=tmp.z;}
+    py+=floor-before;applyCamera(0);
+  };
+  controls.applyImpulse = (dx,dz,duration=.3) => {
+    if(!Number.isFinite(dx)||!Number.isFinite(dz))return;
+    impulseX+=dx;impulseZ+=dz;const length=Math.hypot(impulseX,impulseZ);
+    if(length>1){impulseX/=length;impulseZ/=length;}
+    impulseLeft=Math.max(.05,Math.min(.3,duration));
+  };
+  controls.combatJump = () => {
+    if(seat){controls.standUp();return;}
+    if(jumpY===0&&jumpV===0&&!fl){jumpV=reduced?JUMP_V*.8:JUMP_V;interrupt();}else jumpBuf=JUMP_BUFFER;
+    firstInput();
+  };
+  controls.releaseCombatKeys = () => {keys.delete('ShiftLeft');keys.delete('ShiftRight');};
+
   /** Place the visitor on a floor point instantly (eye height added). */
   controls.teleport = function teleport(p) {
     interrupt();
@@ -448,6 +471,7 @@ export function createControls(camera, dom, opts = {}) {
   controls.update = function update(dt) {
     if (!(dt > 0)) return;
     if (dt > 0.1) dt = 0.1;
+    if(impulseLeft>0){const part=Math.min(dt,impulseLeft)/impulseLeft,dx=impulseX*part,dz=impulseZ*part;impulseX-=dx;impulseZ-=dz;impulseLeft=Math.max(0,impulseLeft-dt);controls.combatMove(dx,dz);}
     const oyaw = yaw, opitch = pitch, ox = px, oz = pz;
     const live = controls.enabled;
     if (live && ptrId !== -1 && ptrType !== 'mouse' && !holdWalk && !dragging && now() - downT > HOLD_MS) { holdWalk = true; interrupt(); firstInput(); }

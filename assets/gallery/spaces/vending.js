@@ -1,3 +1,4 @@
+import { reserveModuleVoice, finishModuleVoice } from '../audio-lease.js';
 // vending.js — "Máquina de vending existencial" (BRIEF §6.2 space module).
 // A believable retro snack machine against the arcade's west wall, just south of
 // its door: enamelled steel body, lit interior behind glass, coin slot, pickup tray.
@@ -426,28 +427,32 @@ export function build(ctx) {
     setTimeout(() => { try { out.disconnect(); } catch (e) { /* already gone */ } }, (len + 0.6) * 1000);
     return { ac, out, t: ac.currentTime + 0.02 };
   }
-  function env(v, t, peak, a, d) {
+  function env(v, t, peak, a, d, destination) {
     const gn = v.ac.createGain();
     gn.gain.setValueAtTime(0.0001, t);
     gn.gain.exponentialRampToValueAtTime(peak, t + a);
     gn.gain.exponentialRampToValueAtTime(0.0001, t + a + d);
-    gn.connect(v.out);
+    gn.connect(destination || v.out);
     return gn;
   }
   function tone(v, t, type, f0, f1, peak, a, d) {
+    const lease = reserveModuleVoice(ctx, 1, false, a + d + .06, v.out, t); if (!lease) return; t = Math.max(t, lease.startAt);
     const o = v.ac.createOscillator();
     o.type = type;
     o.frequency.setValueAtTime(f0, t);
     if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + a + d);
-    o.connect(env(v, t, peak, a, d));
+    o.connect(env(v, t, peak, a, d, lease.gain));
+    lease.track(o); finishModuleVoice(lease, o);
     o.start(t); o.stop(t + a + d + 0.05);
   }
   function hiss(v, t, type, f, q, peak, a, d) {
+    const lease = reserveModuleVoice(ctx, 1, false, a + d + .06, v.out, t); if (!lease) return; t = Math.max(t, lease.startAt);
     const s = v.ac.createBufferSource();
     s.buffer = noiseBuf;
     const bq = v.ac.createBiquadFilter();
     bq.type = type; bq.frequency.value = f; bq.Q.value = q;
-    s.connect(bq); bq.connect(env(v, t, peak, a, d));
+    s.connect(bq); bq.connect(env(v, t, peak, a, d, lease.gain));
+    lease.track(s); finishModuleVoice(lease, s);
     s.start(t, Math.random() * 0.5); s.stop(t + a + d + 0.05);
   }
   function sndCoin() {
@@ -460,7 +465,8 @@ export function build(ctx) {
   }
   function sndWhirr(delay, dur) {
     const v = voice(delay + dur + 0.3); if (!v) return;
-    const ac = v.ac, t = v.t + delay;
+    const lease = reserveModuleVoice(ctx, 1, false, dur + .06, v.out, v.t + delay); if (!lease) return;
+    const ac = v.ac, t = Math.max(v.t + delay, lease.startAt);
     const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 58;
     const lfo = ac.createOscillator(); lfo.frequency.value = 11;
     const lg = ac.createGain(); lg.gain.value = 4; lfo.connect(lg); lg.connect(o.frequency);
@@ -468,13 +474,14 @@ export function build(ctx) {
     const gn = ac.createGain();
     gn.gain.setValueAtTime(0.0001, t); gn.gain.linearRampToValueAtTime(0.08, t + 0.07);
     gn.gain.setValueAtTime(0.08, t + dur - 0.12); gn.gain.linearRampToValueAtTime(0.0001, t + dur);
-    o.connect(lp); lp.connect(gn); gn.connect(v.out);
+    o.connect(lp); lp.connect(gn); gn.connect(lease.gain);
     const w = ac.createOscillator(); w.frequency.setValueAtTime(820, t); w.frequency.linearRampToValueAtTime(900, t + dur);
     const wg = ac.createGain();
     wg.gain.setValueAtTime(0.0001, t); wg.gain.linearRampToValueAtTime(0.012, t + 0.1);
     wg.gain.setValueAtTime(0.012, t + dur - 0.12); wg.gain.linearRampToValueAtTime(0.0001, t + dur);
-    w.connect(wg); wg.connect(v.out);
-    for (const n of [o, lfo, w]) { n.start(t); n.stop(t + dur + 0.05); }
+    w.connect(wg); wg.connect(lease.gain);
+    finishModuleVoice(lease, w);
+    for (const n of [o, lfo, w]) { lease.track(n); n.start(t); n.stop(t + dur + 0.05); }
     tone(v, t + dur - 0.02, 'square', 190, 95, 0.03, 0.002, 0.04);   // relay clack
   }
   function sndThunk() {

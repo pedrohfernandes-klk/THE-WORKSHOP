@@ -1,3 +1,4 @@
+import { reserveModuleVoice, finishModuleVoice } from '../audio-lease.js';
 // cat.js — "O Gato Crítico": a chunky ginger tabby on the cap of the south pier of the east
 // (garden) gate of the plaza (plaza.js: cap block x 23.62…24.72, z 26.40…26.90, top y 1.83),
 // looking west over the plaza and its two east litter bins. It judges the visitor in small
@@ -392,7 +393,7 @@ export function build(ctx) {
 
   // ---------- sound (lazy; nothing until the visitor has entered, nothing when muted) ----------
   let brown = null, white = null;
-  function audioNodes() {
+  function audioNodes(seconds) {
     const A = ctx.audio;
     if (!A || A.muted) return null;
     const ac = A.context, bus = A.bus;
@@ -411,17 +412,18 @@ export function build(ctx) {
       const e = lastCam.matrixWorld.elements, dx = HX - e[12], dy = HY - e[13], dz = HZ - e[14], L = Math.hypot(dx, dy, dz) || 1;
       pan = Math.max(-0.8, Math.min(0.8, (e[0] * dx + e[1] * dy + e[2] * dz) / L));
     }
+    const lease = reserveModuleVoice(ctx, 1, false, seconds + .06, bus); if (!lease) return null;
     const out = ac.createGain();
     out.gain.value = Math.max(0.08, Math.min(1, 1 - dist / 30));
     let tail = out;
     if (ac.createStereoPanner) { const p = ac.createStereoPanner(); p.pan.value = pan; out.connect(p); tail = p; }
-    tail.connect(bus);
-    return { ac, out, tail };
+    tail.connect(lease.gain);
+    return { ac, out, tail, lease };
   }
   function purrSound() {
     try {
-      const N = audioNodes(); if (!N) return;
-      const { ac, out, tail } = N, t0 = ac.currentTime + 0.02, T = 3.0, g = 0.42;
+      const N = audioNodes(3.1); if (!N) return;
+      const { ac, out, tail, lease } = N, t0 = Math.max(ac.currentTime + 0.02, lease.startAt), T = 3.0, g = 0.42;
       const src = ac.createBufferSource(); src.buffer = brown; src.loop = true;
       const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 380; lp.Q.value = 0.9;
       const tone = ac.createOscillator(); tone.type = 'triangle';
@@ -437,6 +439,7 @@ export function build(ctx) {
       eg.setValueAtTime(g * 0.7, t0 + 2.5); eg.linearRampToValueAtTime(0, t0 + 2.95);
       src.connect(lp); tone.connect(toneG); toneG.connect(lp); lp.connect(am); am.connect(env); env.connect(out);
       lfo.connect(depth); depth.connect(am.gain);
+      lease.track(src); lease.track(tone); lease.track(lfo); finishModuleVoice(lease, lfo);
       src.start(t0, Math.random()); tone.start(t0); lfo.start(t0);
       src.stop(t0 + T); tone.stop(t0 + T); lfo.stop(t0 + T);
       src.onended = () => { try { out.disconnect(); if (tail !== out) tail.disconnect(); } catch (e) { /* gone */ } };
@@ -444,15 +447,15 @@ export function build(ctx) {
   }
   function sniffSound() {
     try {
-      const N = audioNodes(); if (!N) return;
-      const { ac, out, tail } = N, t0 = ac.currentTime + 0.02;
+      const N = audioNodes(.4); if (!N) return;
+      const { ac, out, tail, lease } = N, t0 = Math.max(ac.currentTime + 0.02, lease.startAt);
       const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2300; bp.Q.value = 0.8;
       bp.connect(out);
       for (let k = 0; k < 2; k++) {
         const s = ac.createBufferSource(); s.buffer = white;
         const gg = ac.createGain(), ts = t0 + k * 0.17;
         gg.gain.setValueAtTime(0.0001, ts); gg.gain.exponentialRampToValueAtTime(0.09, ts + 0.02); gg.gain.exponentialRampToValueAtTime(0.0001, ts + 0.12);
-        s.connect(gg); gg.connect(bp); s.start(ts, Math.random() * 0.2); s.stop(ts + 0.14);
+        s.connect(gg); gg.connect(bp); lease.track(s); if (k === 1) finishModuleVoice(lease, s); s.start(ts, Math.random() * 0.2); s.stop(ts + 0.14);
         if (k === 1) s.onended = () => { try { out.disconnect(); if (tail !== out) tail.disconnect(); } catch (e) { /* gone */ } };
       }
     } catch (e) { /* sound is optional */ }

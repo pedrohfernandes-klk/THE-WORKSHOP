@@ -1,3 +1,4 @@
+import { reserveModuleVoice, finishModuleVoice } from '../audio-lease.js';
 // duck.js — "O Pato": a 3 m inflatable rubber duck afloat in the reflecting pool
 // (pool.js: water x ±3.5, z 24–38, surface y 0.40). The attentive room's mascot: it
 // bobs, turns slowly to face the visitor while its printed pupils follow them at once,
@@ -518,6 +519,7 @@ export function build(ctx) {
   // ---- the squeak: a big rubber reed, pitch bending down, then the 'eek' of air back in --
   let noise = null, noiseCtx = null;
   function voice(ac, out, t0, dur, f0, fPeak, fEnd, amp) {
+    const lease = reserveModuleVoice(ctx, 1, false, dur + .06, out, t0); if (!lease) return; t0 = Math.max(t0, lease.startAt);
     const o = ac.createOscillator(), am = ac.createGain(), lfo = ac.createOscillator(), lfoG = ac.createGain();
     const vib = ac.createOscillator(), vibG = ac.createGain(), env = ac.createGain();
     const f1 = ac.createBiquadFilter(), f2 = ac.createBiquadFilter(), g2 = ac.createGain(), body = ac.createBiquadFilter(), gb = ac.createGain();
@@ -542,12 +544,14 @@ export function build(ctx) {
     am.connect(f1); f1.connect(env);
     am.connect(f2); f2.connect(g2); g2.connect(env);
     am.connect(body); body.connect(gb); gb.connect(env);
-    env.connect(out);
+    env.connect(lease.gain);
     const end = t0 + dur + 0.05;
+    lease.track(o); lease.track(lfo); lease.track(vib); finishModuleVoice(lease, vib);
     o.start(t0); lfo.start(t0); vib.start(t0);
     o.stop(end); lfo.stop(end); vib.stop(end);
   }
   function hiss(ac, out, t0, dur, amp) {
+    const lease = reserveModuleVoice(ctx, 1, false, dur + .04, out, t0); if (!lease) return; t0 = Math.max(t0, lease.startAt);
     if (!noise || noiseCtx !== ac) {
       const n = Math.floor(ac.sampleRate * 0.5);
       noise = ac.createBuffer(1, n, ac.sampleRate); noiseCtx = ac;
@@ -559,8 +563,8 @@ export function build(ctx) {
     g.gain.setValueAtTime(0.0001, t0);
     g.gain.exponentialRampToValueAtTime(amp, t0 + 0.012);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    src.connect(f); f.connect(g); g.connect(out);
-    src.start(t0); src.stop(t0 + dur + 0.02);
+    src.connect(f); f.connect(g); g.connect(lease.gain);
+    lease.track(src); finishModuleVoice(lease, src); src.start(t0); src.stop(t0 + dur + 0.02);
   }
   function squeak(gain, pan) {
     const A = ctx.audio;

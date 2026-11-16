@@ -1,0 +1,1748 @@
+{
+  "version": 1,
+  "language": "pt-PT",
+  "events": [
+    "approach",
+    "ignored",
+    "repeat_talk",
+    "slap1",
+    "slap2",
+    "slap3",
+    "witness",
+    "run",
+    "jump",
+    "sit",
+    "gesture8",
+    "gesture9",
+    "golden",
+    "sunny",
+    "storm",
+    "rainbow",
+    "night",
+    "snake",
+    "duck",
+    "photo",
+    "arraial"
+  ],
+  "deliveryValues": [
+    "dry",
+    "flat",
+    "rising",
+    "firm",
+    "soft",
+    "hushed"
+  ],
+  "policy": {
+    "maxActive": 14,
+    "loadRadius": 40,
+    "globalTextCooldownSeconds": 600,
+    "minEditorialScore": 4,
+    "maxCharacterBytes": 30720,
+    "primaryMinimum": 189,
+    "secondaryMinimum": 40,
+    "primaryPerEventPerLevel": 3,
+    "levels": [
+      1,
+      2,
+      3
+    ],
+    "maxSceneSpeakers": 3,
+    "beatDelaySeconds": [
+      0.4,
+      0.8
+    ],
+    "editorialScoresAreMeasurements": false
+  },
+  "characters": {
+    "bull": {
+      "role": "primary",
+      "url": "./comedy/bull.json",
+      "signature": {
+        "text": "A pausa precisa de duas assinaturas.",
+        "score": 4
+      },
+      "voice": {
+        "family": "murmur",
+        "pitch": 115
+      }
+    },
+    "goat": {
+      "role": "primary",
+      "url": "./comedy/goat.json",
+      "signature": {
+        "text": "A legenda acaba onde começa o almoço.",
+        "score": 4
+      },
+      "voice": {
+        "family": "bleat",
+        "pitch": 240
+      }
+    },
+    "pigeon": {
+      "role": "primary",
+      "url": "./comedy/pigeon.json",
+      "signature": {
+        "text": "Migalhas primeiro. Perguntas depois.",
+        "score": 4
+      },
+      "voice": {
+        "family": "chirp",
+        "pitch": 390
+      }
+    },
+    "horse": {
+      "role": "primary",
+      "url": "./comedy/horse.json",
+      "signature": {
+        "text": "Não confundas entrada com aparição.",
+        "score": 4
+      },
+      "voice": {
+        "family": "murmur",
+        "pitch": 180
+      }
+    },
+    "cat": {
+      "role": "primary",
+      "url": "./comedy/cat.json",
+      "signature": {
+        "text": "Não te ignorei. Já terminei.",
+        "score": 4
+      },
+      "voice": {
+        "family": "murmur",
+        "pitch": 150
+      }
+    },
+    "pig": {
+      "role": "primary",
+      "url": "./comedy/pig.json",
+      "signature": {
+        "text": "Isto devia ter uma fita à volta.",
+        "score": 4
+      },
+      "voice": {
+        "family": "snort",
+        "pitch": 170
+      }
+    },
+    "walrus": {
+      "role": "primary",
+      "url": "./comedy/walrus.json",
+      "signature": {
+        "text": "Quem mexeu na minha ordem das coisas?",
+        "score": 4
+      },
+      "voice": {
+        "family": "murmur",
+        "pitch": 105
+      }
+    },
+    "rooster": {
+      "role": "primary",
+      "url": "./comedy/rooster.json",
+      "signature": {
+        "text": "Podem começar. Já anunciei.",
+        "score": 4
+      },
+      "voice": {
+        "family": "chirp",
+        "pitch": 480
+      }
+    },
+    "tortoise": {
+      "role": "primary",
+      "url": "./comedy/tortoise.json",
+      "signature": {
+        "text": "Eu fico. O disparate passa.",
+        "score": 4
+      },
+      "voice": {
+        "family": "murmur",
+        "pitch": 125
+      }
+    },
+    "raccoon": {
+      "role": "primary",
+      "url": "./comedy/raccoon.json",
+      "signature": {
+        "text": "Funciona. Não abanes essa parte.",
+        "score": 4
+      },
+      "voice": {
+        "family": "chuckle",
+        "pitch": 220
+      }
+    },
+    "forcado": {
+      "role": "primary",
+      "url": "./comedy/forcado.json",
+      "signature": {
+        "text": "Tá bueno!",
+        "score": 4
+      },
+      "voice": {
+        "family": "tut",
+        "pitch": 250
+      }
+    },
+    "velho": {
+      "role": "primary",
+      "url": "./comedy/velho.json",
+      "signature": {
+        "text": "Tá bonito, tá!",
+        "score": 4
+      },
+      "voice": {
+        "family": "cackle",
+        "pitch": 195
+      }
+    },
+    "gordo": {
+      "role": "primary",
+      "url": "./comedy/gordo.json",
+      "signature": {
+        "text": "Isso é que era bom! Mas espera lá…",
+        "score": 4
+      },
+      "voice": {
+        "family": "chuckle",
+        "pitch": 140
+      }
+    },
+    "mano": {
+      "role": "primary",
+      "url": "./comedy/mano.json",
+      "signature": {
+        "text": "Tenho MB Way, tenho MB Way",
+        "score": 4
+      },
+      "voice": {
+        "family": "tut",
+        "pitch": 280
+      }
+    },
+    "influencer": {
+      "role": "secondary",
+      "url": "./comedy/influencer.json",
+      "signature": {
+        "text": "O espontâneo estava melhor na primeira.",
+        "score": 4
+      },
+      "voice": {
+        "family": "chirp",
+        "pitch": 330
+      }
+    },
+    "tio": {
+      "role": "secondary",
+      "url": "./comedy/tio.json",
+      "signature": {
+        "text": "Eu sabia. Faltava era acontecer.",
+        "score": 4
+      },
+      "voice": {
+        "family": "murmur",
+        "pitch": 155
+      }
+    },
+    "arrumador": {
+      "role": "secondary",
+      "url": "./comedy/arrumador.json",
+      "signature": {
+        "text": "Mais atrás. O problema também.",
+        "score": 4
+      },
+      "voice": {
+        "family": "tut",
+        "pitch": 230
+      }
+    },
+    "vizinha": {
+      "role": "secondary",
+      "url": "./comedy/vizinha.json",
+      "signature": {
+        "text": "Não espreito. Confirmo versões.",
+        "score": 4
+      },
+      "voice": {
+        "family": "cackle",
+        "pitch": 260
+      }
+    },
+    "critico": {
+      "role": "secondary",
+      "url": "./comedy/critico.json",
+      "signature": {
+        "text": "Gostei. Estou a tentar complicar.",
+        "score": 4
+      },
+      "voice": {
+        "family": "murmur",
+        "pitch": 165
+      }
+    },
+    "adepto": {
+      "role": "secondary",
+      "url": "./comedy/adepto.json",
+      "signature": {
+        "text": "Foi falta. Qual delas? Todas.",
+        "score": 4
+      },
+      "voice": {
+        "family": "drum",
+        "pitch": 210
+      }
+    },
+    "turista": {
+      "role": "secondary",
+      "url": "./comedy/turista.json",
+      "signature": {
+        "text": "O mapa tem mais certezas do que eu.",
+        "score": 4
+      },
+      "voice": {
+        "family": "murmur",
+        "pitch": 205
+      }
+    },
+    "tio_camisola": {
+      "role": "secondary",
+      "url": "./comedy/tio_camisola.json",
+      "signature": {
+        "text": "Eu não vi nada.",
+        "score": 4
+      },
+      "voice": {
+        "family": "chuckle",
+        "pitch": 145
+      }
+    },
+    "senhor_banho": {
+      "role": "secondary",
+      "url": "./comedy/senhor_banho.json",
+      "signature": {
+        "text": "Hum… interessante…",
+        "score": 4
+      },
+      "voice": {
+        "family": "murmur",
+        "pitch": 130
+      }
+    },
+    "cusco_roupao": {
+      "role": "secondary",
+      "url": "./comedy/cusco_roupao.json",
+      "signature": {
+        "text": "Eu só passava.",
+        "score": 4
+      },
+      "voice": {
+        "family": "cackle",
+        "pitch": 215
+      }
+    },
+    "porco_fato": {
+      "role": "secondary",
+      "url": "./comedy/porco_fato.json",
+      "signature": {
+        "text": "Oinc. Reunião às três.",
+        "score": 4
+      },
+      "voice": {
+        "family": "snort",
+        "pitch": 150
+      }
+    },
+    "urso_treino": {
+      "role": "secondary",
+      "url": "./comedy/urso_treino.json",
+      "signature": {
+        "text": "Hibernei e perdi o autocarro.",
+        "score": 4
+      },
+      "voice": {
+        "family": "drum",
+        "pitch": 95
+      }
+    },
+    "fabinhe": {
+      "role": "secondary",
+      "url": "./comedy/fabinhe.json",
+      "signature": {
+        "text": "Gostaste? É minha.",
+        "score": 4
+      },
+      "voice": {
+        "family": "chirp",
+        "pitch": 260
+      }
+    }
+  },
+  "duets": [
+    {
+      "id": "d01_ata_do_nada",
+      "trigger": "approach",
+      "roles": [
+        "velho",
+        "gordo"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "velho",
+          "text": "Está tudo na mesma.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "gordo",
+          "text": "Então porque estamos a comentar?",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "velho",
+          "text": "Para não parecer que não fizemos nada.",
+          "pause": 0.8,
+          "delivery": "dry",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "d02_ceu_indiretas",
+      "trigger": "storm",
+      "roles": [
+        "velho",
+        "gordo"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "velho",
+          "text": "Agora até o céu bate portas.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "gordo",
+          "text": "Deixa. Há de vir buscar o casaco.",
+          "pause": 0.8,
+          "delivery": "dry",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "d03_despedida_prestacoes",
+      "trigger": "ignored",
+      "roles": [
+        "velho",
+        "gordo"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "gordo",
+          "text": "Vou-me embora.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "velho",
+          "text": "Esqueceste-te da conta.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "gordo",
+          "text": "Então vou só ali.",
+          "pause": 0.8,
+          "delivery": "flat",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "d04_reuniao_atrasos",
+      "trigger": "approach",
+      "roles": [
+        "porco_fato",
+        "urso_treino"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "porco_fato",
+          "text": "A reunião era às três.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "urso_treino",
+          "text": "Eu estava a hibernar.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "porco_fato",
+          "text": "Ótimo. Já tens experiência em reuniões.",
+          "pause": 0.8,
+          "delivery": "dry",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "d05_abraco_escrito",
+      "trigger": "sit",
+      "roles": [
+        "porco_fato",
+        "urso_treino"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "urso_treino",
+          "text": "Precisas de um abraço?",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "porco_fato",
+          "text": "Quanto dura?",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "urso_treino",
+          "text": "Até largares.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "porco_fato",
+          "text": "Então marca como reunião.",
+          "pause": 0.8,
+          "delivery": "flat",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "d06_pato_emails",
+      "trigger": "duck",
+      "roles": [
+        "porco_fato",
+        "urso_treino"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "porco_fato",
+          "text": "O pato não responde aos emails.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "urso_treino",
+          "text": "É por isso que flutua.",
+          "pause": 0.8,
+          "delivery": "flat",
+          "score": 5
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "d07_passagem_lenta",
+      "trigger": "approach",
+      "roles": [
+        "tio_camisola",
+        "senhor_banho",
+        "cusco_roupao"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "tio_camisola",
+          "text": "Só estou de passagem.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "senhor_banho",
+          "text": "Pelo mesmo sítio há vinte minutos.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "cusco_roupao",
+          "text": "Estamos a atravessar devagar.",
+          "pause": 0.8,
+          "delivery": "dry",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "d08_confirmar_o_nada",
+      "trigger": "witness",
+      "roles": [
+        "tio_camisola",
+        "cusco_roupao"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "tio_camisola",
+          "text": "Não viste nada, pois não?",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "cusco_roupao",
+          "text": "Nem uma coisa.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "tio_camisola",
+          "text": "Então para que são os binóculos?",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "cusco_roupao",
+          "text": "Para confirmar.",
+          "pause": 0.8,
+          "delivery": "flat",
+          "score": 5
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "d09_jornal_invertido",
+      "trigger": "photo",
+      "roles": [
+        "senhor_banho",
+        "vizinha"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "vizinha",
+          "text": "Esse jornal está ao contrário.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "senhor_banho",
+          "text": "Não estou a ler. Estou a disfarçar.",
+          "pause": 0.8,
+          "delivery": "dry",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "d10_aprovacao_antecipada",
+      "trigger": "arraial",
+      "roles": [
+        "forcado",
+        "urso_treino"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "forcado",
+          "text": "Tá bueno?",
+          "pause": 0.5,
+          "delivery": "rising",
+          "score": 4
+        },
+        {
+          "speaker": "urso_treino",
+          "text": "Ainda nem fiz nada.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "forcado",
+          "text": "Tá bueno!",
+          "pause": 0.8,
+          "delivery": "firm",
+          "score": 4
+        },
+        {
+          "speaker": "urso_treino",
+          "text": "Assim consigo.",
+          "pause": 0.8,
+          "delivery": "soft",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "d11_retira_da_ata",
+      "trigger": "repeat_talk",
+      "roles": [
+        "forcado",
+        "porco_fato"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "forcado",
+          "text": "Tá bueno!",
+          "pause": 0.5,
+          "delivery": "firm",
+          "score": 4
+        },
+        {
+          "speaker": "porco_fato",
+          "text": "Foi aprovado?",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "forcado",
+          "text": "Tá bueno?",
+          "pause": 0.8,
+          "delivery": "rising",
+          "score": 4
+        },
+        {
+          "speaker": "porco_fato",
+          "text": "Retiro da ata.",
+          "pause": 0.8,
+          "delivery": "dry",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "d12_bussola_buena",
+      "trigger": "approach",
+      "roles": [
+        "forcado",
+        "turista"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "forcado",
+          "text": "Tá bueno?",
+          "pause": 0.5,
+          "delivery": "rising",
+          "score": 4
+        },
+        {
+          "speaker": "turista",
+          "text": "Também não sei. Estava a seguir-te.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "forcado",
+          "text": "Tá bueno!",
+          "pause": 0.8,
+          "delivery": "firm",
+          "score": 4
+        },
+        {
+          "speaker": "turista",
+          "text": "Isso é norte ou sul?",
+          "pause": 0.8,
+          "delivery": "dry",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "d13_camara_trabalha",
+      "trigger": "photo",
+      "roles": [
+        "influencer",
+        "critico"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "influencer",
+          "text": "Olha para a câmara.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "critico",
+          "text": "A câmara é que me olha.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "influencer",
+          "text": "Ótimo. Ela trabalha de graça.",
+          "pause": 0.8,
+          "delivery": "dry",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "d14_direto_sem_bateria",
+      "trigger": "photo",
+      "roles": [
+        "influencer",
+        "vizinha"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "influencer",
+          "text": "Estou em direto.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "vizinha",
+          "text": "A minha janela também. Desde manhã.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "influencer",
+          "text": "Tens muitos seguidores?",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "vizinha",
+          "text": "Três. E nenhum sabe que segue.",
+          "pause": 0.8,
+          "delivery": "dry",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "d15_figurante_cusco",
+      "trigger": "photo",
+      "roles": [
+        "influencer",
+        "tio_camisola"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "influencer",
+          "text": "Preciso de alguém ao fundo, sem fazer nada.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "tio_camisola",
+          "text": "Trouxe os meus colegas.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "influencer",
+          "text": "Três?",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "tio_camisola",
+          "text": "Para não fazer nada, somos poucos.",
+          "pause": 0.8,
+          "delivery": "flat",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "d16_parede_recente",
+      "trigger": "run",
+      "roles": [
+        "tio",
+        "arrumador"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "tio",
+          "text": "Por aí é mais curto.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "arrumador",
+          "text": "É uma parede.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "tio",
+          "text": "É uma parede recente.",
+          "pause": 0.8,
+          "delivery": "firm",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "d17_previsao_sol",
+      "trigger": "sunny",
+      "roles": [
+        "tio",
+        "tortoise"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "tio",
+          "text": "Eu previ isto.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "tortoise",
+          "text": "O sol?",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "tio",
+          "text": "Com bastante antecedência.",
+          "pause": 0.8,
+          "delivery": "dry",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "d18_arbitro_maca",
+      "trigger": "snake",
+      "roles": [
+        "adepto",
+        "arrumador"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "adepto",
+          "text": "Isso é fora de jogo.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "arrumador",
+          "text": "É uma maçã.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "adepto",
+          "text": "Então porque está sozinha à frente?",
+          "pause": 0.8,
+          "delivery": "flat",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "d19_garra_volume",
+      "trigger": "night",
+      "roles": [
+        "adepto",
+        "cat"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "adepto",
+          "text": "Precisamos de garra!",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "cat",
+          "text": "Tenho.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "adepto",
+          "text": "Então vem jogar!",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "cat",
+          "text": "Não disse que precisava de emprego.",
+          "pause": 0.8,
+          "delivery": "flat",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "d20_metro_empenho",
+      "trigger": "approach",
+      "roles": [
+        "turista",
+        "pigeon"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "turista",
+          "text": "Isto vai dar ao metro?",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "pigeon",
+          "text": "Depende. Tens pão?",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "turista",
+          "text": "Isso muda o caminho?",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "pigeon",
+          "text": "Muda o empenho.",
+          "pause": 0.8,
+          "delivery": "flat",
+          "score": 5
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "d21_perdidos_confiantes",
+      "trigger": "run",
+      "roles": [
+        "turista",
+        "raccoon"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "turista",
+          "text": "Estou perdido.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "raccoon",
+          "text": "Eu também. Mas com confiança.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "turista",
+          "text": "Então seguimos quem?",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "raccoon",
+          "text": "Quem não perguntar.",
+          "pause": 0.8,
+          "delivery": "dry",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "d22_recusa_do_olhar",
+      "trigger": "sit",
+      "roles": [
+        "critico",
+        "cat"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "critico",
+          "text": "Esta peça recusa o olhar.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "cat",
+          "text": "A minha chama-se sesta.",
+          "pause": 0.8,
+          "delivery": "dry",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "d23_ovacao_aveia",
+      "trigger": "ignored",
+      "roles": [
+        "horse",
+        "goat"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "horse",
+          "text": "Estava à espera de uma ovação.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "goat",
+          "text": "Eu ouvi aveia.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "horse",
+          "text": "Aplaude primeiro. Servimos depois.",
+          "pause": 0.8,
+          "delivery": "flat",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "d24_quinta_pagina",
+      "trigger": "repeat_talk",
+      "roles": [
+        "bull",
+        "pig"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "pig",
+          "text": "Esse formulário tem quatro páginas.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "bull",
+          "text": "É o pedido da quinta.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "pig",
+          "text": "E a autorização?",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "bull",
+          "text": "Está na sexta.",
+          "pause": 0.8,
+          "delivery": "dry",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "d25_sol_na_grelha",
+      "trigger": "sunny",
+      "roles": [
+        "walrus",
+        "rooster"
+      ],
+      "cooldown": 600,
+      "lines": [
+        {
+          "speaker": "walrus",
+          "text": "Quem autorizou este sol?",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "rooster",
+          "text": "Fui eu. Às sete.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "walrus",
+          "text": "Então baixa-o. Está a bater na grelha.",
+          "pause": 0.8,
+          "delivery": "dry",
+          "score": 4
+        }
+      ],
+      "score": 4
+    }
+  ],
+  "gags": [
+    {
+      "id": "g01_negacao_ampliada",
+      "trigger": "witness",
+      "roles": [
+        "cusco_roupao"
+      ],
+      "cooldown": 600,
+      "beats": [
+        {
+          "speaker": "cusco_roupao",
+          "text": "Daqui não se vê nada.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "cusco_roupao",
+          "text": "Espera. Vou ver mais de perto.",
+          "pause": 0.8,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "cusco_roupao",
+          "text": "Confirmado. Não vi.",
+          "pause": 0.8,
+          "delivery": "dry",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "g02_espontaneo_agendado",
+      "trigger": "photo",
+      "roles": [
+        "influencer"
+      ],
+      "cooldown": 600,
+      "beats": [
+        {
+          "speaker": "influencer",
+          "text": "Agora, espontâneo.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "influencer",
+          "text": "Não. O susto entrou cedo.",
+          "pause": 0.8,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "influencer",
+          "text": "Amanhã improvisamos às dez.",
+          "pause": 0.8,
+          "delivery": "dry",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "g03_cheiro_a_reuniao",
+      "trigger": "approach",
+      "roles": [
+        "porco_fato",
+        "mano"
+      ],
+      "cooldown": 600,
+      "beats": [
+        {
+          "speaker": "porco_fato",
+          "text": "Cheira a decisão.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "mano",
+          "text": "O papel está em branco.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "porco_fato",
+          "text": "Então cheira a reunião.",
+          "pause": 0.8,
+          "delivery": "dry",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "g04_metade_do_treino",
+      "trigger": "run",
+      "roles": [
+        "urso_treino"
+      ],
+      "cooldown": 600,
+      "beats": [
+        {
+          "speaker": "urso_treino",
+          "text": "Comprei um apito para treinar.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "urso_treino",
+          "text": "Apitei. Vieram três.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "urso_treino",
+          "text": "Agora sou treinador. Já não preciso de correr.",
+          "pause": 0.8,
+          "delivery": "flat",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "g05_parafuso_encontrado",
+      "trigger": "ignored",
+      "roles": [
+        "raccoon"
+      ],
+      "cooldown": 600,
+      "beats": [
+        {
+          "speaker": "raccoon",
+          "text": "Só falta um parafuso.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "raccoon",
+          "text": "Sobrou um parafuso.",
+          "pause": 0.8,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "raccoon",
+          "text": "Era esse. Está resolvido.",
+          "pause": 0.8,
+          "delivery": "dry",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "g06_reserva_ausente",
+      "trigger": "sit",
+      "roles": [
+        "cat",
+        "turista"
+      ],
+      "cooldown": 600,
+      "beats": [
+        {
+          "speaker": "cat",
+          "text": "Reservado.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "turista",
+          "text": "Está vazio.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "cat",
+          "text": "É a pessoa que estou à espera.",
+          "pause": 0.8,
+          "delivery": "flat",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "g07_migalha_acompanhada",
+      "trigger": "repeat_talk",
+      "roles": [
+        "pigeon"
+      ],
+      "cooldown": 600,
+      "beats": [
+        {
+          "speaker": "pigeon",
+          "text": "É só uma migalha.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "pigeon",
+          "text": "Agora uma para lhe fazer companhia.",
+          "pause": 0.8,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "pigeon",
+          "text": "Não gosto que comam sozinhas.",
+          "pause": 0.8,
+          "delivery": "dry",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "g08_legenda_tempero",
+      "trigger": "approach",
+      "roles": [
+        "goat",
+        "critico"
+      ],
+      "cooldown": 600,
+      "beats": [
+        {
+          "speaker": "goat",
+          "text": "Li a legenda.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "critico",
+          "text": "E a tua interpretação?",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "goat",
+          "text": "Falta sal.",
+          "pause": 0.8,
+          "delivery": "flat",
+          "score": 5
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "g09_adiantado_ao_facto",
+      "trigger": "golden",
+      "roles": [
+        "rooster",
+        "tortoise"
+      ],
+      "cooldown": 600,
+      "beats": [
+        {
+          "speaker": "rooster",
+          "text": "Foi às horas que eu disse.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "tortoise",
+          "text": "Ainda não aconteceu.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "rooster",
+          "text": "Estou adiantado ao facto.",
+          "pause": 0.8,
+          "delivery": "dry",
+          "score": 4
+        }
+      ],
+      "score": 4
+    },
+    {
+      "id": "g10_estacionar_o_mesmo",
+      "trigger": "approach",
+      "roles": [
+        "arrumador",
+        "tio"
+      ],
+      "cooldown": 600,
+      "beats": [
+        {
+          "speaker": "arrumador",
+          "text": "Mais um bocadinho.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "tio",
+          "text": "Estou no mesmo sítio.",
+          "pause": 0.6,
+          "delivery": "dry",
+          "score": 4
+        },
+        {
+          "speaker": "arrumador",
+          "text": "Agora está bem estacionado.",
+          "pause": 0.8,
+          "delivery": "dry",
+          "score": 4
+        }
+      ],
+      "score": 4
+    }
+  ],
+  "callbacks": {
+    "memory": [
+      {
+        "id": "m01_gesto_ata",
+        "speaker": "bull",
+        "event": "repeat_talk",
+        "text": "O {ultimoGesto} ficou na ata. A explicação, não.",
+        "score": 4
+      },
+      {
+        "id": "m02_lugar_ensaio",
+        "speaker": "horse",
+        "event": "repeat_talk",
+        "text": "Em {ultimoLugar} isto ainda era um ensaio.",
+        "score": 4
+      },
+      {
+        "id": "m03_contagem",
+        "speaker": "pig",
+        "event": "slap3",
+        "text": "{chapadas} chapadas. Nem a fita aguenta tanta inspeção.",
+        "score": 4
+      },
+      {
+        "id": "m04_discurso",
+        "speaker": "cat",
+        "event": "witness",
+        "text": "O {quemLevou} já recuperou. O discurso ainda não.",
+        "score": 4
+      }
+    ],
+    "fifth_slap": {
+      "threshold": 5,
+      "trigger": "slap5",
+      "cooldown": 600,
+      "maxWitnesses": 3,
+      "lines": [
+        {
+          "speakerRole": "witness",
+          "text": "Olha que lhe arrebentas a tromba, bro! Para lá com isso, #%&@!",
+          "pause": 0.6,
+          "delivery": "firm",
+          "score": 4,
+          "censor": "bip"
+        },
+        {
+          "speakerRole": "secondWitness",
+          "text": "Eh, calma, Zé!",
+          "pause": 0.8,
+          "delivery": "firm",
+          "score": 4
+        }
+      ],
+      "victimReaction": {
+        "kind": "brief_comic_breakdown",
+        "duration": 3,
+        "puddle": "existing_blob_only",
+        "cameraControl": false,
+        "graphic": false
+      }
+    }
+  },
+  "authoringStatus": {
+    "manifest": "editorially_revised_not_playtested",
+    "corpora": "being_authored_in_separate_files",
+    "humourValidation": "not_playtested"
+  },
+  "protectedLines": [
+    "Tá bueno!",
+    "Tá bueno?",
+    "Sai cavalinho!",
+    "Tá bonito, tá!",
+    "Tenho MB Way, tenho MB Way",
+    "Já levaste na boca!",
+    "Levaste na boca, boneco!",
+    "Ai, que tromba boa p'ra levar chapadões!",
+    "Esta gente esquisita… tsk, tsk",
+    "Calma, bro!",
+    "Tens criptomoedas, bro?",
+    "Queres o quê?",
+    "Cara d'urso!",
+    "Ó nabo!",
+    "Ó porco!",
+    "Ó estupidozinho!",
+    "Ó cara de papo!",
+    "Tens uma testa que parece um papo seco!",
+    "Levas na boca, porko!",
+    "Tens boa voz para escrever à máquina.",
+    "Olha este, é do mesmo tamanho sentado e de pé!",
+    "Eu não vi nada.",
+    "Hum… interessante…",
+    "Eu só passava.",
+    "Isto aqui é público, ó!",
+    "Ahahah, levou na boca!",
+    "Tsk, tsk… a juventude.",
+    "Oinc. Reunião às três.",
+    "Isso não é comigo, é com o porco do lado.",
+    "Cara d'urso és tu!",
+    "Abraço? ABRAÇO!",
+    "Hibernei e perdi o autocarro.",
+    "Senti um arrepio…",
+    "Quem me mexeu no chapéu?",
+    "2 euros no velho!",
+    "O árbitro veio sem opinião.",
+    "Falta uma moldura à discussão.",
+    "Olha a porrada!",
+    "Vai haver porrada!",
+    "Porrada no comboio!",
+    "Isto é que é porrada!",
+    "Levas no trombil!",
+    "Fecha o trombil!",
+    "Vou-te ao trombil!",
+    "Ó trombil de papo seco!",
+    "Se as pingas da chuva fosse pingas de Bow-Seta, que chuva de Mer-dass seriaaa!",
+    "Gostaste? É minha.",
+    "Faço concertos por MB Way.",
+    "Isto é um êxito, pá!",
+    "Ganda sapa!"
+  ],
+  "protectedLineContext": {
+    "Tens uma testa que parece um papo seco!": {
+      "target": "fictional_npc",
+      "allowedTargetIds": [
+        "tio_camisola",
+        "forcado"
+      ],
+      "event": "bystander_laugh"
+    },
+    "Olha este, é do mesmo tamanho sentado e de pé!": {
+      "target": "fictional_npc",
+      "allowedTargetIds": [
+        "tio_camisola",
+        "forcado"
+      ],
+      "event": "bystander_laugh"
+    }
+  },
+  "editorialReview": {
+    "kind": "human_style_editorial_judgement_not_measurement",
+    "reviewer": "W2",
+    "firstPass": {
+      "d03": 3,
+      "d05": 3,
+      "d15": 3,
+      "d18": 3,
+      "d19": 2,
+      "d23": 2,
+      "g04": 3,
+      "g06": 2
+    },
+    "afterRewrite": {
+      "d03": 4,
+      "d05": 4,
+      "d15": 4,
+      "d18": 4,
+      "d19": 4,
+      "d23": 4,
+      "g04": 4,
+      "g06": 4
+    },
+    "scope": "Eight rejected scenes rewritten and reread; corpus scores remain author self-assessments."
+  }
+}
