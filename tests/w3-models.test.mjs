@@ -7,10 +7,13 @@ import { boxUV } from '../assets/gallery/materials.js';
 const cast=JSON.parse(fs.readFileSync(new URL('../assets/data/npc-cast.json',import.meta.url),'utf8'));
 const M={get:()=>new THREE.MeshStandardMaterial(),boxUV};
 
-test('W3 preserves fourteen legacy slots and offers thirteen opt-in archetypes (Fabinhe joined with the comedy package)',()=>{
-  assert.equal(cast.characters.length,27);
-  assert.equal(cast.characters.filter(c=>c.enabledByDefault).length,14);
-  assert.equal(cast.maxActive,14);
+test('W3 preserves fourteen legacy slots and offers thirteen opt-in archetypes (Fabinhe joined with the comedy package; four influencers with the market)',()=>{
+  // 27 -> 31: four influencers were added (tremoco_vegan, coach_madrugada, apanhados, tia_stories).
+  assert.equal(cast.characters.length,31);
+  // 14 -> 18: each influencer is on by default in its own new slot (three at the market, one at the campus stop).
+  assert.equal(cast.characters.filter(c=>c.enabledByDefault).length,18);
+  // 14 -> 18: the streaming cap rose with the four new slots (the task's ceiling is 18).
+  assert.equal(cast.maxActive,18);
   const situations='talk ignored slap1 slap2 slap3 bystander_laugh run_past jump sit_beside gesture_rude golden sunny storm rainbow night'.split(' ');
   for(const c of cast.characters){for(const key of situations)assert.ok(c.lines[key]?.length>=2,c.id+':'+key);assert.ok(new Set(Object.values(c.lines).flat()).size>=15);assert.ok(c.humanMoment);}
   for(const line of cast.protectedLines)assert.ok(cast.characters.some(c=>Object.values(c.lines).flat().includes(line)),line);

@@ -30,3 +30,18 @@ test('a broken store never stops the hints', () => {
   for (t = 0; t < 30; t += 1) fm.update({ entered: true, inHall: true });
   assert.ok(shown.includes(FIRST_MINUTE_HINTS.look));
 });
+
+test('on touch the hints say tap and 🥊, and the fight hint comes without a slap', async () => {
+  const { TOUCH_HINTS } = await import('../assets/gallery/first-minute.js');
+  let t = 0; const shown = [];
+  const fm = createFirstMinute({ toast: (s) => shown.push(s), storage: memory(), now: () => t, touch: true });
+  for (t = 0; t < 120; t += 1) fm.update({ entered: true, inHall: t < 10 });
+  assert.ok(shown.includes(TOUCH_HINTS.people) && shown.includes(TOUCH_HINTS.porrada));
+  assert.ok(!shown.some((s) => /click|Hold Q/.test(s)), 'no mouse or keyboard words on touch');
+});
+
+test('every hint has a Portuguese translation', async () => {
+  const { TOUCH_HINTS } = await import('../assets/gallery/first-minute.js');
+  const ui = await import('node:fs').then((fs) => fs.readFileSync(new URL('../assets/gallery/ui.js', import.meta.url), 'utf8'));
+  for (const s of new Set([...Object.values(FIRST_MINUTE_HINTS), ...Object.values(TOUCH_HINTS)])) assert.ok(ui.includes(`'${s.toLowerCase()}'`), s);
+});

@@ -9,7 +9,7 @@ import * as THREE from 'three';
 /** Friendly gestures (G picks among these). */
 export const FRIENDLY = ['wave', 'thumbs', 'clap', 'point', 'shrug', 'dance', 'peace'];
 /** Censored on screen. */
-export const CHEEKY = ['manguito', 'pirete'];
+export const CHEEKY = ['manguito', 'pirete', 'pirete_duplo'];
 export const GESTURES = [...FRIENDLY, ...CHEEKY];
 
 const DEPTH = 0.5;            // hands live ~0.5 m in front of the eye
@@ -88,6 +88,12 @@ const G = {
   pirete: { dur: 2.0, censor: [0.11, -0.03, 0.11, 0.14, 0.22], f(t, c) {
     const jab = Math.max(0, Math.sin(clamp((t - 0.45) / 0.5, 0, 1) * Math.PI * 2)) * 0.015;
     S(c.R, 0.11, -0.11 + jab, -0.04, 0.12, Math.PI, -0.12, 0.05, 0.9, 1, 0, 1, 1);
+  } },
+  // Pirete duplo: both middle fingers at once, a jab in stereo. Censored with one wide band.
+  pirete_duplo: { dur: 2.2, censor: [0, -0.03, 0.36, 0.15, 0.22], f(t, c) {
+    const jab = Math.max(0, Math.sin(clamp((t - 0.42) / 0.5, 0, 1) * Math.PI * 2)) * 0.017;
+    S(c.R, 0.12, -0.11 + jab, -0.04, 0.12, Math.PI, -0.12, 0.05, 0.9, 1, 0, 1, 1);
+    S(c.L, -0.12, -0.11 + jab, -0.04, 0.12, -Math.PI, 0.12, 0.05, 0.9, 1, 0, 1, 1);
   } },
 };
 

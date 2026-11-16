@@ -49,11 +49,27 @@ export function createReadableBubbles(THREE,{renderer,userData}){
   const lines=r.pages[r.page],y=128-(lines.length-1)*r.lineHeight*.5;for(let i=0;i<lines.length;i++)g.fillText(lines[i],128,y+i*r.lineHeight);
   r.n.btex.needsUpdate=true;r.dirty=false;
  }
+ // In a fight the only speech is the answer of the one who was asked (n.fightLineT, set by npcs.js),
+ // anchored in the world above the head: the fight's camera is not the one these bubbles follow.
+ function anchor(r,resized){
+  const n=r.n;if(resized)paginate(r,r.text);
+  if(n.head?.getWorldPosition)n.head.getWorldPosition(head);else head.set(n.x,(n.baseY||0)+1.7,n.z);
+  // Beside the head, on the side away from the other fighter: the fight's profile shot frames the
+  // two bodies with little room above them, so a bubble over the head went off the top of the screen.
+  const s=userData.combatState,known=s&&Number.isFinite(s.ax)&&Number.isFinite(s.bx);
+  const mine=known&&Math.hypot(n.x-s.ax,n.z-s.az)<Math.hypot(n.x-s.bx,n.z-s.bz),ox=known?(mine?s.bx:s.ax):n.x,oz=known?(mine?s.bz:s.az):n.z;
+  let dx=n.x-ox,dz=n.z-oz;const l=Math.hypot(dx,dz);if(l>1e-3){dx/=l;dz/=l;}else{dx=0;dz=0;}
+  head.x+=dx*.8;head.z+=dz*.8;head.y+=.12;
+  if(r.tail!==2||r.page!==0){r.tail=2;r.page=0;r.dirty=true;}if(r.dirty)paint(r);
+  if(n.sprite.parent)n.sprite.parent.worldToLocal(head);n.sprite.position.copy(head);n.sprite.scale.set(.95,.95,1);n.sprite.visible=true;
+ }
  function update(camera){
-  const resized=viewport(),quiet=!!(userData.questQuiet||userData.tramHallQuiet||userData.combatState?.active);
-  distances.fill(Infinity);chosen.fill(null);
+  const resized=viewport(),fight=!!userData.combatState?.active,hush=!!(userData.questQuiet||userData.tramHallQuiet),quiet=hush||fight;
+  distances.fill(Infinity);chosen.fill(null);let reply=null;
   for(let i=0;i<records.length;i++){
-   const r=records[i],n=r.n;n.sprite.visible=false;if(quiet||n.talkT<=0||n.combatHidden||n.combatControlled||n.root?.visible===false)continue;
+   const r=records[i],n=r.n;n.sprite.visible=false;
+   if(fight&&!hush&&n.fightLineT>0&&n.talkT>0&&!n.combatHidden&&n.root?.visible!==false){reply=r;continue;}
+   if(quiet||n.talkT<=0||n.combatHidden||n.combatControlled||n.root?.visible===false)continue;
    if(resized){paginate(r,r.text);n.talkT=Math.max(n.talkT,r.duration);}
    const dx=n.x-camera.position.x,dz=n.z-camera.position.z,d=dx*dx+dz*dz;if(d>1600)continue;
    for(let k=0;k<3;k++)if(d<distances[k]){for(let j=2;j>k;j--){chosen[j]=chosen[j-1];distances[j]=distances[j-1];}chosen[k]=r;distances[k]=d;break;}
@@ -83,6 +99,7 @@ export function createReadableBubbles(THREE,{renderer,userData}){
    position.set((layout.x-width*.5)*unit,(height*.5-layout.y)*unit,-depth).applyMatrix4(camera.matrixWorld);
    if(n.sprite.parent)n.sprite.parent.worldToLocal(position);n.sprite.position.copy(position);n.sprite.scale.set(layout.width*unit,layout.height*unit,1);n.sprite.visible=true;
   }
+  if(reply)anchor(reply,resized);
  }
  return {register,setText,update,hide(){for(const r of records)r.n.sprite.visible=false;}};
 }

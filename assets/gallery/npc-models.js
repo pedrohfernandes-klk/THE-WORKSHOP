@@ -312,20 +312,20 @@ export function buildCharacter(THREE, M, spec = {}) {
   }
   const hasHat=spec.hat!==false && (spec.hat || ['forcado','mano','chubby','raccoon','tortoise','walrus'].includes(kind));
   {
-    const hc=tint(colors.hat,kind==='forcado'?0xbb353b:0x3d4f6c);
+    const hc=tint(colors.hat,kind==='forcado'?0x287848:0x3d4f6c),band=kind==='forcado'?tint(null,0xbb353b):hc;
     if(swim||wardrobe==='tourist') {
       part(new THREE.CylinderGeometry(.255,.255,.018,18),hat,hc,.9,0,.2,0);
       part(new THREE.CylinderGeometry(.125,.16,.14,14),hat,hc,.9,0,.28,0);
       part(new THREE.CylinderGeometry(.161,.161,.027,14),hat,seam,.85,0,.225,0);
     } else {
-      part(new THREE.CylinderGeometry(.19,.19,.07,seg),hat,hc,.9,0,.21,0);
+      part(new THREE.CylinderGeometry(.19,.19,.07,seg),hat,band,.9,0,.21,0);
       if(kind==='forcado') {
         // The forcado's barrete: a soft green stocking crown bent sideways, ending in a red tip,
         // over a red band (not a rigid party cone).
         const crown=new THREE.CylinderGeometry(.04,.145,.32,14,5);
         const cp=crown.attributes.position;
         for(let i=0;i<cp.count;i++){const y=cp.getY(i),t=(y+.16)/.32;cp.setX(i,cp.getX(i)+.19*t*t);cp.setY(i,y-.11*t*t);}
-        crown.computeVertexNormals();part(crown,hat,tint(null,0x287848),.87,0,.395,0);
+        crown.computeVertexNormals();part(crown,hat,hc,.87,0,.395,0);
         sph(hat,tint(null,0xbb353b),.19,.44,0,.052,.05,.052,.85);
         part(new THREE.CylinderGeometry(.21,.21,.1,16),body,tint(null,0xbb353b),.86,0,.965,0,1,1,.78);
       } else if(wardrobe==='critic')part(new THREE.SphereGeometry(1,seg,8),hat,hc,.88,.018,.25,-.025,.22,.035,.19,.16);
@@ -348,6 +348,8 @@ export function buildCharacter(THREE, M, spec = {}) {
     box(bones.arms[1],ink,0,.08,.08,.085,.16,.018,.3);
     box(bones.arms[1],tint(null,0x68b4c5),0,.08,.092,.07,.13,.004,.25);
     box(body,seam,0,1.22,.19,.012,.45,.012,.4);
+    // Opt-in ring light around the phone at the top of the stick (the tremoço influencer).
+    if(spec.ringLight)part(new THREE.TorusGeometry(.105,.013,6,spec.quality==='low'?14:20),bones.arms[1],tint(null,0xfff4dc),.3,0,.08,.086);
   }
   if(spec.clothing==='usher') {box(body,tint(null,0xbad36d),0,1.2,.218,.4,.42,.02);box(body,white,0,1.16,.232,.4,.04,.012,.45);}
   if(wardrobe==='neighbor') {
@@ -515,6 +517,7 @@ export function buildCharacter(THREE, M, spec = {}) {
   geometry.computeBoundingBox();geometry.computeBoundingSphere();
   const height=geometry.boundingBox.max.y,bb=geometry.boundingBox;
   mesh.boundingSphere=new THREE.Sphere(new THREE.Vector3(0,height*.5,0),Math.max(height,bb.max.x-bb.min.x,bb.max.z-bb.min.z)*.5+1.5);
+  mesh.boundingBox=bb.clone().expandByVector(new THREE.Vector3(.75,.4,.75));   // raycasts only: rays that miss the body (arms out included) stop here
   mesh.frustumCulled=true;
   const mouth={bone:jaw,setOpen(v){const k=clamp(v,0,1);jaw.scale.y=1+k*1.2;jaw.position.y=-.075-k*.025;
     if(kind==='pig'){snoutBone.scale.z=1+k*.08;snoutBone.position.y=-k*.005;}}};
@@ -561,21 +564,23 @@ export function createLinePicker(random=Math.random) {
 
 // Existing NPC behaviour writes Object3D transforms. Keep those objects as
 // proxies, drawing their ground shadows and daze stars in two instanced calls.
-export function createNpcEffects(THREE, group, npcs, blobGeometry, blobMaterial, starMaterial) {
-  const shadow = blobMaterial ? new THREE.InstancedMesh(blobGeometry,blobMaterial,14) : null;
+// capacity: one instance per actor slot (npcs.js SLOT_COUNT); never draw more than were allocated.
+export function createNpcEffects(THREE, group, npcs, blobGeometry, blobMaterial, starMaterial, capacity = 14) {
+  const shadow = blobMaterial ? new THREE.InstancedMesh(blobGeometry,blobMaterial,capacity) : null;
   const starGeometry=new THREE.PlaneGeometry(1,1);
   const starSurface=new THREE.MeshBasicMaterial({map:starMaterial.map,transparent:true,depthWrite:false});
-  const stars=new THREE.InstancedMesh(starGeometry,starSurface,14);
+  const stars=new THREE.InstancedMesh(starGeometry,starSurface,capacity);
   const dummy=new THREE.Object3D(), invisible=new THREE.Matrix4().makeScale(0,0,0);
   stars.frustumCulled=false;stars.renderOrder=9;stars.raycast=()=>{};group.add(stars);
   if(shadow){shadow.frustumCulled=false;shadow.renderOrder=1;shadow.raycast=()=>{};group.add(shadow);}
   const selected=new Int16Array(3), distances=new Float64Array(3);
   const shadowBlack=new THREE.Color(0), puddleTint=new THREE.Color('#a58b43');
-  if(shadow)shadow.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(14*3),3);
+  if(shadow)shadow.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(capacity*3),3);
   stars.count=0;if(shadow)shadow.count=0;
   return {
+    capacity,
     update(camera,rotation=0) {
-      stars.count=npcs.length;if(shadow)shadow.count=npcs.length;
+      stars.count=Math.min(npcs.length,capacity);if(shadow)shadow.count=stars.count;
       selected.fill(-1);distances.fill(Infinity);
       for(let i=0;i<npcs.length;i++){
         const n=npcs[i];

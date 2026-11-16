@@ -22,7 +22,7 @@ function stubs(){
   return ()=>{for(const k of ['document','Path2D','FontFace','fetch'])if(saved[k]===undefined)delete globalThis[k];else globalThis[k]=saved[k];console.warn=saved.warn;};
 }
 async function campusColliders(){
-  const restore=stubs(),colliders=[],built=[];
+  const restore=stubs(),colliders=[],regions=[],built=[],outputs=new Map();
   try{
     for(const name of SPACES){
       if(SKIP.has(name))continue;
@@ -30,18 +30,27 @@ async function campusColliders(){
       const out=await build({THREE,scene:new THREE.Scene(),quality:'low',reducedMotion:true,renderer:{capabilities:{getMaxAnisotropy:()=>1,isWebGL2:true}},
         M:{get:()=>new THREE.MeshStandardMaterial(),boxUV},audio:null,ui:{toast:noop},yieldBuild:async()=>{},startup:{moved:false},events:new EventTarget()});
       for(const c of out?.colliders||[])colliders.push({module:name,...c});
-      built.push(name);
+      for(const r of out?.regions||[])regions.push({module:name,...r});
+      built.push(name);outputs.set(name,out);
     }
   }finally{restore();}
-  return {colliders,built};
+  return {colliders,regions,built,outputs};
 }
+// 14 -> 18 slots: four were added for the influencers (three on the market apron, one on the campus stop).
+const SLOTS=18;
 async function slotTable(){
   const {build}=await import('../assets/gallery/spaces/npcs.js');
   const mod=build({THREE,scene:new THREE.Scene(),startup:{moved:true},quality:'low',audio:{muted:true},M:{get:()=>new THREE.MeshStandardMaterial(),boxUV},yieldBuild:async()=>{}});
   // Far from every home: the slot table is built, no actor is streamed in.
   mod.update(.016,{camera:{position:{x:1e4,y:1.62,z:1e4}},time:0});
-  for(let i=0;i<400&&mod.actorSlots.length<14;i++)await new Promise(r=>setTimeout(r,5));
+  for(let i=0;i<400&&mod.actorSlots.length<SLOTS;i++)await new Promise(r=>setTimeout(r,5));
   const slots=mod.actorSlots.map(s=>({...s,home:s.home.slice()}));mod.dispose();return slots;
+}
+// The wander points, as npcs.js assemble() lays them out around the home.
+function wander(s){
+  const r=s.station?0:s.legacy.r,points=[[s.home[0],s.home[1],'home']];
+  const count=r>1?4:2;for(let k=0;k<count;k++){const a=k/count*Math.PI*2+s.index;points.push([s.home[0]+Math.cos(a)*r,s.home[1]+Math.sin(a)*r*(count===2?.6:1),'wander '+k]);}
+  return points;
 }
 // Tall for this purpose: rises 0.9 m or more above the slot's floor and starts below head height,
 // the same band combat.js counts as standing between two fighters.
@@ -55,15 +64,48 @@ test('no NPC slot centre or wander point lies inside a campus collider 0.9 m or 
   assert.ok(built.includes('parterre')&&built.includes('pool'));
   assert.ok(colliders.some(c=>c.module==='parterre'&&c.minX===5.4&&c.maxX===10.1&&c.minZ===20.9&&c.maxZ===35.1),'the east bed is read');
   assert.ok(colliders.some(c=>c.module==='pool'&&c.minX===-3.9&&c.maxX===3.9),'the pool is read');
-  assert.equal(slots.length,14);
+  assert.equal(slots.length,SLOTS);
   const problems=[];
   for(const s of slots){
-    const floor=s.station?.35:0,r=s.station?0:s.legacy.r,points=[[s.home[0],s.home[1],'home']];
-    // The wander points, as npcs.js assemble() lays them out around the home.
-    const count=r>1?4:2;for(let k=0;k<count;k++){const a=k/count*Math.PI*2+s.index;points.push([s.home[0]+Math.cos(a)*r,s.home[1]+Math.sin(a)*r*(count===2?.6:1),'wander '+k]);}
+    // The floor belongs to the slot: 0.35 m at the station berths, the market and the platform.
+    const floor=s.floor||0,points=wander(s);
     for(const [x,z,what] of points)for(const c of colliders)if(tall(c,floor)&&inside(x,z,c))problems.push(`${s.id} ${what} (${x.toFixed(2)}, ${z.toFixed(2)}) inside ${c.module} [${c.minX}..${c.maxX}]x[${c.minZ}..${c.maxZ}] y ${c.minY}..${c.maxY}`);
   }
   assert.deepEqual(problems,[]);
+});
+
+test('the influencers live at the market and the campus stop: on that floor, inside their bounds, their rounds a body clear of every stall',async()=>{
+  const slots=await slotTable(),{colliders,regions,outputs}=await campusColliders();
+  const places={tremoco_vegan:'mercado',coach_madrugada:'mercado',apanhados:'mercado',tia_stories:'metro'};
+  // A departing tram takes on board anyone idle within 2 m of a stop's boarding point (tram-ride.js).
+  const tram=outputs.get('tram-ride')?.tram,boarding=['campus','mercado'].map(id=>tram?.getStation(id));
+  assert.ok(boarding.every(s=>Number.isFinite(s?.boardX)&&Number.isFinite(s?.boardZ)),'the boarding points are read');
+  const area={mercado:{minX:92,maxX:112,minZ:20,maxZ:44},metro:{minX:81.08,maxX:84.58,minZ:14,maxZ:44}};
+  assert.ok(regions.some(r=>r.module==='mercado'&&r.minX===92&&r.maxX===112&&r.y===.35),'the market apron is read');
+  const problems=[];
+  for(const [id,place] of Object.entries(places)){
+    const s=slots.find(s=>s.id===id);assert.ok(s,id);
+    assert.ok(s.index>=14&&!s.station,id+' has a slot of its own, not a station berth');
+    assert.equal(s.floor,.35,id+' stands on the 0.35 m floor');
+    const a=area[place],b=s.bounds,points=wander(s);
+    assert.ok(Array.isArray(b)&&b[0]>=a.minX&&b[1]<=a.maxX&&b[2]>=a.minZ&&b[3]<=a.maxZ,id+' bounds stay on its floor');
+    for(const s of boarding){const dx=Math.max(b[0]-s.boardX,0,s.boardX-b[1]),dz=Math.max(b[2]-s.boardZ,0,s.boardZ-b[3]);
+      assert.ok(Math.hypot(dx,dz)>2,`${id} can never stand where the tram at ${s.id} takes people on board`);}
+    for(const [x,z,what] of points){
+      if(!(x>b[0]&&x<b[1]&&z>b[2]&&z<b[3]))problems.push(`${id} ${what} outside its bounds`);
+      // every point stands on a region at the slot's height (the market apron or the platform)
+      if(!regions.some(r=>Math.abs((r.y||0)-.35)<1e-6&&x>=r.minX&&x<=r.maxX&&z>=r.minZ&&z<=r.maxZ))problems.push(`${id} ${what} (${x.toFixed(2)}, ${z.toFixed(2)}) is not on a 0.35 m floor`);
+    }
+    // The straight walk between consecutive points keeps a body (0.35 m) off every tall collider.
+    const ring=points.slice(1);
+    for(let k=0;k<ring.length;k++){const p=ring[k],q=ring[(k+1)%ring.length];
+      for(let t=0;t<=1.0001;t+=.05){const x=p[0]+(q[0]-p[0])*t,z=p[1]+(q[1]-p[1])*t;
+        for(const c of colliders)if(tall(c,.35)&&x>c.minX-.35&&x<c.maxX+.35&&z>c.minZ-.35&&z<c.maxZ+.35)problems.push(`${id} walk ${k} at (${x.toFixed(2)}, ${z.toFixed(2)}) brushes ${c.module} [${c.minX}..${c.maxX}]x[${c.minZ}..${c.maxZ}]`);}}
+  }
+  assert.deepEqual([...new Set(problems)],[]);
+  // Three of them share the market, near enough to be overheard together (scenes need 12 m from the visitor).
+  const market=['tremoco_vegan','coach_madrugada','apanhados'].map(id=>slots.find(s=>s.id===id).home);
+  for(const p of market)for(const q of market)assert.ok(Math.hypot(p[0]-q[0],p[1]-q[1])<14);
 });
 
 test('the bull stands clear of the parterre and the pool, where the visitor can reach it',async()=>{

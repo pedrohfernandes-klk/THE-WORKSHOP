@@ -25,7 +25,7 @@ export function createComedyMemory({ now = () => performance.now() / 1000 } = {}
 
 const EVENTS = Object.freeze({ talk:'approach',again:'repeat_talk',ignore:'ignored',ouch:'slap1',ouch2:'slap2',ouch3:'slap3',ha:'witness',run:'run',jump:'jump',sit:'sit',manguito:'gesture8',pirete:'gesture9',sun:'sunny' });
 const GESTURE_LABELS=Object.freeze({wave:'aceno',thumbs:'polegar levantado',clap:'aplauso',point:'dedo apontado',shrug:'encolher de ombros',dance:'passo de dança',peace:'gesto de paz',manguito:'manguito',pirete:'pirete',slap:'chapadão'});
-const ACTOR_LABELS=Object.freeze({bull:'touro',goat:'cabra',pigeon:'pombo',horse:'cavalo',cat:'gato',pig:'porco',walrus:'morsa',rooster:'galo',tortoise:'cágado',raccoon:'guaxinim',forcado:'forcado',velho:'senhor',gordo:'vizinho',mano:'mano',tio_camisola:'tio da camisola',senhor_banho:'senhor do banho',cusco_roupao:'vizinho do roupão',porco_fato:'senhor de fato',urso_treino:'urso do treino'});
+const ACTOR_LABELS=Object.freeze({bull:'touro',goat:'cabra',pigeon:'pombo',horse:'cavalo',cat:'gato',pig:'porco',walrus:'morsa',rooster:'galo',tortoise:'cágado',raccoon:'guaxinim',forcado:'forcado',velho:'senhor',gordo:'vizinho',mano:'mano',tio_camisola:'tio da camisola',senhor_banho:'senhor do banho',cusco_roupao:'vizinho do roupão',porco_fato:'senhor de fato',urso_treino:'urso do treino',tremoco_vegan:'influencer do tremoço',coach_madrugada:'coach das quatro',apanhados:'rapaz dos apanhados',tia_stories:'tia dos stories'});
 const EXCESS_FIRST = 'Olha que lhe arrebentas a tromba, bro! Para lá com isso, #%&@!';
 const EXCESS_LAST = 'Eh, calma, Zé!';
 export const EXCESS_WITNESS_LINES=Object.freeze([
@@ -287,8 +287,9 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
     if(!active||t<nextBeat)return;
     if(sceneIndex>=sceneLength){clearQueue();return;}
     const q=queue[sceneIndex];
-    if(!q.n||!awake(q.n,18)||q.n.busy||q.n.windT>0||q.n.sillyT>=0){clearQueue();return;}
-    if(q.n.talkT>0){nextBeat=t+.1;return;}
+    if(!q.n||!awake(q.n,18)||q.n.busy||q.n.windT>0||q.n.sillyT>=0&&q.n.sillyType===4){clearQueue();return;}
+    // A spin, a hop or a shake (talking to someone starts one) only holds the beat; a fall ends the scene.
+    if(q.n.talkT>0||q.n.sillyT>=0){nextBeat=t+.1;return;}
     if(sceneIndex===sceneLength-1&&!punchPrepared){punchPrepared=true;const lead=ctx.audio?.preparePunchline?.()||0;if(lead>0){nextBeat=t+lead;return;}}
     emitting=true;emitter=q.n;emissionText=q.text;emissionCanonical=q.canonical;const emittedBefore=debug.emitted;try{say(q.n,q.text,false);}finally{emitting=false;}
     if(debug.emitted===emittedBefore){clearQueue();return;}
@@ -309,6 +310,15 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
   function setPaused(value){manualPaused=!!value;if(manualPaused){wasPaused=true;if(externalNow)lastExternal=externalNow();}}
   function thaw(n,text){if(!['Eu estava a pensar.','Quem me mudou o intervalo?','O pombo estava a avaliar.'].includes(text)||quiet()||!awake(n))return false;authorized.add(keyOf(text));return say(n,text,false);}
   function isSignature(n,text){return byNpc.get(n)?.descriptor.signature?.text===text;}
+  // One answer when the visitor asks for porrada, from the actor's own 'fight' lines. The fight keeps
+  // every other line quiet, so this bypasses allow() but still spends the line on the 600-second ledger.
+  function fightLine(n){
+    const r=byNpc.get(n);if(disposed||!r?.pools||manualPaused||ctx.scene?.userData?.questQuiet||ctx.scene?.userData?.npcStatues)return '';
+    const text=select(n,'fight',null),canonical=r.lastCanonical||text;
+    if(!text||!memory.commit(canonical))return '';
+    if(keyOf(text)!==keyOf(canonical))memory.commit(text);
+    debug.emitted++;return text;
+  }
   function dispose(){disposed=true;cancel();manifestRequest?.abort();clearTimeout(manifestTimer);for(let i=0;i<records.length;i++){records[i].request?.abort();clearTimeout(records[i].requestTimer);}}
-  return {registerActor,thaw,allow,line,select,notify,update,after,cancel,dispose,memory,debug,allowLaugh,sound,loadManifest,isSignature,setPaused,defeat};
+  return {registerActor,thaw,allow,line,select,notify,update,after,cancel,dispose,memory,debug,allowLaugh,sound,loadManifest,isSignature,setPaused,defeat,fightLine};
 }

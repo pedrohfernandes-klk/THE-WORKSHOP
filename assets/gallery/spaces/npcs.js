@@ -3,7 +3,9 @@ import {idleSlice,afterFirstMove} from '../startup-idle.js';
 // NPCs: six silly animal-headed people in suits who wander small loops around the
 // campus, face the visitor when close, and talk (speech bubble + synthesised noise)
 // when picked. Procedural low-poly-but-smooth models; no per-frame allocation.
-
+// Fourteen campus slots (SPECS) and four for the influencers at the market and the campus stop
+// (EXTRA): the streaming cap (maxActive in the cast manifest). The shell owns one collider per slot.
+const SLOT_COUNT = 18;
 
 async function buildReady(ctx) {
   const { createStatueAudio, createStatueDirector }=await import('../statue-director.js');
@@ -361,7 +363,18 @@ async function buildReady(ctx) {
       lines: ['Isso é que era bom! Queriam era tudo metido num…', 'Isso é que era bom! Queriam era tudo metido…', 'Isso é que era bom! Queriam era…', 'Isso é que era bom! Queriam era tudo metido num… pá, deixa lá.', 'Isso é que era bom! Queriam era tudo num…', 'Isso é que era bom! Queriam…', 'Isso é que era bom! Queriam era tudo metido num… hm.', 'Isso é que era bom!…'] },
     { name: 'mano', head: 'mano', fur: 0xdea383, suit: std(0x3a3f4c, 0.95), sleeve: std(0x3a3f4c, 0.95), pants: std(0x1c2230, 0.9), shirt: 0x3a3f4c, tie: 0, phone: true, hoodie: true, shoe: 0xf2f2f2,
       home: [7.6, 41], r: 1.1, speed: 0.8, top: 2.05, sound: 'tut', ind: ['Ó mano! Tenho MB Way!'],
-      lines: ['Tenho MB Way, tenho MB Way!', 'Faço-te MB Way já, mano.', 'Divide-se a conta? Tenho MB Way.', 'Aceitas MB Way? Tenho MB Way.', 'Tenho MB Way, mano! Tenho!', 'Não tens dinheiro? Tenho MB Way.', 'MB Way. Já foi. Tenho MB Way.', 'Mano. Tenho MB Way.'] },
+      lines: ['Tenho MB Way, tenho MB Way!', 'Faço-te MB Way já, mano.', 'Divide-se a conta? Tenho MB Way.', 'Aceitas MB Way? Tenho MB Way.', 'Tenho MB Way, mano! Tenho!', 'Não tens dinheiro? Tenho MB Way.', 'MB Way. Já foi. Tenho MB Way.', 'Mano. Tenho MB Way.', 'Isto já não é o que era, ai egrégios avós!', 'Olha, olha aquela gente... Não são de cá... Hmmm.'] },
+  ];
+  // The market and the campus stop have their own people: slots 14-17 for the influencers, three on
+  // the market apron and one on the platform (both floors at 0.35 m), SLOT_COUNT in all. bounds keep a
+  // wanderer, a runaway or a slapped one on that floor, and over 2 m from the tram's boarding points
+  // (112.8, 37) and (83.8, 29), where a departing tram takes anyone idle on board.
+  const MARKET = [92.5, 110.6, 20.5, 43.5], PLATFORM = [81.35, 84.25, 31.2, 43.7];
+  const EXTRA = [
+    { name: 'tremoco_vegan', head: 'human', home: [101, 31.9], r: 1.5, floor: 0.35, bounds: MARKET, speed: 0.65, top: 2.05, sound: 'coo', pt: true, lines: [] },
+    { name: 'coach_madrugada', head: 'human', home: [96, 29.6], r: 1.6, floor: 0.35, bounds: MARKET, speed: 0.65, top: 2.1, sound: 'grunt', pt: true, lines: [] },
+    { name: 'apanhados', head: 'human', home: [109, 30], r: 1.4, floor: 0.35, bounds: MARKET, speed: 0.65, top: 2.05, sound: 'tut', pt: true, lines: [] },
+    { name: 'tia_stories', head: 'human', home: [82.7, 39.4], r: 1.05, floor: 0.35, bounds: PLATFORM, speed: 0.65, top: 2, sound: 'chitter', pt: true, lines: [] },
   ];
 
   // ---------- speech bubble ----------
@@ -396,7 +409,9 @@ async function buildReady(ctx) {
   const BARK = { velho: 330, mano: 560 };                                  // these two bark now and then (Hz). Never explained.
   // The campus the wanderers respect: doorways (x, z, r) and building footprints (x0, x1, z0, z1).
   const DOORS = [0, 18.4, 2.4, -11, 44, 2.6, 11, 44, 2.6, 0, 52.6, 2.2];
-  const BOXES = [-7, 7, -17.4, 17.4, -23.3, -10.7, 37.7, 50.3, 10.7, 23.3, 37.7, 50.3, -22.3, 22.3, 56, 72.3];
+  const BOXES = [-7, 7, -17.4, 17.4, -23.3, -10.7, 37.7, 50.3, 10.7, 23.3, 37.7, 50.3, -22.3, 22.3, 56, 72.3,
+    // the market's four stalls, the balance and the bench (mercado.js), padded by a body
+    93.6, 98.4, 22.9, 25.1, 103.6, 108.4, 22.9, 25.1, 93.6, 98.4, 33.9, 36.1, 103.6, 108.4, 33.9, 36.1, 100.25, 101.75, 28.3, 29.7, 107.5, 110.5, 41.2, 42.4];
   // 0 campus, 1 hall, 2 studio, 3 arcade, 4 school rooms, 9 upstairs: nobody reacts through walls.
   function zoneAt(x, z, level) {
     if (level > 0) return 9;
@@ -433,11 +448,12 @@ async function buildReady(ctx) {
   // A director may replace slots, never silently add another actor.
   const assignments = ctx.scene?.userData?.npcAssignments;
   const stationIds=['tortoise','raccoon','cat','walrus'];
-  const slots=SPECS.map((legacy,index)=>{
+  // The floor and the bounds belong to the place (a slot), not to whoever a director puts there.
+  const slots=SPECS.concat(EXTRA).map((legacy,index)=>{
     const id=Array.isArray(assignments)&&typeof assignments[index]==='string'?assignments[index]:legacy.name==='rooster'?'fabinhe':legacy.name;
     const berth=stationIds.indexOf(id);
     const home=berth>=0?[83.4+(berth%2)*.45,28.45+Math.floor(berth/2)*1.1]:legacy.home.slice();
-    return {id,index,home,legacy,station:berth>=0};
+    return {id,index,home,legacy,station:berth>=0,floor:berth>=0?.35:legacy.floor||0,bounds:berth>=0?null:legacy.bounds||null};
   });
   ctx.__npcShell.slots.push(...slots);
   const colliders=ctx.__npcShell.colliders;
@@ -446,7 +462,7 @@ async function buildReady(ctx) {
   async function assemble(slot,entry){
     const idx=slot.index,legacy=slot.legacy;
     let S={...legacy,home:slot.home};
-    if(entry&&!entry.legacy)S={...S,name:entry.id,head:entry.model.head,lines:entry.lines.talk,pt:true,phone:entry.model.clothing==='influencer',proud:false,fixed:false,seated:false,r:Math.max(.7,legacy.r),speed:.65,props:null,extra:null,...(entry.id==='fabinhe'?{sound:'tut',tie:null,braces:false,hoodie:false,stock:false,fat:1}:{})};
+    if(entry&&!entry.legacy)S={...S,name:entry.id,head:entry.model.head,lines:entry.lines.talk,pt:true,phone:entry.model.clothing==='influencer'||!!entry.model.phone,proud:false,fixed:false,seated:false,r:Math.max(.7,legacy.r),speed:.65,props:null,extra:null,...(entry.id==='fabinhe'?{sound:'tut',tie:null,braces:false,hoodie:false,stock:false,fat:1}:{})};
     if(slot.station)S={...S,r:0,speed:0,fixed:true,seated:false,props:null};
     castById.set(S.name,entry);
     const staged=new THREE.Group(),propSource=new THREE.Group();
@@ -512,7 +528,8 @@ async function buildReady(ctx) {
     };
     hit.userData.npc = n; root.userData.npc = n;
     n.slotIndex=idx;n.bairroTime=0;
-    if(slot.station){n.baseY=.35;root.position.y=.35;if(blob)blob.position.y=.37;}
+    if(slot.floor){n.baseY=slot.floor;root.position.y=slot.floor;if(blob)blob.position.y=slot.floor+.02;}
+    n.bounds=slot.bounds;n.fightLineT=0;
     n.col=colliders[idx];
     const own=R[S.name];n.talk=ONLY[S.name]?own.talk:S.lines.concat((own&&own.talk)||[]);
     const propsBatch=mergeNpcProps(THREE,propSource);if(propsBatch)staged.add(propsBatch);
@@ -520,7 +537,7 @@ async function buildReady(ctx) {
     await (ctx.yieldBuild?ctx.yieldBuild():idleSlice());
     n.staged=staged;return n;
   }
-  const effects=createNpcEffects(THREE,group,npcs,blobGeo,blobMat,starMat);
+  const effects=createNpcEffects(THREE,group,npcs,blobGeo,blobMat,starMat,SLOT_COUNT);
   onFont.push(()=>{for(const n of npcs)if(n.talkT>0&&n.curText)drawBubble(n,n.curText);});
   const stream=createActorStream(ctx,{slots,assemble,commit(n){
     group.add(n.staged);delete n.staged;npcs.push(n);readableBubbles.register(n);pickables.push(n.hit,n.root);
@@ -852,9 +869,10 @@ async function buildReady(ctx) {
       rude: ['Hey! Not in front of the barbecue!', 'Back in my day we pointed with the WHOLE hand.'], ha: ['Hihihihihi!', 'Heeheehee!'],
       murmur: ['Tsk, tsk. Kids.', 'Back in my day…', 'Unbelievable. Pass the sauce.'],
     },
-    // The forcado: "Tá bueno!", "Tá bueno?", "Tá bueno, tá bueno…" — and now and then "Sai cavalinho!".
+    // The forcado: "Tá bueno!", "Tá bueno?", "Tá bueno, tá bueno…" — and now and then "Sai cavalinho!",
+    // and the owner's brag about limits.
     forcado: {
-      talk: ['Tá bueno!', 'Tá bueno?', 'Tá bueno, tá bueno…', 'Tá bueno.', 'Tá bueno, tá bueno!', 'Tá… bueno?', 'Tá bueno! Tá bueno!', 'Tá bueno?!', 'Hm. Tá bueno.', 'Tá bueno… tá bueno…', 'Tá bueno, tá?', 'Tá BUENO!'],
+      talk: ['Tá bueno!', 'Tá bueno?', 'Tá bueno, tá bueno…', 'Tá bueno.', 'Tá bueno, tá bueno!', 'Tá… bueno?', 'Tá bueno! Tá bueno!', 'Tá bueno?!', 'Hm. Tá bueno.', 'Tá bueno… tá bueno…', 'Tá bueno, tá?', 'Tá BUENO!', 'Limites? Quem tem limite é o cartão de crédito, hahahah!'],
       run: ['Eh, toiro! Sai cavalinho!'], scream: ['Eh, toiro! Sai cavalinho!'], shout: ['Sai cavalinho!', 'Eh, toiro! Sai cavalinho!'],
       ouch: ['TÁ BUENO!', 'TÁ BUENO?!', 'TÁ BUENO, TÁ BUENO!'], ouch2: ['TÁ BUENO?!', 'Tá bueno?!… TÁ BUENO!'], ouch3: ['TÁ BUENO, TÁ BUENO, TÁ BUENO!!', 'TÁ BUENO!! TÁ BUENO!!', 'TÁÁÁ BUENO!'],
       up: ['Tá bueno, tá bueno…', 'Tá bueno.', 'Tá bueno?'], rude: ['Tá bueno?', 'Tá bueno!', 'Tá bueno, tá bueno…'], ha: ['Tá bueno! Tá bueno!', 'Tá bueno, tá bueno!'],
@@ -966,7 +984,8 @@ async function buildReady(ctx) {
   const MURMURERS = { tortoise: 1, walrus: 1, velho: 1, gordo: 1, raccoon: 1, rooster: 1, horse: 1 };
   const BURPERS = { gordo: 1, walrus: 1, raccoon: 1, pig: 1, bull: 1 };
   const FRIEND = { velho: 'gordo', gordo: 'velho', tortoise: 'walrus', walrus: 'tortoise', pig: 'pigeon', pigeon: 'pig', horse: 'cat', cat: 'horse', bull: 'rooster', rooster: 'bull', goat: 'raccoon', raccoon: 'goat', mano: 'gordo' };
-  const CHASERS = { mano: 1, gordo: 1, walrus: 1, rooster: 1, bull: 1, goat: 1, pig: 1, pigeon: 1, velho: 1 };
+  const CHASERS = { mano: 1, gordo: 1, walrus: 1, rooster: 1, bull: 1, goat: 1, pig: 1, pigeon: 1, velho: 1,
+    coach_madrugada: 1, apanhados: 1, tia_stories: 1 };   // slapped thrice, they come back for theirs (bounds keep them on their floor)
 
   // ---------- comedy helpers ----------
   const E = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
@@ -1020,7 +1039,8 @@ async function buildReady(ctx) {
   function go(n, x, z, sp, t) { n.goOn = true; n.gx = x; n.gz = z; n.gsp = sp; n.goT = t; }
   function bark(n) {
     const gap = 0.2 + Math.random() * 0.07;
-    say(n, BARK_TXT, false); n.talkT = Math.max(n.talkT,2.2);
+    // Only a bark that was said holds the bubble; a refused one must not re-show the last line.
+    if (say(n, BARK_TXT, false)) n.talkT = Math.max(n.talkT,2.2);
     n.jerk = 1; n.jerkAt = gap; n.barkCd = 28 + Math.random() * 30;
     barkSound(n, gap);
   }
@@ -1184,6 +1204,9 @@ async function buildReady(ctx) {
         if (m === l) n.x = x0; else if (m === r) n.x = x1; else if (m === b) n.z = z0; else n.z = z1;
       }
     }
+    // The market and the platform stand 0.35 m up: whoever lives there stays on that floor.
+    const B = n.bounds;
+    if (B) { n.x = Math.min(B[1], Math.max(B[0], n.x)); n.z = Math.min(B[3], Math.max(B[2], n.z)); }
   }
 
   // ---------- drama director ----------
@@ -1270,6 +1293,26 @@ async function buildReady(ctx) {
     if(statuesHeld===!!value)return;statuesHeld=!!value;
     statueAudio.setPaused(!!value);comedy?.setPaused?.(!!value);
   }
+  // The visitor asked for porrada (combat.js publishes 'fightStarted' with the visitor as aId): the
+  // one who was asked answers once, from their own 'fight' lines, above the head for the first beats.
+  let fightSerial = 0;
+  function watchFights() {
+    const ring = ctx.scene.userData.combatEvents;
+    if (!ring || ring.serial === fightSerial) return;
+    const last = ring.serial;
+    for (let s = Math.max(fightSerial + 1, last - 15); s <= last; s++) {
+      const e = ring.entries[(s - 1) % 16];
+      if (!e || e.serial !== s || e.type !== 'fightStarted' || e.aId !== 'visitor') continue;
+      for (let i = 0; i < npcs.length; i++) if (npcs[i].S.name === e.bId) { fightReply(npcs[i]); break; }
+    }
+    fightSerial = last;
+  }
+  function fightReply(n) {
+    if (!n.combatControlled || ctx.scene.userData.questQuiet) return;
+    const text = comedy?.fightLine?.(n) || '';
+    if (!text) return;
+    n.curText = text; readableBubbles.setText(n, text); n.fightLineT = n.talkT = 2.8; n.bubble = 0;
+  }
   function update(dt, frame) {
     stream.update(frame);
     if (ctx.audio?.muted || ctx.scene.userData.questQuiet || ctx.scene.userData.combatState?.active) stopSignatureSpeech();
@@ -1279,7 +1322,7 @@ async function buildReady(ctx) {
     npcFrame.camera=frame.camera;npcFrame.level=frame.level;npcFrame.weather=frame.weather;
     if(ctx.scene.userData.npcStatues){setStatues(true);comedy.update(0,npcFrame);effects.update(frame.camera,starMat.rotation);readableBubbles.update(frame.camera);return;}
     setStatues(false);npcTime+=Math.min(.1,Math.max(0,dt));npcFrame.time=npcTime;
-    try { comedy.update(dt,npcFrame);personalities.before(dt,npcFrame);step(dt,npcFrame);personalities.after(dt,npcFrame);fabinhe.after(dt,npcFrame);comedy.after();effects.update(frame.camera,starMat.rotation); }
+    try { watchFights();comedy.update(dt,npcFrame);personalities.before(dt,npcFrame);step(dt,npcFrame);personalities.after(dt,npcFrame);fabinhe.after(dt,npcFrame);comedy.after();effects.update(frame.camera,starMat.rotation); }
     catch (err) { warnOnce('update', err); }
     readableBubbles.update(frame.camera);
   }
@@ -1359,7 +1402,8 @@ async function buildReady(ctx) {
       const n = npcs[i], S = n.S;
       if(patience&&!n.combatControlled){if(n.pestT>0||n.windT>0)endPest(n,null);n.revengeAt=0;n.windT=0;n.lingerT=0;}
       if(n.combatHidden){n.root.visible=false;n.stars.visible=false;if(n.sprite)n.sprite.visible=false;if(n.blob)n.blob.visible=false;n.col.minY=-51;n.col.maxY=-50;continue;}
-      if(n.combatControlled){n.root.visible=true;if(n.sprite)n.sprite.visible=false;n.talkT=0;n.bubble=0;continue;}
+      if(n.combatControlled){n.root.visible=true;if(n.fightLineT>0){n.fightLineT=Math.max(0,n.fightLineT-rawDt);n.talkT=n.fightLineT;}else{if(n.sprite)n.sprite.visible=false;n.talkT=0;n.bubble=0;}continue;}
+      n.fightLineT=0;
       let dx = 0, dz = 0, d2 = 1e9;
       if (cam) { dx = cam.x - n.x; dz = cam.z - n.z; d2 = dx * dx + dz * dz; }
       n.d2 = d2;
@@ -1587,14 +1631,15 @@ async function buildReady(ctx) {
         n.hvy -= 9.8 * dt; const H = n.hat;
         H.position.x += n.hvx * dt; H.position.y += n.hvy * dt; H.position.z += n.hvz * dt;
         H.rotation.z += n.hs * dt; H.rotation.y += n.hs * 0.3 * dt;
-        if (H.position.y <= 0.04 && n.hvy < 0) {
-          H.position.y = 0.04; n.hvy *= -0.35; n.hvx *= 0.5; n.hvz *= 0.5; n.hs *= 0.5;
+        const hatFloor = Math.max(0, n.baseY || 0) + 0.04;   // the market and the platform are 0.35 m up
+        if (H.position.y <= hatFloor && n.hvy < 0) {
+          H.position.y = hatFloor; n.hvy *= -0.35; n.hvx *= 0.5; n.hvz *= 0.5; n.hs *= 0.5;
           if (n.hvy < 0.8) { n.hatState = 2; n.hatT = 0; H.rotation.x = 0; H.rotation.z = 0.0; }
         }
       } else if (n.hatState === 2) {
         n.hatT += dt;
         if (n.hatT > 2.4) {
-          n.hatState = 0;
+          n.hatState = 0; if (n.rig?.mesh) n.rig.mesh.frustumCulled = true;
           if (n.hatReal) { n.head.add(n.hat); n.hat.position.set(0, 0, 0); n.hat.rotation.set(0, 0, 0); n.hat.scale.set(1, 1, 1); } else n.hat.visible = false;
         }
       }
@@ -1823,7 +1868,7 @@ async function buildReady(ctx) {
       if (st) n.stars.position.set(hx, hy + 0.3 * n.hs * n.sz, hz);
       if (n.blob) {
         const ly = Math.min(1, lyA / 1.4), s = (0.8 + 0.7 * ly) * n.fat * n.sz * Math.max(0.45, 1 - hop * 0.5);
-        n.blob.position.set(n.x + (hx - n.x) * 0.5 * ly, 0.02, n.z + (hz - n.z) * 0.5 * ly);
+        n.blob.position.set(n.x + (hx - n.x) * 0.5 * ly, Math.max(0, n.baseY || 0) + 0.02, n.z + (hz - n.z) * 0.5 * ly);
         n.blob.scale.set(s, 1, s);
       }
     }
@@ -1889,6 +1934,7 @@ async function buildReady(ctx) {
     }
     if (n.hatState === 0) {
       const H = n.hat; group.add(H); H.visible = true; H.scale.setScalar(n.hs * n.sz); H.rotation.set(0, 0, 0);
+      if (n.rig?.mesh) n.rig.mesh.frustumCulled = false;   // the hat is skinned to its owner and can land metres outside the owner's culling sphere
       H.position.set(n.x, n.baseY + (n.bodyY0 + n.headY) * n.sz, n.z);
       const ax = n.x - pcx, az = n.z - pcz, d = Math.sqrt(ax * ax + az * az) || 1;
       n.hvx = (ax / d) * 2 + (Math.random() - 0.5) * 2.4; n.hvz = (az / d) * 2 + (Math.random() - 0.5) * 2.4;
@@ -1951,7 +1997,7 @@ async function buildReady(ctx) {
 // Synchronous empty shell: no actor module imports, canvases, fonts or cast requests.
 export function build(ctx){
   const group=new ctx.THREE.Group();group.name='npcs';
-  const shell={actors:[],pickables:[],slots:[],listeners:new Set(),colliders:Array.from({length:14},()=>({minX:0,maxX:0,minZ:0,maxZ:0,minY:-51,maxY:-50}))};
+  const shell={actors:[],pickables:[],slots:[],listeners:new Set(),colliders:Array.from({length:SLOT_COUNT},()=>({minX:0,maxX:0,minZ:0,maxZ:0,minY:-51,maxY:-50}))};
   let ready=null,loading=false,disposed=false,navigation=null,clock=0,retryAt=0,attempts=0;
   let statues=!!ctx.scene.userData.npcStatues;
   function onActorReady(fn){shell.listeners.add(fn);return()=>shell.listeners.delete(fn);}

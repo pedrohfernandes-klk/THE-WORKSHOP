@@ -33,7 +33,8 @@ test('real NPC module accepts empty/live rosters and late station actors under q
  let module;
  try{
  const {build}=await import('../assets/gallery/spaces/npcs.js');const pending=build(ctx);pending.setStatues(true);await tick();assert.equal(scene.userData.npcStatues,true);assert.equal(requests.length,0);
- startup.moved=true;resolveMove();module=await pending;assert.equal(module.actors.length,0);assert.equal(module.colliders.length,14);assert.equal(requests.length,0);
+ // 14 -> 18 colliders: one per slot, and four slots were added for the influencers (market and campus stop).
+ startup.moved=true;resolveMove();module=await pending;assert.equal(module.actors.length,0);assert.equal(module.colliders.length,18);assert.equal(requests.length,0);
  const identity=module.combatActors,ready=[];module.onActorReady(n=>{assert.ok(n.rig&&n.root&&n.hit&&n.col);ready.push(n);});
  const camera=new THREE.PerspectiveCamera();camera.position.set(0,1.62,20);
  for(let i=0;i<90;i++){module.update(.016,{camera,time:i/60,level:0});await new Promise(r=>setTimeout(r,2));}
@@ -42,7 +43,8 @@ test('real NPC module accepts empty/live rosters and late station actors under q
  camera.position.set(84,1.97,29);
  for(let i=0;i<160;i++){module.update(.016,{camera,time:2+i/60,level:0});await new Promise(r=>setTimeout(r,2));}
  assert.deepEqual(errors,[]);for(const id of ['cat','raccoon','tortoise','walrus']){const n=module.actors.find(n=>n.S.name===id);assert.ok(n,id);assert.ok(n.x>81&&n.x<85);assert.equal(n.baseY,.35);}
- assert.equal(scene.userData.npcStatues,true);assert.ok(module.statueAudio.suspended);assert.ok(module.actors.length<=14);assert.equal(new Set(module.actors.map(n=>n.S.name)).size,module.actors.length);
+ // <=14 -> <=18: near the campus stop the platform and market influencers stream in too, still one per slot.
+ assert.equal(scene.userData.npcStatues,true);assert.ok(module.statueAudio.suspended);assert.ok(module.actors.length<=18);assert.equal(new Set(module.actors.map(n=>n.S.name)).size,module.actors.length);
  }finally{module?.dispose();globalThis.fetch=previous;}
 });
 
@@ -51,13 +53,15 @@ test('dormant shell creates no canvas and retries failed initialization only aft
  const fakeThree={...THREE,Group:class extends THREE.Group{constructor(){super();if(++groups===2)throw Error('Transient initial build');}}};
  globalThis.document={createElement(){throw Error('Canvas before locomotion');}};const scene=new THREE.Scene(),startup={moved:false};let mod;
  try {mod=build({THREE:fakeThree,scene,startup,quality:'low',audio:{muted:true},onActorError:()=>errors++,M:{get:()=>new THREE.MeshStandardMaterial(),boxUV}});
- assert.equal(mod.then,undefined);assert.equal(mod.actors.length,0);assert.equal(mod.colliders.length,14);assert.equal(mod.actors,mod.combatActors);
+ // 14 -> 18: the dormant shell already owns one collider per slot, the four influencer slots included.
+ assert.equal(mod.then,undefined);assert.equal(mod.actors.length,0);assert.equal(mod.colliders.length,18);assert.equal(mod.actors,mod.combatActors);
  const f={camera:{position:{x:1000,y:1.62,z:1000}},time:0};for(let i=0;i<4;i++)mod.update(.016,f);
  await tick();assert.equal(mod.actorSlots.length,0);assert.equal(groups,1);
  globalThis.document=previous;console.warn=()=>{};startup.moved=true;mod.setStatues(true);mod.update(.016,f);
  for(let i=0;i<80&&errors===0;i++)await new Promise(r=>setTimeout(r,2));assert.equal(errors,1);
  f.time=2.99;for(let i=0;i<10;i++)mod.update(.016,f);await tick();assert.equal(groups,2);assert.equal(errors,1);
  f.time=3.01;mod.update(.016,f);for(let i=0;i<100&&!mod.stream;i++)await new Promise(r=>setTimeout(r,2));
- assert.ok(mod.stream);assert.equal(errors,1);assert.equal(mod.actorSlots.length,14);assert.equal(scene.userData.npcStatues,true);assert.ok(mod.statueAudio.suspended);
+ // 14 -> 18 slots: fourteen campus slots and four for the influencers.
+ assert.ok(mod.stream);assert.equal(errors,1);assert.equal(mod.actorSlots.length,18);assert.equal(scene.userData.npcStatues,true);assert.ok(mod.statueAudio.suspended);
  }finally{mod?.dispose();globalThis.document=previous;console.warn=oldWarn;}
 });
