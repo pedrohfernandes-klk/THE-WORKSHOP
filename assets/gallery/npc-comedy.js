@@ -113,13 +113,16 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
     // Fixed self-origin path; manifest cannot turn a dialogue load into an external request.
     if(!/^[a-z0-9_]+$/.test(r.id)){r.status=3;return;}
     r.status=1;r.attempts++;fetching++;debug.fetches++;
-    const controller=new AbortController();r.request=controller;
-    r.requestTimer=setTimeout(()=>controller.abort(),8000);
+    // A slow answer is never aborted (that showed as a failed request and threw the lines away):
+    // after 8 s its slot is freed and the record may retry later, and a late body still counts.
+    const controller=new AbortController();r.request=controller;let freed=false,timer=0;
+    const free=()=>{if(freed)return false;freed=true;clearTimeout(timer);if(r.request===controller)r.request=null;fetching--;return true;};
+    timer=r.requestTimer=setTimeout(()=>{if(free()&&r.status===1){r.status=3;r.retryAt=time()+30;r.pending='';}},8000);
     fetch(new URL('../data/comedy/'+r.id+'.json',import.meta.url),{signal:controller.signal})
       .then(async response=>{if(!response.ok)throw new Error('dialogue unavailable');const text=await response.text();if(new TextEncoder().encode(text).byteLength>30720)throw new Error('dialogue exceeds 30 KiB');await yieldData();if(disposed||!awake(r.n))throw new Error('actor left range');return JSON.parse(text);})
       .then(body=>{if(!disposed){r.pools=body;r.status=2;for(const level of Object.values(body.levels||{}))for(const list of Object.values(level))if(Array.isArray(list))for(const entry of list)authorize(entry);}})
-      .catch(()=>{r.status=3;r.retryAt=time()+30;r.pending='';})
-      .finally(()=>{clearTimeout(r.requestTimer);r.request=null;fetching--;});
+      .catch(()=>{if(r.status!==2&&(r.request===controller||r.request===null)){r.status=3;r.retryAt=time()+30;r.pending='';}})
+      .finally(free);
   }
   function anyAwake(){for(let i=0;i<records.length;i++)if(awake(records[i].n))return true;return false;}
   let manifestScheduled=false;
@@ -127,8 +130,9 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
   function fetchManifest(){
     if(disposed||manifestReady||manifestRequest)return;
     manifestAttempts++;
-    const controller=new AbortController();manifestRequest=controller;
-    manifestTimer=setTimeout(()=>controller.abort(),8000);
+    const controller=new AbortController();manifestRequest=controller;let freed=false,timer=0;
+    const free=()=>{if(freed)return;freed=true;clearTimeout(timer);if(manifestRequest===controller)manifestRequest=null;};
+    timer=manifestTimer=setTimeout(()=>{if(!freed&&!manifestReady){free();manifestRetry=time()+30;}},8000);
     fetch(new URL('../data/npc-comedy.json',import.meta.url),{signal:controller.signal})
       .then(async response=>{if(!response.ok)throw new Error('manifest unavailable');const text=await response.text();if(new TextEncoder().encode(text).byteLength>204800)throw new Error('manifest too large');await yieldData();return JSON.parse(text);})
       .then(body=>{if(disposed)return;data=body;
@@ -136,8 +140,8 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
         for(const scene of [...(data.duets||[]),...(data.gags||[])])for(const beat of scene.lines||scene.beats||[])authorize(beat);
         for(const entry of data.protectedLines||[])authorize(entry);
         manifestReady=true;
-      }).catch(()=>{manifestRetry=time()+30;})
-      .finally(()=>{clearTimeout(manifestTimer);manifestRequest=null;});
+      }).catch(()=>{if(!manifestReady)manifestRetry=time()+30;})
+      .finally(free);
   }
   function clearQueue(){active=false;debug.active=false;punchPrepared=false;sceneIndex=sceneLength=0;for(let i=0;i<8;i++){queue[i].n=null;queue[i].text='';}}
   function stopAudio(){for(let i=0;i<voices.length;i++){const v=voices[i];if(v){try{v.stop();}catch{}voices[i]=null;}}}

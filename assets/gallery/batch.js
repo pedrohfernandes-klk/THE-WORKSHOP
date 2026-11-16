@@ -115,7 +115,7 @@ function attributeNames(g, m) {
 function moved(c) {
   const o = c.o;
   if (o.parent !== c.parent || o.material !== c.mat || o.geometry !== c.geo) return true;
-  for (let p = o; p && p !== c.group; p = p.parent) if (!p.visible) return true;
+  for (let p = o; p && p !== c.group; p = p.parent) if (!p.visible || hasKeys(p.userData)) return true;
   const e = o.matrixWorld.elements, m = c.m;
   for (let i = 0; i < 16; i++) if (Math.abs(e[i] - m[i]) > 1e-6 * (1 + Math.abs(m[i]))) return true;
   return versionOf(o.geometry) !== c.v;
