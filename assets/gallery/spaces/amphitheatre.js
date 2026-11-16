@@ -8,7 +8,6 @@ const N_TIERS = 10, R_IN = 7, TREAD = 0.8;
 const RISER = (RIM - FLOOR) / N_TIERS;          // 0.422
 const R_OUT = R_IN + N_TIERS * TREAD;            // 15
 const AISLE_STEPS = 24;
-const VIDEO_URL = new URL('../../extracted/hall-fireworks-video.mp4', import.meta.url).href;
 
 export function build(ctx) {
   const { THREE, M, quality } = ctx;
@@ -264,20 +263,10 @@ export function build(ctx) {
 
   // ---------------------------------------------------------------- outdoor screen
   const SCR_W = 12, SCR_H = 6.75, SCR_Y = 3.175, SCR_X = -56.97;
-  const video = document.createElement('video');
-  video.muted = true; video.defaultMuted = true; video.loop = true; video.playsInline = true;
-  video.setAttribute('playsinline', ''); video.setAttribute('muted', '');
-  video.crossOrigin = 'anonymous'; video.preload = 'none'; video.src = VIDEO_URL;
-  const vtex = new THREE.VideoTexture(video);
-  vtex.colorSpace = THREE.SRGBColorSpace; vtex.minFilter = THREE.LinearFilter; vtex.generateMipmaps = false;
-  // standby picture shown until the film is playing
-  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 288;
-  { const c = cv.getContext('2d'); const gr = c.createLinearGradient(0, 0, 0, 288); gr.addColorStop(0, '#0b1020'); gr.addColorStop(1, '#1d2440'); c.fillStyle = gr; c.fillRect(0, 0, 512, 288); }
-  const standby = new THREE.CanvasTexture(cv); standby.colorSpace = THREE.SRGBColorSpace;
-  const screenMat = new THREE.MeshBasicMaterial({ map: standby, toneMapped: false });
-  let playing = false, failed = false;
-  video.addEventListener('error', () => { failed = true; screenMat.map = standby; screenMat.needsUpdate = true; });
-  video.addEventListener('playing', () => { if (!failed) { screenMat.map = vtex; screenMat.needsUpdate = true; } });
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 144;
+  { const c=cv.getContext('2d'); c.fillStyle='#0b1020';c.fillRect(0,0,256,144);c.fillStyle='#f4ead2';c.font='bold 30px sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText('▶ VER',128,72); }
+  const standby=new THREE.CanvasTexture(cv);standby.colorSpace=THREE.SRGBColorSpace;standby.generateMipmaps=false;
+  const screenMat=new THREE.MeshBasicMaterial({map:standby,toneMapped:false});
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(SCR_W, SCR_H), screenMat);
   screen.rotation.y = Math.PI / 2; screen.position.set(SCR_X, SCR_Y, 30); screen.name = 'screen';
   group.add(screen);
@@ -383,20 +372,7 @@ export function build(ctx) {
   regions.push({ minX: -50.9, maxX: -50.3, minZ: 28, maxZ: 32, y: -3.7 });                      // stage step
   regions.push({ minX: -57, maxX: -50.9, minZ: 22.2, maxZ: 37.8, y: -3.2 });                    // stage
 
-  // ---------------------------------------------------------------- update: film plays only when close
-  let acc = 0;
-  const sx = -57, sy = 3, sz = 30;
-  function update(dt, frame) {
-    acc += dt;
-    if (acc < 0.4) return;
-    acc = 0;
-    const p = frame.camera.position;
-    const dx = p.x - sx, dy = p.y - sy, dz = p.z - sz;
-    const near = dx * dx + dy * dy + dz * dz < 3600;
-    if (near && !playing && !failed) { playing = true; const pr = video.play(); if (pr && pr.catch) pr.catch(() => { playing = false; }); }
-    else if (!near && playing) { playing = false; video.pause(); }
-  }
-  screen.onBeforeRender = () => { /* VideoTexture self-updates via requestVideoFrameCallback */ };
+  function update() {}
 
   return { group, regions, colliders, pickables, seats, update, onPick() {} };
 }

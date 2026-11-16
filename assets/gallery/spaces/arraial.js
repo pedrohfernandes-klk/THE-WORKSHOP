@@ -5,14 +5,14 @@ import { reserveModuleVoice, finishModuleVoice, releaseModuleVoices } from '../a
 // Zé da Concertina (accordion) and Dona Rosa do Bombo (bass drum) trade silly
 // verses about the campus, call and response, and she always has the last word.
 // Three cabeçudos (huge papier-mâché heads on small bodies) dance badly in front.
-// A sardine grill smokes at the side. Click Zé or Rosa: a "bomba" (firecracker).
+// A sardine grill smokes at the side. Click Zé or Rosa: a drum accent.
 //
 // Footprint x 65.6…77.4, z 19.4…27.6 (floor y 0); the garden path region at
 // z 27.6…30.4 is the threshold. Draw calls: floor 1, wood 1, metal 1, bulbs 1,
 // pennants 1, performers 1 (one SkinnedMesh, 14 bones), FX points 1, bubble 1
 // (only while someone sings) = 8. No lights, no image/audio files, one 256×128
 // CanvasTexture. update(): returns at once beyond 40 m; otherwise ~14 bone
-// sets, 72 particles and a Web Audio look-ahead scheduler, no allocations.
+// sets, 20 smoke particles and a Web Audio look-ahead scheduler, no allocations.
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const CX = 71.5, CZ = 23.4;                 // centre of the corner
@@ -41,7 +41,7 @@ const STORM_VERSES = [
   { ze: ['Trovoada no arraial,', 'caiu-me o boné no grelhador!'], rosa: ['Deixa estar, ó Zé:', 'assim já tem mais sabor!'], big: 1 },
   { ze: ['Chove nas sardinhas,', 'já estão a nadar outra vez!'], rosa: ['Antes nadar no prato', 'do que ouvir-te mais um mês!'], big: 0 },
 ];
-const ZE_BOMBAS = [
+const ZE_BATIDAS = [
   'Comi tanta sardinha que já nado de costas!',
   'Esta concertina é como eu: velhinha, mas com muito fole!',
   'A minha voz é como o caldo verde: aquece, mas ninguém repete!',
@@ -51,15 +51,15 @@ const ZE_BOMBAS = [
   'O gato crítico deu-me cinco estrelas. Estavam todas apagadas!',
 ];
 const ROSA_LAST = [
-  'E ninguém te pediu, Zé!', 'Bomba é a tua afinação!', 'Ó Zé, toca e cala-te!',
+  'E ninguém te pediu, Zé!', 'Desafinado é o teu palpite!', 'Ó Zé, toca e cala-te!',
   'Isso foi pior que sardinha crua!', 'Ai, Zé, ainda te troco pelo pato!', 'Até o forcado disse que não tá bueno!',
 ];
-const ROSA_BOMBAS = [
+const ROSA_BATIDAS = [
   'Pum! Esta foi para acordar o Zé!',
   'Quem bate no bombo sou eu. O resto é conversa!',
   'O bombo é como o Zé: oco, mas faz um barulhão!',
   'Sardinha que salta do prato é porque ouviu o Zé!',
-  'Mais uma bomba e o anão foge para o metro!',
+  'Mais uma batida e perco o metro!',
 ];
 const CAB_LINES = [
   '(abafado) Não vejo nada cá de dentro!', '(abafado) Quem é que me pisou o pé?',
@@ -377,15 +377,15 @@ export function build(ctx) {
     p.position.set(x, y, z); p.name = 'arraial-' + id; p.userData.action = { type: 'custom', id, label };
     group.add(p); pickables.push(p); return p;
   };
-  proxy(0.75, 1.95, 0.8, 70.6, 1.4, 21.45, 'ze', 'Ask Zé for a bomba');
-  proxy(0.8, 1.9, 0.85, 72.8, 1.37, 21.45, 'rosa', 'Ask Rosa for a bomba');
+  proxy(0.75, 1.95, 0.8, 70.6, 1.4, 21.45, 'ze', 'PEDIR BATIDA');
+  proxy(0.8, 1.9, 0.85, 72.8, 1.37, 21.45, 'rosa', 'PEDIR BATIDA');
   CABS.forEach(([x, z], k) => {
     proxy(1.0, 2.3, 1.0, x, 1.15, z, 'cab' + k, 'Dance with the cabeçudo');
     colliders.push({ minX: x - 0.45, maxX: x + 0.45, minZ: z - 0.45, maxZ: z + 0.45, minY: 0, maxY: 2.3 });
   });
 
-  // ---- FX: grill smoke + bomba sparks, one Points --------------------------------------
-  const NSM = 20, NFX = 72;
+  // ---- FX: grill smoke only, one Points --------------------------------------
+  const NSM = 20, NFX = NSM;
   const fxPos = new Float32Array(NFX * 3), fxCol = new Float32Array(NFX * 4), fxVel = new Float32Array(NFX * 3);
   const fxAge = new Float32Array(NFX), fxLife = new Float32Array(NFX);
   for (let i = 0; i < NSM; i++) { fxLife[i] = 3.6; fxAge[i] = (i / NSM) * 3.6; }
@@ -397,20 +397,6 @@ export function build(ctx) {
   const fx = new THREE.Points(fxGeo, fxMat);
   fx.frustumCulled = false; fx.raycast = () => {}; fx.renderOrder = 2; fx.visible = false;
   group.add(fx);
-  const SPARK = [[0.94, 0.49, 0.34], [1, 0.8, 0.46], [1, 0.95, 0.84], [0.65, 0.94, 0.44], [0.25, 0.65, 0.96]];
-  function burst(x, y, z, big) {
-    const n = big ? NFX - NSM : 28;
-    for (let j = 0; j < n; j++) {
-      const i = NSM + j, u = Math.random() * 2 - 1, a = Math.random() * 6.283, r = Math.sqrt(1 - u * u);
-      const v = RM ? 0.6 + Math.random() * 0.6 : 2.4 + Math.random() * 2.2;
-      fxPos[i * 3] = x; fxPos[i * 3 + 1] = y; fxPos[i * 3 + 2] = z;
-      fxVel[i * 3] = r * Math.cos(a) * v; fxVel[i * 3 + 1] = Math.abs(u) * v * 0.8 + (RM ? 0.2 : 1.2); fxVel[i * 3 + 2] = r * Math.sin(a) * v;
-      fxAge[i] = 0; fxLife[i] = RM ? 2.2 + Math.random() : 0.8 + Math.random() * 0.6;
-      const c = SPARK[(Math.random() * SPARK.length) | 0];
-      fxCol[i * 4] = c[0]; fxCol[i * 4 + 1] = c[1]; fxCol[i * 4 + 2] = c[2]; fxCol[i * 4 + 3] = 1;
-    }
-  }
-
   // ---- the speech bubble: one Sprite, 256×128 pixel canvas ------------------------------
   const BW = 256, BH = 128;
   const bc = typeof document !== 'undefined' ? document.createElement('canvas') : null;
@@ -458,7 +444,7 @@ export function build(ctx) {
   const SPOT = { ze: [70.6, 2.5, 21.4], rosa: [72.8, 2.45, 21.4] };
 
   // ---- sound: everything into ctx.audio.bus, read lazily ---------------------------------
-  let A = null, cur = 0, want = 0, punch = 0, strikeAt = 0, burstAt = 0, burstBig = 0;
+  let A = null, cur = 0, want = 0, punch = 0, strikeAt = 0;
   function audioOut() {
     const au = ctx.audio; if (!au) return null;
     try { const ac = au.context, bus = au.bus; return ac && bus && !au.muted && ac.state === 'running' ? au : null; } catch (e) { return null; }
@@ -505,23 +491,8 @@ export function build(ctx) {
     f.cancelScheduledValues(t); f.setValueAtTime(105, t); f.exponentialRampToValueAtTime(43, t + 0.24);
     g.cancelScheduledValues(t); g.setValueAtTime(0.0001, t); g.exponentialRampToValueAtTime(v, t + 0.006); g.exponentialRampToValueAtTime(0.0005, t + 0.55);
   }
-  function crack(t, big) {
-    const ac = A.ac;
-    const lease = reserveModuleVoice(ctx, 3, true, .7, A.out, t); if (!lease) return t; t = Math.max(t, lease.startAt);
-    try {
-      const n1 = ac.createBufferSource(), f1 = ac.createBiquadFilter(), g1 = ac.createGain();
-      n1.buffer = A.noise; f1.type = 'bandpass'; f1.frequency.value = 5200; f1.Q.value = 1.5;
-      g1.gain.setValueAtTime(0, t); g1.gain.linearRampToValueAtTime(0.04, t + 0.04); g1.gain.linearRampToValueAtTime(0, t + 0.3);
-      n1.connect(f1); f1.connect(g1); g1.connect(lease.gain); lease.track(n1); n1.start(t, 0, 0.32);
-      const tb = t + 0.3, n2 = ac.createBufferSource(), f2 = ac.createBiquadFilter(), g2 = ac.createGain();
-      n2.buffer = A.noise; f2.type = 'highpass'; f2.frequency.value = 450;
-      g2.gain.setValueAtTime(0.0001, tb); g2.gain.exponentialRampToValueAtTime(big ? 0.55 : 0.4, tb + 0.004); g2.gain.exponentialRampToValueAtTime(0.0008, tb + 0.24);
-      n2.connect(f2); f2.connect(g2); g2.connect(lease.gain); lease.gain.connect(A.dl); lease.track(n2); finishModuleVoice(lease, n2); n2.start(tb, 0.2, 0.3);
-      boom(tb, big ? 0.5 : 0.35);
-      n2.onended = () => { try { g1.disconnect(); g2.disconnect(); } catch (e) { /* gone */ } };
-      return tb;
-    } catch (e) { lease.release(); return t; }
-  }
+  function drumAccent(t) { boom(t, 0.5); return t; }
+
   function schedStep(t) {
     let T = TUNES[cur];
     if (A.step > 0 && A.step % T.len === 0 && want === cur && !T.waltz) want = 1 - cur;   // alternate the two marchas
@@ -544,7 +515,7 @@ export function build(ctx) {
       const now = A.ac.currentTime;
       if (punch) {
         boom(t, 0.5); strikeAt = clock + (t - now);
-        if (punch === 2) { const tb = crack(t + 4 * S16, true); burstAt = clock + (tb - now); burstBig = 1; }
+        if (punch === 2) drumAccent(t + 4 * S16);
         punch = 0;
       } else if (!T.waltz) boom(t, 0.14);
     }
@@ -563,18 +534,17 @@ export function build(ctx) {
     if (pool === VERSES) lastV = i;
     return pool[i];
   }
-  function bomba(who) {
+  function drumRequest(who) {
     if (coolT > 0) return;
     coolT = 1.4;
     const sp = SPOT[who];
-    if (who === 'ze') { say('ZÉ', pick(ZE_BOMBAS), sp[0], sp[1], sp[2], 3.6); stage = 4; showT = 3.6; }
-    else { say('ROSA', pick(ROSA_BOMBAS), sp[0], sp[1], sp[2], 3.8); rosaHit = 1; stage = 3; showT = 4.2; }
-    ctx.ui?.toast?.(who === 'ze' ? 'PUM! Bomba do Zé!' : 'PUM! Bomba da Rosa!');
+    if (who === 'ze') { say('ZÉ', pick(ZE_BATIDAS), sp[0], sp[1], sp[2], 3.6); stage = 4; showT = 3.6; }
+    else { say('ROSA', pick(ROSA_BATIDAS), sp[0], sp[1], sp[2], 3.8); rosaHit = 1; stage = 3; showT = 4.2; }
+    ctx.ui?.toast?.('PUM! Toca o bombo!');
     const au = audioOut();
     if (au && !A) startAudio(au);
-    if (A) { const now = A.ac.currentTime, tb = crack(now + 0.02, true); burstAt = clock + (tb - now); }
-    else burstAt = clock + 0.3;
-    burstBig = 1;
+    if (A) drumAccent(A.ac.currentTime + 0.02);
+    strikeAt = clock + 0.02;
   }
 
   const _dir = new THREE.Vector3();
@@ -629,12 +599,11 @@ export function build(ctx) {
         } else if (stage === 1) {
           stage = 2; showT = 4.8; punch = verse.big ? 2 : 1;
           say('ROSA', verse.rosa.join('\n'), SPOT.rosa[0], SPOT.rosa[1], SPOT.rosa[2], 4.6);
-          if (!A) { strikeAt = clock + 0.4; if (verse.big) { burstAt = clock + 1.0; burstBig = 0; } punch = 0; }
+          if (!A) { strikeAt = clock + 0.4; punch = 0; }
         } else { stage = 3; showT = 3.4; if (Math.random() < 0.25) { stage = 4; say('ROSA', pick(ROSA_LAST), SPOT.rosa[0], SPOT.rosa[1], SPOT.rosa[2], 2.6); } }
       }
     }
     if (strikeAt && clock >= strikeAt) { strikeAt = 0; rosaHit = 1; }
-    if (burstAt && clock >= burstAt) { burstAt = 0; burst(burstBig ? SPOT.ze[0] + 1.1 : SPOT.rosa[0], 3.6, 21.8, burstBig); fx.visible = true; }
 
     // bubble life
     if (bubT > 0) { bubT -= dt; if (bubT <= 0) bubble.visible = false; else bubMat.opacity = bubT < 0.3 ? bubT / 0.3 : 1; }
@@ -677,7 +646,7 @@ export function build(ctx) {
       h.rotation.x = 0.07 * amp * Math.sin(bp * sad + ph);
     }
 
-    // ---- FX: smoke always (within 40 m), sparks after a bomba -----------------------
+    // ---- FX: grill smoke within 40 m -----------------------
     let alive = 0;
     for (let i = 0; i < NFX; i++) {
       const i3 = i * 3, i4 = i * 4;
@@ -694,15 +663,6 @@ export function build(ctx) {
         fxCol[i4] = g; fxCol[i4 + 1] = g; fxCol[i4 + 2] = g + 0.03;
         fxCol[i4 + 3] = (storm ? 0.12 : 0.3) * (1 - k) * Math.min(1, fxAge[i] * 3);
         alive++;
-      } else if (fxCol[i4 + 3] > 0) {
-        fxAge[i] += dt;
-        const k = fxAge[i] / fxLife[i];
-        if (k >= 1) { fxCol[i4 + 3] = 0; continue; }
-        const drag = RM ? 0.98 : 0.995;
-        fxVel[i3] *= drag; fxVel[i3 + 2] *= drag; fxVel[i3 + 1] -= (RM ? 0.9 : 5.5) * dt;
-        fxPos[i3] += fxVel[i3] * dt; fxPos[i3 + 1] += fxVel[i3 + 1] * dt; fxPos[i3 + 2] += fxVel[i3 + 2] * dt;
-        fxCol[i4 + 3] = k > 0.6 ? (1 - k) / 0.4 : 1;
-        alive++;
       }
     }
     fx.visible = alive > 0;
@@ -711,7 +671,7 @@ export function build(ctx) {
 
   function onPick(target) {
     const id = target && target.userData && target.userData.action && target.userData.action.id;
-    if (id === 'ze' || id === 'rosa') { bomba(id); return; }
+    if (id === 'ze' || id === 'rosa') { drumRequest(id); return; }
     if (id && id.startsWith('cab')) {
       const k = +id.slice(3) || 0;
       if (cabSpin[k] > 0) return;

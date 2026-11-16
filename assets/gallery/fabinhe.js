@@ -167,7 +167,8 @@ export function createFabinhe(ctx, { npcs, say } = {}) {
   }
   const visibility = () => { if (typeof document !== 'undefined' && document.hidden) cancel('idle'); };
   if (typeof document !== 'undefined') document.addEventListener('visibilitychange', visibility);
-  return { state, before, after, onTalk, onSlap,
+  function registerActor(n){if(!actor&&n.S.name==='fabinhe'){actor=n;n.fabinhePerforming=false;}}
+  return { registerActor,state, before, after, onTalk, onSlap,
     setPaused(value) { forcedPause = !!value;state.paused=forcedPause; },
     dispose() { destroyed = true; cancel('disposed'); if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', visibility); }
   };

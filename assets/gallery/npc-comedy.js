@@ -1,3 +1,4 @@
+import {idleSlice} from './startup-idle.js';
 // Shared speech ledger and bounded, opt-in comic direction. No render objects.
 const keyOf = text => typeof text === 'string' ? text.normalize('NFC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('pt-PT') : '';
 export function createComedyMemory({ now = () => performance.now() / 1000 } = {}) {
@@ -29,6 +30,7 @@ const EXCESS_FIRST = 'Olha que lhe arrebentas a tromba, bro! Para lá com isso, 
 const EXCESS_LAST = 'Eh, calma, Zé!';
 
 export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now: externalNow } = {}) {
+  const yieldData=ctx.yieldBuild||idleSlice;
   let manifestReady=Object.keys(data).length>0,manifestRequest=null,manifestTimer=0,manifestRetry=0,manifestAttempts=0;
   let manualPaused=false,wasPaused=false,externalOffset=0,lastExternal=externalNow?externalNow():0;
   let clock=0,camera=null,active=false,sceneIndex=0,sceneLength=0,nextBeat=0,nextScene=0;
@@ -46,12 +48,14 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
   const queue=new Array(8),voices=new Array(6).fill(null);
   const debug={active:false,duets:0,emitted:0,laughs:0,fetches:0};
   for(let i=0;i<8;i++)queue[i]={n:null,text:'',canonical:'',pause:.6,domino:false};
-  for(let i=0;i<npcs.length;i++){
-    const n=npcs[i],id=n.S.name,descriptor=data.characters?.[id]||{};
+  function registerActor(n){
+    if(byNpc.has(n))return;
+    const id=n.S.name,descriptor=data.characters?.[id]||{};
     const r={n,id,descriptor,pools:null,status:0,attempts:0,retryAt:0,request:null,requestTimer:0,pending:'',pendingUntil:0,lastEvent:-Infinity,cryUntil:0,cryAt:0,puddleUntil:0,cryPending:false,cryExpires:0,laughAt:0,fallAt:0,fallEpoch:0,lastCanonical:'',selectedText:''};
     records.push(r);byNpc.set(n,r);byId.set(id,r);memory.get(id);
     n.comedyPuddle=0;
   }
+  for(const n of npcs)registerActor(n);
   function quiet(){return manualPaused||!!ctx.scene?.userData?.npcStatues||!!ctx.scene?.userData?.questQuiet;}
   function awake(n,range=40){if(!camera)return false;const dx=n.x-camera.position.x,dz=n.z-camera.position.z;return dx*dx+dz*dz<=range*range&&Math.abs((n.baseY||0)+1.62-camera.position.y)<2.4;}
   function available(n){return awake(n)&&!n.busy&&!(n.windT>0)&&!(n.pestT>0)&&!(n.sillyT>=0)&&!(n.talkT>0);}
@@ -97,7 +101,8 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
     return '';
   }
   function line(n,key){const r=byNpc.get(n);let event=EVENTS[key]||key;if(key==='talk'&&memory.get(n.S.name).insistencia>1)event='repeat_talk';if(tryScene(event))return '';const text=select(n,event,null);if(r)r.selectedText=text;return text;}
-  function request(r){
+  function request(r){if(disposed||r.status!==0||ctx.startup&&!ctx.startup.moved)return;r.status=4;yieldData().then(()=>{r.status=0;if(!disposed&&awake(r.n))fetchRecord(r);});}
+  function fetchRecord(r){
     if(r.status!==0||fetching>=2||disposed)return;
     // Fixed self-origin path; manifest cannot turn a dialogue load into an external request.
     if(!/^[a-z0-9_]+$/.test(r.id)){r.status=3;return;}
@@ -105,18 +110,21 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
     const controller=new AbortController();r.request=controller;
     r.requestTimer=setTimeout(()=>controller.abort(),8000);
     fetch(new URL('../data/comedy/'+r.id+'.json',import.meta.url),{signal:controller.signal})
-      .then(async response=>{if(!response.ok)throw new Error('dialogue unavailable');const text=await response.text();if(new TextEncoder().encode(text).byteLength>30720)throw new Error('dialogue exceeds 30 KiB');return JSON.parse(text);})
+      .then(async response=>{if(!response.ok)throw new Error('dialogue unavailable');const text=await response.text();if(new TextEncoder().encode(text).byteLength>30720)throw new Error('dialogue exceeds 30 KiB');await yieldData();if(disposed||!awake(r.n))throw new Error('actor left range');return JSON.parse(text);})
       .then(body=>{if(!disposed){r.pools=body;r.status=2;for(const level of Object.values(body.levels||{}))for(const list of Object.values(level))if(Array.isArray(list))for(const entry of list)authorize(entry);}})
       .catch(()=>{r.status=3;r.retryAt=time()+30;r.pending='';})
       .finally(()=>{clearTimeout(r.requestTimer);r.request=null;fetching--;});
   }
-  function loadManifest(){
+  function anyAwake(){for(let i=0;i<records.length;i++)if(awake(records[i].n))return true;return false;}
+  let manifestScheduled=false;
+  function loadManifest(){if(manifestReady||manifestRequest||manifestScheduled||disposed||ctx.startup&&!ctx.startup.moved||!anyAwake())return;manifestScheduled=true;yieldData().then(()=>{manifestScheduled=false;if(!disposed&&anyAwake())fetchManifest();});}
+  function fetchManifest(){
     if(disposed||manifestReady||manifestRequest)return;
     manifestAttempts++;
     const controller=new AbortController();manifestRequest=controller;
     manifestTimer=setTimeout(()=>controller.abort(),8000);
     fetch(new URL('../data/npc-comedy.json',import.meta.url),{signal:controller.signal})
-      .then(async response=>{if(!response.ok)throw new Error('manifest unavailable');const text=await response.text();if(new TextEncoder().encode(text).byteLength>204800)throw new Error('manifest too large');return JSON.parse(text);})
+      .then(async response=>{if(!response.ok)throw new Error('manifest unavailable');const text=await response.text();if(new TextEncoder().encode(text).byteLength>204800)throw new Error('manifest too large');await yieldData();return JSON.parse(text);})
       .then(body=>{if(disposed)return;data=body;
         for(let i=0;i<records.length;i++){const r=records[i];r.descriptor=data.characters?.[r.id]||{};authorize(r.descriptor.signature);}
         for(const scene of [...(data.duets||[]),...(data.gags||[])])for(const beat of scene.lines||scene.beats||[])authorize(beat);
@@ -239,7 +247,7 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
     if(w!==lastWeather){lastWeather=w;notify(w);}
   }
   function update(dt,frame){
-    camera=frame?.camera||camera;
+    camera=frame?.camera||camera;if(ctx.startup&&!ctx.startup.moved)return;
     if(ctx.scene?.userData?.questQuiet){cancel();if(externalNow)lastExternal=externalNow();return;}
     const frozen=manualPaused||!!ctx.scene?.userData?.npcStatues;
     if(externalNow){const stamp=externalNow();if(frozen||wasPaused)externalOffset+=Math.max(0,stamp-lastExternal);lastExternal=stamp;}
@@ -286,5 +294,5 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
   function thaw(n,text){if(!['Eu estava a pensar.','Quem me mudou o intervalo?','O pombo estava a avaliar.'].includes(text)||quiet()||!awake(n))return false;authorized.add(keyOf(text));return say(n,text,false);}
   function isSignature(n,text){return byNpc.get(n)?.descriptor.signature?.text===text;}
   function dispose(){disposed=true;cancel();manifestRequest?.abort();clearTimeout(manifestTimer);for(let i=0;i<records.length;i++){records[i].request?.abort();clearTimeout(records[i].requestTimer);}}
-  return {thaw,allow,line,select,notify,update,after,cancel,dispose,memory,debug,allowLaugh,sound,loadManifest,isSignature,setPaused,defeat};
+  return {registerActor,thaw,allow,line,select,notify,update,after,cancel,dispose,memory,debug,allowLaugh,sound,loadManifest,isSignature,setPaused,defeat};
 }

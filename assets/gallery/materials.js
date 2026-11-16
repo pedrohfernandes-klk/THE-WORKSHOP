@@ -239,7 +239,7 @@ export function createMaterials(renderer, { quality = 'high' } = {}) {
       const environment = pmrem.fromEquirectangular(hdr).texture;
       pmrem.dispose();
       let sharp = null;
-      const sharpened = () => (sharp ||= (tier === 'low' || full) ? Promise.resolve(hdr) : sharpen(hdr, large));
+      const sharpened = () => (sharp ||= (tier !== 'high' || full) ? Promise.resolve(hdr) : sharpen(hdr, large));
       return { hdr, environment, sharpened };
     });
   }
@@ -279,7 +279,7 @@ export function createMaterials(renderer, { quality = 'high' } = {}) {
   function overcast() {
     if (!overcastPromise) {
       overcastPromise = loadSky('sky-overcast-1k.hdr', 'sky-overcast.hdr', 0).then(({ hdr, environment, sharpened }) => (
-        { background: hdr, environment, sharp: sharpened() }
+        { background: hdr, environment, get sharp() { return sharpened(); } }
       ));
       overcastPromise.catch(() => { overcastPromise = null; });
     }

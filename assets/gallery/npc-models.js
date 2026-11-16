@@ -518,18 +518,20 @@ export function createLinePicker(random=Math.random) {
 // Existing NPC behaviour writes Object3D transforms. Keep those objects as
 // proxies, drawing their ground shadows and daze stars in two instanced calls.
 export function createNpcEffects(THREE, group, npcs, blobGeometry, blobMaterial, starMaterial) {
-  const shadow = blobMaterial ? new THREE.InstancedMesh(blobGeometry,blobMaterial,npcs.length) : null;
+  const shadow = blobMaterial ? new THREE.InstancedMesh(blobGeometry,blobMaterial,14) : null;
   const starGeometry=new THREE.PlaneGeometry(1,1);
   const starSurface=new THREE.MeshBasicMaterial({map:starMaterial.map,transparent:true,depthWrite:false});
-  const stars=new THREE.InstancedMesh(starGeometry,starSurface,npcs.length);
+  const stars=new THREE.InstancedMesh(starGeometry,starSurface,14);
   const dummy=new THREE.Object3D(), invisible=new THREE.Matrix4().makeScale(0,0,0);
   stars.frustumCulled=false;stars.renderOrder=9;stars.raycast=()=>{};group.add(stars);
   if(shadow){shadow.frustumCulled=false;shadow.renderOrder=1;shadow.raycast=()=>{};group.add(shadow);}
   const selected=new Int16Array(3), distances=new Float64Array(3);
   const shadowBlack=new THREE.Color(0), puddleTint=new THREE.Color('#a58b43');
-  if(shadow)shadow.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(npcs.length*3),3);
+  if(shadow)shadow.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(14*3),3);
+  stars.count=0;if(shadow)shadow.count=0;
   return {
     update(camera,rotation=0) {
+      stars.count=npcs.length;if(shadow)shadow.count=npcs.length;
       selected.fill(-1);distances.fill(Infinity);
       for(let i=0;i<npcs.length;i++){
         const n=npcs[i];

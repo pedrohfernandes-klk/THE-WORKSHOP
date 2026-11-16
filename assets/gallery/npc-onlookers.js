@@ -12,9 +12,10 @@ export function createNpcPersonalities(ctx, { npcs, castById, chooseLine, say })
   let world = null, camera = null, now = 0, serial = 0, eventAt = -1e9;
   let eventX = 0, eventZ = 0, victim = null, nextLine = 0, gestureTime = null;
   let snakeTime = null, started = false, mutedLast = false, nextPlan = 0;
-  for (let i = 0; i < npcs.length; i++) {
-    const n = npcs[i], entry = castById.get(n.S.name), kind = entry?.behavior;
-    if (kind !== 'onlooker' && kind !== 'sniffer' && kind !== 'hugger') continue;
+  function registerActor(n) {
+    if(lookup.has(n))return;
+    const entry = castById.get(n.S.name), kind = entry?.behavior;
+    if (kind !== 'onlooker' && kind !== 'sniffer' && kind !== 'hugger') return;
     const r = { n, entry, kind, index: records.length, homeX: n.x, homeZ: n.z,
       obstacles: [], covers: [], navigationReady: false, cover: null, event: 0, until: 0, targetX: n.x, targetZ: n.z,
       nextPlan: 0, nextSpeak: 0, nextSniff: 7 + records.length * 3,
@@ -25,7 +26,9 @@ export function createNpcPersonalities(ctx, { npcs, castById, chooseLine, say })
     // move it, but ordinary random patrol/director routing must not move it too.
     n.fixed = true; n.S.fixed = true; n.S.personality = kind;
     n.pts[0] = n.x; n.pts[1] = n.z;
+    if(world)setNavigation(world);
   }
+  for(const n of npcs)registerActor(n);
   function quiet() { return !!ctx.scene?.userData?.questQuiet; }
   function interrupted(n) {
     return n.busy || n.pestT > 0 || n.windT > 0 || n.goOn || n.S.seated
@@ -221,7 +224,7 @@ export function createNpcPersonalities(ctx, { npcs, castById, chooseLine, say })
     }
   }
   function dispose(){silence();for(let i=0;i<records.length;i++)records[i].n.rig?.setPreset?.(null,0);}
-  return {before,after,onEvent,sound,setNavigation,dispose};
+  return {registerActor,before,after,onEvent,sound,setNavigation,dispose};
 }
 
 export const createNpcOnlookers = createNpcPersonalities;

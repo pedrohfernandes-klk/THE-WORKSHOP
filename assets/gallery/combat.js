@@ -50,7 +50,9 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
   function callout(text){const memory=npcModule.comedyMemory;const allowed=memory?memory.commit(text):clock-(said.get(text)??-Infinity)>=600;if(allowed){said.set(text,clock);toast(text);}}
   function record(n,visitor=false){return {n,visitor,pride:100,attack:-1,t:0,landed:false,boost:1,blocking:false,recoilX:0,recoilZ:0,
     attackCount:0,headZ:0,inPlace:false,oldBusy:false,oldControlled:false,base:new Float32Array(18),bones:null};}
-  for(let i=0;i<npcs.length;i++){const r=record(npcs[i]);records.push(r);byNpc.set(r.n,r);}
+  function registerActor(n){if(byNpc.has(n))return;const r=record(n);records.push(r);byNpc.set(n,r);}
+  for(const n of npcs)registerActor(n);
+  const unsubscribeActor=npcModule?.onActorReady?.(registerActor);
   let visitor=null;
   const panel=typeof document==='undefined'?null:document.createElement('section');
   let cssLink=null,hud=null,statusText=null,banner=null,moveSelect=null,statueButton=null,fightButton=null,blockButton=null;
@@ -118,7 +120,7 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
   function eligible(n,allowSeated=false){return n&&(!n.S.seated||allowSeated)&&!n.combatHidden&&!n.busy&&!n.goOn&&n.sillyT<0&&n.windT<=0&&n.pestT<=0&&n.hatState<=0;}
   function chooseDonor(target){
     let chosen=null,best=144;
-    for(let i=0;i<npcs.length;i++){const n=npcs[i];if(i>=1&&i<=5||n===target||!eligible(n)||n.routineMoving||n.talkT>0)continue;const dx=n.x-position.x,dz=n.z-position.z,d=dx*dx+dz*dz;if(d>best){best=d;chosen=n;}}
+    for(let i=0;i<npcs.length;i++){const n=npcs[i];if((n.slotIndex??npcs.indexOf(n))>=1&&(n.slotIndex??npcs.indexOf(n))<=5||n===target||!eligible(n)||n.routineMoving||n.talkT>0)continue;const dx=n.x-position.x,dz=n.z-position.z,d=dx*dx+dz*dz;if(d>best){best=d;chosen=n;}}
     return chosen;
   }
   function prepareCollision(){
@@ -254,7 +256,7 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
       else if(id(r)==='mano'){n.arms[0].rotation.x=-1.1*k;n.arms[1].rotation.x=-.75*k;n.arms[1].rotation.y=.8*k;}
       else if(id(r)==='porco_fato'){n.head.position.z=r.headZ+.12*k;n.head.rotation.x=-.2*k;n.arms[1].rotation.x=-.2*k;}
     }
-    if(n.col){const w=n.colW||.4;n.col.minX=n.x-w;n.col.maxX=n.x+w;n.col.minZ=n.z-w;n.col.maxZ=n.z+w;n.col.minY=0;n.col.maxY=n.colH||2;}
+    if(n.col){const w=n.colW||.4;n.col.minX=n.x-w;n.col.maxX=n.x+w;n.col.minZ=n.z-w;n.col.maxZ=n.z+w;n.col.minY=n.baseY||0;n.col.maxY=n.col.minY+(n.colH||2);}
   }
   function update(dt){
     if(disposed)return;readVisitor();const paused=freeze();state.paused=paused;
@@ -347,7 +349,7 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
     for(const name of ['pointerdown','pointerup','mousedown','mouseup','contextmenu'])window.addEventListener(name,pointer,true);
     window.addEventListener('blur',blurred);
   }
-  function dispose(){end('dispose');if(freeze())statues(false);disposed=true;hud?.remove();panel?.remove();cssLink?.remove();stopSounds();if(typeof window!=='undefined'){window.removeEventListener('keydown',keydown,true);window.removeEventListener('keyup',keyup,true);for(const name of ['pointerdown','pointerup','mousedown','mouseup','contextmenu'])window.removeEventListener(name,pointer,true);window.removeEventListener('blur',blurred);}if(avatar){ctx.scene.remove(avatar.root);avatar.rig.mesh.geometry.dispose();avatar.rig.mesh.material.dispose();}}
+  function dispose(){unsubscribeActor?.();end('dispose');if(freeze())statues(false);disposed=true;hud?.remove();panel?.remove();cssLink?.remove();stopSounds();if(typeof window!=='undefined'){window.removeEventListener('keydown',keydown,true);window.removeEventListener('keyup',keyup,true);for(const name of ['pointerdown','pointerup','mousedown','mouseup','contextmenu'])window.removeEventListener(name,pointer,true);window.removeEventListener('blur',blurred);}if(avatar){ctx.scene.remove(avatar.root);avatar.rig.mesh.geometry.dispose();avatar.rig.mesh.material.dispose();}}
   function getVisitorStatus(){return visitorStatus;}
   function getScriptedResult(){return scriptedResult;}
   const api={actors:npcs,getVisitorStatus,getScriptedResult,state,events,engage,startScripted,end,attack,block,dodge,statues,apologize,setWeapon,doubleCalduco,getBrio,setBrio,adjustBrio,update,renderCamera,restoreCamera,dispose};

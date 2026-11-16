@@ -11,7 +11,7 @@ import { createCurator, initialHang, encodeShow, decodeShow, titleFor } from './
 import { createRoom, SLOTS, EYE_HEIGHT, START } from './room.js';
 import { createPost } from './post.js';
 import { createPerf, deviceProfile } from './perf.js';
-import { loadWorkTexture } from './textures.js';
+import { loadWorkTexture, prepareWorkTextures, sharpenWorkTexture } from './textures.js';
 import { createControls } from './controls.js';
 import { createUI, showFallback } from './ui.js';
 import { createAudio } from './audio.js';
@@ -37,6 +37,9 @@ if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D
 
 const params = new URLSearchParams(location.search);
 const TEST = params.has('test');
+let resolveFirstMove, entryFlight = false;
+const startup = { moved: false, whenMoved: new Promise(resolve => { resolveFirstMove = resolve; }) };
+prepareWorkTextures();
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const byId = new Map(WORKS.map(w => [w.id, w]));
 const slotKinds = SLOTS.map(s => ({ index: s.index, id: s.id, kind: s.kind }));
@@ -211,7 +214,7 @@ controls.lookAt(START.target);
 const M = createMaterials(renderer, { quality });
 const props = createProps(room.scene, { quality, reducedMotion });
 const ctx = {
-  THREE, renderer, scene: room.scene, M, quality, reducedMotion, audio,
+  THREE, renderer, scene: room.scene, M, quality, reducedMotion, audio, startup,
   events: room.scene.userData.workshopEvents ||= new EventTarget(),
   ui: {
     openApp: (url, title) => ui.openApp(url, title), toast: (t) => ui.toast(t),
@@ -236,15 +239,21 @@ ctx.prepareInteractions = async (built) => {
 };
 let world = null;
 const worldReady = createWorld(ctx, {
+  ready: Promise.resolve().then(() => ready),
   hallColliders: [...(room.colliders || []), ...(props.colliders || [])],
   onProgress: (k) => { state.worldProgress = k; },
 }).then((w) => {
   world = w;
-  w.modules.get('npcs')?.setNavigation?.(w);
+  const npcs = w.modules.get('npcs');
+  npcs?.setNavigation?.(w);
+  npcs?.onActorReady?.(() => {
+    w.registerPickables('npcs', npcs.pickables);
+    w.modules.get('tram-ride')?.tram.initializePassengers(npcs.actors, false);
+  });
   if (w.modules.get('tram-ride')) {
     w.modules.get('metro')?.setRideService?.(true);
     w.modules.get('tram-ride').tram.bindControls(controls);
-    w.modules.get('tram-ride').tram.initializePassengers(w.modules.get('npcs')?.actors, !state.entered);
+    w.modules.get('tram-ride').tram.initializePassengers(w.modules.get('npcs')?.actors, false);
   }
   if (TEST) performance.mark('workshop:campus-built');
   controls.setWorld({ regions: w.regions, colliders: w.colliders });
@@ -383,7 +392,8 @@ async function enter() {
   powerTween = { t: 0, duration, from, relays: 0 };
   controls.enabled = true;
   // Step over the threshold as the lights come on.
-  controls.flyTo({ position: START.position, target: START.target, duration: reducedMotion ? 0.2 : 3.4 });
+  entryFlight = true;
+  controls.flyTo({ position: START.position, target: START.target, duration: reducedMotion ? 0.2 : 3.4 }).finally(() => { entryFlight = false; });
   const touch = matchMedia('(pointer: coarse)').matches;
   // The intro owns the hint line until the visitor acts. The prompt updaters
   // rewrite the line whenever their prompt changes, and state.prompt started
@@ -1115,6 +1125,14 @@ function step() {
   }
 
   if (state.entered) controls.update(dt);
+  if (!startup.moved && state.entered && !entryFlight && controls.speed > 0.25) {
+    startup.moved = true; resolveFirstMove();
+    if (TEST) performance.mark('workshop:first-move');
+  }
+  if (startup.moved && state.inHall && state.gazeSlot >= 0 && state.gazeWeight > 0.6 && state.frames % 30 === 0) {
+    const work = byId.get(curator.hang[state.gazeSlot]);
+    if (work) sharpenWorkTexture(work, renderer, { maxEdge: quality === 'high' ? 2048 : quality === 'low' ? 768 : 1024 });
+  }
   const pos = controls.position;
   const floor = controls.floor;
   if (world) {

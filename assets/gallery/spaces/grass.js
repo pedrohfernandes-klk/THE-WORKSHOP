@@ -4,7 +4,9 @@ export function build(ctx) {
   const { THREE, M, quality } = ctx;
   const group = new THREE.Group(); group.name = 'grass';
   const qs = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
-  const dens = (quality === 'low' ? 70 : 260) * Number(qs.get('grassd') || 1);
+  const requestedDensity = Number(qs.get('grassd') || 1);
+  const densityScale = Number.isFinite(requestedDensity) ? Math.max(0.05, Math.min(2, requestedDensity)) : 1;
+  const dens = (quality === 'low' ? 18 : quality === 'medium' ? 60 : 260) * densityScale;
 
   const LAWNS = [[29.5, 43.3, 15, 26.3], [48.7, 63, 15, 26.3], [29.5, 43.3, 31.7, 49], [48.7, 63, 31.7, 49]];
   const HOLES = [[46, 29, 5.5], [36, 21, 1.4], [56, 21, 1.4], [36, 42, 1.4], [60, 46, 1.4], [55, 40, 3.4]];

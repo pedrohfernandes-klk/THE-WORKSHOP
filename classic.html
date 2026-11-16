@@ -2080,10 +2080,8 @@ body.rpgMode #rpgModeBadge{display:block}
     <button id="studioNowReturn" type="button">Studio</button>
     <button id="studioNowStop" type="button">Stop</button>
   </div>
-  <video id="fireworksVideo" autoplay playsinline muted loop preload="metadata" crossorigin="anonymous"
-    style="position:absolute;width:2px;height:2px;opacity:0;pointer-events:none;left:-10px;top:-10px"></video>
   <div id="windowControls" aria-hidden="true">
-    <span id="windowControlsLabel">Fireworks window · always open</span>
+    <span id="windowControlsLabel">Night window · always open</span>
     <button class="btn" id="windowSoundBtn">Sound: off</button>
   </div>
   <div id="mobileControls" aria-hidden="false">
@@ -4874,30 +4872,15 @@ function fallbackTextureWide(title, w=1600, h=724){
 }
 
 
-// setHallWindow removed (batch 126): the hall fireworks window opens/closes through the shared interactive-window system.
+// setHallWindow removed (batch 126): the hall scenic window opens/closes through the shared interactive-window system.
 function toggleHallWindowSound(){
   if(!hallWindow) return;
   const btn = $('windowSoundBtn');
   hallWindow.muted = true;
   if(btn) btn.textContent = 'Sound: n/a';
-  msg('The fireworks window plays a silent film loop — sound stays off by design.');
+  msg('Esta janela mostra uma imagem fixa.');
 }
-function updateHallWindow(dt){
-  // Batch 128: the fireworks window is now a real looped video (VideoTexture).
-  // This updater only keeps playback healthy and drives the interior firelight.
-  if(!hallWindow) return;
-  const v = hallWindow.video;
-  if(v && hallWindow.open !== false && pageVisible && v.paused && v.readyState >= 2){
-    v.play().catch(()=>{});
-  }
-  if(hallWindow.glowLight && hallWindow.open !== false){
-    if(reducedMotion){ hallWindow.glowLight.intensity = 1.0; return; }
-    hallWindow.time = (hallWindow.time || 0) + dt;
-    const t = hallWindow.time;
-    const flicker = .80 + .15*Math.sin(t*2.1) + .09*Math.sin(t*5.3 + 1.7) + .06*Math.sin(t*11.4);
-    hallWindow.glowLight.intensity = Math.max(.4, flicker) * 1.05;
-  }
-}
+function updateHallWindow() {}
 
 function init(){
   const initStarted=performance.now();
@@ -5475,13 +5458,13 @@ function buildHall(){
     gPool.position.set(hw-2.4,.02,gZ); scene.add(gPool);
   }
 
-  // --- Fireworks window: restored as a lightweight animated scenic canvas, and now closeable by the user. ---
+  // --- Night window: restored as a static scenic canvas, and now closeable by the user. ---
   {
     const winW = 14.8, winH = 8.1;
     const winY = (mouthHeight + hallHeight)/2 + 1.18;
     const winZ = z0 + .065;
 
-    // Poster: a quiet night sky shown for the instant before the video is ready.
+    // Static night sky: no video downloads or playback.
     const posterCanvas = document.createElement('canvas');
     posterCanvas.width = 512; posterCanvas.height = 280;
     {
@@ -5496,30 +5479,7 @@ function buildHall(){
     const posterTex = new THREE.CanvasTexture(posterCanvas);
     posterTex.colorSpace = THREE.SRGBColorSpace;
 
-    // The real view: a seamless 7 s fireworks loop (hue-cycling finale, silent).
-    const fireVideo = document.createElement('video');
-    fireVideo.muted = true;
-    fireVideo.loop = true;
-    fireVideo.playsInline = true;
-    fireVideo.setAttribute('playsinline','');
-    fireVideo.preload = 'auto';
-    fireVideo.src = MEDIA.hallFireworksVideo;
-    const fireTex = new THREE.VideoTexture(fireVideo);
-    fireTex.colorSpace = THREE.SRGBColorSpace;
-    fireTex.minFilter = THREE.LinearFilter;
-    fireTex.magFilter = THREE.LinearFilter;
-    fireTex.generateMipmaps = false;
-
     const windowMat = new THREE.MeshBasicMaterial({map:posterTex, toneMapped:false});
-    fireVideo.addEventListener('loadeddata', ()=>{
-      windowMat.map = fireTex;
-      windowMat.needsUpdate = true;
-      fireVideo.play().catch(()=>{});
-    });
-    // Autoplay safety: some browsers require one gesture before video runs.
-    const resumeFireworks = ()=>{ if(fireVideo.paused && hallWindow && hallWindow.open !== false) fireVideo.play().catch(()=>{}); };
-    document.addEventListener('pointerdown', resumeFireworks, {passive:true});
-    document.addEventListener('keydown', resumeFireworks, {passive:true});
     const frameMat2 = new THREE.MeshStandardMaterial({color:0x1f1c18, roughness:.48, metalness:.58});
     const mullionMat = new THREE.MeshStandardMaterial({color:0xebe2d4, roughness:.62, metalness:.08});
     const revealMatH = new THREE.MeshStandardMaterial({color:0xd7ccb7, roughness:.82, metalness:.02});
@@ -5530,7 +5490,7 @@ function buildHall(){
     const winScreen = new THREE.Mesh(new THREE.PlaneGeometry(winW, winH), windowMat);
     winScreen.position.set(0, winY, winZ+.02);
     winScreen.userData.hallWindow = true;
-    winScreen.userData.windowLabel = 'Fireworks window';
+    winScreen.userData.windowLabel = 'Night window';
     scene.add(winScreen);
 
     const topBar = new THREE.Mesh(new THREE.BoxGeometry(winW+.76, barT, .18), frameMat2);
@@ -5593,17 +5553,14 @@ function buildHall(){
     scene.add(glow); regLight('gallery', glow);
 
     hallWindow = registerInteractiveWindow({
-      room:'gallery', label:'Fireworks window', view:winScreen, shade, hit, light:glow,
+      room:'gallery', label:'Night window', view:winScreen, shade, hit, light:glow,
       open:true, openIntensity:1.0, closedIntensity:0.18,
       onToggle:(win)=>{
         sheen.visible = win.open;
-        if(win.open){ fireVideo.play().catch(()=>{}); }
-        else{ fireVideo.pause(); }
       }
     });
-    hallWindow.video = fireVideo;
     hallWindow.muted = true;
-    hallWindow.texture = fireTex;
+    hallWindow.texture = posterTex;
     hallWindow.glowLight = glow;
     hallWindow.time = 0;
   }
@@ -5826,7 +5783,6 @@ const SUNSET_LOUNGE_PROMENADE_VIEW_SRC = 'assets/extracted/sunset-lounge-promena
 // systems until the project is split into modules and external assets.
 const SPARK_LAB_NIGHT_WINDOW_SRC = 'assets/extracted/spark-lab-night-window.webp';
 
-const HALL_FIREWORKS_VIDEO_SRC = 'assets/extracted/hall-fireworks-video.mp4';
 
 
 const THINKING_PASTURE_SRC = 'assets/extracted/thinking-pasture.webp';
@@ -5848,7 +5804,6 @@ const MEDIA = Object.freeze({
   studioStreet: STUDIO_STREET_SRC,
   studioKeys: STUDIO_KEYS_SRC,
   thinkingPasture: THINKING_PASTURE_SRC,
-  hallFireworksVideo: HALL_FIREWORKS_VIDEO_SRC,
   nightRoomView: NIGHT_ROOM_VIEW_SRC,
   nightRoomSideDoor: NIGHT_ROOM_SIDE_DOOR_SRC,
   sunsetLoungeBridgeView: SUNSET_LOUNGE_BRIDGE_VIEW_SRC,
