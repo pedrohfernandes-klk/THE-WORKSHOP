@@ -335,6 +335,9 @@ export function createPost(renderer, scene, camera, { quality = 'high' } = {}) {
   }
 
   return {
+    // The scene's own target: shaders compiled ahead of time must be compiled for it (linear,
+    // no tone mapping), or the first real frame compiles them again.
+    sceneTarget: msaa,
     render(dt = 0.016) {
       if (!reduced) t += dt;
       grade.uniforms.uTime.value = t;

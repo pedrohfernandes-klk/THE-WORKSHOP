@@ -303,7 +303,7 @@ async function buildReady(ctx) {
   // ---------- character spec ----------
   const SPECS = [
     { name: 'bull', head: 'bull', fur: 0x5b3a2a, suit: suitPin, sleeve: suitPin, pants: suitPin, shirt: 0xf2f2ee, tie: 0xb3202a, shoe: 0x111111,
-      home: [7, 30], r: 1.6, speed: 0.8, top: 2.12, sound: 'moo',
+      home: [6.8, 37.4], r: 1.6, speed: 0.8, top: 2.12, sound: 'moo',
       lines: ["I'm not angry. This is just my face.", 'I have a meeting. It is with a different bull.', 'Do not wave anything red. Anything.', 'I was told there would be a china shop. Where is it.', 'This suit is pinstriped. Their suit is also pinstriped. Awkward.', 'I charge by the hour. Mostly I stand.', 'Nobody warns you how hard it is to button a jacket over this much neck.', 'Quarterly grass projections look strong.'] },
     { name: 'goat', head: 'goat', fur: 0xe4dccb, suit: suitTweed, sleeve: suitTweed, pants: std(0x4a4033, 0.95), shirt: 0xcbd7b0, tie: 0, shoe: 0x2a2018,
       home: [40, 29], r: 2.6, speed: 0.9, top: 2.05, sound: 'bleat',

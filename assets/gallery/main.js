@@ -22,6 +22,8 @@ import { groundAt } from './collision.js';
 import { createProps } from './props.js';
 import { gateHallCampus } from './mirror-campus-gate.js';
 import { createInteractions } from './interactions.js';
+import { createLightPool } from './light-pool.js';
+import { createFirstMinute } from './first-minute.js';
 
 // Canvas roundRect arrived in Safari 16; NPC speech bubbles and the poster use it.
 if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
@@ -194,6 +196,8 @@ camera.position.copy(ENTRY_POSITION);
 camera.lookAt(START.target);
 
 const room = createRoom(renderer, { quality, reducedMotion });
+// The final light, shadow and fog configuration from the first frame (see light-pool.js).
+const lightPool = createLightPool(THREE, room.scene, renderer);
 const post = createPost(renderer, room.scene, camera, { quality });
 perf.attach(post);
 const mirrors = [];   // reflectors the governor resizes (the hall floor follows the drawing buffer in room.js)
@@ -214,7 +218,7 @@ controls.lookAt(START.target);
 const M = createMaterials(renderer, { quality });
 const props = createProps(room.scene, { quality, reducedMotion });
 const ctx = {
-  THREE, renderer, scene: room.scene, M, quality, reducedMotion, audio, startup,
+  THREE, renderer, scene: room.scene, M, quality, reducedMotion, audio, startup, lightPool,
   events: room.scene.userData.workshopEvents ||= new EventTarget(),
   ui: {
     openApp: (url, title) => ui.openApp(url, title), toast: (t) => ui.toast(t),
@@ -225,7 +229,20 @@ const ctx = {
     },
   },
 };
+// Ahead-of-time compile for the scene's real target (see post.sceneTarget); world.js uses it for
+// each space before it is drawn.
+ctx.precompile = (group) => {
+  if (!renderer.compileAsync) return null;
+  const previous = renderer.getRenderTarget();
+  let pending = null;
+  renderer.setRenderTarget(post.sceneTarget || null);
+  try { pending = renderer.compileAsync(group, camera, room.scene); } catch (e) { pending = null; }
+  renderer.setRenderTarget(previous);
+  return pending ? pending.catch(() => {}) : null;
+};
 const interactions = createInteractions(ctx);
+let hintStore = null; try { hintStore = window.localStorage; } catch (e) { hintStore = null; }
+const firstMinute = createFirstMinute({ toast: (t, ms) => ui.toast(t, ms), storage: hintStore });
 function isHouseSpeechActive(){
   const module=world?.modules.get('npcs'),actors=module?.actors||module?.combatActors;
   if(actors)for(let i=0;i<actors.length;i++){const n=actors[i];if(n.talkT>0&&n.d2<400)return true;}
@@ -410,7 +427,7 @@ const ready = hangInitial().then(() => {
 worldReady.then((w) => {
   if (!w) return;
   // Compile the campus's shaders off the main thread where the GPU allows.
-  try { renderer.compileAsync?.(room.scene, camera).catch(() => {}); } catch (e) { /* optional */ }
+  try { ctx.precompile(room.scene); } catch (e) { /* optional */ }
   if (state.entered) ui.toast('The doors are open.', 2400);
 });
 
@@ -543,6 +560,7 @@ worldReady.then((w) => {
     const env = w.modules.get('environment');
     if (env && env.sun && state.sunBase !== undefined) env.sun.intensity = state.sunBase;
     weather = m.createWeather(ctx, { environment: env });
+    lightPool.adoptScene();
   });
 }).catch((err) => console.warn('[weather] unavailable', err));
 addEventListener('keydown', (e) => { if (e.code === 'KeyT' && !e.repeat && state.entered && !state.overlay) cycleWeather(); });
@@ -1183,6 +1201,8 @@ function step() {
   const tramRide = room.scene.userData.tramRide;
   controls.transportCarrier?.(tramRide?.carrier);
   combat?.update(dt);
+  lightPool.update(camera, dt);
+  firstMinute.update({ entered: state.entered, inHall: !!state.inHall, slaps: state.slaps || 0, busy: !!(state.overlay || state.exhibitionOpen || room.scene.userData.combatState?.active) });
   const tramImpulse = room.scene.userData.tramImpulse;
   if (tramImpulse && tramImpulse.sequence !== tramImpulseSequence) {
     tramImpulseSequence = tramImpulse.sequence;

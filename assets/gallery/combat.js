@@ -1,4 +1,4 @@
-import {sampleCombatMotion,crossedContact,stepSpring,stepGuardHold,solveFootPlant} from './combat-motion.js';
+import {sampleCombatMotion,crossedContact,stepSpring,stepGuardCharge,solveFootPlant,GUARD_HOLD} from './combat-motion.js';
 import {createCombatParticles} from './combat-particles.js';
 import { buildCharacter } from './npc-models.js';
 import { moveInWorld, groundAt } from './collision.js';
@@ -31,10 +31,33 @@ export const FOLEY=Object.freeze([
 ].map(Object.freeze));
 const WEAPONS=Object.freeze({carapau:8,paposeco:4,couve:12,jornal:13,chinelo:9,toalha:8,nata:10,luva:0});
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+// The guard starts as far as a slap reaches (main.js SLAP_REACH). Past the old 1.8 m the visitor
+// first takes a half-step in to 1.7 m, inside the 1.8 m range of every blow.
+const GUARD_START=2.1,GUARD_REACH=1.8,GUARD_STEP=1.7,GUARD_GRACE=.15,NAG_GAP=2,RECOIL=1.3;
+// Where each mimed move sits best: a hug or a pinch up close, a slap at arm's length, a towel
+// or a slipper at the edge of reach.
+const IDEAL=Object.freeze({hug:1.05,tickle:1.1,pinch:1.15,pull:1.2,both:1.25,stomp:1.25,over:1.3,finger:1.4,sweep:1.45,back:1.45,jab:1.5,pillow:1.5,fan:1.55,sweepLeg:1.6,shoe:1.65,whip:1.7});
+const WEIGHTS=new Float64Array(MOVES.length);
+function moveWeight(m,distance,last,repeats){
+  if(m.index===last&&repeats>=2)return 0;
+  const fit=Math.exp(-(((distance-IDEAL[m.pose])/.35)**2));
+  return (distance<=m.range?1:.1)*(.2+fit)*(m.index===last?.5:1);
+}
+// The opponent's next blow: weighted by distance and range, never a third time in a row
+// (`repeats` counts how many times `last` has just been used). The signature move keeps one
+// blow in four (one in seven straight after itself) wherever the fight stands.
+export function chooseMove(distance,last=-1,repeats=0,special=-1,random=Math.random){
+  let total=0;for(let i=0;i<MOVES.length;i++){WEIGHTS[i]=i===special?0:moveWeight(MOVES[i],distance,last,repeats);total+=WEIGHTS[i];}
+  if(special>=0&&special<MOVES.length&&!(special===last&&repeats>=2)){WEIGHTS[special]=total/3*(distance<=MOVES[special].range?1:.1)*(special===last?.5:1);total+=WEIGHTS[special];}
+  let pick=clamp(random(),0,.999999)*total,chosen=-1;
+  for(let i=0;i<MOVES.length;i++){if(WEIGHTS[i]<=0)continue;chosen=i;if((pick-=WEIGHTS[i])<0)break;}
+  return chosen;
+}
 
-export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canAct=()=>true,canStart=()=>true,onSlap=()=>{},enableStatues=false}={}){
+export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canAct=()=>true,canStart=()=>true,onSlap=()=>{},enableStatues=false,random=Math.random}={}){
   const {THREE}=ctx,npcs=npcModule?.combatActors||[];
-  const particles=createCombatParticles(THREE,ctx.scene),guard={elapsed:0,fired:false};let guardHeld=false,frameDt=0;
+  const particles=createCombatParticles(THREE,ctx.scene),guard={elapsed:0,fired:false,lapse:0};let guardHeld=false,frameDt=0;
+  let nagPending=false,nagAt=-Infinity,charge=null,chargeShown=0,shot=-1,shotRetry=0,stepX=0,stepZ=0;
   const direction=new THREE.Vector3(),followPosition=new THREE.Vector3();let followReady=false;
   const motion={phase:0,drive:0,anticipation:0,settle:0,twist:0,lift:0},plant={hip:0,knee:0,ankle:0};
   const jointKeys=['elbows','wrists','knees','ankles','shoulders','cheeks'];
@@ -57,7 +80,7 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
   const voices=new Array(6).fill(null),records=[],byNpc=new WeakMap(),said=new Map();
   function callout(text){if(state.active)return;const memory=npcModule.comedyMemory;const allowed=memory?memory.commit(text):clock-(said.get(text)??-Infinity)>=600;if(allowed){said.set(text,clock);toast(text);}}
   function record(n,visitor=false){return {n,visitor,pride:100,attack:-1,t:0,landed:false,boost:1,blocking:false,recoilX:0,recoilZ:0,
-    spring:{x:0,v:0},attackCount:0,headZ:0,inPlace:false,oldBusy:false,oldControlled:false,base:new Float32Array(18),bones:null};}
+    spring:{x:0,v:0},attackCount:0,lastMove:-1,repeats:0,headZ:0,inPlace:false,oldBusy:false,oldControlled:false,base:new Float32Array(18),bones:null};}
   function registerActor(n){if(byNpc.has(n))return;const r=record(n);records.push(r);byNpc.set(n,r);}
   for(const n of npcs)registerActor(n);
   const unsubscribeActor=npcModule?.onActorReady?.(registerActor);
@@ -79,7 +102,7 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
     r.bones=[n.body,n.head,n.arms[0],n.arms[1],n.legs[0],n.legs[1]];
     for(let i=0;i<6;i++){const q=r.bones[i].rotation;r.base[i*3]=q.x;r.base[i*3+1]=q.y;r.base[i*3+2]=q.z;}
     n.talkT=0;n.bubble=0;if(n.sprite)n.sprite.visible=false;
-    r.spring.x=r.spring.v=0;r.pride=100;r.attack=-1;r.t=0;r.blocking=false;r.recoilX=r.recoilZ=0;r.attackCount=0;
+    r.spring.x=r.spring.v=0;r.pride=100;r.attack=-1;r.t=0;r.blocking=false;r.recoilX=r.recoilZ=0;r.attackCount=0;r.lastMove=-1;r.repeats=0;
   }
   function restore(r){if(!r)return;resetJoints(r);const n=r.n;for(let i=0;i<6;i++)r.bones[i].rotation.set(r.base[i*3],r.base[i*3+1],r.base[i*3+2]);n.head.position.z=r.headZ;n.busy=r.oldBusy;n.combatControlled=r.oldControlled;}
   function stopSounds(){for(let i=0;i<voices.length;i++)if(voices[i]){try{voices[i].stop();}catch{}voices[i]=null;}}
@@ -133,7 +156,8 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
   }
   function prepareCollision(){
     colliders.length=0;const x=(a.n.x+b.n.x)*.5,z=(a.n.z+b.n.z)*.5;
-    for(let i=0;i<world.colliders.length;i++){const c=world.colliders[i];if(c===a.n.col||c===b.n.col||c===donor?.col)continue;
+    const tram=state.venue==='tram'?ctx.scene.userData.tramRide:null;
+    for(let i=0;i<world.colliders.length;i++){const c=world.colliders[i];if(c===a.n.col||c===b.n.col||c===donor?.col||tram?.isCarCollider?.(c))continue;
       if(c.maxX<x-12||c.minX>x+12||c.maxZ<z-12||c.minZ>z+12)continue;
       if(colliders.length>=1024)return false;colliders.push(c);
     }return true;
@@ -154,52 +178,74 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
   // A walking opponent closes to 1.45 m before the first blow: the fight must still be clear
   // along that shorter line, or it would start and no blow could ever land.
   function blockedFight(){const dx=b.n.x-a.n.x,dz=b.n.z-a.n.z,d=Math.hypot(dx,dz),k=d>1.45&&!b.n.fixed?1.45/d:1;return blockedBetween(a.n.x,a.n.z,b.n.x,b.n.z)||k<1&&blockedBetween(a.n.x,a.n.z,a.n.x+dx*k,a.n.z+dz*k);}
-  function placeCamera(){
-    const x=(a.n.x+b.n.x)*.5,z=(a.n.z+b.n.z)*.5,dx=b.n.x-a.n.x,dz=b.n.z-a.n.z,d=Math.hypot(dx,dz)||1;
-    const floor=Math.max(a.n.baseY||0,b.n.baseY||0);cameraAim.set(x,floor+1.15,z);
-    const carrier=state.venue==='tram'?ctx.scene.userData.tramRide?.carrier:null;
-    if(carrier?.riding){const c=Math.cos(carrier.yaw),sn=Math.sin(carrier.yaw),dx0=x-carrier.x,dz0=z-carrier.z,lx=c*dx0-sn*dz0,lz=sn*dx0+c*dz0;
-      for(let i=0;i<4;i++){const cz=lz+(i%2?1.65:-1.65),cx=i<2?0:(i===2 ? .3 : -.3);const g=groundAt(carrier.localWorld.regions,cx,cz,.35,.1);
-        if(g===null||blockedSegment(lx,lz,cx,cz,carrier.localWorld.colliders))continue;
-        cameraPoint.set(carrier.x+c*cx+sn*cz,g+1.85,carrier.z-sn*cx+c*cz);return true;}return false;}
-    for(let i=0;i<4;i++){
-      const side=i%2===0?1:-1,along=i>=2,ox=(along?dx:(-dx*.55-dz*.84))/d*3.8*side,oz=(along?dz:(-dz*.55+dx*.84))/d*3.8*side;
+  // Shots, most preferred first. Open ground: 0-1 the profile (both fighters side-on, 3.6 m out,
+  // the visitor on the left first), 2-5 the three-quarter and over-the-shoulder views, 6-21 a
+  // tighter ring, 22 the crane, 23 overhead. Riding the tram: 24-27, inside the car.
+  const SHOTS=24,CRANE=22,TRAM_SHOTS=4;
+  function shotAt(i,x,z,dx,dz,d,floor,carrier){
+    if(i>=SHOTS){const c=Math.cos(carrier.yaw),sn=Math.sin(carrier.yaw),dx0=x-carrier.x,dz0=z-carrier.z,lx=c*dx0-sn*dz0,lz=sn*dx0+c*dz0,j=i-SHOTS;
+      const cz=lz+(j%2?1.65:-1.65),cx=j<2?0:(j===2 ? .3 : -.3),g=groundAt(carrier.localWorld.regions,cx,cz,.35,.1);
+      if(g===null||blockedSegment(lx,lz,cx,cz,carrier.localWorld.colliders))return false;
+      cameraPoint.set(carrier.x+c*cx+sn*cz,g+1.85,carrier.z-sn*cx+c*cz);return true;}
+    if(i<2){const side=i?-1:1,cx=x-dz/d*3.6*side,cz=z+dx/d*3.6*side,g=groundAt(world.regions,cx,cz,controls.floor,.65);
+      if(g===null||blockedSegment(x,z,cx,cz))return false;
+      cameraPoint.set(cx,Math.max(g,floor)+1.95,cz);return true;}
+    if(i<6){const j=i-2,side=j%2===0?1:-1,along=j>=2,ox=(along?dx:(-dx*.55-dz*.84))/d*3.8*side,oz=(along?dz:(-dz*.55+dx*.84))/d*3.8*side;
       // On the fight axis the near body hid the opponent: shift over the shoulder and up.
       const lat=along?1.3:0,cx=x+ox-dz/d*lat,cz=z+oz+dx/d*lat,g=groundAt(world.regions,cx,cz,controls.floor,.65);
-      if(g===null||blockedSegment(x,z,cx,cz))continue;
-      cameraPoint.set(cx,Math.max(g,floor)+(along?2.45:2.05),cz);return true;
-    }
+      if(g===null||blockedSegment(x,z,cx,cz))return false;
+      cameraPoint.set(cx,Math.max(g,floor)+(along?2.45:2.05),cz);return true;}
     // Crowded spots (benches, the pool edge, trees) must not refuse a fight: a tighter
     // ring at eight angles, then a crane shot over the visitor's shoulder, then overhead.
-    for(let r=3;r>=2.2;r-=.8)for(let k=0;k<8;k++){
-      const ang=k*Math.PI/4,cx=x+Math.cos(ang)*r,cz=z+Math.sin(ang)*r,g=groundAt(world.regions,cx,cz,controls.floor,.9);
-      if(g===null||blockedSegment(x,z,cx,cz))continue;
-      cameraPoint.set(cx,Math.max(g+2.05,floor+2.05),cz);return true;
-    }
+    if(i<CRANE){const j=i-6,r=j<8?3:2.2,ang=(j%8)*Math.PI/4,cx=x+Math.cos(ang)*r,cz=z+Math.sin(ang)*r,g=groundAt(world.regions,cx,cz,controls.floor,.9);
+      if(g===null||blockedSegment(x,z,cx,cz))return false;
+      cameraPoint.set(cx,Math.max(g+2.05,floor+2.05),cz);return true;}
     // The crane and overhead shots are for open ground: in or beside the tram they would show
     // the car's roof, so there the old rule stands (no camera, no fight).
     if(state.venue==='tram')return false;
     const car=ctx.scene.userData.tramRide?.carrier;
     if(car){const c=Math.cos(car.yaw),s=Math.sin(car.yaw),ox=x-car.x,oz=z-car.z;if(Math.abs(c*ox-s*oz)<3.4&&Math.abs(s*ox+c*oz)<6)return false;}
-    const bx=a.n.x-dx/d*1.4,bz=a.n.z-dz/d*1.4;
-    if(!blockedSegment(x,z,bx,bz)){cameraPoint.set(bx,floor+3.2,bz);return true;}
+    if(i===CRANE){const bx=a.n.x-dx/d*1.4,bz=a.n.z-dz/d*1.4;if(blockedSegment(x,z,bx,bz))return false;cameraPoint.set(bx,floor+3.2,bz);return true;}
     cameraPoint.set(x-dx/d*.35,floor+4.2,z-dz/d*.35);return true;
   }
+  function placeCamera(){
+    const x=(a.n.x+b.n.x)*.5,z=(a.n.z+b.n.z)*.5,dx=b.n.x-a.n.x,dz=b.n.z-a.n.z,d=Math.hypot(dx,dz)||1;
+    const floor=Math.max(a.n.baseY||0,b.n.baseY||0);cameraAim.set(x,floor+1.15,z);
+    const carrier=state.venue==='tram'?ctx.scene.userData.tramRide?.carrier:null,first=carrier?.riding?SHOTS:0,last=first?SHOTS+TRAM_SHOTS:SHOTS;
+    // Hysteresis: the chosen shot stays while it is valid, so the camera never hops between two
+    // good candidates from one frame to the next. The crane and overhead are never blocked, so
+    // from them a better view is looked for again every 0.6 s, not every frame.
+    if(shot>=first&&shot<last&&!(shot>=CRANE&&shot<SHOTS&&clock>=shotRetry)&&shotAt(shot,x,z,dx,dz,d,floor,carrier))return true;
+    for(let i=first;i<last;i++)if(shotAt(i,x,z,dx,dz,d,floor,carrier)){if(i>=CRANE&&i<SHOTS)shotRetry=clock+.6;shot=i;return true;}
+    shot=-1;return false;
+  }
+  // From 1.8 m out to the slap's 2.1 m the visitor steps in to the guard distance first, through
+  // the ordinary collision; a step that cannot get within reach is undone, as is one taken for a
+  // fight then refused.
+  function halfStep(n){
+    stepX=stepZ=0;const dx=n.x-position.x,dz=n.z-position.z,d=Math.hypot(dx,dz);if(d<=GUARD_REACH)return true;
+    const x0=position.x,z0=position.z,k=(d-GUARD_STEP)/d;controls.combatMove(dx*k,dz*k);readVisitor();stepX=position.x-x0;stepZ=position.z-z0;
+    if(Math.hypot(n.x-position.x,n.z-position.z)<=GUARD_REACH+.000001)return true;stepBack();return false;
+  }
+  function stepBack(){if(stepX||stepZ){controls.combatMove(-stepX,-stepZ);readVisitor();}stepX=stepZ=0;}
   function begin(first,second,kind,allowSeated=false,venue=''){
     if(state.active||freeze()||quiet()||!canAct()||!first||!second)return false;
     a=first;b=second;donor=null;state.venue=venue;readVisitor();
     if(kind==='visitor'&&(!canStart()||controls.seated)){toast(controls.seated?'Levanta-te para a porrada.':'Larga o papel primeiro.');a=b=null;return false;}
     if(kind==='visitor'){
       if(!eligible(b.n,allowSeated)){toast('Agora não dá para porrada.');a=b=null;return false;}
-      if(Math.hypot(position.x-b.n.x,position.z-b.n.z)>1.8||Math.abs(position.y-1.62-(b.n.baseY||0))>.8){toast('Chega mais perto do trombil.');a=b=null;return false;}
+      if(Math.hypot(position.x-b.n.x,position.z-b.n.z)>GUARD_START||Math.abs(position.y-1.62-(b.n.baseY||0))>.8){toast('Chega mais perto do trombil.');a=b=null;return false;}
       donor=chooseDonor(b.n);if(!donor){toast('O palco está cheio.');a=b=null;return false;}
+      if(!halfStep(b.n)){toast('Sem espaço para a porrada.');a=b=null;donor=null;return false;}
       a.n.x=position.x;a.n.z=position.z;a.n.baseY=position.y-1.62;a.n.shadowY=controls.floor;
     }else if(!eligible(a.n,allowSeated)||!eligible(b.n,allowSeated)||Math.hypot(a.n.x-position.x,a.n.z-position.z)>40||Math.hypot(b.n.x-position.x,b.n.z-position.z)>40||Math.hypot(a.n.x-b.n.x,a.n.z-b.n.z)>6||Math.abs((a.n.baseY||0)-(b.n.baseY||0))>.8){a=b=null;return false;}
-    if(!prepareCollision()||(kind==='visitor'&&(blockedFight()||!placeCamera()))){toast('Sem espaço para a porrada.');a=b=null;donor=null;return false;}
+    shot=-1;
+    if(!prepareCollision()||(kind==='visitor'&&(blockedFight()||!placeCamera()))){if(kind==='visitor')stepBack();toast('Sem espaço para a porrada.');a=b=null;donor=null;return false;}
+    stepX=stepZ=0;
     capture(a);capture(b);a.inPlace=b.inPlace=allowSeated;
     if(donor){donor.combatShadowProxy=avatar;donor.combatOldBusy=donor.busy;donor.busy=true;donor.combatHidden=true;donor.combatHitMask=donor.hit.layers.mask;donor.hit.layers.mask=0;}
     if(kind==='visitor')avatar.root.visible=true;
-    followReady=false;guardHeld=false;shownA=shownB=100;
+    followReady=false;guardHeld=false;nagPending=false;shownA=shownB=100;
     for(const n of npcs){n.bubble=0;n.talkT=0;if(n.sprite)n.sprite.visible=false;}
     state.active=true;state.id++;state.kind=kind;state.venue=venue;arenaX=(a.n.x+b.n.x)*.5;arenaZ=(a.n.z+b.n.z)*.5;climaxFight=false;visitorStatus.fell=false;visitorStatus.fightId=state.id;enteredAt=clock;endingAt=0;loser=null;queueCount=combo=aiTurn=0;hitstop=shake=0;blockAt=-Infinity;dodgeUntil=0;dodgeReady=clock;counterUntil=0;lastTap=-Infinity;nextAi=clock+BEAT*2;scriptEnd=clock+8;
     controls.releaseCombatKeys?.();ctx.audio?.duck?.(8);emit('fightStarted',.2);callout(kind==='visitor'?'Olha a porrada!':'Vai haver porrada!');uiDirty=true;return true;
@@ -209,7 +255,7 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
     const n=npcModule.findActor(object);if(!n)return false;
     if(state.active&&state.kind==='visitor')return attack(0);
     let joining=false,oldVenue='',oldTrip='';
-    if(state.active){if(n!==a.n&&n!==b.n)return false;if(!canStart()||controls.seated||!chooseDonor(n)){toast('Levanta-te e liberta espaço.');return false;}readVisitor();if(Math.hypot(position.x-n.x,position.z-n.z)>1.8)return false;makeAvatar();const oldA=a,oldB=b;a=visitor;b=byNpc.get(n);a.n.x=position.x;a.n.z=position.z;a.n.baseY=position.y-1.62;a.n.shadowY=controls.floor;const spaceReady=prepareCollision()&&!blockedFight()&&placeCamera();a=oldA;b=oldB;if(!spaceReady){prepareCollision();toast('Sem espaço para a porrada.');return false;}joining=true;oldVenue=state.venue;oldTrip=tripId;end('joined');}
+    if(state.active){if(n!==a.n&&n!==b.n)return false;if(!canStart()||controls.seated||!chooseDonor(n)){toast('Levanta-te e liberta espaço.');return false;}readVisitor();if(Math.hypot(position.x-n.x,position.z-n.z)>GUARD_START)return false;makeAvatar();const oldA=a,oldB=b;a=visitor;b=byNpc.get(n);a.n.x=position.x;a.n.z=position.z;a.n.baseY=position.y-1.62;a.n.shadowY=controls.floor;const spaceReady=prepareCollision()&&!blockedFight()&&placeCamera();a=oldA;b=oldB;if(!spaceReady){prepareCollision();toast('Sem espaço para a porrada.');return false;}joining=true;oldVenue=state.venue;oldTrip=tripId;end('joined');}
     const onTram=joining?oldVenue==='tram':!!ctx.scene.userData.tramRide?.hasPassenger?.(n);
     makeAvatar();if(!begin(visitor,byNpc.get(n),'visitor',onTram,onTram?'tram':''))return false;
     if(joining){climaxFight=true;state.venue=oldVenue;tripId=oldTrip;}return true;
@@ -224,7 +270,7 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
     if((state.kind==='scripted'||climaxFight)&&reason!=='joined'){scriptedResult.sequence++;scriptedResult.fightId=state.id;scriptedResult.completed=reason==='ko'||reason==='finished';scriptedResult.visitorWon=state.kind==='visitor'&&reason==='ko'&&loser===b;scriptedResult.winner=reason==='ko'?id(loser===a?b:a):a.pride>b.pride?id(a):b.pride>a.pride?id(b):'';}
     emit('fightEnded',reason==='ko'?1:0);restore(a);restore(b);
     if(donor){donor.combatShadowProxy=null;donor.busy=donor.combatOldBusy;donor.combatHidden=false;donor.hit.layers.mask=donor.combatHitMask;donor=null;}
-    if(avatar){avatar.root.visible=false;avatar.comedyPuddle=0;}particles.clear();followReady=false;guardHeld=false;state.active=false;state.paused=false;queueCount=0;stopSounds();controls.releaseCombatKeys?.();a=b=null;uiDirty=true;
+    if(avatar){avatar.root.visible=false;avatar.comedyPuddle=0;}particles.clear();followReady=false;guardHeld=false;nagPending=false;shot=-1;state.active=false;state.paused=false;queueCount=0;stopSounds();controls.releaseCombatKeys?.();a=b=null;uiDirty=true;
   }
   function launch(r,index){r.attack=index;r.t=0;r.landed=false;r.attackCount++;r.boost=r.visitor&&clock<counterUntil?1.5:1;if(r.visitor)counterUntil=0;sound(r,index%5,true);}
   function attack(index=selected){
@@ -251,9 +297,10 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
     const guarded=target.blocking,perfect=guarded&&target.visitor&&clock-blockAt<.22;
     const courage=r.visitor&&ctx.scene.userData.bairroEffects?.courageUntil>performance.now()/1000&&new Date().getDay()===2?2:1;
     let damage=Math.round(move.power*r.boost*courage*(guarded ? .2 : 1));if(perfect){damage=0;counterUntil=clock+.8;callout('Ó trombil de papo seco!');}
-    target.spring.v+=guarded?.5:1.8;
+    target.spring.v+=(guarded?.5:1.8)*RECOIL;
     if(!ctx.reducedMotion)particles.burst(target.n.x,(target.n.baseY||0)+1.15,target.n.z,ux,uz);
-    target.pride=Math.max(0,target.pride-damage);if(!target.visitor&&damage>0)target.n.rancor=(target.n.rancor||0)+1;target.recoilX=ux*(perfect ? .05 : guarded ? .15 : .55);target.recoilZ=uz*(perfect ? .05 : guarded ? .15 : .55);
+    const push=(perfect ? .05 : guarded ? .15 : .55)*RECOIL;
+    target.pride=Math.max(0,target.pride-damage);if(!target.visitor&&damage>0)target.n.rancor=(target.n.rancor||0)+1;target.recoilX=ux*push;target.recoilZ=uz*push;
     if(!ctx.reducedMotion){hitstop=.06;shake=.16;}sound(target,combo===0?3:combo,guarded,id(r)==='velho'&&move.index===8?4:move.index);emit('impact',damage/25,equipped&&r.visitor?equipped:move.id);uiDirty=true;
     if(r.visitor&&move.index<=2)onSlap();
     if(!target.visitor&&damage>0)npcModule.combatImpact?.(target.n,false,move.id);
@@ -322,7 +369,14 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
   function update(dt){
     if(disposed)return;frameDt=Math.min(.05,Math.max(0,dt));readVisitor();const paused=freeze();
     particles.update(frameDt,paused||hitstop>0);
-    if((!state.active||state.kind==="scripted")&&stepGuardHold(guard,frameDt,guardHeld,!paused&&!quiet()&&canAct()&&!!nearestActor()))nearest();state.paused=paused;
+    if(!state.active||state.kind==="scripted"){
+      // The hold counts real time (stepGuardCharge clamps a frame to 0.1 s), not the 0.05 s
+      // animation step: at low frame rates 0.7 s took many seconds.
+      const ready=guardHeld&&!paused&&!quiet()&&canAct()&&!!nearestActor(),fire=stepGuardCharge(guard,dt,guardHeld,ready,GUARD_GRACE);
+      if(guardHeld&&nagPending){if(ready)nagPending=false;else if(guard.lapse>=GUARD_GRACE)nag();}
+      refreshCharge();if(fire)nearest();
+    }else refreshCharge();
+    state.paused=paused;
     pausedBefore=paused;
     if(state.active&&a?.visitor){a.n.x=position.x;a.n.z=position.z;a.n.baseY=position.y-1.62;a.n.shadowY=controls.floor;}
     if((quiet()||!canAct())&&state.active){end(quiet()?'quiet':'overlay');return;}
@@ -338,7 +392,8 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
     const step=hitstop>0?0:Math.min(.1,Math.max(0,dt));frameDt=step;hitstop=Math.max(0,hitstop-dt);shake=Math.max(0,shake-dt);
     if(clock>=nextAi){
       nextAi=clock+BEAT*(state.kind==='scripted'?2:3);const ai=state.kind==='scripted'&&(aiTurn++%2===1)?a:b;
-      if(ai.attack<0){const index=SPECIAL[id(ai)]??(ai.attackCount%4);launch(ai,index);ai.blocking=false;callout('Vou-te ao trombil!');}
+      if(ai.attack<0){const foe=ai===a?b:a,index=chooseMove(Math.hypot(foe.n.x-ai.n.x,foe.n.z-ai.n.z),ai.lastMove,ai.repeats,SPECIAL[id(ai)]??-1,random);
+        ai.repeats=index===ai.lastMove?ai.repeats+1:1;ai.lastMove=index;launch(ai,index);ai.blocking=false;callout('Vou-te ao trombil!');}
     }
     if(b.attack<0)b.blocking=(Math.floor(clock/BEAT)%4)===1;
     simulate(a,b,step);if(!state.active){refreshUi();return;}simulate(b,a,step);if(!state.active){refreshUi();return;}
@@ -367,17 +422,24 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
     uiDirty=true;refreshUi();
   }
   function nearestActor(){
-    readVisitor();camera.getWorldDirection(direction);let best=null,distance=1.8*1.8;
+    readVisitor();camera.getWorldDirection(direction);let best=null,distance=GUARD_START*GUARD_START;
     for(let i=0;i<npcs.length;i++){const n=npcs[i],dx=n.x-position.x,dz=n.z-position.z,d=dx*dx+dz*dz;
       if((eligible(n)||(state.active&&state.kind==='scripted'&&(n===a?.n||n===b?.n)))&&Math.abs(position.y-1.62-(n.baseY||0))<.8&&d<distance&&(dx*direction.x+dz*direction.z)>Math.sqrt(d)*.65){best=n;distance=d;}}
     return best;
   }
   function nearest(){const best=nearestActor();return best?engage(best.hit,{explicit:true}):false;}
+  // Q with nobody in reach used to be silent: one line per press, at most one every 2 s.
+  function nag(){nagPending=false;if(freeze()||quiet()||!canAct()||clock-nagAt<NAG_GAP)return;nagAt=clock;toast('Chega mais perto do trombil.');}
+  // The guard's charge around the crosshair: one element, written only when the fill moves a step.
+  function refreshCharge(){
+    if(!charge)return;const p=guardHeld&&!guard.fired&&!(state.active&&state.kind==='visitor')?Math.min(1,guard.elapsed/GUARD_HOLD):0,q=Math.round(p*40)/40;
+    if(q===chargeShown)return;chargeShown=q;charge.hidden=q<=0;if(q>0)charge.style.setProperty('--charge',String(q));
+  }
 
   function typing(e){return !!e.target?.closest?.('input,textarea,select,[contenteditable="true"]');}
   function keydown(e){
     if(e.ctrlKey||e.metaKey||e.altKey||typing(e)||!canAct())return;
-    if((!state.active||state.kind==='scripted')&&e.code==='KeyQ'){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat)guardHeld=true;return;}
+    if((!state.active||state.kind==='scripted')&&e.code==='KeyQ'){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat){guardHeld=true;nagPending=true;}return;}
     if(enableStatues&&e.code==='KeyX'){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat)statues();return;}
     if(!state.active||freeze()||state.kind!=='visitor')return;
     if(e.code==='Escape'){end('exit');return;}
@@ -386,13 +448,13 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
     e.preventDefault();e.stopImmediatePropagation();if(e.repeat)return;
     if(e.code==='KeyQ')attack(selected);else if(e.code==='KeyE')block(true);else if(e.code==='KeyZ')attack(7);else if(e.code==='KeyC')attack(11);else if(e.code==='KeyF')attack(9);else dodge();uiDirty=true;
   }
-  function keyup(e){if(e.code==='KeyQ')guardHeld=false;if(e.code==='KeyE'&&a)block(false);if(state.active&&!freeze()&&['KeyQ','KeyE','KeyZ','KeyC','KeyF','ShiftLeft','ShiftRight'].includes(e.code)){e.preventDefault();e.stopImmediatePropagation();}}
+  function keyup(e){if(e.code==='KeyQ'){if(guardHeld&&nagPending&&!nearestActor())nag();guardHeld=false;nagPending=false;guard.elapsed=guard.lapse=0;guard.fired=false;refreshCharge();}if(e.code==='KeyE'&&a)block(false);if(state.active&&!freeze()&&['KeyQ','KeyE','KeyZ','KeyC','KeyF','ShiftLeft','ShiftRight'].includes(e.code)){e.preventDefault();e.stopImmediatePropagation();}}
   function pointer(e){
     if(!state.active||freeze()||state.kind!=='visitor'||typing(e)||e.target?.closest?.('button,select,.combat-panel'))return;
     if(e.button!==0&&e.button!==2)return;e.preventDefault();e.stopImmediatePropagation();
     if(e.type==='pointerdown')attack(e.button===0?0:1);
   }
-  function blurred(){guardHeld=false;guard.elapsed=0;if(a)a.blocking=false;end('blur');}
+  function blurred(){guardHeld=false;nagPending=false;guard.elapsed=guard.lapse=0;refreshCharge();if(a)a.blocking=false;end('blur');}
   function refreshUi(){
     if(!panel)return;panel.hidden=!state.active;hud.hidden=!canAct();statueButton.hidden=state.active||!enableStatues;
     if(!uiDirty)return;
@@ -414,7 +476,8 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
   if(panel){
     cssLink=document.createElement('link');cssLink.rel='stylesheet';cssLink.href=new URL('./combat-ui.css',import.meta.url).href;document.head.append(cssLink);
     hud=document.createElement('div');hud.className='combat-hud';hud.hidden=true;hud.setAttribute('role','toolbar');hud.setAttribute('aria-label','Porrada e estátuas');statueButton=button('ESTÁTUAS',()=>statues());statueButton.setAttribute('aria-label','Estátuas: pausar personagens (X)');
-    fightButton=button('🥊',()=>state.active?end('exit'):nearest());fightButton.setAttribute('aria-label','Entrar em guarda (manter Q)');statueButton.hidden=!enableStatues;hud.append(statueButton,fightButton);document.body.append(hud);
+    fightButton=button('🥊',()=>{if(state.active)end('exit');else if(!nearest()&&!nearestActor())nag();});fightButton.setAttribute('aria-label','Entrar em guarda (manter Q)');statueButton.hidden=!enableStatues;hud.append(statueButton,fightButton);document.body.append(hud);
+    charge=document.createElement('div');charge.className='combat-charge';charge.hidden=true;charge.setAttribute('aria-hidden','true');document.body.append(charge);
     panel.className='combat-panel';panel.setAttribute('aria-label','Brio e movimentos');panel.hidden=true;
     function pill(label){const track=document.createElement('div');track.className='combat-pill';track.setAttribute('role','progressbar');track.setAttribute('aria-label',label);track.setAttribute('aria-valuemin','0');track.setAttribute('aria-valuemax','100');const lag=document.createElement('i'),value=document.createElement('i');lag.className='combat-pill-lag';value.className='combat-pill-value';track.append(lag,value);panel.append(track);return [value,lag];}
     [pillA,lagA]=pill('O teu brio');[pillB,lagB]=pill('Brio do adversário');
@@ -424,7 +487,7 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
     for(const name of ['pointerdown','pointerup','mousedown','mouseup','contextmenu'])window.addEventListener(name,pointer,true);
     window.addEventListener('blur',blurred);
   }
-  function dispose(){unsubscribeActor?.();end('dispose');particles.dispose();if(ctx.ui?.toast===guardedToast)ctx.ui.toast=originalToast;if(freeze())statues(false);disposed=true;hud?.remove();panel?.remove();cssLink?.remove();stopSounds();if(typeof window!=='undefined'){window.removeEventListener('keydown',keydown,true);window.removeEventListener('keyup',keyup,true);for(const name of ['pointerdown','pointerup','mousedown','mouseup','contextmenu'])window.removeEventListener(name,pointer,true);window.removeEventListener('blur',blurred);}if(avatar){ctx.scene.remove(avatar.root);avatar.rig.mesh.geometry.dispose();avatar.rig.mesh.material.dispose();}}
+  function dispose(){unsubscribeActor?.();end('dispose');particles.dispose();if(ctx.ui?.toast===guardedToast)ctx.ui.toast=originalToast;if(freeze())statues(false);disposed=true;hud?.remove();panel?.remove();charge?.remove();cssLink?.remove();stopSounds();if(typeof window!=='undefined'){window.removeEventListener('keydown',keydown,true);window.removeEventListener('keyup',keyup,true);for(const name of ['pointerdown','pointerup','mousedown','mouseup','contextmenu'])window.removeEventListener(name,pointer,true);window.removeEventListener('blur',blurred);}if(avatar){ctx.scene.remove(avatar.root);avatar.rig.mesh.geometry.dispose();avatar.rig.mesh.material.dispose();}}
   function getVisitorStatus(){return visitorStatus;}
   function getScriptedResult(){return scriptedResult;}
   const api={actors:npcs,getVisitorStatus,getScriptedResult,state,events,engage,startScripted,end,attack,block,dodge,statues,apologize,setWeapon,doubleCalduco,getBrio,setBrio,adjustBrio,update,renderCamera,restoreCamera,dispose};

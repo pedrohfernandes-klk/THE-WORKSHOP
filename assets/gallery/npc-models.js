@@ -312,7 +312,7 @@ export function buildCharacter(THREE, M, spec = {}) {
   }
   const hasHat=spec.hat!==false && (spec.hat || ['forcado','mano','chubby','raccoon','tortoise','walrus'].includes(kind));
   {
-    const hc=tint(colors.hat,kind==='forcado'?0x287848:0x3d4f6c);
+    const hc=tint(colors.hat,kind==='forcado'?0xbb353b:0x3d4f6c);
     if(swim||wardrobe==='tourist') {
       part(new THREE.CylinderGeometry(.255,.255,.018,18),hat,hc,.9,0,.2,0);
       part(new THREE.CylinderGeometry(.125,.16,.14,14),hat,hc,.9,0,.28,0);
@@ -320,11 +320,13 @@ export function buildCharacter(THREE, M, spec = {}) {
     } else {
       part(new THREE.CylinderGeometry(.19,.19,.07,seg),hat,hc,.9,0,.21,0);
       if(kind==='forcado') {
-        // Soft red crown bent sideways above a green band, not a rigid party cone.
+        // The forcado's barrete: a soft green stocking crown bent sideways, ending in a red tip,
+        // over a red band (not a rigid party cone).
         const crown=new THREE.CylinderGeometry(.04,.145,.32,14,5);
         const cp=crown.attributes.position;
         for(let i=0;i<cp.count;i++){const y=cp.getY(i),t=(y+.16)/.32;cp.setX(i,cp.getX(i)+.19*t*t);cp.setY(i,y-.11*t*t);}
-        crown.computeVertexNormals();part(crown,hat,tint(null,0xbb353b),.87,0,.395,0);
+        crown.computeVertexNormals();part(crown,hat,tint(null,0x287848),.87,0,.395,0);
+        sph(hat,tint(null,0xbb353b),.19,.44,0,.052,.05,.052,.85);
         part(new THREE.CylinderGeometry(.21,.21,.1,16),body,tint(null,0xbb353b),.86,0,.965,0,1,1,.78);
       } else if(wardrobe==='critic')part(new THREE.SphereGeometry(1,seg,8),hat,hc,.88,.018,.25,-.025,.22,.035,.19,.16);
       else sph(hat,hc,0,.25,-.025,.195,.08,.18,.9);
@@ -506,11 +508,14 @@ export function buildCharacter(THREE, M, spec = {}) {
   const mesh=new THREE.SkinnedMesh(geometry,material);mesh.name='character-'+(spec.id||spec.name||kind);mesh.add(pelvis);
   mesh.onBeforeRender=()=>{hatUniform.value=hat.visible?1:0;};
   mesh.bind(new THREE.Skeleton(ordered));mesh.castShadow=false;mesh.receiveShadow=true;
-  // Detached hats and squash poses can exceed the bind-pose bounds. The module
-  // culls whole characters at 40m; avoid Three's stale bound rejecting a hat.
-  mesh.frustumCulled=false;
+  // Detached hats and squash poses can exceed the bind-pose bounds, so Three's own skinned
+  // bound would reject a thrown hat. A fixed sphere around the whole character plus 1.5 m of
+  // room lets Three skip characters behind the camera (no draw, no skeleton upload) without
+  // that risk. The module still hides whole characters beyond 40 m.
   geometry.computeBoundingBox();geometry.computeBoundingSphere();
-  const height=geometry.boundingBox.max.y;
+  const height=geometry.boundingBox.max.y,bb=geometry.boundingBox;
+  mesh.boundingSphere=new THREE.Sphere(new THREE.Vector3(0,height*.5,0),Math.max(height,bb.max.x-bb.min.x,bb.max.z-bb.min.z)*.5+1.5);
+  mesh.frustumCulled=true;
   const mouth={bone:jaw,setOpen(v){const k=clamp(v,0,1);jaw.scale.y=1+k*1.2;jaw.position.y=-.075-k*.025;
     if(kind==='pig'){snoutBone.scale.z=1+k*.08;snoutBone.position.y=-k*.005;}}};
   let pose=null,poseWeight=0,lastOpen=0,lastBrow=0,gazeX=0,gazeY=0;
