@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';
+const root=process.env.TRIM_ROOT||'.';
+test('amphitheatre has static poster and no video source or runtime decoder',async()=>{const s=await readFile(root+'/assets/gallery/spaces/amphitheatre.js','utf8');assert.doesNotMatch(s,/VideoTexture|VIDEO_URL|createElement\('video'\)|video\.play/);assert.match(s,/▶ VER/);assert.match(s,/function update\(\) \{\}/);});
+test('arraial keeps smoke and bass drum but no spark emitter or firecracker',async()=>{const s=await readFile(root+'/assets/gallery/spaces/arraial.js','utf8');assert.doesNotMatch(s,/burstAt|burstBig|function burst|SPARK|firecracker|function crack/);assert.match(s,/NFX = NSM/);assert.match(s,/function drumAccent\(t\) \{ boom\(t, 0.5\)/);});
+test('classic no longer references the removed film and retains generic media system',async()=>{const s=await readFile(root+'/classic.html','utf8');assert.doesNotMatch(s,/hall-fireworks-video|hallFireworksVideo|fireVideo|fireTex|fireworksVideo/);assert.match(s,/hallWindow.texture = posterTex/);assert.match(s,/mediaVideo/);});
