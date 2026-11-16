@@ -75,11 +75,12 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
   function stopSounds(){for(let i=0;i<voices.length;i++)if(voices[i]){try{voices[i].stop();}catch{}voices[i]=null;}}
   function sound(r,step=0,soft=false,moveIndex=-1){
     if(freeze()||quiet()||ctx.audio?.muted)return;
-    let ac,bus;try{ac=ctx.audio?.context;bus=ctx.audio?.bus;}catch{return;}if(!ac||!bus||ac.state!=='running')return;
+    const voiceAudio=ctx.scene.userData.statueAudio?.audio||ctx.audio;
+    let ac,bus;try{ac=voiceAudio?.context;bus=voiceAudio?.bus;}catch{return;}if(!ac||!bus||ac.state!=='running')return;
     let slot=-1;for(let i=0;i<6;i++)if(!voices[i]){slot=i;break;}if(slot<0)return;
     const profile=moveIndex>=0?FOLEY[moveIndex]:null,duration=profile?BEAT*profile[5]:BEAT/4;
     // No broker means silence: never bypass the global voice budget.
-    const token=ctx.audio.acquireVoice?.({priority:3,foreground:true,ms:(duration+.03)*1000});
+    const token=voiceAudio.acquireVoice?.({priority:3,foreground:true,ms:(duration+.03)*1000});
     if(!token||!token.active)return;
     let source,gain,filter,pan;
     try{
@@ -257,7 +258,7 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
   }
   function update(dt){
     if(disposed)return;readVisitor();const paused=freeze();state.paused=paused;
-    if(paused&&!pausedBefore)stopSounds();pausedBefore=paused;
+    pausedBefore=paused;
     if(state.active&&a?.visitor){a.n.x=position.x;a.n.z=position.z;a.n.baseY=position.y-1.62;a.n.shadowY=controls.floor;}
     if((quiet()||!canAct())&&state.active){end(quiet()?'quiet':'overlay');return;}
     if(paused){if(avatar)avatar.root.visible=false;refreshUi();return;}

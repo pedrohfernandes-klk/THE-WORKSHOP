@@ -243,7 +243,7 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
     if(ctx.scene?.userData?.questQuiet){cancel();if(externalNow)lastExternal=externalNow();return;}
     const frozen=manualPaused||!!ctx.scene?.userData?.npcStatues;
     if(externalNow){const stamp=externalNow();if(frozen||wasPaused)externalOffset+=Math.max(0,stamp-lastExternal);lastExternal=stamp;}
-    if(frozen){if(!wasPaused)stopAudio();wasPaused=true;observe();return;}
+    if(frozen){wasPaused=true;observe();return;}
     if(!wasPaused)clock+=Math.min(.1,Math.max(0,dt||0));wasPaused=false;
     if(disposed||!camera)return;const muted=!!ctx.audio?.muted;if(muted&&!mutedLast)stopAudio();mutedLast=muted;observe();if(quiet()){cancel();return;}
     const t=time();
@@ -282,8 +282,9 @@ export function createNpcComedy(ctx, { npcs, data={}, say, startLaugh, fall, now
       const k=Math.sin((t-r.cryAt)*18)*.035;n.arms[0].rotation.z+=k;n.arms[1].rotation.z-=k;n.head.rotation.x+=.13;
     }
   }
-  function setPaused(value){manualPaused=!!value;if(manualPaused){wasPaused=true;if(externalNow)lastExternal=externalNow();stopAudio();}}
+  function setPaused(value){manualPaused=!!value;if(manualPaused){wasPaused=true;if(externalNow)lastExternal=externalNow();}}
+  function thaw(n,text){if(!['Eu estava a pensar.','Quem me mudou o intervalo?','O pombo estava a avaliar.'].includes(text)||quiet()||!awake(n))return false;authorized.add(keyOf(text));return say(n,text,false);}
   function isSignature(n,text){return byNpc.get(n)?.descriptor.signature?.text===text;}
   function dispose(){disposed=true;cancel();manifestRequest?.abort();clearTimeout(manifestTimer);for(let i=0;i<records.length;i++){records[i].request?.abort();clearTimeout(records[i].requestTimer);}}
-  return {allow,line,select,notify,update,after,cancel,dispose,memory,debug,allowLaugh,sound,loadManifest,isSignature,setPaused,defeat};
+  return {thaw,allow,line,select,notify,update,after,cancel,dispose,memory,debug,allowLaugh,sound,loadManifest,isSignature,setPaused,defeat};
 }

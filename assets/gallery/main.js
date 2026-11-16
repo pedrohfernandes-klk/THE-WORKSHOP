@@ -401,7 +401,7 @@ import('./player.js').then((m) => {
 worldReady.then(async(w)=>{
   const {createCombat}=await import('./combat.js');
   const npcModule=w.modules.get('npcs');if(!npcModule?.combatActors)return;
-  combat=createCombat(ctx,{camera,controls,world:w,npcModule,getPlayer:()=>player,
+  combat=createCombat(ctx,{camera,controls,world:w,npcModule,enableStatues:true,getPlayer:()=>player,
     canAct:()=>state.entered&&!state.overlay&&!state.exhibitionOpen,
     canStart:()=>!charging&&!paper?.holding,
     onSlap:()=>{state.slaps=(state.slaps||0)+1;}});
