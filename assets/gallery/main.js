@@ -1061,7 +1061,8 @@ function updateSoundscape(area, pos, floor, inLift) {
   weather?.setIndoor?.(state.indoor);
   // Lawns and borders can't be seen from indoors: don't draw ~1M grass triangles there.
   for (const n of ['grass', 'flowers']) { const g = world && world.groups[n]; if (g) g.visible = !state.indoor; }
-  const tram = world && world.modules.get('metro')?.position;
+  // The rail whine follows the walkable car (the light-rail's own train is parked in ride service).
+  const tram = room.scene.userData.tramRide?.carrierGroup?.position || (world && world.modules.get('metro')?.position);
   const mode = weather ? weather.mode : 'sunny';
   audio.setSources?.({
     fountain: Math.hypot(pos.x - FOUNTAIN.x, pos.z - FOUNTAIN.z, (floor + 1.6) - FOUNTAIN.y),
