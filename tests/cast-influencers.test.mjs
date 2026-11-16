@@ -131,7 +131,7 @@ test('a fall still ends a scene',async t=>{
   assert.equal(h.spoken.length,0,'a slapped speaker ends the scene');
 });
 
-test('in a fight only the asked one\'s answer shows, anchored above the head; quiet hides it',()=>{
+test('in a fight only the asked one\'s answer shows, anchored beside the head away from the other fighter; quiet hides it',()=>{
   const userData={},camera=new THREE.PerspectiveCamera(65,1,.1,200);camera.updateMatrixWorld();
   const bubbles=createReadableBubbles(THREE,{renderer:{domElement:{clientWidth:800,clientHeight:800}},userData});
   const scene=new THREE.Scene();
@@ -139,10 +139,11 @@ test('in a fight only the asked one\'s answer shows, anchored above the head; qu
     const root=new THREE.Group(),head=new THREE.Object3D(),sprite=new THREE.Sprite(new THREE.SpriteMaterial());root.position.set(x,0,-4);head.position.y=1.7;root.add(head);scene.add(root,sprite);
     const n={x,z:-4,baseY:0,root,head,sprite,bctx:g,btex:new THREE.Texture(),bOff:.1};bubbles.register(n);n.talkT=bubbles.setText(n,'Porrada? Espera, que eu ponho o filtro!');return n;}
   scene.updateMatrixWorld(true);
-  const asked=actor(0),other=actor(1.5);userData.combatState={active:true};asked.combatControlled=true;asked.fightLineT=2.8;
+  const asked=actor(0),other=actor(1.5);userData.combatState={active:true,ax:0,az:-4,bx:1.5,bz:-4};asked.combatControlled=true;asked.fightLineT=2.8;
   bubbles.update(camera);
   assert.equal(asked.sprite.visible,true);assert.equal(other.sprite.visible,false);
-  assert.ok(asked.sprite.position.y>1.9&&Math.abs(asked.sprite.position.x)<1e-6&&Math.abs(asked.sprite.position.z+4)<1e-6);
+  // Beside the head (the profile shot has little room above it), on the outer side of the pair.
+  const p=asked.sprite.position;assert.ok(p.y>1.7&&p.y<2.1&&p.x<-.6&&Math.abs(p.z+4)<1e-6,p.toArray().join());
   asked.fightLineT=0;bubbles.update(camera);assert.equal(asked.sprite.visible,false,'no answer, no text in a fight');
   asked.fightLineT=2;userData.questQuiet=true;bubbles.update(camera);assert.equal(asked.sprite.visible,false);
 });
