@@ -384,17 +384,18 @@ test('the notes list escapes every localStorage-derived field it interpolates', 
     'the unescaped timestamp form has not returned');
 });
 
-test('the YouTube relay only accepts playback verbs from its embedding page', async () => {
-  const relay = await readFile(new URL('../yt.html', import.meta.url), 'utf8');
-  assert.match(relay, /if\(ev\.source !== window\.parent\) return;/,
-    'the relay rejects messages from anything but the framing page');
-  assert.match(relay, /hasOwnProperty\.call\(ALLOWED_FUNCS, func\)/,
-    'the relay checks the verb against an own-property allowlist');
-  assert.doesNotMatch(relay, /typeof player\[func\] === 'function'\) return;\s*\n\s*try\{ player\[func\]\.apply\(player, Array\.isArray\(data\.args\)/,
-    'the unguarded arbitrary-method form has not returned');
-  const policy = relay.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)">/)?.[1] || '';
-  assert.match(policy, /default-src 'none'/, 'the relay carries its own policy');
-  assert.match(policy, /frame-src https:\/\/www\.youtube\.com/);
+test('the YouTube relay accepts only parent playback verbs after explicit consent', async () => {
+ const relay=await readFile(new URL('../yt.html',import.meta.url),'utf8');
+ const script=await readFile(new URL('../assets/gallery/yt-player.js',import.meta.url),'utf8');
+ assert.match(script,/if\(ev.source!==window.parent\)return/);
+ assert.match(script,/ev.origin!==location.origin&&!legacyFile/);
+ assert.match(script,/hasOwnProperty.call\(ALLOWED_FUNCS,func\)/);
+ assert.match(script,/if\(!iframe\)return/);
+ assert.match(script,/enablejsapi=1/);
+ assert.doesNotMatch(relay,/iframe_api|unsafe-inline|https:\/\/www.youtube.com/);
+ const policy=relay.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)">/)?.[1]||'';
+ assert.match(policy,/default-src 'none'/);
+ assert.match(policy,/frame-src https:\/\/www.youtube-nocookie.com/);
 });
 
 

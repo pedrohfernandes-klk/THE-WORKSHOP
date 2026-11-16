@@ -1,0 +1,9 @@
+import {chromium} from 'playwright';import {startStaticServer} from '../scripts/static-server.mjs';import {resolve} from 'node:path';import assert from 'node:assert/strict';
+const {server,origin}=await startStaticServer(0,resolve(process.argv[2]||'.'));let browser;
+try{browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'});const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];page.on('pageerror',e=>errors.push(e.message));let remote=0;
+ await page.route('https://**/*',route=>{remote++;return route.fulfill({contentType:'text/html',body:'<!doctype html><p>External player contract fixture</p>'});});
+ await page.goto(origin+'/assets/apps/amphi-reader.html');assert.equal(remote,0);assert.equal(await page.locator('#sites button').count(),4);
+ await page.locator('#video-url').fill('https://youtu.be/abcdefghijk');await page.locator('#video-form button').click();const relay=page.frameLocator('#content');await relay.locator('#play').waitFor();assert.equal(remote,0);
+ await relay.locator('#play').click();await relay.locator('#player iframe').waitFor();assert.equal(await relay.locator('#player iframe').getAttribute('src'),'https://www.youtube-nocookie.com/embed/abcdefghijk?autoplay=0&controls=1&playsinline=1&cc_load_policy=1&cc_lang_pref=pt&rel=0&enablejsapi=1&origin='+encodeURIComponent(origin));
+ await relay.locator('#close').press('Escape');await page.waitForTimeout(50);assert.equal(await page.locator('#view').isHidden(),true);assert.equal(await page.locator('#content').getAttribute('src'),null);assert.deepEqual(errors,[]);console.log('Reader 390x844: consent gate, 4 sites, nocookie URL, same-origin Escape teardown PASS; external video mocked, not playback QA.');
+}finally{await browser?.close();await new Promise(r=>server.close(r));}
