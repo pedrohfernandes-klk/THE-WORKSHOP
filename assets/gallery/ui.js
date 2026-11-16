@@ -97,6 +97,8 @@ const PT_SAY = new Map(Object.entries({
   'people here answer back: click to slap, e to talk.': 'Aqui a malta responde: clica para dar chapada, E para conversar.',
   'the tram waits at the east platform: get in and press partir.': 'O elétrico espera na plataforma a nascente: entra e carrega em PARTIR.',
   'hold q next to someone for a proper porrada. brio is your breath in a fight.': 'Mantém Q ao pé de alguém para porrada a sério. O BRIO é o teu fôlego na luta.',
+  'people here answer back: tap someone to talk.': 'Aqui a malta responde: toca em alguém para conversar.',
+  'tap 🥊 next to someone for a proper porrada. brio is your breath in a fight.': 'Toca em 🥊 ao pé de alguém para porrada a sério. O BRIO é o teu fôlego na luta.',
   'orgulho comes from missions and fights, and goes on intangible goods at the vending machine.': 'O ORGULHO ganha-se em missões e porradas e gasta-se em bens imateriais na máquina.',
 }));
 const say = (s) => (PT && PT_SAY.get(String(s).trim().toLowerCase())) || s;

@@ -9,8 +9,15 @@ export const FIRST_MINUTE_HINTS = Object.freeze({
   porrada: 'Hold Q next to someone for a proper porrada. BRIO is your breath in a fight.',
   pride: 'ORGULHO comes from missions and fights, and goes on intangible goods at the vending machine.',
 });
+// On a touch screen a tap talks and the 🥊 button starts the fight, so two hints change wording.
+export const TOUCH_HINTS = Object.freeze({
+  ...FIRST_MINUTE_HINTS,
+  people: 'People here answer back: tap someone to talk.',
+  porrada: 'Tap 🥊 next to someone for a proper porrada. BRIO is your breath in a fight.',
+});
 
-export function createFirstMinute({ toast, storage = null, now = () => performance.now() / 1000, gap = 7, duration = 5200 } = {}) {
+export function createFirstMinute({ toast, storage = null, now = () => performance.now() / 1000, gap = 7, duration = 5200, touch = false } = {}) {
+  const HINTS = touch ? TOUCH_HINTS : FIRST_MINUTE_HINTS;
   let seen = {};
   try { seen = JSON.parse(storage?.getItem(KEY) || '{}') || {}; } catch { seen = {}; }
   const queue = [];
@@ -30,13 +37,14 @@ export function createFirstMinute({ toast, storage = null, now = () => performan
       if (t - outsideAt > 25) want('tram');
       if (t - outsideAt > 55) want('pride');
     }
-    if (slaps > 0) want('porrada');
+    // A slap shows the way to a real fight; on touch there is no slap outside one, so time does.
+    if (slaps > 0 || (touch && outsideAt >= 0 && t - outsideAt > 12)) want('porrada');
     // One at a time, never over a fight, a dialogue or another hint.
     if (!queue.length || busy || t - last < gap) return;
     const id = queue.shift();
     seen[id] = 1; last = t;
     try { storage?.setItem(KEY, JSON.stringify(seen)); } catch { /* private mode: hints may repeat */ }
-    toast(FIRST_MINUTE_HINTS[id], duration);
+    toast(HINTS[id], duration);
   }
   return { update, get pending() { return queue.slice(); } };
 }

@@ -243,7 +243,7 @@ ctx.precompile = (group) => {
 };
 const interactions = createInteractions(ctx);
 let hintStore = null; try { hintStore = window.localStorage; } catch (e) { hintStore = null; }
-const firstMinute = createFirstMinute({ toast: (t, ms) => ui.toast(t, ms), storage: hintStore });
+const firstMinute = createFirstMinute({ toast: (t, ms) => ui.toast(t, ms), storage: hintStore, touch: coarsePointer });
 function isHouseSpeechActive(){
   const module=world?.modules.get('npcs'),actors=module?.actors||module?.combatActors;
   if(actors)for(let i=0;i<actors.length;i++){const n=actors[i];if(n.talkT>0&&n.d2<400)return true;}
