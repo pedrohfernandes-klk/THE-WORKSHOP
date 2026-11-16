@@ -269,6 +269,7 @@ export function build(ctx) {
   const screenMat=new THREE.MeshBasicMaterial({map:standby,toneMapped:false});
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(SCR_W, SCR_H), screenMat);
   screen.rotation.y = Math.PI / 2; screen.position.set(SCR_X, SCR_Y, 30); screen.name = 'screen';
+  screen.userData.action={type:'custom',label:'VER'};pickables.push(screen);
   group.add(screen);
   // bezel
   {
@@ -374,5 +375,5 @@ export function build(ctx) {
 
   function update() {}
 
-  return { group, regions, colliders, pickables, seats, update, onPick() {} };
+  return { group, regions, colliders, pickables, seats, update, onPick(obj) { if(obj===screen)ctx.ui?.openApp?.('assets/apps/amphi-reader.html','Ver no anfiteatro'); } };
 }

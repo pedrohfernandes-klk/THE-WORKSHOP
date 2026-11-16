@@ -589,6 +589,12 @@ export function createUI(handlers = {}) {
     if (appReturn && appReturn.focus) appReturn.focus({ preventScroll: true });
   }
   $('app-close').addEventListener('click', closeApp);
+  addEventListener('message',event=>{
+    if(event.origin!==location.origin||event.source!==appFrame.contentWindow||!appBox.classList.contains('is-on'))return;
+    let url;try{url=new URL(appFrame.src);}catch{return;}
+    if(url.origin!==location.origin||!url.pathname.endsWith('/assets/apps/amphi-reader.html'))return;
+    if(event.data?.type==='workshop-reader-close')closeApp();
+  });
 
   /** items: [{ label, detail, url, title } | { label, detail, run }]; secondary: same, shown small. */
   function openChooser({ eyebrow = 'On this screen', title = 'Choose what to show', items = [], secondary = [] }) {
