@@ -173,7 +173,7 @@ export function build(ctx){
   function stopAnnouncement(){if(announcement&&typeof speechSynthesis!=='undefined')speechSynthesis.cancel();announcement=null;announcementVoice?.release();announcementVoice=null;}
   function announce(text){
     if(quiet||ctx.audio?.muted||ctx.scene.userData.questQuiet)return;
-    ctx.ui?.toast?.(text);
+    ctx.ui?.toast?.(text,Math.min(6000,1800+text.length*45));
     if(typeof speechSynthesis==='undefined'||typeof SpeechSynthesisUtterance==='undefined')return;
     const voices=speechSynthesis.getVoices();let voice=null;for(const v of voices)if(v.localService&&/^pt[-_]PT$/i.test(v.lang)){voice=v;break;}if(!voice)return;
     stopAnnouncement();const token=ctx.audio?.acquireVoice?.({priority:3,foreground:true,ms:6500});if(!token)return;

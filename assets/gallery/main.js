@@ -222,7 +222,7 @@ const ctx = {
   THREE, renderer, scene: room.scene, M, quality, reducedMotion, audio, startup, lightPool,
   events: room.scene.userData.workshopEvents ||= new EventTarget(),
   ui: {
-    openApp: (url, title) => ui.openApp(url, title), toast: (t) => ui.toast(t),
+    openApp: (url, title) => ui.openApp(url, title), toast: (t, ms) => ui.toast(t, ms),
     setPasswordOverlay: (open) => {
       state.overlay = open;
       if (open) controls.exitLock();

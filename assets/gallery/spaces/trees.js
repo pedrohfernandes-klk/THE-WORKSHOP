@@ -447,12 +447,16 @@ export function build(ctx) {
   /* ----- sun for the translucency term ----- */
   let sun = null, scanned = 0;
   const sv = new THREE.Vector3(), tv = new THREE.Vector3();
-  const findSun = () => { ctx.scene.traverse((o) => { if (!sun && o.isDirectionalLight) sun = o; }); };
+  // The sun by name (environment.js), never a light pool placeholder ('reserved-*'), and found
+  // again if the light it held was taken out of the scene.
+  const findSun = () => { ctx.scene.traverse((o) => { if (!sun && o.isDirectionalLight && o.name === 'sun') sun = o; });
+    if (!sun) ctx.scene.traverse((o) => { if (!sun && o.isDirectionalLight && o.castShadow && !/^reserved-/.test(o.name)) sun = o; }); };
 
   return {
     group, regions: [], colliders, pickables: [],
     update(dt, frame) {
       if (!ctx.reducedMotion) uTime.value += dt;
+      if (sun && !sun.parent) sun = null;
       if (!sun && scanned++ % 60 === 0) findSun();
       if (sun && frame && frame.camera) {
         sun.getWorldPosition(sv); sun.target.getWorldPosition(tv); sv.sub(tv).normalize();

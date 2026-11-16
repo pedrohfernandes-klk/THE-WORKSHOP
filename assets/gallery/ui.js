@@ -388,7 +388,7 @@ export function createUI(handlers = {}) {
     hintEl.classList.add('is-on');
   }
 
-  // ---------- toast: one plate, newest replaces, 2.4s ----------
+  // ---------- toast: one plate, newest replaces, 2.4s by default, longer texts up to 6s ----------
   let toastTimer = 0;
   function toast(text, ms = 2400) {
     clearTimeout(toastTimer);
@@ -396,7 +396,7 @@ export function createUI(handlers = {}) {
     if (PLACE.test(text)) { place(text); return; }
     toastEl.textContent = say(text);
     toastEl.classList.add('is-on');
-    toastTimer = setTimeout(() => toastEl.classList.remove('is-on'), Math.min(Number(ms) || 2400, 2400));
+    toastTimer = setTimeout(() => toastEl.classList.remove('is-on'), Math.min(Number(ms) || 2400, 6000));
   }
 
   // ---------- area name: top-centre marquee; once per area per 30s ----------
