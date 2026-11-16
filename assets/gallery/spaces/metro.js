@@ -322,7 +322,10 @@ export function build(ctx) {
   function setDoors(o) { const off = o * 0.7; for (let i = 0; i < doors.length; i++) { const dr = doors[i]; dr.m.position.z = dr.z0 + dr.dir * off; } }
   poseCars();
 
+  let rideService = false;
+  function setRideService(value) { rideService=!!value; for (const c of cars) c.visible=!rideService; }
   function update(dt) {
+    if (rideService) return;
     dt = Math.min(dt || 0, 0.1); clock += dt;
     if (dwell > 0) {
       dwell -= dt; dtime += dt;
@@ -351,5 +354,5 @@ export function build(ctx) {
     for (let i = 0; i < glows.length; i++) { const g = glows[i]; if (g.isSprite) g.material.opacity = 0.45 + 0.4 * near; else g.intensity = 5 + 14 * near; }
   }
 
-  return { group, regions, colliders, pickables, seats, update, onPick() {}, position };
+  return { group, regions, colliders, pickables, seats, update, onPick() {}, position, setRideService };
 }

@@ -1,8 +1,9 @@
+import { GOODS } from '../bairro-wallet.js';
 import { reserveModuleVoice, finishModuleVoice } from '../audio-lease.js';
 // vending.js — "Máquina de vending existencial" (BRIEF §6.2 space module).
 // A believable retro snack machine against the arcade's west wall, just south of
 // its door: enamelled steel body, lit interior behind glass, coin slot, pickup tray.
-// It sells immaterial goods with pixel-art labels and prices in euros. Click a
+// It sells immaterial goods with pixel-art labels and prices in ORGULHO. Click a
 // product (or anywhere on the machine for a surprise): coin clink, motor whirr, the
 // coil turns, the item drops into the tray with a thunk and a deadpan toast. One
 // time in four it sticks halfway ("Bate-lhe.") and the next click shakes it loose.
@@ -49,14 +50,14 @@ const ITEMS = [
   { name: 'Domingo à tarde', top: 'DOMINGO', bot: 'À TARDE', col: '#e9874a', icon: 'sunset', ic: '#fff0c8', shape: 'box', w: 0.13, h: 0.13, d: 0.05,
     line: 'Saiu-lhe: Domingo à tarde. Já traz um bocadinho de melancolia.' },
 ];
-const MENU = [
-  ['A1', 'SAUDADE', '0,50€'], ['A2', 'PACIÊNCIA', 'ESGOTADO'], ['A3', 'CORAGEM', 'SÓ TERÇAS'],
-  ['B1', 'WI-FI VIZINHO', '2€'], ['B2', 'SILÊNCIO', '5€'], ['B3', 'SEGUNDA', 'GRÁTIS*'],
-  ['C1', 'SESTA', '1,20€'], ['C2', 'A OUTRA MEIA', '0,80€'], ['C3', '5 MINUTINHOS', '3€'],
-  ['D1', 'TROCO CERTO', '1€'], ['D2', 'DESCULPA', '0,10€'], ['D3', 'DOMINGO À TARDE', '4€'],
-];
-const STRIPS = [['A1 0,50€', 'A2 ESGOT.', 'A3 TERÇAS'], ['B1 2€', 'B2 5€', 'B3 GRÁTIS'],
-  ['C1 1,20€', 'C2 0,80€', 'C3 3€'], ['D1 1€', 'D2 0,10€', 'D3 4€']];
+const SLOT_IDS=['saudade','patience','courage','wifi','silence','monday','apology','patience','wifi','saudade','apology','silence'];
+const COPY_FROM=[0,1,2,3,4,5,10,1,3,0,10,4];
+const originals=ITEMS.slice();
+for(let i=0;i<12;i++){const id=SLOT_IDS[i],g=GOODS[id];ITEMS[i]={...originals[COPY_FROM[i]],id,name:g.name,top:id==='wifi'?'WI-FI':id==='monday'?'SEGUNDA':g.name,bot:String(g.price)+' ORG.',line:'Recolhe o bem da gaveta.'};}
+const codes=['A1','A2','A3','B1','B2','B3','C1','C2','C3','D1','D2','D3'];
+const shortNames=['SAUDADE','PACIÊNCIA','CORAGEM','WI-FI','SILÊNCIO','SEGUNDA','DESCULPA','PACIÊNCIA','WI-FI','SAUDADE','DESCULPA','SILÊNCIO'];
+const MENU=SLOT_IDS.map((id,i)=>[codes[i],shortNames[i],String(GOODS[id].price)]);
+const STRIPS=[0,1,2,3].map(row=>[0,1,2].map(col=>{const i=row*3+col;return codes[i]+' '+GOODS[SLOT_IDS[i]].price;}));
 
 // ---------- a 3×5 pixel font (8-row cells: 2 accent rows, 5 cap rows, 1 descender) ----------
 const FONT = {
@@ -157,7 +158,7 @@ export function build(ctx) {
       const t = 'BENS IMATERIAIS';
       txt(t, x + ((w - tw(t, 2)) >> 1), y + 1, '#1f4f4c', 2);
       PX(x + 6, y + 18, w - 12, 2, '#cf4a35'); PX(x + 6, y + 21, w - 12, 1, '#e0a526');
-      const s = 'SÓ MOEDAS · NÃO DÁ TROCO';
+      const s = 'ORGULHO · TROCO EM BOTÕES';
       txt(s, x + ((w - tw(s)) >> 1), y + 22, '#1f4f4c'); }
     // menu card
     { const [x, y, w, h] = RG.menu;
@@ -172,7 +173,7 @@ export function build(ctx) {
         g.fillStyle = '#b9ad90';
         for (let dx = x + 12 + tw(name) + 3; dx < px - 2; dx += 2) g.fillRect(dx, yy + 6, 1, 1);
       });
-      txt('* NINGUÉM QUER', x + 2, y + 136, '#6b6355');
+      txt('PREÇOS EM ORGULHO', x + 2, y + 136, '#6b6355');
       txt('SUJEITO A HUMOR', x + 2, y + 147, '#6b6355'); }
     // product labels
     ITEMS.forEach((p, i) => {
@@ -211,7 +212,7 @@ export function build(ctx) {
     { const [x, y] = RG.coin;
       PX(x, y, 64, 48, '#26282c');
       PX(x + 8, y + 4, 14, 22, '#c3c8ce'); PX(x + 9, y + 5, 12, 20, '#8d939a'); PX(x + 14, y + 8, 2, 14, '#050505');
-      txt('MOEDAS', x + 3, y + 27, '#e9e4d8');
+      txt('ORGULHO', x + 3, y + 27, '#e9e4d8');
       PX(x + 38, y + 4, 20, 20, '#c3c8ce'); PX(x + 40, y + 6, 16, 16, '#0b0b0b');
       txt('TROCO', x + 39, y + 27, '#e9e4d8');
       const s = 'NÃO DÁ TROCO';
@@ -223,7 +224,7 @@ export function build(ctx) {
       txt('NÃO ABANE', x + 26, y + 3, '#1d1b1a'); txt('A MÁQUINA', x + 26, y + 12, '#1d1b1a'); }
     PX(240, 100, 8, 8, '#fffaf0'); PX(240, 108, 8, 8, '#c9ccd0'); PX(240, 116, 8, 8, '#151515');
   })();
-  led('INSIRA MOEDA');
+  led('ESCOLHA UM BEM');
 
   // ================= enamel body (one mesh, vertex-coloured) =================
   const TEAL = 0x23847c, TEAL_D = 0x1a5e58, CREAM = 0xf2e0b0, GRAPH = 0x2a2c30, DARK = 0x141414, LINER = 0x4a4d52, SHELFC = 0x8a8e94;
@@ -524,9 +525,9 @@ export function build(ctx) {
     phase = IDLE; inTray = true; busyToast = false;
     drop.position.set(tx, TRAY_Y + restY, 0.27);
     drop.rotation.set(Math.PI * 1.5, 0, rm ? 0 : (Math.random() - 0.5) * 0.5);
-    if (ITEMS[item].name !== 'Silêncio') sndThunk();   // silence lands silently
+    if (ITEMS[item].id !== 'silence') sndThunk();   // silence lands silently
     setShelf(item, true);                               // the next one in the coil moves up
-    ctx.ui.toast(note ? 'Coragem só às terças. Saiu-lhe: Segunda-feira. Era grátis.' : ITEMS[item].line);
+    ctx.ui.toast('Recolhe o bem da gaveta.');
     led('OBRIGADO');
   }
   function fall() { phase = FALL; pt = 0; vy = 0; }
@@ -537,25 +538,35 @@ export function build(ctx) {
     if (phase !== IDLE) { if (!busyToast) { busyToast = true; ctx.ui.toast('Calma. Está a pensar.'); } return; }
     if (ud.vendTray) {
       if (inTray) {
+        const inventory=ctx.scene.userData.bairroInventory;
+        if(!inventory){ctx.ui.toast('A carteira está a chegar.');return;}
+        if(ITEMS[item].id==='courage'&&new Date().getDay()!==2){
+          inTray=false;drop.visible=false;led('ESCOLHA UM BEM');
+          ctx.ui.toast('A terça acabou. Bem devolvido.');return;
+        }
+        if(!inventory.buy(ITEMS[item].id))return;
         inTray = false; drop.visible = false;
-        ctx.ui.toast(`No bolso: ${ITEMS[item].name}. Não pesa nada.`);
-        led('INSIRA MOEDA');
+        ctx.ui.toast('No bolso. Troco em botões.');
+        led('ESCOLHA UM BEM');
       } else ctx.ui.toast('A gaveta está vazia. Escolha algo no vidro.');
       return;
     }
+    if(inTray){ctx.ui.toast('Recolhe primeiro o bem.');return;}
+    const inventory=ctx.scene.userData.bairroInventory;
+    if(!inventory){ctx.ui.toast('A carteira está a chegar.');return;}
     const chosen = Number.isInteger(ud.vendSlot);
     let i = chosen ? ud.vendSlot : Math.floor(Math.random() * ITEMS.length);
-    if (i === 1 && chosen && patience < 2) {          // patience is earned by asking three times
+    if(i<0||i>=ITEMS.length)return;
+    if(!inventory.canBuy(ITEMS[i].id))return;
+    if (ITEMS[i].id === 'patience' && patience < 2) {          // patience is earned by asking three times
       ctx.ui.toast(patience ? 'Ainda esgotada. Mais um bocadinho…' : 'Paciência: esgotada. Tenha paciência.');
       led(patience ? 'TENHA PACIÊNCIA' : 'ESGOTADO');
       patience++;
       sndBuzz();
       return;
     }
-    if (i === 1) patience = 0;
-    let n = null;
-    if (i === 2 && new Date().getDay() !== 2) { i = 5; n = 'coragem'; }   // not Tuesday: you get Monday
-    startVend(i, n);
+    if (ITEMS[i].id === 'patience') patience = 0;
+    startVend(i, null); // No charge here: collection is the transaction boundary.
   }
 
   function update(dt, frame) {

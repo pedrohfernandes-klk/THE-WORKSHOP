@@ -6,7 +6,7 @@ export function createStatueAudio(ctx) {
   const parent=ctx.audio, scene=ctx.scene;
   let ac=null,bus=null,limiter=null,closing=false,changing=false,wanted=false;
   const view={get context(){return ac;},get bus(){return bus;},get muted(){return !!parent?.muted;},
-    acquireVoice(options){if(!ac||ac.state!=='running'||wanted||scene.userData.questQuiet)return null;return parent?.acquireVoice?.({...options,sourceContext:ac})||null;},
+    acquireVoice(options){if(!ac||ac.state!=='running'||wanted||(scene.userData.questQuiet||(scene.userData.bairroEffects?.silenceUntil||0)>performance.now()/1000))return null;return parent?.acquireVoice?.({...options,sourceContext:ac})||null;},
     releaseVoice(token){parent?.releaseVoice?.(token);},duck(seconds){parent?.duck?.(seconds);},preparePunchline(){return parent?.preparePunchline?.()||0;}};
   function ensure(){
     if(ac||closing||!parent?.context||parent.context.state!=='running')return;
@@ -24,7 +24,7 @@ export function createStatueAudio(ctx) {
   }
   function gesture(){ensure();settle();}
   function setPaused(value){wanted=!!value;settle();}
-  function update(camera){ensure();if(!ac)return;const silent=!!parent.muted||!!scene.userData.questQuiet||typeof document!=='undefined'&&document.hidden;
+  function update(camera){ensure();if(!ac)return;const silent=!!parent.muted||!!parent.quietConfirmed||!!scene.userData.questQuiet||(scene.userData.bairroEffects?.silenceUntil||0)>performance.now()/1000||typeof document!=='undefined'&&document.hidden;
     bus.gain.value=silent?0:.45;updateAudioListener(view,camera);}
   if(typeof window!=='undefined'){window.addEventListener('pointerdown',gesture);window.addEventListener('keydown',gesture);}
   if(typeof document!=='undefined')document.addEventListener('visibilitychange',settle);

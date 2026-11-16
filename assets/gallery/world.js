@@ -8,11 +8,11 @@ import { createBatcher } from './batch.js';
 export const SPACES = [
   'environment', 'landscape', 'facade', 'plaza', 'pool', 'parterre', 'furniture', 'wayfinding',
   'trees', 'garden', 'grass', 'flowers', 'fountain', 'pergola', 'sculptures', 'amphitheatre',
-  'studio', 'arcade', 'terrace', 'cinema', 'lift', 'school', 'birds',
+  'studio', 'arcade', 'terrace', 'cinema', 'lift', 'school', 'birds', 'passwords',
   'metro', 'skyliner', 'aviation', 'npcs', 'ruins',
   // The indie touches: real objects with a pixel soul, each found rather than announced.
   'murals', 'vending', 'cat', 'radio', 'ghost', 'floorsnake', 'photobooth', 'gnome', 'oddities', 'duck',
-  'mercado', 'marginal',
+  'mercado', 'marginal', 'tram-ride',
   'arraial', 'quests',
   'lightpools',
 ];

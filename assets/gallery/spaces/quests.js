@@ -189,7 +189,7 @@ export function build(ctx) {
           actors.effect(s.efeito, camera);
           toast(s.fala);
         },
-        complete(m) { reward(m); toast(m.recompensa.fala); next = (missions.indexOf(m) + 1) % missions.length; home(); },
+        complete(m) { ctx.events?.dispatchEvent?.(new CustomEvent('workshop',{detail:{type:'quest-done',value:{id:m.id}}})); reward(m); toast(m.recompensa.fala); next = (missions.indexOf(m) + 1) % missions.length; home(); },
         cancel: home,
       });
     }).catch(() => { failed = true; }); // no unsolicited warning/toast before interaction
