@@ -1,0 +1,42 @@
+{
+  "provenance": "All six source recordings supplied and explicitly authorised by the owner. No CC0 claim. Originals unchanged.",
+  "review": "Not auditioned by this agent. Chime, impact and rare puff are contextual effects; voices require manual selection or explicitly approved configuration. Announcer requires a bounded selected interval.",
+  "files": [
+    {
+      "file": "announcer.opus",
+      "source": "voicebosch-dragon-fighting-game-announcer-pack-186256.mp3",
+      "bytes": 114566,
+      "sha256": "c3d0654d71cbf20d11baf26e96fc2e94e90007ce161f80d9d6512897c0f4698f"
+    },
+    {
+      "file": "comic-puff.mp3",
+      "source": "alex_jauk-funny-short-comedy-fart-sound-effect-318912.mp3",
+      "bytes": 22272,
+      "sha256": "ca40c869550a2680624a6cff69cbab0623fa7022f638183be272be63a0861617"
+    },
+    {
+      "file": "impact.mp3",
+      "source": "freesound_community-punch-41105.mp3",
+      "bytes": 23040,
+      "sha256": "371c0a4326b24848676371b8c9f1894d612bcc8a6daefb54ed5690e30e20b4af"
+    },
+    {
+      "file": "lock-chime.mp3",
+      "source": "LockChime.wav",
+      "bytes": 28257,
+      "sha256": "4e984f009455567646cb2305d257c8a5e1e943ff59849c25b0d7c6eadc19f246"
+    },
+    {
+      "file": "short-comic.mp3",
+      "source": "u_lkwaniqqhj-stupid-380853.mp3",
+      "bytes": 22569,
+      "sha256": "4e5f18bae9a694a6d125df97c4ba4b3f3f088cf279ebd285658e9db8db25278d"
+    },
+    {
+      "file": "short-voice.mp3",
+      "source": "cala-te-esturbilho.mp3",
+      "bytes": 30021,
+      "sha256": "1566613fad84475e5e6e077639613f77367744b91cbb09f4b61aa0177393ad03"
+    }
+  ]
+}
