@@ -517,19 +517,19 @@ Já tens um jogo de porrada em Godot: o **Basófia** («protótipo 01», para Wi
 
 - **Lutadores:** para já, Analfonso da Cabaça e Tabueno Mamado. Scameiro e Analsexo C. Farturas estão planeados, mas ainda não se jogam.
 - **Modos:** contra o computador, e treino com o adversário parado, a defender ou a lutar. À melhor de três, até 75 segundos por ronda.
-- **Teclas:** A/D recuar e aproximar, W/S contornar o adversário; J/K mão esquerda e direita, U/I pé esquerdo e direito; Espaço defender; Shift esquivar; H agarrar, que também solta de um agarrão logo no início; L golpe-assinatura; J+K chapada sanduíche; U+I rasteira. Três toques em J ou K encadeiam até três golpes. Defender, esquivar ou levar um golpe cancela os golpes já pedidos; os outros comandos esperam pouco tempo e não se acumulam.
+- **Teclas:** A/D recuar e aproximar, W/S contornar o adversário; J/K mão esquerda e direita, U/I pé esquerdo e direito; Espaço defender; Shift esquivar; H agarrar, que também te solta de um agarrão, se carregares logo que te agarram; L especialidade; J+K chapada sanduíche; U+I rasteira. Três toques em J ou K encadeiam até três golpes. Se defenderes, te esquivares ou levares um golpe, perdem-se os golpes que ainda estavam para sair; as outras teclas só esperam um instante e não se acumulam.
 - **A barra da basófia** mede a confiança a mais do boneco. Quando baixa, a postura perde a arrogância, mas os golpes não perdem força. No zero, perde-se a figura.
 - **Entre rondas há desculpas,** o K.O. tem remate sonoro e há desforra imediata.
 - **Já tem também:** guarda e esquiva, agarrões com escape, um adversário do computador que não reage logo a tudo, um mercado português, efeitos sonoros, pausa, resultado e reinício. A câmara mostra sempre os dois corpos inteiros.
 
 **O que os Trombíadas levam do Basófia:**
 
-- **O motor da luta,** se aguentar as regras da v1 (a secção 9.8 diz como se decide). Assim, a porrada não se escreve duas vezes.
+- **As regras da luta,** se aguentarem as da v1 (a secção 9.8 diz como se decide). Assim, a porrada não se escreve duas vezes.
 - **A barra.** Proposta: a barra da porrada passa a chamar-se BASÓFIA, em vez de BRIO. Quem leva perde a pose: entra de peito feito e acaba encolhido (pergunta 10).
-- **As desculpas entre rondas,** ditas por quem perdeu a ronda, com as regras das falas (secção 7).
-- **O treino,** no ☰ («Treinar a porrada»), com o adversário parado, a defender ou a lutar, para aprenderes os dezasseis golpes sem pressa.
+- **As desculpas entre rondas,** ditas pelo adversário quando perde a ronda (tu não falas) e escritas com as regras das falas (secção 7). Quando és tu a perder, é ele que atira uma farpa, como o coach no Canto IV.
+- **O treino,** no ☰ → «Treinar a porrada», com o adversário parado, a defender ou a lutar, para aprenderes os dezasseis golpes sem pressa.
 
-**Os botões continuam a ser os da secção 5.** As doze teclas de combate do Basófia não cabem num telemóvel, por isso cada uma passa para os mesmos botões:
+**Os botões continuam a ser os da secção 5.** As doze teclas de combate do Basófia não cabem num telemóvel, por isso passam para os mesmos botões, menos o W e o S, que ficam de fora da fatia:
 
 | No Basófia | Nos Trombíadas |
 |---|---|
@@ -540,9 +540,9 @@ Já tens um jogo de porrada em Godot: o **Basófia** («protótipo 01», para Wi
 | Espaço, defender | segurar para trás |
 | Shift, esquivar | para trás, de repente |
 | H, agarrar e soltar | AÇÃO, que na porrada se chama AGARRAR |
-| L, golpe-assinatura | frente + AGARRAR, quando a história a der |
-| A e D, recuar e aproximar | o stick |
-| W e S, contornar | fica de fora da fatia; se o M4 mostrar que faz falta, um toque rápido para cima ou para baixo |
+| L, especialidade | frente + AGARRAR, quando a história a der |
+| A e D, recuar e aproximar | o stick; segurar para trás recua e defende ao mesmo tempo, como no Tekken |
+| W e S, contornar | fica de fora da fatia; se o Canto IV mostrar que faz falta, para cima ou para baixo, de repente |
 
 ## 7. As falas
 
@@ -601,7 +601,7 @@ Já tens um jogo de porrada em Godot: o **Basófia** («protótipo 01», para Wi
 - **As personagens:** os corpos, as roupas e as caras da v1, passados para o jogo novo por uma ferramenta, sem os refazer à mão; as frases do dono; as melhores cenas (os três diretos, os bots com mentalidade de vencedor, «Havia eu.», o gato que não comenta, a fita-cola, o «Não são de cá»); e os 31 momentos humanos.
 - **A comédia:** chapada → queda → riso → vingança; as sete quedas; o SAPAS! e o CHAPADÃO!; a intervenção da quinta chapada; as cenas com preparação e remate; a memória das chapadas.
 - **A porrada:** os tempos e as contas da v1 (com os testes), os dezasseis golpes com nome, as especialidades, a forma de lutar das personagens, que deixa ganhar quem carrega à doida, o BRIO e as chamadas.
-- **Do Basófia:** o motor da luta (se aguentar as regras da v1), a barra, as desculpas entre rondas e o treino (secção 6).
+- **Do Basófia:** as regras da luta (se aguentarem as da v1), o nome e a pose da barra (BASÓFIA em vez de BRIO, se disseres que sim à pergunta 10), as desculpas entre rondas e o treino (secção 6).
 - **O elétrico:** os anúncios («Validem os bilhetes. Ninguém está a ver, mas o pombo está.», «Por favor, não alimentem o maquinista.», «Não paramos aqui. Já cá estiveram.», «Por motivos de porrada, vamos acelerar.»), o sino, as portas, o balanço e a porrada a bordo.
 - **A máquina dos bens imateriais:** Saudade, Paciência (sempre esgotada), Coragem (só às terças), Wi-Fi do vizinho, Silêncio, Segunda-feira, Sesta, A outra meia, Cinco minutinhos, Troco certo, Desculpa esfarrapada e Domingo à tarde. Encrava uma vez em cada quatro: «Bate-lhe.»
 - **Os teus seis sons:** o locutor das rondas, o soco, o pum raro do K.O., a voz do cala-te, o sino de cadeado e o som cómico curto. Deixam de ser racionados.
@@ -663,7 +663,7 @@ Já tens um jogo de porrada em Godot: o **Basófia** («protótipo 01», para Wi
 ### 9.3 O repositório novo
 
 ```
-project.godot · export_presets.cfg · .godot-version (4.7.2)
+project.godot · export_presets.cfg · .godot-version (4.7.2) · package.json · package-lock.json
 addons/gut/                GUT 9.7.x (suporta a 4.7), dentro do repositório
 autoload/                  seis singletons, um dono cada
   game.gd                  canto, marcas da história, rancores, ORGULHO; dono do save
@@ -694,7 +694,7 @@ art/     obras/<id-do-catálogo>.webp
 data/    cast.json lines/<id>.json scenes.json story/canto-1..5.json obras.json
          objects.json loja.json linha.json protected-lines.json content-rules.json
          v1/   cópia literal dos dados da v1, só para ferramentas e testes; fora da exportação
-web/     shell.html icons/
+web/     shell.html icons/ LICENSES.txt
 tools/   export-cast.mjs v1-rigs/ import-obras.mjs render-audio.mjs
          subset-fonts.sh check-size.sh warmup_list.gd
 tests/   unit/ data/ smoke/ web/smoke.mjs
@@ -708,12 +708,12 @@ tests/   unit/ data/ smoke/ web/smoke.mjs
 - Um sistema, um dono: os seis autoloads. O resto fala com eles por sinais com nomes no passado (`slapped`, `round_ended`, `beat_done`).
 - Unidades nos nomes (`SLAP_REACH_M := 2.1`), constantes em MAIÚSCULAS, afinações em `@export`, nós guardados com `@onready`.
 - Nada de alocar em ciclos quentes: pools pré-alocadas (balões, leitores de áudio, estados dos lutadores), Packed arrays, nada de dicionários, lambdas ou strings construídas por frame; o que está longe corre a ritmo baixo.
-- Comentários explicam o porquê, em inglês. `gdformat` e `gdlint` (gdtoolkit 4) correm no CI.
+- Comentários explicam o porquê, em inglês. `gdformat` e `gdlint` (gdtoolkit 4) correm no CI, no job `lint` (Anexo B).
 - Nenhum texto que o jogador veja fica no código. Nenhum teste fixa contagens de conteúdo.
 
 ### 9.5 Entrada, alvo e câmara
 
-- **Ações definidas uma vez** em `project.godot`: `move_left/right/up/down`, `run`, `acao`, `chapada`, `provocar`, `menu`, mais o conjunto `ui_*`. Cada uma tem tecla e comando.
+- **Ações definidas uma vez** em `project.godot`: `move_left/right/up/down`, `look_left/right/up/down`, `run`, `acao`, `chapada`, `provocar`, `menu`, mais o conjunto `ui_*`: são as sete ações de 9.1, com andar e olhar em quatro direções. Todas têm comando; todas menos as `look_*` têm tecla (olhar é o rato no computador e o arrasto à direita no telemóvel).
 - **Os botões do rato ficam fora do mapa de ações.** `player_input.gd` converte cliques reais em `chapada` e `provocar` com `Input.parse_input_event()` e ignora os emulados (`InputEvent.DEVICE_ID_EMULATION`). Assim, um toque nunca dispara uma segunda chapada pelo rato emulado.
 - **Os widgets de toque alimentam as mesmas ações:** cada botão é um `TouchScreenButton` com `action`; o stick chama `Input.action_press("move_*", força)`. A jogabilidade só lê ações (`Input.get_vector()`, `is_action_just_pressed()`); `fight_input.gd` deduz defender, esquivar e direção + toque a partir do mesmo vetor, para toque, teclas e comando.
 - **`prompts.gd`** vê o tipo do último aparelho usado, troca os ícones (rato, ou Xbox e PlayStation por `Input.get_joy_name()`), só mostra o HUD de toque depois de um toque e é dono do alvo do AÇÃO e do seu verbo.
@@ -736,7 +736,7 @@ tests/   unit/ data/ smoke/ web/smoke.mjs
 
 ### 9.7 Personagens
 
-- **Exportação da v1:** `tools/export-cast.mjs` (Node 22, three@0.170.0, mais uma cópia de `npc-models.js`, `materials.js` e `npc-cast.json` da v1) constrói cada personagem com o construtor da v1 e: (1) passa a escala de cada osso para os offsets dos filhos, para todos os ossos terem escala 1 e partilharem animações, sem mexer na pose de repouso; (2) mete os dados por vértice da v1 em TEXCOORD_1, que o Godot lê como UV2; (3) separa o chapéu numa malha própria debaixo do osso `hat`; (4) escreve um `.glb` por personagem e por LOD. *Medido* nesta sessão: as personagens têm todas um esqueleto com os mesmos 33 nomes de ossos; a pose de repouso não se mexe mais do que 7e-8 m; 6 a 8 mil triângulos no LOD baixo; as nove personagens testadas pesam 4,2 MB (0,8 MB com gzip). O código está no Anexo A.
+- **Exportação da v1:** `tools/export-cast.mjs` (Node 22, three@0.170.0, mais uma cópia de `npc-models.js`, `materials.js` e `npc-cast.json` da v1) constrói cada personagem com o construtor da v1 e: (1) passa a escala de cada osso para os offsets de todos os descendentes (não só dos filhos diretos: senão, os tornozelos saem do sítio até 15 cm), para todos os ossos terem escala 1 e partilharem animações, sem mexer na pose de repouso; (2) mete os dados por vértice da v1 em TEXCOORD_1, que o Godot lê como UV2; (3) separa o chapéu numa malha própria debaixo do osso `hat`; (4) escreve um `.glb` por personagem e por LOD. *Medido* nesta sessão: as personagens têm todas um esqueleto com os mesmos 33 nomes de ossos; a pose de repouso não se mexe mais do que 7e-8 m; 6 a 8 mil triângulos no LOD baixo; as nove personagens testadas pesam 4,3 MB (0,7 MB com gzip). O código está no Anexo A. Três personagens não existem na v1 (o do ASMR, a do tempo e o herói): ganham um `model` novo, no mesmo formato do `npc-cast.json` (o `influencer` ou o `turista` servem de ponto de partida), num `tools/v2-cast.json` que o exportador lê a seguir ao da v1.
 - **Importação:** `character_post_import.gd` (um EditorScenePostImport) aplica uma instância do `character.gdshader`, desliga o light baking (protege o UV2), junta BoneAttachment3D na cabeça (âncora do balão) e nos pulsos (adereços), transforma o chapéu em `hat.tscn`, junta o face modifier, o borrão e um VisibilityRange, e grava `<id>.scn`.
 - **Adereços** feitos fora do modelo (anel de luz, pau de selfie, rolos da tia, telemóvel do coach, o bigode postiço): experimentar o mesmo exportador nos construtores da v1; voltar a modelar o que a v1 desenha em canvas.
 - **Uma biblioteca de animação para todos:** `characters/anim/rua.glb`, feita no Blender sobre o forcado exportado. Só rotações, para servir pernas de 0,6 a 1,45 e cabeças de 0,8 a 1,6; o movimento vertical (quedas, sentar) move o nó `Visual` com uma Curve à escala da altura da anca, nunca o osso da pélvis. Uns 45 clips na fatia: andar, correr, virar e parado; falar ×3 (aditivo, tronco), apontar, encolher os ombros, rir, chorar; uma reação leve e uma média, as sete quedas da v1 e duas maneiras de se levantar; sentar e levantar; manguito, pirete, pirete duplo e cala-te; os gestos de assinatura (o forcado a bater o pé, o mano ao telemóvel, o Fabinhe a cantar, a tia a filmar, as flexões do coach, a selfie da do tremoço, a bengala do velho, a barriga do gordo); e, na luta, guarda, dois atordoamentos, as doze poses de golpe das sequências, no ar, no chão, levantar, agarrar, ser atirado, K.O. e três vitórias.
@@ -771,13 +771,13 @@ tests/   unit/ data/ smoke/ web/smoke.mjs
 - **O motor do Basófia** (Godot 4.7.1, renderizador Compatibility, exportação para Windows). No M1, antes de portar o `combat-arcade.js`, lê-se o código do Basófia (`scripts/`), se já tiver chegado:
   - O LEIA-ME diz que a lógica corre a 60 ticks por segundo, separada da apresentação, e que as regras e os testes do combate não dependem da renderização.
   - Se as regras do Basófia forem mesmo puras e nelas couberem as sequências, o juggle, o contra-ataque, as paredes e a CERTEIRA, ficam elas: o `fight/fight_rules.gd` passa a ser o código do Basófia, com as tabelas da v1 em dados, e os testes da v1 passam a correr também contra ele.
-  - Se não couberem, porta-se o `combat-arcade.js` como está descrito acima e aproveita-se do Basófia o que encaixar: o adversário do computador, os agarrões com escape, a câmara que mantém os corpos inteiros, o treino e os testes.
+  - Se não couberem, porta-se o `combat-arcade.js` como está descrito acima e aproveita-se do Basófia o que a v1 não tem: a câmara que mantém os corpos inteiros, o treino e as desculpas entre rondas. A IA e os agarrões com escape já vêm no `combat-arcade.js`, e os testes do Basófia testam as regras dele, que neste caso ficam de fora.
   - Se ficar o Basófia, a lógica dele mantém o passo fixo de 60 ticks por segundo, separado da física, que no telemóvel corre a 30 (9.2).
   - Os testes do Basófia correm em PowerShell (`tools/run-tests.ps1`). No CI, que corre em Linux, passam a correr com o Godot sem ecrã e com o GUT, como os outros (9.14).
   - O Basófia está na 4.7.1 e o plano fixa a 4.7.2, da mesma série. Ao abrir o projeto, confirmar que não aparecem avisos de conversão.
-  - A narração do Basófia usa a voz pt-PT do Windows, que não existe na web nem nos telemóveis: passa a falas gravadas, ou só a texto, como o resto do som (9.11). Se os efeitos sintetizados forem gerados durante o jogo, passam a OGG pré-renderizados, porque o plano não usa áudio gerado na web (9.11).
+  - A narração do Basófia usa a voz pt-PT do Windows, que não existe na web nem nos telemóveis: passa a falas gravadas, como o resto do som (9.11), ou só a texto; em qualquer dos casos, as falas seguem as regras da secção 7 e passam no `data/test_content_rules.gd` (9.14). Se os efeitos sintetizados forem gerados durante o jogo, passam a OGG pré-renderizados, porque o plano não usa áudio gerado na web (9.11).
   - Os bonecos do Basófia são malhas procedimentais provisórias. Na v2, a luta usa as personagens exportadas da v1 (9.7): as regras não sabem que boneco está a lutar e falam com a apresentação por sinais.
-  - O pacote do Basófia já junta as licenças do Godot (`GODOT-COPYRIGHT.txt` e `NOTICE-GODOT.txt`). A versão web faz o mesmo: o aviso de licença do Godot (MIT) vai nos créditos e num `LICENSES.txt` ao lado do jogo.
+  - O pacote do Basófia já junta as licenças do Godot (`GODOT-COPYRIGHT.txt` e `NOTICE-GODOT.txt`). A versão web faz o mesmo: o aviso MIT do Godot e as licenças das bibliotecas que ele traz (as do `GODOT-COPYRIGHT.txt`) vão nos créditos e num `web/LICENSES.txt`, que o job `build` copia para `build/web`, ao lado do `index.html` (Anexo B).
 
 ### 9.9 O elétrico
 
@@ -789,7 +789,7 @@ tests/   unit/ data/ smoke/ web/smoke.mjs
 
 ### 9.10 Falas: um só sistema
 
-- `data/v1/` guarda cópias literais de `npc-cast.json`, `npc-comedy.json`, `comedy/*.json`, `interactions.json`, `missions.json` e `catalogue-source.json`. Só as ferramentas e os testes as leem (frases protegidas, modelos, ids do catálogo, tipos de objetos). Não entram na exportação: a v2 só leva ficheiros novos, escritos à mão, e tem uma só fonte de verdade.
+- `data/v1/` guarda cópias literais de `assets/data/npc-cast.json`, `assets/data/npc-comedy.json`, `assets/data/comedy/*.json`, `assets/data/interactions.json`, `assets/data/missions.json` e `scripts/catalogue-source.json` (este fica em `scripts/`, não em `assets/data/`). Só as ferramentas e os testes as leem (frases protegidas, modelos, ids do catálogo, tipos de objetos). Não entram na exportação: a v2 só leva ficheiros novos, escritos à mão, e tem uma só fonte de verdade.
 - `data.gd` lê com `JSON.parse_string(FileAccess.get_file_as_string(path))` para Resources tipados (`CharacterDef`, `Line`, `Scene`, `Beat`, `Obra`) e valida. Um ficheiro estragado fica registado e é saltado; nunca rebenta o jogo.
 - A forma de um ficheiro de falas (o conteúdo escreve-se à mão, com o dono):
 
@@ -838,7 +838,7 @@ tests/   unit/ data/ smoke/ web/smoke.mjs
 - `tools/import-obras.mjs` mapeia **só por id do catálogo**, porque os nomes dos ficheiros e os títulos clássicos estão baralhados (`goat-in-suit.webp` é a rede verde do SHINE). Redimensiona cada obra para o sítio onde vai (no máximo 1024 px no lado maior; cartazes e cartões do elétrico 512 px) e escreve `art/obras/<id>.webp` e `data/obras.json` (id, título, artista, ano, nota em português, sítio, tamanho em metros, emissão à noite).
 - `obra_na_rua.tscn` põe a obra numa superfície com a proporção dela (empena, persiana, tapume, painel, vidro do abrigo, cartão de banca), com o `artwork.gdshader`, a assinatura HrM ao lado das obras dele e um Area3D para as batidas de «olhou para a obra». VER (opcional) mostra o título, o artista e uma linha de nota na caixa de diálogo.
 - Pré-visualizações primeiro, nitidez ao aproximar.
-- **Ids da fatia:** ce1 ce2 ce3 ce4 golg bull uw01 uw09 mino hands · chart uw08 uw02 map06 temple uw10 uw15 · hiero2 map02 uw13 mm2 arc2 mm3 uw17 uw18 uw03 uw04 city · uw12 arcs head · map01 br01 mg2 · end. O tapume acaba no estado alternativo do SHINE com o pirete (reserva da v1).
+- **Ids da fatia:** ce1 ce2 ce3 ce4 golg bull uw01 uw09 mino hands · chart uw08 uw02 map06 temple uw10 uw15 · hiero2 map02 uw13 mm2 arc2 mm3 uw17 uw18 uw03 uw04 city · uw12 arcs head · map01 br01 mg2 · end. O tapume acaba no estado alternativo do SHINE com o pirete: o `assets/extracted/shine-shine-shine-2.webp` da v1, que não tem id no catálogo (só o `classic.html` o usa); o `import-obras.mjs` junta-o à mão, com um id novo (por exemplo, `uw01p`).
 - **Limites de pixels:** os murais e os painéis grandes (Cadavre Expat I e IV, Bull Guy, o tapume SHINE, Untitled 12 e 15, Mixed Media III, Pink City, Chartres Light) veem-se a 5 m ou mais; os Cadavre Expat II e III (640 px) pintam-se mais pequenos no friso; o Goalgotha (615×1600) vai para a empena alta, longe do olho; o Head of Figures (808×1024) fica a 4 m ou mais; os Untitled 02, 03 e 04 (512×800) e as placas Bracelli (~360 px) e Magic só vão para superfícies pequenas. O Chartres brilha por emissão, não por uma luz, e não leva piadas religiosas.
 - **Fora da fatia:** Untitled 11, Artford Circus, Untitled (Clown) e Häxan. Nunca: Guernica, cartazes de filmes, capas de discos, fotografias de músicos.
 
@@ -846,7 +846,7 @@ tests/   unit/ data/ smoke/ web/smoke.mjs
 
 - **O preset «Web»:** threads desligadas; compressão de texturas VRAM para desktop e para mobile (os dois formatos vão no pacote e cada navegador usa o seu; isto duplica os bytes das texturas, por isso os murais passam a Basis Universal se o pacote passar do orçamento); shell `res://web/shell.html`; PWA ligada (paisagem, ecrã inteiro, a funcionar sem rede depois da primeira visita), sem cabeçalhos de isolamento; filtros que incluem `data/*.json` e excluem `data/v1/*`, `tools/*` e `tests/*`. O `export_presets.cfg` vai no repositório (um preset web não tem segredos).
 - **Tamanho do motor:** o da 4.3 tinha ~40 MB em bruto e ~5 MB com Brotli. O Pages comprime com gzip (~¼ do tamanho em bruto), por isso conta-se com ~10 MB. O M0 regista o cabeçalho `content-encoding` real e os bytes de `index.wasm` e `index.pck` no Pages. O `.pck` é servido como octet-stream; se o Pages não o comprimir, o pacote tem de ser magro de raiz.
-- **Pacote da fatia ≤ 10 MB:** personagens ~2,5 MB (só o LOD baixo; o exportador pode largar o UV0 que não se usa) · rua ~2 MB · obras ~3 MB · som ~2,5 MB · fontes e dados ~0,3 MB. `tools/check-size.sh` faz falhar o CI acima do orçamento e escreve uma tabela de tamanhos no resumo do job. O primeiro `.pck` só tem esta rua.
+- **Pacote da fatia ≤ 10 MB:** personagens ~2,5 MB (só o LOD baixo; o exportador pode largar o UV0 que não se usa; a confirmar no M0: os nove `.glb` do LOD baixo exportados nesta sessão já somam 4,3 MB, 0,7 MB com gzip, e no `.pck` o tamanho é outro, porque o Godot guarda a versão importada) · rua ~2 MB · obras ~2,7 MB · som ~2,5 MB · fontes e dados ~0,3 MB. `tools/check-size.sh` faz falhar o CI acima do orçamento e escreve uma tabela de tamanhos no resumo do job. O primeiro `.pck` só tem esta rua.
 - **Modelo de exportação reduzido,** só se o M0 mostrar o motor acima do orçamento: `templates.yml` compila `web_nothreads_release.zip` com o comando abaixo, mantém msdfgen, ogg/vorbis, mp3, Jolt, a navegação 3D e Basis Universal, aponta para ≤ 7 MB com gzip, guarda o zip como asset de uma release e o preset passa a usá-lo como modelo próprio. Medir cada flag e ficar só com as que compensam; o perfil de build vem da ferramenta «Engine Compilation Configuration» do editor, a confirmar se guarda as classes que só se carregam em jogo.
 
 ```
@@ -874,7 +874,7 @@ scons platform=web target=template_release threads=no optimize=size_extra lto=fu
 
 ### 9.14 GitHub Actions e testes
 
-- **Três jobs:** `build` (no contentor godot-ci 4.7.2, fixado por digest: importar → testes GUT → exportar → orçamento de tamanho → artefacto), `smoke` (Playwright e Chromium contra o artefacto) e `deploy` (só no `main`, para o Pages). Nos pedidos de fusão faz-se a build, correm os testes e guarda-se o artefacto, sem publicar. O gdlint corre num job Python pequeno. O YAML completo está no Anexo B.
+- **Quatro jobs:** `build` (no contentor godot-ci 4.7.2, fixado por digest: importar → testes GUT → exportar → orçamento de tamanho → artefacto), `smoke` (Playwright e Chromium contra o artefacto), `lint` (`gdformat --check` e `gdlint`, com Python) e `deploy` (só no `main`, para o Pages, depois do `smoke` e do `lint`). Nos pedidos de fusão faz-se a build, correm os testes e guarda-se o artefacto, sem publicar. O gdlint corre num job Python pequeno. O YAML completo está no Anexo B.
 - **A armadilha:** a imagem godot-ci guarda os modelos de exportação em `/root`, mas o Actions põe o HOME em `/github/home`. Sem o passo que os muda de sítio, a exportação falha com «no export template found».
 - **Imagem fixada por digest.** Se não se quiser uma imagem de terceiros, descarregam-se o editor e os modelos oficiais e guardam-se em cache.
 - **Sem Git LFS na fatia:** os ficheiros somam dezenas de MB e a largura de banda do LFS paga-se. Rever acima de ~1 GB.
@@ -889,7 +889,7 @@ scons platform=web target=template_release threads=no optimize=size_extra lto=fu
 | `data/test_protected_lines.gd` | As 53 frases protegidas, literais, cada uma com quem e quando |
 | `data/test_content_rules.gd` | Bips, alvos das piadas de corpo, formas proibidas, género, ≤ 90 caracteres |
 | `data/test_cast_homes.gd` | Cada personagem tem casa, vontade e cena; os atores de cada cena vivem a menos de 12 m uns dos outros |
-| `unit/test_input_map.gd` | Sete ações, cada uma com tecla e comando |
+| `unit/test_input_map.gd` | As sete ações de 9.1 (andar e olhar com quatro direções), todas com comando e, menos olhar, com tecla |
 | `unit/test_save.gd` | Ida e volta, migração, e uma escrita falhada que não rebenta o jogo |
 | `smoke/test_rua_boots.gd` | `rua.tscn` corre 300 frames sem ecrã e sem erros |
 | `smoke/test_cantos.gd` | Um robô de entradas acaba cada canto por toque e por teclado, sem dicas; a porrada nunca é recusada |
@@ -920,7 +920,7 @@ scons platform=web target=template_release threads=no optimize=size_extra lto=fu
 
 - **Multidão:** uma NavigationRegion3D por bloco, cozida no editor e nunca em jogo; avoidance só para quem anda (no máximo 12 agentes); quem está parado é obstáculo. Três níveis: principais (casa, vontade, falas e cenas; no máximo dois a perseguir ou a chatear o herói, nunca a mais de 14 m de casa), coro (o velho e o gordo, roteirizados no banco) e pontas e figurantes (4 a 6 em percursos Path3D, com LOD baixo e reações genéricas, que também levam chapadas). `crowd.gd` corre os cérebros em rotação: 10 Hz até 15 m, 2 Hz até 40 m, desligados mais longe; ≤ 1 ms por frame no total.
 - **Governador de qualidade** (`quality.gd`, a ideia do `perf.js` da v1): desce um degrau quando a média de 2 s falha o alvo em 10 %; sobe depois de 8 s abaixo de 75 % do alvo. Degraus: escala 3D 1,0 → 0,85 → 0,7 → 0,6 da base do telemóvel; distância da sombra 30 → 20 m; animação ao longe 15 → 8 Hz; figurantes 6 → 3. Nunca troca materiais nem liga ou desliga sombras, nevoeiro, glow ou MSAA. Guarda o último degrau estável e a visita seguinte começa nele.
-- **Medição:** com `?debug` no fim do link aparece um painel com FPS e o pior 1 %, o tempo de frame em ms, draw calls e primitivas (monitores `Performance`), memória de vídeo, o tempo até ao JOGAR e o tempo até ao primeiro passo, e um botão «Copiar relatório» que copia uma linha para o dono colar no chat.
+- **Medição:** com `?debug` no fim do link aparece um painel com FPS e o pior 1 %, o tempo de frame em ms, draw calls e primitivas (monitores `Performance`), memória de vídeo, os bytes descarregados (o `transferSize` do `index.wasm` e do `index.pck`), o tempo até ao JOGAR e o tempo até ao primeiro passo, e um botão «Copiar relatório» que copia uma linha para o dono colar no chat.
 
 ### 9.16 Guardar
 
@@ -961,7 +961,7 @@ scons platform=web target=template_release threads=no optimize=size_extra lto=fu
 ### O que tem
 
 - **Espaço:** o Largo dos Egrégios Avós (encolhido para o telemóvel), a Paragem do Restelo com a passagem de nível presa, o Mercado, a 15 m, do outro lado da linha, e um bocado de túnel: o laço do elétrico debaixo do monte pintado, ~160 m de carril e ~25 s de viagem. Mais nenhuma rua.
-- **Elenco:** seis principais, cada um com 30 a 60 falas escritas à mão (mano, forcado, Fabinhe, tia, velho, coach); cinco papéis pequenos (gordo, tremoço, apanhados, pombo, cágado); as pontas (guaxinim, gato, morsa, ASMR, a do tempo, cabra, porco de fato, os dois mirones); duas vozes (anunciador e Adamastor).
+- **Elenco:** seis principais: o mano, o Fabinhe, a tia, o velho e o coach, cada um com 30 a 60 falas escritas à mão, e o forcado, com a dúzia de «Tá bueno!» e as poucas frases que a história lhe dá; cinco papéis pequenos (gordo, tremoço, apanhados, pombo, cágado); as pontas (guaxinim, gato, morsa, ASMR, a do tempo, cabra, porco de fato, os dois mirones); duas vozes (anunciador e Adamastor).
 - **Comandos:** corpo permanente em terceira pessoa, stick flutuante e três botões que aparecem um em cada canto (CHAPADA, AÇÃO, PROVOCAR); na porrada, os mesmos, com o AÇÃO a dizer AGARRAR.
 - **Sistemas:** a chapada completa (com a chapada da verdade); um realizador de falas; a porrada contra o coach, à melhor de três, com as tabelas e os testes da v1; duas brigas entre personagens (a do banco e a do estroboscópio, no elétrico); o elétrico por onde se anda, num laço; a luz da história (dourado, pôr do sol, tempestade, noite) por parâmetros; guardar no fim de cada canto.
 - **Da v1:** os bens da máquina, os anúncios do elétrico, as cenas dos três diretos (i01), dos bots (i02) e dos passageiros (i06 a i10), os momentos humanos e as constantes de movimento.
@@ -970,7 +970,7 @@ scons platform=web target=template_release threads=no optimize=size_extra lto=fu
 
 ### Ficheiros e cenas que nascem primeiro
 
-- **M0:** `project.godot`, `export_presets.cfg`, `.godot-version`, `.github/workflows/web.yml`, `web/shell.html`, `scenes/boot.tscn`, `scenes/title.tscn`, `scenes/warmup.tscn`, `world/rua/largo.tscn` (em cinzento), `characters/player/*`, `characters/models/forcado.low.glb`, `autoload/quality.gd`, `ui/debug/debug_overlay.tscn`, `tools/export-cast.mjs`, `tools/check-size.sh`, `tests/web/smoke.mjs`.
+- **M0:** `project.godot`, `export_presets.cfg`, `.godot-version`, `.github/workflows/web.yml`, `web/shell.html`, `scenes/boot.tscn`, `scenes/title.tscn`, `scenes/warmup.tscn`, `world/rua/largo.tscn` (em cinzento), `characters/player/*`, `characters/models/forcado.low.glb`, `autoload/quality.gd`, `ui/debug/debug_overlay.tscn`, `tools/export-cast.mjs` com a pasta `tools/v1-rigs/` (Anexo A), `tools/render-audio.mjs` (para já, só os blips da voz do forcado), `tools/check-size.sh`, `tests/web/smoke.mjs`, `web/LICENSES.txt`, `addons/gut/` e `package.json` com `package-lock.json` (`"type": "module"`, three 0.170.0 e playwright 1.47.0, como na v1).
 - **M1:** `autoload/game.gd`, `data.gd`, `director.gd`, `sound.gd`, `prompts.gd`; `characters/npc/*`, `characters/anim/rua.glb`; `world/obras/*`, `tools/import-obras.mjs`; `ui/hud/*`, `ui/bubbles/*`, `ui/bursts/*`; `story/story_runner.gd` e `data/story/canto-1.json`; `data/protected-lines.json`, `data/content-rules.json`; `fight/fight_rules.gd` com o teste (a porrada fica pronta por baixo, sem ecrã).
 - **M2 a M5:** `world/rua/paragem.tscn`, `linha/*`, `world/rua/tunel.tscn`, `ui/hud/radial_provocar.tscn`, `ui/censor/*`, `world/rua/mercado.tscn`, `fight/*`, `world/tempo/tempo.gd`, `data/story/canto-2..5.json`, `ui/menu/*`.
 
@@ -985,13 +985,13 @@ scons platform=web target=template_release threads=no optimize=size_extra lto=fu
 ### Os marcos (cada um é um link publicado)
 
 **M0 · Rua vazia (o teste que decide se avançamos)**
-- **Constrói:** o repositório novo com o Godot 4.7.2 fixado; o CI completo (importar → testes → exportar → tamanho → teste no navegador → Pages); o shell, o título com JOGAR e o número da build, o aquecimento e o `?debug` com «Copiar relatório»; um largo cinzento (~30×24 m) com sol e sombra, nevoeiro e céu; o herói com um corpo humano da v1, com stick, WASD, comando, corrida e câmara; o forcado da v1 a bater o pé junto a uma porta, a dizer «Tá bueno!» num balão e numa gravação; o Goalgotha numa empena com o shader das obras.
-- **Mede no telemóvel do dono:** bytes descarregados; tempo até ao JOGAR na primeira e na segunda visita; fotogramas e memória durante cinco minutos; som (também com o interruptor de silêncio); a sensação do stick; os cabeçalhos de compressão do Pages; se o `pitch_scale` funciona.
+- **Constrói:** o repositório novo com o Godot 4.7.2 fixado; o CI completo (importar → testes → exportar → tamanho → teste no navegador → Pages); o shell, o título com JOGAR e o número da build, o aquecimento e o `?debug` com «Copiar relatório»; um largo cinzento (~30×24 m) com sol e sombra, nevoeiro e céu; o herói com um corpo humano da v1, com stick, WASD, comando, corrida e câmara; o forcado da v1 a bater o pé junto a uma porta, a dizer «Tá bueno!» num balão, com os blips da voz dele (a gravação a sério chega quando a pergunta 6 tiver resposta); o Goalgotha numa empena com o shader das obras.
+- **Mede no telemóvel do dono** (com o `?debug` e o «Copiar relatório»): bytes descarregados (o painel lê-os no navegador, pelo `transferSize` do `index.wasm` e do `index.pck`); tempo até ao JOGAR na primeira e na segunda visita; fotogramas e a memória do Godot durante cinco minutos; som (também com o interruptor de silêncio); a sensação do stick; se o `pitch_scale` funciona. Os cabeçalhos de compressão do Pages mede-os o chat, com `curl`, porque o telemóvel não os mostra.
 - **Avança se:** o JOGAR aparece em 15 s ou menos em 4G na primeira vez e em 5 s ou menos na segunda; aguenta 30 fps ou mais durante cinco minutos; nada rebenta nem perde o contexto gráfico em dez minutos; há som depois do JOGAR.
 - **Se não:** guardamos o desenho, os dados e as ferramentas e fazemos a parte visual em three.js.
 
 **M1 · Canto I · A Melga**
-- **Constrói:** o largo vestido com as obras (o friso, o Goalgotha, o Bull Guy, o tapume SHINE, o Clock Minotaur, a estátua, o Hands); a chegada do elétrico em esboço; o mano, o forcado, a tia, o Fabinhe, o velho (no banco, ao longe), o pombo e os dois mirones, exportados da v1, com ~30 clips; a chapada completa (SAPAS!, batida congelada, quedas, chapéus, arrasto, risos, vingança, quinta chapada, rancores, chapada da verdade); o realizador com as falas destas personagens, lidas em voz alta com o dono; o voo do bigode; o título cantado do Canto I; as regras da porrada portadas, com os testes (ou as do Basófia, se o código já tiver chegado: 9.8); os testes do M1 a bloquear a publicação; o modelo de exportação reduzido, se o M0 o pedir.
+- **Constrói:** o largo vestido com as obras (o friso, o Goalgotha, o Bull Guy, o tapume SHINE, o Clock Minotaur, a estátua, o Hands); a chegada do elétrico em esboço; o mano, o forcado, a tia, o Fabinhe, o velho (no banco, ao longe), o pombo e os dois mirones, exportados da v1, com ~30 clips; a chapada completa (SAPAS!, batida congelada, quedas, chapéus, arrasto, risos, vingança, quinta chapada, rancores, chapada da verdade); o realizador com as falas destas personagens, lidas em voz alta com o dono; o voo do bigode; o título cantado do Canto I; as regras da porrada portadas, com os testes, ou as do Basófia, se disseres que sim à pergunta 11 e o código já tiver chegado (9.8); os testes do M1 a bloquear a publicação; o modelo de exportação reduzido, se o M0 o pedir.
 - **Pronto quando:** cada toque responde em menos de 100 ms; 50 conversas seguidas, nenhuma sem resposta; cinco minutos no telemóvel e a chapada faz o dono rir.
 
 **M2 · Canto II · O Velho do Restelo**
@@ -1019,8 +1019,8 @@ scons platform=web target=template_release threads=no optimize=size_extra lto=fu
 
 ### Para começar o chat novo
 
-1. Cria no GitHub um repositório novo e vazio para o jogo (por exemplo, `the-workshop-v2`).
-2. Abre um chat novo com acesso a esse repositório e a este (THE-WORKSHOP, só para ler). Se o código do Basófia já estiver no GitHub, junta também esse, só para ler.
+1. Cria no GitHub um repositório novo, vazio e público para o jogo (por exemplo, `the-workshop-v2`): numa conta grátis, o GitHub Pages só publica repositórios públicos. Depois, nesse repositório, abre Settings → Pages e, em «Source», escolhe «GitHub Actions»; sem isto, o link nunca chega a ser publicado. No telemóvel, faz os dois passos no navegador, em github.com.
+2. Abre um chat novo com acesso a esse repositório e a este (THE-WORKSHOP, só para ler). Se o código do Basófia já estiver no GitHub, junta também esse, só para ler; se estiver num zip no Drive, liga o Google Drive ao chat novo e diz-lhe o nome do zip.
 3. Escreve: «Lê o `docs/v2/PLANO-V2.md` do THE-WORKSHOP e começa o M0.»
 
 ## 11. O que precisamos que decidas
@@ -1037,10 +1037,10 @@ Podes responder a cada pergunta com uma palavra.
 8. «Jogas sempre com o telemóvel na horizontal?»
 9. «Os seis sons que mandaste: sabes de onde vieram? Temos de confirmar se os podemos usar.»
 10. «A barra da porrada chama-se BASÓFIA, como no teu jogo, em vez de BRIO?»
-11. «O Basófia passa a ser a porrada dos Trombíadas?» Se sim, o motor dele entra no jogo novo, se aguentar as regras da v1 (9.8).
-12. «Mais tarde, queres um modo só de porrada no título, com os lutadores do Basófia?»
+11. «O Basófia passa a ser a porrada dos Trombíadas?» Se sim, as regras da luta dele passam para o jogo novo, desde que aguentem as da v1 (9.8).
+12. «Mais tarde, queres um modo só de porrada, a escolher no ecrã de título, com os lutadores do Basófia?» Se sim, os nomes e as falas deles passam pelas regras da secção 7 (a regra 12 diz «Nada sexual»), ou dizes tu que são exceção.
 
-E quando tiveres o PC: põe o código do Basófia num repositório no GitHub, ou um zip no Drive sem as pastas `.godot` e `build`.
+E quando estiveres ao computador: põe o código do Basófia num repositório no GitHub ou num zip no Drive, sempre sem as pastas `.godot` e `build`, que não fazem falta. No GitHub, a `build` nem pode entrar: o `BASOFIA.exe` tem 109 MB, e o GitHub recusa ficheiros com mais de 100 MB.
 
 ## Anexo A · `tools/export-cast.mjs` (corrido e medido nesta sessão)
 
@@ -1063,7 +1063,7 @@ for (const id of process.argv.slice(2)) for (const quality of ['low', 'medium'])
   const { mesh } = rig, bones = mesh.skeleton.bones;   // parents first; every rest rotation is identity
   for (const b of bones) {                             // 1. fold bone scale into child offsets (unit-scale bones share clips)
     if (b.scale.x === 1 && b.scale.y === 1 && b.scale.z === 1) continue;
-    for (const c of b.children) if (c.isBone) c.position.multiply(b.scale);
+    const s = b.scale.clone(); b.traverse((d) => { if (d !== b) d.position.multiply(s); });   // every descendant, not only children
     b.scale.set(1, 1, 1);
   }
   mesh.updateMatrixWorld(true);
@@ -1100,7 +1100,7 @@ for (const id of process.argv.slice(2)) for (const quality of ['low', 'medium'])
 
 Cada `.glb` sai com 33 ossos (joints) e os atributos POSITION, NORMAL, TEXCOORD_0/1, COLOR_0, JOINTS_0 e WEIGHTS_0; as personagens com chapéu têm duas malhas.
 
-A pasta `tools/v1-rigs/` leva cópias exatas de três ficheiros do THE-WORKSHOP, em `f4de2ea`: `assets/gallery/npc-models.js`, `assets/gallery/materials.js` e `assets/data/npc-cast.json`. Na sessão do plano, a ferramenta exportou assim nove personagens (coach, Fabinhe, forcado, gordo, mano, pombo, tia, a do tremoço e velho), em LOD baixo e médio, com 0,4 a 0,85 MB por ficheiro.
+A pasta `tools/v1-rigs/` leva cópias exatas de três ficheiros do THE-WORKSHOP, em `f4de2ea`: `assets/gallery/npc-models.js`, `assets/gallery/materials.js` e `assets/data/npc-cast.json`. A ferramenta recebe os ids do `npc-cast.json`, não os nomes do plano. Na sessão do plano, exportou assim nove personagens (`coach_madrugada`, `fabinhe`, `forcado`, `gordo`, `mano`, `pigeon`, `tia_stories`, `tremoco_vegan` e `velho`), em LOD baixo e médio, com 0,4 a 0,85 MB por ficheiro. Com o passo 1 corrigido, nenhuma articulação sai do sítio (0,00 cm nas nove) e os tamanhos ficam praticamente iguais. Os outros ids do elenco da fatia são `apanhados`, `tortoise`, `raccoon`, `cat`, `walrus`, `goat`, `porco_fato`, `tio_camisola` e `cusco_roupao`.
 
 ## Anexo B · `.github/workflows/web.yml`
 
@@ -1144,6 +1144,8 @@ jobs:
         run: |
           mkdir -p build/web
           godot --headless --export-release "Web" build/web/index.html
+      - name: Licences next to the game
+        run: cp web/LICENSES.txt build/web/
       - name: Size budget
         run: sh tools/check-size.sh build/web >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
@@ -1166,9 +1168,22 @@ jobs:
       - run: npm ci && npx playwright install --with-deps chromium
       - run: node tests/web/smoke.mjs build/web
 
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'gdtoolkit==4.*'
+      - run: |
+          files=$(git ls-files '*.gd' ':!addons/*')
+          gdformat --check $files
+          gdlint $files
+
   deploy:
-    if: github.event_name != 'pull_request'
-    needs: smoke
+    if: github.ref == 'refs/heads/main'
+    needs: [smoke, lint]
     runs-on: ubuntu-latest
     permissions:
       contents: read
