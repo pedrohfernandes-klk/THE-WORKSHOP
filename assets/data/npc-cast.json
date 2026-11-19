@@ -56,60 +56,60 @@
       },
       "lines": {
         "ignored": [
-          "Estou aqui. Sem apresentação.",
-          "A conversa ficou em espera."
+          "Vais-te embora a meio? Era a parte em que eu tinha razão!",
+          "Pronto, vai. Conto o resto ao candeeiro, que esse não foge."
         ],
         "slap1": [
           "Já levaste na boca!",
-          "A mão vinha sem assunto?"
+          "Ai! Essa mão pensa mais depressa do que tu."
         ],
         "slap2": [
           "Levaste na boca, boneco!",
-          "Outra vez? Faltou pontuação?"
+          "Outra?! A minha cara não é campainha!"
         ],
         "slap3": [
           "Ai, que tromba boa p'ra levar chapadões!",
-          "Já percebi. Agora dá espaço."
+          "Três?! Para a próxima trago capacete e advogado!"
         ],
         "bystander_laugh": [
           "A dignidade foi dar uma volta.",
-          "Foi ensaio. Espero eu."
+          "Ahahah! Essa até o chão sentiu!"
         ],
         "run_past": [
-          "A pressa vai à frente!",
-          "Levas a pausa contigo?"
+          "Vais tirar o pai da forca?",
+          "Eh lá! Passaste com tanta pressa que até me constipei."
         ],
         "jump": [
-          "O chão ficou ofendido.",
-          "Isso conta como escadas?"
+          "Saltinhos? Isso é ginástica ou picou-te alguma coisa?",
+          "Salta, salta, que depois os joelhos passam a fatura."
         ],
         "sit_beside": [
-          "Senta. Não cobro conversa.",
-          "Cabe aqui mais um silêncio."
+          "A conversa é grátis. O lugar é que é meu.",
+          "Senta-te, mas se ressonares, acordo-te à chapada."
         ],
         "gesture_rude": [
-          "A legenda ficou em manutenção.",
-          "Ó seu #%&@! Bip preventivo."
+          "Isso, em casa da minha avó, era chinelada!",
+          "Ó seu #%&@! Isso faz-se a uma pessoa de bem?"
         ],
         "golden": [
-          "Até a pressa ficou dourada.",
-          "Esta luz merece uma pausa."
+          "Que luz! Tira-me já uma foto, antes que eu volte ao normal.",
+          "Fim de tarde dourado. Até o caixote do lixo parece uma joia."
         ],
         "sunny": [
-          "A sombra chegou primeiro.",
-          "O sol está muito disponível."
+          "Está um calor de rachar e eu sem chapéu. Amanhã estou feito um camarão.",
+          "Que solão! Dava para estrelar um ovo no passeio."
         ],
         "storm": [
-          "O céu bateu a porta.",
-          "O toldo pediu transferência."
+          "Trovoada! Alguém lá em cima bateu com a porta.",
+          "Chove a potes! Até os patos foram buscar guarda-chuva."
         ],
         "rainbow": [
-          "O céu abriu a caixa.",
-          "Trouxe todas as cores hoje."
+          "Arco-íris! Aposto que o céu não pediu licença à Câmara.",
+          "Olha, um arco-íris! Se houver ouro no fim, fui eu que o vi primeiro!"
         ],
         "night": [
-          "Agora ouve-se melhor o silêncio.",
-          "Há luz para ficar mais pouco."
+          "À noite isto parece outro sítio. Mais escuro, sobretudo.",
+          "Já é de noite? E eu ainda nem jantei!"
         ],
         "talk": [
           "A reunião podia ser uma sesta.",
@@ -117,7 +117,7 @@
         ],
         "human": [
           "Hoje deixei a agenda vazia.",
-          "Obrigado por ficares um bocadinho."
+          "Obrigada por ficares um bocadinho."
         ]
       },
       "humanMoment": "Hoje deixei a agenda vazia.",
@@ -146,60 +146,60 @@
       },
       "lines": {
         "ignored": [
-          "Estou aqui. Sem apresentação.",
-          "A conversa ficou em espera."
+          "Vais-te embora a meio? Era a parte em que eu tinha razão!",
+          "Pronto, vai. Conto o resto ao candeeiro, que esse não foge."
         ],
         "slap1": [
           "Já levaste na boca!",
-          "A mão vinha sem assunto?"
+          "Ai! Essa mão pensa mais depressa do que tu."
         ],
         "slap2": [
           "Levaste na boca, boneco!",
-          "Outra vez? Faltou pontuação?"
+          "Outra?! A minha cara não é campainha!"
         ],
         "slap3": [
           "Ai, que tromba boa p'ra levar chapadões!",
-          "Já percebi. Agora dá espaço."
+          "Três?! Para a próxima trago capacete e advogado!"
         ],
         "bystander_laugh": [
           "A dignidade foi dar uma volta.",
-          "Foi ensaio. Espero eu."
+          "Ahahah! Essa até o chão sentiu!"
         ],
         "run_past": [
-          "A pressa vai à frente!",
-          "Levas a pausa contigo?"
+          "Vais tirar o pai da forca?",
+          "Eh lá! Passaste com tanta pressa que até me constipei."
         ],
         "jump": [
-          "O chão ficou ofendido.",
-          "Isso conta como escadas?"
+          "Saltinhos? Isso é ginástica ou picou-te alguma coisa?",
+          "Salta, salta, que depois os joelhos passam a fatura."
         ],
         "sit_beside": [
-          "Senta. Não cobro conversa.",
-          "Cabe aqui mais um silêncio."
+          "A conversa é grátis. O lugar é que é meu.",
+          "Senta-te, mas se ressonares, acordo-te à chapada."
         ],
         "gesture_rude": [
-          "A legenda ficou em manutenção.",
-          "Ó seu #%&@! Bip preventivo."
+          "Isso, em casa da minha avó, era chinelada!",
+          "Ó seu #%&@! Isso faz-se a uma pessoa de bem?"
         ],
         "golden": [
-          "Até a pressa ficou dourada.",
-          "Esta luz merece uma pausa."
+          "Que luz! Tira-me já uma foto, antes que eu volte ao normal.",
+          "Fim de tarde dourado. Até o caixote do lixo parece uma joia."
         ],
         "sunny": [
-          "A sombra chegou primeiro.",
-          "O sol está muito disponível."
+          "Está um calor de rachar e eu sem chapéu. Amanhã estou feito um camarão.",
+          "Que solão! Dava para estrelar um ovo no passeio."
         ],
         "storm": [
-          "O céu bateu a porta.",
-          "O toldo pediu transferência."
+          "Trovoada! Alguém lá em cima bateu com a porta.",
+          "Chove a potes! Até os patos foram buscar guarda-chuva."
         ],
         "rainbow": [
-          "O céu abriu a caixa.",
-          "Trouxe todas as cores hoje."
+          "Arco-íris! Aposto que o céu não pediu licença à Câmara.",
+          "Olha, um arco-íris! Se houver ouro no fim, fui eu que o vi primeiro!"
         ],
         "night": [
-          "Agora ouve-se melhor o silêncio.",
-          "Há luz para ficar mais pouco."
+          "À noite isto parece outro sítio. Mais escuro, sobretudo.",
+          "Já é de noite? E eu ainda nem jantei!"
         ],
         "talk": [
           "O catálogo é comestível?",
@@ -207,7 +207,7 @@
         ],
         "human": [
           "Guardei a melhor folha para ti.",
-          "Obrigado por ficares um bocadinho."
+          "Obrigada por ficares um bocadinho."
         ]
       },
       "humanMoment": "Guardei a melhor folha para ti.",
@@ -236,60 +236,60 @@
       },
       "lines": {
         "ignored": [
-          "Estou aqui. Sem apresentação.",
-          "A conversa ficou em espera."
+          "Vais-te embora a meio? Era a parte em que eu tinha razão!",
+          "Pronto, vai. Conto o resto ao candeeiro, que esse não foge."
         ],
         "slap1": [
           "Já levaste na boca!",
-          "A mão vinha sem assunto?"
+          "Ai! Essa mão pensa mais depressa do que tu."
         ],
         "slap2": [
           "Levaste na boca, boneco!",
-          "Outra vez? Faltou pontuação?"
+          "Outra?! A minha cara não é campainha!"
         ],
         "slap3": [
           "Ai, que tromba boa p'ra levar chapadões!",
-          "Já percebi. Agora dá espaço."
+          "Três?! Para a próxima trago capacete e advogado!"
         ],
         "bystander_laugh": [
           "A dignidade foi dar uma volta.",
-          "Foi ensaio. Espero eu."
+          "Ahahah! Essa até o chão sentiu!"
         ],
         "run_past": [
-          "A pressa vai à frente!",
-          "Levas a pausa contigo?"
+          "Vais tirar o pai da forca?",
+          "Eh lá! Passaste com tanta pressa que até me constipei."
         ],
         "jump": [
-          "O chão ficou ofendido.",
-          "Isso conta como escadas?"
+          "Saltinhos? Isso é ginástica ou picou-te alguma coisa?",
+          "Salta, salta, que depois os joelhos passam a fatura."
         ],
         "sit_beside": [
-          "Senta. Não cobro conversa.",
-          "Cabe aqui mais um silêncio."
+          "A conversa é grátis. O lugar é que é meu.",
+          "Senta-te, mas se ressonares, acordo-te à chapada."
         ],
         "gesture_rude": [
-          "A legenda ficou em manutenção.",
-          "Ó seu #%&@! Bip preventivo."
+          "Isso, em casa da minha avó, era chinelada!",
+          "Ó seu #%&@! Isso faz-se a uma pessoa de bem?"
         ],
         "golden": [
-          "Até a pressa ficou dourada.",
-          "Esta luz merece uma pausa."
+          "Que luz! Tira-me já uma foto, antes que eu volte ao normal.",
+          "Fim de tarde dourado. Até o caixote do lixo parece uma joia."
         ],
         "sunny": [
-          "A sombra chegou primeiro.",
-          "O sol está muito disponível."
+          "Está um calor de rachar e eu sem chapéu. Amanhã estou feito um camarão.",
+          "Que solão! Dava para estrelar um ovo no passeio."
         ],
         "storm": [
-          "O céu bateu a porta.",
-          "O toldo pediu transferência."
+          "Trovoada! Alguém lá em cima bateu com a porta.",
+          "Chove a potes! Até os patos foram buscar guarda-chuva."
         ],
         "rainbow": [
-          "O céu abriu a caixa.",
-          "Trouxe todas as cores hoje."
+          "Arco-íris! Aposto que o céu não pediu licença à Câmara.",
+          "Olha, um arco-íris! Se houver ouro no fim, fui eu que o vi primeiro!"
         ],
         "night": [
-          "Agora ouve-se melhor o silêncio.",
-          "Há luz para ficar mais pouco."
+          "À noite isto parece outro sítio. Mais escuro, sobretudo.",
+          "Já é de noite? E eu ainda nem jantei!"
         ],
         "talk": [
           "A apresentação acabou. Arrulhei tudo.",
@@ -297,7 +297,7 @@
         ],
         "human": [
           "Partilho as migalhas. Senta-te.",
-          "Obrigado por ficares um bocadinho."
+          "Obrigada por ficares um bocadinho."
         ]
       },
       "humanMoment": "Partilho as migalhas. Senta-te.",
@@ -326,68 +326,68 @@
       },
       "lines": {
         "ignored": [
-          "Estou aqui. Sem apresentação.",
-          "A conversa ficou em espera."
+          "Vais-te embora a meio? Era a parte em que eu tinha razão!",
+          "Pronto, vai. Conto o resto ao candeeiro, que esse não foge."
         ],
         "slap1": [
           "Já levaste na boca!",
-          "A mão vinha sem assunto?"
+          "Ai! Essa mão pensa mais depressa do que tu."
         ],
         "slap2": [
           "Levaste na boca, boneco!",
-          "Outra vez? Faltou pontuação?"
+          "Outra?! A minha cara não é campainha!"
         ],
         "slap3": [
           "Ai, que tromba boa p'ra levar chapadões!",
-          "Já percebi. Agora dá espaço."
+          "Três?! Para a próxima trago capacete e advogado!"
         ],
         "bystander_laugh": [
           "A dignidade foi dar uma volta.",
-          "Foi ensaio. Espero eu."
+          "Ahahah! Essa até o chão sentiu!"
         ],
         "run_past": [
-          "A pressa vai à frente!",
-          "Levas a pausa contigo?"
+          "Vais tirar o pai da forca?",
+          "Eh lá! Passaste com tanta pressa que até me constipei."
         ],
         "jump": [
-          "O chão ficou ofendido.",
-          "Isso conta como escadas?"
+          "Saltinhos? Isso é ginástica ou picou-te alguma coisa?",
+          "Salta, salta, que depois os joelhos passam a fatura."
         ],
         "sit_beside": [
-          "Senta. Não cobro conversa.",
-          "Cabe aqui mais um silêncio."
+          "A conversa é grátis. O lugar é que é meu.",
+          "Senta-te, mas se ressonares, acordo-te à chapada."
         ],
         "gesture_rude": [
-          "A legenda ficou em manutenção.",
-          "Ó seu #%&@! Bip preventivo."
+          "Isso, em casa da minha avó, era chinelada!",
+          "Ó seu #%&@! Isso faz-se a uma pessoa de bem?"
         ],
         "golden": [
-          "Até a pressa ficou dourada.",
-          "Esta luz merece uma pausa."
+          "Que luz! Tira-me já uma foto, antes que eu volte ao normal.",
+          "Fim de tarde dourado. Até o caixote do lixo parece uma joia."
         ],
         "sunny": [
-          "A sombra chegou primeiro.",
-          "O sol está muito disponível."
+          "Está um calor de rachar e eu sem chapéu. Amanhã estou feito um camarão.",
+          "Que solão! Dava para estrelar um ovo no passeio."
         ],
         "storm": [
-          "O céu bateu a porta.",
-          "O toldo pediu transferência."
+          "Trovoada! Alguém lá em cima bateu com a porta.",
+          "Chove a potes! Até os patos foram buscar guarda-chuva."
         ],
         "rainbow": [
-          "O céu abriu a caixa.",
-          "Trouxe todas as cores hoje."
+          "Arco-íris! Aposto que o céu não pediu licença à Câmara.",
+          "Olha, um arco-íris! Se houver ouro no fim, fui eu que o vi primeiro!"
         ],
         "night": [
-          "Agora ouve-se melhor o silêncio.",
-          "Há luz para ficar mais pouco."
+          "À noite isto parece outro sítio. Mais escuro, sobretudo.",
+          "Já é de noite? E eu ainda nem jantei!"
         ],
         "talk": [
-          "A gala acabou. Fiquei vestido.",
+          "Vim de laço para uma gala que acabou em 2019.",
           "O laço segura a dignidade."
         ],
         "human": [
           "O laço era do meu avô.",
-          "Obrigado por ficares um bocadinho."
+          "Obrigada por ficares um bocadinho."
         ]
       },
       "humanMoment": "O laço era do meu avô.",
@@ -416,68 +416,68 @@
       },
       "lines": {
         "ignored": [
-          "Estou aqui. Sem apresentação.",
-          "A conversa ficou em espera."
+          "Vais-te embora a meio? Era a parte em que eu tinha razão!",
+          "Pronto, vai. Conto o resto ao candeeiro, que esse não foge."
         ],
         "slap1": [
           "Já levaste na boca!",
-          "A mão vinha sem assunto?"
+          "Ai! Essa mão pensa mais depressa do que tu."
         ],
         "slap2": [
           "Levaste na boca, boneco!",
-          "Outra vez? Faltou pontuação?"
+          "Outra?! A minha cara não é campainha!"
         ],
         "slap3": [
           "Ai, que tromba boa p'ra levar chapadões!",
-          "Já percebi. Agora dá espaço."
+          "Três?! Para a próxima trago capacete e advogado!"
         ],
         "bystander_laugh": [
           "A dignidade foi dar uma volta.",
-          "Foi ensaio. Espero eu."
+          "Ahahah! Essa até o chão sentiu!"
         ],
         "run_past": [
-          "A pressa vai à frente!",
-          "Levas a pausa contigo?"
+          "Vais tirar o pai da forca?",
+          "Eh lá! Passaste com tanta pressa que até me constipei."
         ],
         "jump": [
-          "O chão ficou ofendido.",
-          "Isso conta como escadas?"
+          "Saltinhos? Isso é ginástica ou picou-te alguma coisa?",
+          "Salta, salta, que depois os joelhos passam a fatura."
         ],
         "sit_beside": [
-          "Senta. Não cobro conversa.",
-          "Cabe aqui mais um silêncio."
+          "A conversa é grátis. O lugar é que é meu.",
+          "Senta-te, mas se ressonares, acordo-te à chapada."
         ],
         "gesture_rude": [
-          "A legenda ficou em manutenção.",
-          "Ó seu #%&@! Bip preventivo."
+          "Isso, em casa da minha avó, era chinelada!",
+          "Ó seu #%&@! Isso faz-se a uma pessoa de bem?"
         ],
         "golden": [
-          "Até a pressa ficou dourada.",
-          "Esta luz merece uma pausa."
+          "Que luz! Tira-me já uma foto, antes que eu volte ao normal.",
+          "Fim de tarde dourado. Até o caixote do lixo parece uma joia."
         ],
         "sunny": [
-          "A sombra chegou primeiro.",
-          "O sol está muito disponível."
+          "Está um calor de rachar e eu sem chapéu. Amanhã estou feito um camarão.",
+          "Que solão! Dava para estrelar um ovo no passeio."
         ],
         "storm": [
-          "O céu bateu a porta.",
-          "O toldo pediu transferência."
+          "Trovoada! Alguém lá em cima bateu com a porta.",
+          "Chove a potes! Até os patos foram buscar guarda-chuva."
         ],
         "rainbow": [
-          "O céu abriu a caixa.",
-          "Trouxe todas as cores hoje."
+          "Arco-íris! Aposto que o céu não pediu licença à Câmara.",
+          "Olha, um arco-íris! Se houver ouro no fim, fui eu que o vi primeiro!"
         ],
         "night": [
-          "Agora ouve-se melhor o silêncio.",
-          "Há luz para ficar mais pouco."
+          "À noite isto parece outro sítio. Mais escuro, sobretudo.",
+          "Já é de noite? E eu ainda nem jantei!"
         ],
         "talk": [
-          "Esta parede piscou primeiro.",
-          "Ronrono em contexto curatorial."
+          "Estive uma hora a olhar para a parede. Ela piscou primeiro.",
+          "Miau. Mas em tom intelectual."
         ],
         "human": [
           "Podes ficar. Gosto de companhia.",
-          "Obrigado por ficares um bocadinho."
+          "Obrigada por ficares um bocadinho."
         ]
       },
       "humanMoment": "Podes ficar. Gosto de companhia.",
@@ -506,60 +506,60 @@
       },
       "lines": {
         "ignored": [
-          "Estou aqui. Sem apresentação.",
-          "A conversa ficou em espera."
+          "Vais-te embora a meio? Era a parte em que eu tinha razão!",
+          "Pronto, vai. Conto o resto ao candeeiro, que esse não foge."
         ],
         "slap1": [
           "Já levaste na boca!",
-          "A mão vinha sem assunto?"
+          "Ai! Essa mão pensa mais depressa do que tu."
         ],
         "slap2": [
           "Levaste na boca, boneco!",
-          "Outra vez? Faltou pontuação?"
+          "Outra?! A minha cara não é campainha!"
         ],
         "slap3": [
           "Ai, que tromba boa p'ra levar chapadões!",
-          "Já percebi. Agora dá espaço."
+          "Três?! Para a próxima trago capacete e advogado!"
         ],
         "bystander_laugh": [
           "A dignidade foi dar uma volta.",
-          "Foi ensaio. Espero eu."
+          "Ahahah! Essa até o chão sentiu!"
         ],
         "run_past": [
-          "A pressa vai à frente!",
-          "Levas a pausa contigo?"
+          "Vais tirar o pai da forca?",
+          "Eh lá! Passaste com tanta pressa que até me constipei."
         ],
         "jump": [
-          "O chão ficou ofendido.",
-          "Isso conta como escadas?"
+          "Saltinhos? Isso é ginástica ou picou-te alguma coisa?",
+          "Salta, salta, que depois os joelhos passam a fatura."
         ],
         "sit_beside": [
-          "Senta. Não cobro conversa.",
-          "Cabe aqui mais um silêncio."
+          "A conversa é grátis. O lugar é que é meu.",
+          "Senta-te, mas se ressonares, acordo-te à chapada."
         ],
         "gesture_rude": [
-          "A legenda ficou em manutenção.",
-          "Ó seu #%&@! Bip preventivo."
+          "Isso, em casa da minha avó, era chinelada!",
+          "Ó seu #%&@! Isso faz-se a uma pessoa de bem?"
         ],
         "golden": [
-          "Até a pressa ficou dourada.",
-          "Esta luz merece uma pausa."
+          "Que luz! Tira-me já uma foto, antes que eu volte ao normal.",
+          "Fim de tarde dourado. Até o caixote do lixo parece uma joia."
         ],
         "sunny": [
-          "A sombra chegou primeiro.",
-          "O sol está muito disponível."
+          "Está um calor de rachar e eu sem chapéu. Amanhã estou feito um camarão.",
+          "Que solão! Dava para estrelar um ovo no passeio."
         ],
         "storm": [
-          "O céu bateu a porta.",
-          "O toldo pediu transferência."
+          "Trovoada! Alguém lá em cima bateu com a porta.",
+          "Chove a potes! Até os patos foram buscar guarda-chuva."
         ],
         "rainbow": [
-          "O céu abriu a caixa.",
-          "Trouxe todas as cores hoje."
+          "Arco-íris! Aposto que o céu não pediu licença à Câmara.",
+          "Olha, um arco-íris! Se houver ouro no fim, fui eu que o vi primeiro!"
         ],
         "night": [
-          "Agora ouve-se melhor o silêncio.",
-          "Há luz para ficar mais pouco."
+          "À noite isto parece outro sítio. Mais escuro, sobretudo.",
+          "Já é de noite? E eu ainda nem jantei!"
         ],
         "talk": [
           "O colete faz-me encarregado?",
@@ -567,7 +567,7 @@
         ],
         "human": [
           "Ainda estou a aprender isto.",
-          "Obrigado por ficares um bocadinho."
+          "Obrigada por ficares um bocadinho."
         ]
       },
       "humanMoment": "Ainda estou a aprender isto.",
@@ -596,68 +596,68 @@
       },
       "lines": {
         "ignored": [
-          "Estou aqui. Sem apresentação.",
-          "A conversa ficou em espera."
+          "Vais-te embora a meio? Era a parte em que eu tinha razão!",
+          "Pronto, vai. Conto o resto ao candeeiro, que esse não foge."
         ],
         "slap1": [
           "Já levaste na boca!",
-          "A mão vinha sem assunto?"
+          "Ai! Essa mão pensa mais depressa do que tu."
         ],
         "slap2": [
           "Levaste na boca, boneco!",
-          "Outra vez? Faltou pontuação?"
+          "Outra?! A minha cara não é campainha!"
         ],
         "slap3": [
           "Ai, que tromba boa p'ra levar chapadões!",
-          "Já percebi. Agora dá espaço."
+          "Três?! Para a próxima trago capacete e advogado!"
         ],
         "bystander_laugh": [
           "A dignidade foi dar uma volta.",
-          "Foi ensaio. Espero eu."
+          "Ahahah! Essa até o chão sentiu!"
         ],
         "run_past": [
-          "A pressa vai à frente!",
-          "Levas a pausa contigo?"
+          "Vais tirar o pai da forca?",
+          "Eh lá! Passaste com tanta pressa que até me constipei."
         ],
         "jump": [
-          "O chão ficou ofendido.",
-          "Isso conta como escadas?"
+          "Saltinhos? Isso é ginástica ou picou-te alguma coisa?",
+          "Salta, salta, que depois os joelhos passam a fatura."
         ],
         "sit_beside": [
-          "Senta. Não cobro conversa.",
-          "Cabe aqui mais um silêncio."
+          "A conversa é grátis. O lugar é que é meu.",
+          "Senta-te, mas se ressonares, acordo-te à chapada."
         ],
         "gesture_rude": [
-          "A legenda ficou em manutenção.",
-          "Ó seu #%&@! Bip preventivo."
+          "Isso, em casa da minha avó, era chinelada!",
+          "Ó seu #%&@! Isso faz-se a uma pessoa de bem?"
         ],
         "golden": [
-          "Até a pressa ficou dourada.",
-          "Esta luz merece uma pausa."
+          "Que luz! Tira-me já uma foto, antes que eu volte ao normal.",
+          "Fim de tarde dourado. Até o caixote do lixo parece uma joia."
         ],
         "sunny": [
-          "A sombra chegou primeiro.",
-          "O sol está muito disponível."
+          "Está um calor de rachar e eu sem chapéu. Amanhã estou feito um camarão.",
+          "Que solão! Dava para estrelar um ovo no passeio."
         ],
         "storm": [
-          "O céu bateu a porta.",
-          "O toldo pediu transferência."
+          "Trovoada! Alguém lá em cima bateu com a porta.",
+          "Chove a potes! Até os patos foram buscar guarda-chuva."
         ],
         "rainbow": [
-          "O céu abriu a caixa.",
-          "Trouxe todas as cores hoje."
+          "Arco-íris! Aposto que o céu não pediu licença à Câmara.",
+          "Olha, um arco-íris! Se houver ouro no fim, fui eu que o vi primeiro!"
         ],
         "night": [
-          "Agora ouve-se melhor o silêncio.",
-          "Há luz para ficar mais pouco."
+          "À noite isto parece outro sítio. Mais escuro, sobretudo.",
+          "Já é de noite? E eu ainda nem jantei!"
         ],
         "talk": [
           "O almoço está em consulta pública.",
-          "A grelha exige silêncio."
+          "Fala baixo, que as sardinhas estão a concentrar-se."
         ],
         "human": [
           "Fiz comida a mais. De propósito.",
-          "Obrigado por ficares um bocadinho."
+          "Obrigada por ficares um bocadinho."
         ]
       },
       "humanMoment": "Fiz comida a mais. De propósito.",
@@ -686,68 +686,68 @@
       },
       "lines": {
         "ignored": [
-          "Estou aqui. Sem apresentação.",
-          "A conversa ficou em espera."
+          "Vais-te embora a meio? Era a parte em que eu tinha razão!",
+          "Pronto, vai. Conto o resto ao candeeiro, que esse não foge."
         ],
         "slap1": [
           "Já levaste na boca!",
-          "A mão vinha sem assunto?"
+          "Ai! Essa mão pensa mais depressa do que tu."
         ],
         "slap2": [
           "Levaste na boca, boneco!",
-          "Outra vez? Faltou pontuação?"
+          "Outra?! A minha cara não é campainha!"
         ],
         "slap3": [
           "Ai, que tromba boa p'ra levar chapadões!",
-          "Já percebi. Agora dá espaço."
+          "Três?! Para a próxima trago capacete e advogado!"
         ],
         "bystander_laugh": [
           "A dignidade foi dar uma volta.",
-          "Foi ensaio. Espero eu."
+          "Ahahah! Essa até o chão sentiu!"
         ],
         "run_past": [
-          "A pressa vai à frente!",
-          "Levas a pausa contigo?"
+          "Vais tirar o pai da forca?",
+          "Eh lá! Passaste com tanta pressa que até me constipei."
         ],
         "jump": [
-          "O chão ficou ofendido.",
-          "Isso conta como escadas?"
+          "Saltinhos? Isso é ginástica ou picou-te alguma coisa?",
+          "Salta, salta, que depois os joelhos passam a fatura."
         ],
         "sit_beside": [
-          "Senta. Não cobro conversa.",
-          "Cabe aqui mais um silêncio."
+          "A conversa é grátis. O lugar é que é meu.",
+          "Senta-te, mas se ressonares, acordo-te à chapada."
         ],
         "gesture_rude": [
-          "A legenda ficou em manutenção.",
-          "Ó seu #%&@! Bip preventivo."
+          "Isso, em casa da minha avó, era chinelada!",
+          "Ó seu #%&@! Isso faz-se a uma pessoa de bem?"
         ],
         "golden": [
-          "Até a pressa ficou dourada.",
-          "Esta luz merece uma pausa."
+          "Que luz! Tira-me já uma foto, antes que eu volte ao normal.",
+          "Fim de tarde dourado. Até o caixote do lixo parece uma joia."
         ],
         "sunny": [
-          "A sombra chegou primeiro.",
-          "O sol está muito disponível."
+          "Está um calor de rachar e eu sem chapéu. Amanhã estou feito um camarão.",
+          "Que solão! Dava para estrelar um ovo no passeio."
         ],
         "storm": [
-          "O céu bateu a porta.",
-          "O toldo pediu transferência."
+          "Trovoada! Alguém lá em cima bateu com a porta.",
+          "Chove a potes! Até os patos foram buscar guarda-chuva."
         ],
         "rainbow": [
-          "O céu abriu a caixa.",
-          "Trouxe todas as cores hoje."
+          "Arco-íris! Aposto que o céu não pediu licença à Câmara.",
+          "Olha, um arco-íris! Se houver ouro no fim, fui eu que o vi primeiro!"
         ],
         "night": [
-          "Agora ouve-se melhor o silêncio.",
-          "Há luz para ficar mais pouco."
+          "À noite isto parece outro sítio. Mais escuro, sobretudo.",
+          "Já é de noite? E eu ainda nem jantei!"
         ],
         "talk": [
           "Anunciei o dia. Já anoiteceu.",
-          "O comunicado leva gravata."
+          "Nunca usei despertador. O despertador sou eu."
         ],
         "human": [
           "Às vezes também me falta voz.",
-          "Obrigado por ficares um bocadinho."
+          "Obrigada por ficares um bocadinho."
         ]
       },
       "humanMoment": "Às vezes também me falta voz.",
@@ -776,60 +776,60 @@
       },
       "lines": {
         "ignored": [
-          "Estou aqui. Sem apresentação.",
-          "A conversa ficou em espera."
+          "Vais-te embora a meio? Era a parte em que eu tinha razão!",
+          "Pronto, vai. Conto o resto ao candeeiro, que esse não foge."
         ],
         "slap1": [
           "Já levaste na boca!",
-          "A mão vinha sem assunto?"
+          "Ai! Essa mão pensa mais depressa do que tu."
         ],
         "slap2": [
           "Levaste na boca, boneco!",
-          "Outra vez? Faltou pontuação?"
+          "Outra?! A minha cara não é campainha!"
         ],
         "slap3": [
           "Ai, que tromba boa p'ra levar chapadões!",
-          "Já percebi. Agora dá espaço."
+          "Três?! Para a próxima trago capacete e advogado!"
         ],
         "bystander_laugh": [
           "A dignidade foi dar uma volta.",
-          "Foi ensaio. Espero eu."
+          "Ahahah! Essa até o chão sentiu!"
         ],
         "run_past": [
-          "A pressa vai à frente!",
-          "Levas a pausa contigo?"
+          "Vais tirar o pai da forca?",
+          "Eh lá! Passaste com tanta pressa que até me constipei."
         ],
         "jump": [
-          "O chão ficou ofendido.",
-          "Isso conta como escadas?"
+          "Saltinhos? Isso é ginástica ou picou-te alguma coisa?",
+          "Salta, salta, que depois os joelhos passam a fatura."
         ],
         "sit_beside": [
-          "Senta. Não cobro conversa.",
-          "Cabe aqui mais um silêncio."
+          "A conversa é grátis. O lugar é que é meu.",
+          "Senta-te, mas se ressonares, acordo-te à chapada."
         ],
         "gesture_rude": [
-          "A legenda ficou em manutenção.",
-          "Ó seu #%&@! Bip preventivo."
+          "Isso, em casa da minha avó, era chinelada!",
+          "Ó seu #%&@! Isso faz-se a uma pessoa de bem?"
         ],
         "golden": [
-          "Até a pressa ficou dourada.",
-          "Esta luz merece uma pausa."
+          "Que luz! Tira-me já uma foto, antes que eu volte ao normal.",
+          "Fim de tarde dourado. Até o caixote do lixo parece uma joia."
         ],
         "sunny": [
-          "A sombra chegou primeiro.",
-          "O sol está muito disponível."
+          "Está um calor de rachar e eu sem chapéu. Amanhã estou feito um camarão.",
+          "Que solão! Dava para estrelar um ovo no passeio."
         ],
         "storm": [
-          "O céu bateu a porta.",
-          "O toldo pediu transferência."
+          "Trovoada! Alguém lá em cima bateu com a porta.",
+          "Chove a potes! Até os patos foram buscar guarda-chuva."
         ],
         "rainbow": [
-          "O céu abriu a caixa.",
-          "Trouxe todas as cores hoje."
+          "Arco-íris! Aposto que o céu não pediu licença à Câmara.",
+          "Olha, um arco-íris! Se houver ouro no fim, fui eu que o vi primeiro!"
         ],
         "night": [
-          "Agora ouve-se melhor o silêncio.",
-          "Há luz para ficar mais pouco."
+          "À noite isto parece outro sítio. Mais escuro, sobretudo.",
+          "Já é de noite? E eu ainda nem jantei!"
         ],
         "talk": [
           "Cheguei cedo à pausa.",
@@ -837,7 +837,7 @@
         ],
         "human": [
           "Tenho tempo. Conta lá.",
-          "Obrigado por ficares um bocadinho."
+          "Obrigada por ficares um bocadinho."
         ]
       },
       "humanMoment": "Tenho tempo. Conta lá.",
@@ -866,68 +866,68 @@
       },
       "lines": {
         "ignored": [
-          "Estou aqui. Sem apresentação.",
-          "A conversa ficou em espera."
+          "Vais-te embora a meio? Era a parte em que eu tinha razão!",
+          "Pronto, vai. Conto o resto ao candeeiro, que esse não foge."
         ],
         "slap1": [
           "Já levaste na boca!",
-          "A mão vinha sem assunto?"
+          "Ai! Essa mão pensa mais depressa do que tu."
         ],
         "slap2": [
           "Levaste na boca, boneco!",
-          "Outra vez? Faltou pontuação?"
+          "Outra?! A minha cara não é campainha!"
         ],
         "slap3": [
           "Ai, que tromba boa p'ra levar chapadões!",
-          "Já percebi. Agora dá espaço."
+          "Três?! Para a próxima trago capacete e advogado!"
         ],
         "bystander_laugh": [
           "A dignidade foi dar uma volta.",
-          "Foi ensaio. Espero eu."
+          "Ahahah! Essa até o chão sentiu!"
         ],
         "run_past": [
-          "A pressa vai à frente!",
-          "Levas a pausa contigo?"
+          "Vais tirar o pai da forca?",
+          "Eh lá! Passaste com tanta pressa que até me constipei."
         ],
         "jump": [
-          "O chão ficou ofendido.",
-          "Isso conta como escadas?"
+          "Saltinhos? Isso é ginástica ou picou-te alguma coisa?",
+          "Salta, salta, que depois os joelhos passam a fatura."
         ],
         "sit_beside": [
-          "Senta. Não cobro conversa.",
-          "Cabe aqui mais um silêncio."
+          "A conversa é grátis. O lugar é que é meu.",
+          "Senta-te, mas se ressonares, acordo-te à chapada."
         ],
         "gesture_rude": [
-          "A legenda ficou em manutenção.",
-          "Ó seu #%&@! Bip preventivo."
+          "Isso, em casa da minha avó, era chinelada!",
+          "Ó seu #%&@! Isso faz-se a uma pessoa de bem?"
         ],
         "golden": [
-          "Até a pressa ficou dourada.",
-          "Esta luz merece uma pausa."
+          "Que luz! Tira-me já uma foto, antes que eu volte ao normal.",
+          "Fim de tarde dourado. Até o caixote do lixo parece uma joia."
         ],
         "sunny": [
-          "A sombra chegou primeiro.",
-          "O sol está muito disponível."
+          "Está um calor de rachar e eu sem chapéu. Amanhã estou feito um camarão.",
+          "Que solão! Dava para estrelar um ovo no passeio."
         ],
         "storm": [
-          "O céu bateu a porta.",
-          "O toldo pediu transferência."
+          "Trovoada! Alguém lá em cima bateu com a porta.",
+          "Chove a potes! Até os patos foram buscar guarda-chuva."
         ],
         "rainbow": [
-          "O céu abriu a caixa.",
-          "Trouxe todas as cores hoje."
+          "Arco-íris! Aposto que o céu não pediu licença à Câmara.",
+          "Olha, um arco-íris! Se houver ouro no fim, fui eu que o vi primeiro!"
         ],
         "night": [
-          "Agora ouve-se melhor o silêncio.",
-          "Há luz para ficar mais pouco."
+          "À noite isto parece outro sítio. Mais escuro, sobretudo.",
+          "Já é de noite? E eu ainda nem jantei!"
         ],
         "talk": [
           "Reparei isto. Sobrou aquilo.",
-          "A peça extra é confiança."
+          "Arranjei a torradeira. Agora também apanha a rádio."
         ],
         "human": [
           "Arranjo coisas para não as perder.",
-          "Obrigado por ficares um bocadinho."
+          "Obrigada por ficares um bocadinho."
         ]
       },
       "humanMoment": "Arranjo coisas para não as perder.",
@@ -976,60 +976,60 @@
       },
       "lines": {
         "ignored": [
-          "Estou aqui. Sem apresentação.",
-          "A conversa ficou em espera."
+          "Vais-te embora a meio? Era a parte em que eu tinha razão!",
+          "Pronto, vai. Conto o resto ao candeeiro, que esse não foge."
         ],
         "slap1": [
           "Já levaste na boca!",
-          "A mão vinha sem assunto?"
+          "Ai! Essa mão pensa mais depressa do que tu."
         ],
         "slap2": [
           "Levaste na boca, boneco!",
-          "Outra vez? Faltou pontuação?"
+          "Outra?! A minha cara não é campainha!"
         ],
         "slap3": [
           "Ai, que tromba boa p'ra levar chapadões!",
-          "Já percebi. Agora dá espaço."
+          "Três?! Para a próxima trago capacete e advogado!"
         ],
         "bystander_laugh": [
           "A dignidade foi dar uma volta.",
-          "Foi ensaio. Espero eu."
+          "Ahahah! Essa até o chão sentiu!"
         ],
         "run_past": [
-          "A pressa vai à frente!",
-          "Levas a pausa contigo?"
+          "Vais tirar o pai da forca?",
+          "Eh lá! Passaste com tanta pressa que até me constipei."
         ],
         "jump": [
-          "O chão ficou ofendido.",
-          "Isso conta como escadas?"
+          "Saltinhos? Isso é ginástica ou picou-te alguma coisa?",
+          "Salta, salta, que depois os joelhos passam a fatura."
         ],
         "sit_beside": [
-          "Senta. Não cobro conversa.",
-          "Cabe aqui mais um silêncio."
+          "A conversa é grátis. O lugar é que é meu.",
+          "Senta-te, mas se ressonares, acordo-te à chapada."
         ],
         "gesture_rude": [
-          "A legenda ficou em manutenção.",
-          "Ó seu #%&@! Bip preventivo."
+          "Isso, em casa da minha avó, era chinelada!",
+          "Ó seu #%&@! Isso faz-se a uma pessoa de bem?"
         ],
         "golden": [
-          "Até a pressa ficou dourada.",
-          "Esta luz merece uma pausa."
+          "Que luz! Tira-me já uma foto, antes que eu volte ao normal.",
+          "Fim de tarde dourado. Até o caixote do lixo parece uma joia."
         ],
         "sunny": [
-          "A sombra chegou primeiro.",
-          "O sol está muito disponível."
+          "Está um calor de rachar e eu sem chapéu. Amanhã estou feito um camarão.",
+          "Que solão! Dava para estrelar um ovo no passeio."
         ],
         "storm": [
-          "O céu bateu a porta.",
-          "O toldo pediu transferência."
+          "Trovoada! Alguém lá em cima bateu com a porta.",
+          "Chove a potes! Até os patos foram buscar guarda-chuva."
         ],
         "rainbow": [
-          "O céu abriu a caixa.",
-          "Trouxe todas as cores hoje."
+          "Arco-íris! Aposto que o céu não pediu licença à Câmara.",
+          "Olha, um arco-íris! Se houver ouro no fim, fui eu que o vi primeiro!"
         ],
         "night": [
-          "Agora ouve-se melhor o silêncio.",
-          "Há luz para ficar mais pouco."
+          "À noite isto parece outro sítio. Mais escuro, sobretudo.",
+          "Já é de noite? E eu ainda nem jantei!"
         ],
         "talk": [
           "Tá bueno!",
@@ -1039,7 +1039,7 @@
         ],
         "human": [
           "Hoje o touro é de cartão.",
-          "Obrigado por ficares um bocadinho."
+          "Obrigada por ficares um bocadinho."
         ]
       },
       "humanMoment": "Hoje o touro é de cartão.",
@@ -1069,60 +1069,60 @@
       },
       "lines": {
         "ignored": [
-          "Estou aqui. Sem apresentação.",
-          "A conversa ficou em espera."
+          "Vais-te embora a meio? Era a parte em que eu tinha razão!",
+          "Pronto, vai. Conto o resto ao candeeiro, que esse não foge."
         ],
         "slap1": [
           "Já levaste na boca!",
-          "A mão vinha sem assunto?"
+          "Ai! Essa mão pensa mais depressa do que tu."
         ],
         "slap2": [
           "Levaste na boca, boneco!",
-          "Outra vez? Faltou pontuação?"
+          "Outra?! A minha cara não é campainha!"
         ],
         "slap3": [
           "Ai, que tromba boa p'ra levar chapadões!",
-          "Já percebi. Agora dá espaço."
+          "Três?! Para a próxima trago capacete e advogado!"
         ],
         "bystander_laugh": [
           "A dignidade foi dar uma volta.",
-          "Foi ensaio. Espero eu."
+          "Ahahah! Essa até o chão sentiu!"
         ],
         "run_past": [
-          "A pressa vai à frente!",
-          "Levas a pausa contigo?"
+          "Vais tirar o pai da forca?",
+          "Eh lá! Passaste com tanta pressa que até me constipei."
         ],
         "jump": [
-          "O chão ficou ofendido.",
-          "Isso conta como escadas?"
+          "Saltinhos? Isso é ginástica ou picou-te alguma coisa?",
+          "Salta, salta, que depois os joelhos passam a fatura."
         ],
         "sit_beside": [
-          "Senta. Não cobro conversa.",
-          "Cabe aqui mais um silêncio."
+          "A conversa é grátis. O lugar é que é meu.",
+          "Senta-te, mas se ressonares, acordo-te à chapada."
         ],
         "gesture_rude": [
-          "A legenda ficou em manutenção.",
-          "Ó seu #%&@! Bip preventivo."
+          "Isso, em casa da minha avó, era chinelada!",
+          "Ó seu #%&@! Isso faz-se a uma pessoa de bem?"
         ],
         "golden": [
-          "Até a pressa ficou dourada.",
-          "Esta luz merece uma pausa."
+          "Que luz! Tira-me já uma foto, antes que eu volte ao normal.",
+          "Fim de tarde dourado. Até o caixote do lixo parece uma joia."
         ],
         "sunny": [
-          "A sombra chegou primeiro.",
-          "O sol está muito disponível."
+          "Está um calor de rachar e eu sem chapéu. Amanhã estou feito um camarão.",
+          "Que solão! Dava para estrelar um ovo no passeio."
         ],
         "storm": [
-          "O céu bateu a porta.",
-          "O toldo pediu transferência."
+          "Trovoada! Alguém lá em cima bateu com a porta.",
+          "Chove a potes! Até os patos foram buscar guarda-chuva."
         ],
         "rainbow": [
-          "O céu abriu a caixa.",
-          "Trouxe todas as cores hoje."
+          "Arco-íris! Aposto que o céu não pediu licença à Câmara.",
+          "Olha, um arco-íris! Se houver ouro no fim, fui eu que o vi primeiro!"
         ],
         "night": [
-          "Agora ouve-se melhor o silêncio.",
-          "Há luz para ficar mais pouco."
+          "À noite isto parece outro sítio. Mais escuro, sobretudo.",
+          "Já é de noite? E eu ainda nem jantei!"
         ],
         "talk": [
           "Tá bonito, tá!",
@@ -1130,7 +1130,7 @@
         ],
         "human": [
           "Esta luz lembra-me a minha cozinha.",
-          "Obrigado por ficares um bocadinho."
+          "Obrigada por ficares um bocadinho."
         ]
       },
       "humanMoment": "Esta luz lembra-me a minha cozinha.",
@@ -1160,60 +1160,60 @@
       },
       "lines": {
         "ignored": [
-          "Estou aqui. Sem apresentação.",
-          "A conversa ficou em espera."
+          "Vais-te embora a meio? Era a parte em que eu tinha razão!",
+          "Pronto, vai. Conto o resto ao candeeiro, que esse não foge."
         ],
         "slap1": [
           "Já levaste na boca!",
-          "A mão vinha sem assunto?"
+          "Ai! Essa mão pensa mais depressa do que tu."
         ],
         "slap2": [
           "Levaste na boca, boneco!",
-          "Outra vez? Faltou pontuação?"
+          "Outra?! A minha cara não é campainha!"
         ],
         "slap3": [
           "Ai, que tromba boa p'ra levar chapadões!",
-          "Já percebi. Agora dá espaço."
+          "Três?! Para a próxima trago capacete e advogado!"
         ],
         "bystander_laugh": [
           "A dignidade foi dar uma volta.",
-          "Foi ensaio. Espero eu."
+          "Ahahah! Essa até o chão sentiu!"
         ],
         "run_past": [
-          "A pressa vai à frente!",
-          "Levas a pausa contigo?"
+          "Vais tirar o pai da forca?",
+          "Eh lá! Passaste com tanta pressa que até me constipei."
         ],
         "jump": [
-          "O chão ficou ofendido.",
-          "Isso conta como escadas?"
+          "Saltinhos? Isso é ginástica ou picou-te alguma coisa?",
+          "Salta, salta, que depois os joelhos passam a fatura."
         ],
         "sit_beside": [
-          "Senta. Não cobro conversa.",
-          "Cabe aqui mais um silêncio."
+          "A conversa é grátis. O lugar é que é meu.",
+          "Senta-te, mas se ressonares, acordo-te à chapada."
         ],
         "gesture_rude": [
-          "A legenda ficou em manutenção.",
-          "Ó seu #%&@! Bip preventivo."
+          "Isso, em casa da minha avó, era chinelada!",
+          "Ó seu #%&@! Isso faz-se a uma pessoa de bem?"
         ],
         "golden": [
-          "Até a pressa ficou dourada.",
-          "Esta luz merece uma pausa."
+          "Que luz! Tira-me já uma foto, antes que eu volte ao normal.",
+          "Fim de tarde dourado. Até o caixote do lixo parece uma joia."
         ],
         "sunny": [
-          "A sombra chegou primeiro.",
-          "O sol está muito disponível."
+          "Está um calor de rachar e eu sem chapéu. Amanhã estou feito um camarão.",
+          "Que solão! Dava para estrelar um ovo no passeio."
         ],
         "storm": [
-          "O céu bateu a porta.",
-          "O toldo pediu transferência."
+          "Trovoada! Alguém lá em cima bateu com a porta.",
+          "Chove a potes! Até os patos foram buscar guarda-chuva."
         ],
         "rainbow": [
-          "O céu abriu a caixa.",
-          "Trouxe todas as cores hoje."
+          "Arco-íris! Aposto que o céu não pediu licença à Câmara.",
+          "Olha, um arco-íris! Se houver ouro no fim, fui eu que o vi primeiro!"
         ],
         "night": [
-          "Agora ouve-se melhor o silêncio.",
-          "Há luz para ficar mais pouco."
+          "À noite isto parece outro sítio. Mais escuro, sobretudo.",
+          "Já é de noite? E eu ainda nem jantei!"
         ],
         "talk": [
           "A pausa tem de ser oficial.",
@@ -1221,7 +1221,7 @@
         ],
         "human": [
           "Fica mais um bocadinho.",
-          "Obrigado por ficares um bocadinho."
+          "Obrigada por ficares um bocadinho."
         ]
       },
       "humanMoment": "Fica mais um bocadinho.",
@@ -1252,60 +1252,60 @@
       },
       "lines": {
         "ignored": [
-          "Estou aqui. Sem apresentação.",
-          "A conversa ficou em espera."
+          "Vais-te embora a meio? Era a parte em que eu tinha razão!",
+          "Pronto, vai. Conto o resto ao candeeiro, que esse não foge."
         ],
         "slap1": [
           "Já levaste na boca!",
-          "A mão vinha sem assunto?"
+          "Ai! Essa mão pensa mais depressa do que tu."
         ],
         "slap2": [
           "Levaste na boca, boneco!",
-          "Outra vez? Faltou pontuação?"
+          "Outra?! A minha cara não é campainha!"
         ],
         "slap3": [
           "Ai, que tromba boa p'ra levar chapadões!",
-          "Já percebi. Agora dá espaço."
+          "Três?! Para a próxima trago capacete e advogado!"
         ],
         "bystander_laugh": [
           "A dignidade foi dar uma volta.",
-          "Foi ensaio. Espero eu."
+          "Ahahah! Essa até o chão sentiu!"
         ],
         "run_past": [
-          "A pressa vai à frente!",
-          "Levas a pausa contigo?"
+          "Vais tirar o pai da forca?",
+          "Eh lá! Passaste com tanta pressa que até me constipei."
         ],
         "jump": [
-          "O chão ficou ofendido.",
-          "Isso conta como escadas?"
+          "Saltinhos? Isso é ginástica ou picou-te alguma coisa?",
+          "Salta, salta, que depois os joelhos passam a fatura."
         ],
         "sit_beside": [
-          "Senta. Não cobro conversa.",
-          "Cabe aqui mais um silêncio."
+          "A conversa é grátis. O lugar é que é meu.",
+          "Senta-te, mas se ressonares, acordo-te à chapada."
         ],
         "gesture_rude": [
-          "A legenda ficou em manutenção.",
-          "Ó seu #%&@! Bip preventivo."
+          "Isso, em casa da minha avó, era chinelada!",
+          "Ó seu #%&@! Isso faz-se a uma pessoa de bem?"
         ],
         "golden": [
-          "Até a pressa ficou dourada.",
-          "Esta luz merece uma pausa."
+          "Que luz! Tira-me já uma foto, antes que eu volte ao normal.",
+          "Fim de tarde dourado. Até o caixote do lixo parece uma joia."
         ],
         "sunny": [
-          "A sombra chegou primeiro.",
-          "O sol está muito disponível."
+          "Está um calor de rachar e eu sem chapéu. Amanhã estou feito um camarão.",
+          "Que solão! Dava para estrelar um ovo no passeio."
         ],
         "storm": [
-          "O céu bateu a porta.",
-          "O toldo pediu transferência."
+          "Trovoada! Alguém lá em cima bateu com a porta.",
+          "Chove a potes! Até os patos foram buscar guarda-chuva."
         ],
         "rainbow": [
-          "O céu abriu a caixa.",
-          "Trouxe todas as cores hoje."
+          "Arco-íris! Aposto que o céu não pediu licença à Câmara.",
+          "Olha, um arco-íris! Se houver ouro no fim, fui eu que o vi primeiro!"
         ],
         "night": [
-          "Agora ouve-se melhor o silêncio.",
-          "Há luz para ficar mais pouco."
+          "À noite isto parece outro sítio. Mais escuro, sobretudo.",
+          "Já é de noite? E eu ainda nem jantei!"
         ],
         "talk": [
           "Tenho MB Way, tenho MB Way",
@@ -1316,7 +1316,7 @@
         ],
         "human": [
           "Hoje desliguei as notificações.",
-          "Obrigado por ficares um bocadinho."
+          "Obrigada por ficares um bocadinho."
         ]
       },
       "humanMoment": "Hoje desliguei as notificações.",
@@ -1364,60 +1364,60 @@
       },
       "lines": {
         "ignored": [
-          "Estou aqui. Sem apresentação.",
-          "A conversa ficou em espera."
+          "Vais-te embora a meio? Era a parte em que eu tinha razão!",
+          "Pronto, vai. Conto o resto ao candeeiro, que esse não foge."
         ],
         "slap1": [
           "Já levaste na boca!",
-          "A mão vinha sem assunto?"
+          "Ai! Essa mão pensa mais depressa do que tu."
         ],
         "slap2": [
           "Levaste na boca, boneco!",
-          "Outra vez? Faltou pontuação?"
+          "Outra?! A minha cara não é campainha!"
         ],
         "slap3": [
           "Ai, que tromba boa p'ra levar chapadões!",
-          "Já percebi. Agora dá espaço."
+          "Três?! Para a próxima trago capacete e advogado!"
         ],
         "bystander_laugh": [
           "A dignidade foi dar uma volta.",
-          "Foi ensaio. Espero eu."
+          "Ahahah! Essa até o chão sentiu!"
         ],
         "run_past": [
-          "A pressa vai à frente!",
-          "Levas a pausa contigo?"
+          "Vais tirar o pai da forca?",
+          "Eh lá! Passaste com tanta pressa que até me constipei."
         ],
         "jump": [
-          "O chão ficou ofendido.",
-          "Isso conta como escadas?"
+          "Saltinhos? Isso é ginástica ou picou-te alguma coisa?",
+          "Salta, salta, que depois os joelhos passam a fatura."
         ],
         "sit_beside": [
-          "Senta. Não cobro conversa.",
-          "Cabe aqui mais um silêncio."
+          "A conversa é grátis. O lugar é que é meu.",
+          "Senta-te, mas se ressonares, acordo-te à chapada."
         ],
         "gesture_rude": [
-          "A legenda ficou em manutenção.",
-          "Ó seu #%&@! Bip preventivo."
+          "Isso, em casa da minha avó, era chinelada!",
+          "Ó seu #%&@! Isso faz-se a uma pessoa de bem?"
         ],
         "golden": [
-          "Até a pressa ficou dourada.",
-          "Esta luz merece uma pausa."
+          "Que luz! Tira-me já uma foto, antes que eu volte ao normal.",
+          "Fim de tarde dourado. Até o caixote do lixo parece uma joia."
         ],
         "sunny": [
-          "A sombra chegou primeiro.",
-          "O sol está muito disponível."
+          "Está um calor de rachar e eu sem chapéu. Amanhã estou feito um camarão.",
+          "Que solão! Dava para estrelar um ovo no passeio."
         ],
         "storm": [
-          "O céu bateu a porta.",
-          "O toldo pediu transferência."
+          "Trovoada! Alguém lá em cima bateu com a porta.",
+          "Chove a potes! Até os patos foram buscar guarda-chuva."
         ],
         "rainbow": [
-          "O céu abriu a caixa.",
-          "Trouxe todas as cores hoje."
+          "Arco-íris! Aposto que o céu não pediu licença à Câmara.",
+          "Olha, um arco-íris! Se houver ouro no fim, fui eu que o vi primeiro!"
         ],
         "night": [
-          "Agora ouve-se melhor o silêncio.",
-          "Há luz para ficar mais pouco."
+          "À noite isto parece outro sítio. Mais escuro, sobretudo.",
+          "Já é de noite? E eu ainda nem jantei!"
         ],
         "talk": [
           "Espera. A espontaneidade ficou tremida.",
@@ -1425,7 +1425,7 @@
         ],
         "human": [
           "Hoje quero guardar isto sem filmar.",
-          "Obrigado por ficares um bocadinho."
+          "Obrigada por ficares um bocadinho."
         ]
       },
       "humanMoment": "Hoje quero guardar isto sem filmar.",
@@ -1480,61 +1480,61 @@
       },
       "lines": {
         "ignored": [
-          "Estou aqui. Sem apresentação.",
-          "A conversa ficou em espera."
+          "Vais-te embora a meio? Era a parte em que eu tinha razão!",
+          "Pronto, vai. Conto o resto ao candeeiro, que esse não foge."
         ],
         "slap1": [
           "Já levaste na boca!",
-          "A mão vinha sem assunto?",
+          "Ai! Essa mão pensa mais depressa do que tu.",
           "Ó nabo!"
         ],
         "slap2": [
           "Levaste na boca, boneco!",
-          "Outra vez? Faltou pontuação?"
+          "Outra?! A minha cara não é campainha!"
         ],
         "slap3": [
           "Ai, que tromba boa p'ra levar chapadões!",
-          "Já percebi. Agora dá espaço."
+          "Três?! Para a próxima trago capacete e advogado!"
         ],
         "bystander_laugh": [
           "A dignidade foi dar uma volta.",
-          "Foi ensaio. Espero eu."
+          "Ahahah! Essa até o chão sentiu!"
         ],
         "run_past": [
-          "A pressa vai à frente!",
-          "Levas a pausa contigo?"
+          "Vais tirar o pai da forca?",
+          "Eh lá! Passaste com tanta pressa que até me constipei."
         ],
         "jump": [
-          "O chão ficou ofendido.",
-          "Isso conta como escadas?"
+          "Saltinhos? Isso é ginástica ou picou-te alguma coisa?",
+          "Salta, salta, que depois os joelhos passam a fatura."
         ],
         "sit_beside": [
-          "Senta. Não cobro conversa.",
-          "Cabe aqui mais um silêncio."
+          "A conversa é grátis. O lugar é que é meu.",
+          "Senta-te, mas se ressonares, acordo-te à chapada."
         ],
         "gesture_rude": [
-          "A legenda ficou em manutenção.",
-          "Ó seu #%&@! Bip preventivo."
+          "Isso, em casa da minha avó, era chinelada!",
+          "Ó seu #%&@! Isso faz-se a uma pessoa de bem?"
         ],
         "golden": [
-          "Até a pressa ficou dourada.",
-          "Esta luz merece uma pausa."
+          "Que luz! Tira-me já uma foto, antes que eu volte ao normal.",
+          "Fim de tarde dourado. Até o caixote do lixo parece uma joia."
         ],
         "sunny": [
-          "A sombra chegou primeiro.",
-          "O sol está muito disponível."
+          "Está um calor de rachar e eu sem chapéu. Amanhã estou feito um camarão.",
+          "Que solão! Dava para estrelar um ovo no passeio."
         ],
         "storm": [
-          "O céu bateu a porta.",
-          "O toldo pediu transferência."
+          "Trovoada! Alguém lá em cima bateu com a porta.",
+          "Chove a potes! Até os patos foram buscar guarda-chuva."
         ],
         "rainbow": [
-          "O céu abriu a caixa.",
-          "Trouxe todas as cores hoje."
+          "Arco-íris! Aposto que o céu não pediu licença à Câmara.",
+          "Olha, um arco-íris! Se houver ouro no fim, fui eu que o vi primeiro!"
         ],
         "night": [
-          "Agora ouve-se melhor o silêncio.",
-          "Há luz para ficar mais pouco."
+          "À noite isto parece outro sítio. Mais escuro, sobretudo.",
+          "Já é de noite? E eu ainda nem jantei!"
         ],
         "talk": [
           "Eu sabia. Antes de saber.",
@@ -1542,7 +1542,7 @@
         ],
         "human": [
           "Não sei. Ensinas-me?",
-          "Obrigado por ficares um bocadinho."
+          "Obrigada por ficares um bocadinho."
         ]
       },
       "humanMoment": "Não sei. Ensinas-me?",
@@ -1596,68 +1596,68 @@
       },
       "lines": {
         "ignored": [
-          "Estou aqui. Sem apresentação.",
-          "A conversa ficou em espera."
+          "Vais-te embora a meio? Era a parte em que eu tinha razão!",
+          "Pronto, vai. Conto o resto ao candeeiro, que esse não foge."
         ],
         "slap1": [
           "Já levaste na boca!",
-          "A mão vinha sem assunto?"
+          "Ai! Essa mão pensa mais depressa do que tu."
         ],
         "slap2": [
           "Levaste na boca, boneco!",
-          "Outra vez? Faltou pontuação?"
+          "Outra?! A minha cara não é campainha!"
         ],
         "slap3": [
           "Ai, que tromba boa p'ra levar chapadões!",
-          "Já percebi. Agora dá espaço."
+          "Três?! Para a próxima trago capacete e advogado!"
         ],
         "bystander_laugh": [
           "A dignidade foi dar uma volta.",
-          "Foi ensaio. Espero eu."
+          "Ahahah! Essa até o chão sentiu!"
         ],
         "run_past": [
-          "A pressa vai à frente!",
-          "Levas a pausa contigo?"
+          "Vais tirar o pai da forca?",
+          "Eh lá! Passaste com tanta pressa que até me constipei."
         ],
         "jump": [
-          "O chão ficou ofendido.",
-          "Isso conta como escadas?"
+          "Saltinhos? Isso é ginástica ou picou-te alguma coisa?",
+          "Salta, salta, que depois os joelhos passam a fatura."
         ],
         "sit_beside": [
-          "Senta. Não cobro conversa.",
-          "Cabe aqui mais um silêncio."
+          "A conversa é grátis. O lugar é que é meu.",
+          "Senta-te, mas se ressonares, acordo-te à chapada."
         ],
         "gesture_rude": [
-          "A legenda ficou em manutenção.",
-          "Ó seu #%&@! Bip preventivo."
+          "Isso, em casa da minha avó, era chinelada!",
+          "Ó seu #%&@! Isso faz-se a uma pessoa de bem?"
         ],
         "golden": [
-          "Até a pressa ficou dourada.",
-          "Esta luz merece uma pausa."
+          "Que luz! Tira-me já uma foto, antes que eu volte ao normal.",
+          "Fim de tarde dourado. Até o caixote do lixo parece uma joia."
         ],
         "sunny": [
-          "A sombra chegou primeiro.",
-          "O sol está muito disponível."
+          "Está um calor de rachar e eu sem chapéu. Amanhã estou feito um camarão.",
+          "Que solão! Dava para estrelar um ovo no passeio."
         ],
         "storm": [
-          "O céu bateu a porta.",
-          "O toldo pediu transferência."
+          "Trovoada! Alguém lá em cima bateu com a porta.",
+          "Chove a potes! Até os patos foram buscar guarda-chuva."
         ],
         "rainbow": [
-          "O céu abriu a caixa.",
-          "Trouxe todas as cores hoje."
+          "Arco-íris! Aposto que o céu não pediu licença à Câmara.",
+          "Olha, um arco-íris! Se houver ouro no fim, fui eu que o vi primeiro!"
         ],
         "night": [
-          "Agora ouve-se melhor o silêncio.",
-          "Há luz para ficar mais pouco."
+          "À noite isto parece outro sítio. Mais escuro, sobretudo.",
+          "Já é de noite? E eu ainda nem jantei!"
         ],
         "talk": [
-          "Mais atrás. Agora filosoficamente.",
+          "Mais atrás… mais… pronto, bateu. Mas cabia!",
           "Aqui cabe. Na minha imaginação."
         ],
         "human": [
           "Gosto quando alguém diz bom dia.",
-          "Obrigado por ficares um bocadinho."
+          "Obrigada por ficares um bocadinho."
         ]
       },
       "humanMoment": "Gosto quando alguém diz bom dia.",
@@ -1711,60 +1711,60 @@
       },
       "lines": {
         "ignored": [
-          "Estou aqui. Sem apresentação.",
-          "A conversa ficou em espera."
+          "Vais-te embora a meio? Era a parte em que eu tinha razão!",
+          "Pronto, vai. Conto o resto ao candeeiro, que esse não foge."
         ],
         "slap1": [
           "Já levaste na boca!",
-          "A mão vinha sem assunto?"
+          "Ai! Essa mão pensa mais depressa do que tu."
         ],
         "slap2": [
           "Levaste na boca, boneco!",
-          "Outra vez? Faltou pontuação?"
+          "Outra?! A minha cara não é campainha!"
         ],
         "slap3": [
           "Ai, que tromba boa p'ra levar chapadões!",
-          "Já percebi. Agora dá espaço."
+          "Três?! Para a próxima trago capacete e advogado!"
         ],
         "bystander_laugh": [
           "A dignidade foi dar uma volta.",
-          "Foi ensaio. Espero eu."
+          "Ahahah! Essa até o chão sentiu!"
         ],
         "run_past": [
-          "A pressa vai à frente!",
-          "Levas a pausa contigo?"
+          "Vais tirar o pai da forca?",
+          "Eh lá! Passaste com tanta pressa que até me constipei."
         ],
         "jump": [
-          "O chão ficou ofendido.",
-          "Isso conta como escadas?"
+          "Saltinhos? Isso é ginástica ou picou-te alguma coisa?",
+          "Salta, salta, que depois os joelhos passam a fatura."
         ],
         "sit_beside": [
-          "Senta. Não cobro conversa.",
-          "Cabe aqui mais um silêncio."
+          "A conversa é grátis. O lugar é que é meu.",
+          "Senta-te, mas se ressonares, acordo-te à chapada."
         ],
         "gesture_rude": [
-          "A legenda ficou em manutenção.",
-          "Ó seu #%&@! Bip preventivo."
+          "Isso, em casa da minha avó, era chinelada!",
+          "Ó seu #%&@! Isso faz-se a uma pessoa de bem?"
         ],
         "golden": [
-          "Até a pressa ficou dourada.",
-          "Esta luz merece uma pausa."
+          "Que luz! Tira-me já uma foto, antes que eu volte ao normal.",
+          "Fim de tarde dourado. Até o caixote do lixo parece uma joia."
         ],
         "sunny": [
-          "A sombra chegou primeiro.",
-          "O sol está muito disponível."
+          "Está um calor de rachar e eu sem chapéu. Amanhã estou feito um camarão.",
+          "Que solão! Dava para estrelar um ovo no passeio."
         ],
         "storm": [
-          "O céu bateu a porta.",
-          "O toldo pediu transferência."
+          "Trovoada! Alguém lá em cima bateu com a porta.",
+          "Chove a potes! Até os patos foram buscar guarda-chuva."
         ],
         "rainbow": [
-          "O céu abriu a caixa.",
-          "Trouxe todas as cores hoje."
+          "Arco-íris! Aposto que o céu não pediu licença à Câmara.",
+          "Olha, um arco-íris! Se houver ouro no fim, fui eu que o vi primeiro!"
         ],
         "night": [
-          "Agora ouve-se melhor o silêncio.",
-          "Há luz para ficar mais pouco."
+          "À noite isto parece outro sítio. Mais escuro, sobretudo.",
+          "Já é de noite? E eu ainda nem jantei!"
         ],
         "talk": [
           "Não espreito. Faço controlo de qualidade.",
@@ -1772,7 +1772,7 @@
         ],
         "human": [
           "A janela é companhia.",
-          "Obrigado por ficares um bocadinho."
+          "Obrigada por ficares um bocadinho."
         ]
       },
       "humanMoment": "A janela é companhia.",
@@ -1826,61 +1826,61 @@
       },
       "lines": {
         "ignored": [
-          "Estou aqui. Sem apresentação.",
-          "A conversa ficou em espera."
+          "Vais-te embora a meio? Era a parte em que eu tinha razão!",
+          "Pronto, vai. Conto o resto ao candeeiro, que esse não foge."
         ],
         "slap1": [
           "Já levaste na boca!",
-          "A mão vinha sem assunto?"
+          "Ai! Essa mão pensa mais depressa do que tu."
         ],
         "slap2": [
           "Levaste na boca, boneco!",
-          "Outra vez? Faltou pontuação?"
+          "Outra?! A minha cara não é campainha!"
         ],
         "slap3": [
           "Ai, que tromba boa p'ra levar chapadões!",
-          "Já percebi. Agora dá espaço."
+          "Três?! Para a próxima trago capacete e advogado!"
         ],
         "bystander_laugh": [
           "A dignidade foi dar uma volta.",
-          "Foi ensaio. Espero eu."
+          "Ahahah! Essa até o chão sentiu!"
         ],
         "run_past": [
-          "A pressa vai à frente!",
-          "Levas a pausa contigo?"
+          "Vais tirar o pai da forca?",
+          "Eh lá! Passaste com tanta pressa que até me constipei."
         ],
         "jump": [
-          "O chão ficou ofendido.",
-          "Isso conta como escadas?"
+          "Saltinhos? Isso é ginástica ou picou-te alguma coisa?",
+          "Salta, salta, que depois os joelhos passam a fatura."
         ],
         "sit_beside": [
-          "Senta. Não cobro conversa.",
-          "Cabe aqui mais um silêncio."
+          "A conversa é grátis. O lugar é que é meu.",
+          "Senta-te, mas se ressonares, acordo-te à chapada."
         ],
         "gesture_rude": [
-          "A legenda ficou em manutenção.",
-          "Ó seu #%&@! Bip preventivo.",
+          "Isso, em casa da minha avó, era chinelada!",
+          "Ó seu #%&@! Isso faz-se a uma pessoa de bem?",
           "Tens boa voz para escrever à máquina."
         ],
         "golden": [
-          "Até a pressa ficou dourada.",
-          "Esta luz merece uma pausa."
+          "Que luz! Tira-me já uma foto, antes que eu volte ao normal.",
+          "Fim de tarde dourado. Até o caixote do lixo parece uma joia."
         ],
         "sunny": [
-          "A sombra chegou primeiro.",
-          "O sol está muito disponível."
+          "Está um calor de rachar e eu sem chapéu. Amanhã estou feito um camarão.",
+          "Que solão! Dava para estrelar um ovo no passeio."
         ],
         "storm": [
-          "O céu bateu a porta.",
-          "O toldo pediu transferência."
+          "Trovoada! Alguém lá em cima bateu com a porta.",
+          "Chove a potes! Até os patos foram buscar guarda-chuva."
         ],
         "rainbow": [
-          "O céu abriu a caixa.",
-          "Trouxe todas as cores hoje."
+          "Arco-íris! Aposto que o céu não pediu licença à Câmara.",
+          "Olha, um arco-íris! Se houver ouro no fim, fui eu que o vi primeiro!"
         ],
         "night": [
-          "Agora ouve-se melhor o silêncio.",
-          "Há luz para ficar mais pouco."
+          "À noite isto parece outro sítio. Mais escuro, sobretudo.",
+          "Já é de noite? E eu ainda nem jantei!"
         ],
         "talk": [
           "A ausência dialoga com o vazio.",
@@ -1888,7 +1888,7 @@
         ],
         "human": [
           "Esta obra faz-me falta.",
-          "Obrigado por ficares um bocadinho."
+          "Obrigada por ficares um bocadinho."
         ]
       },
       "humanMoment": "Esta obra faz-me falta.",
@@ -1942,60 +1942,60 @@
       },
       "lines": {
         "ignored": [
-          "Estou aqui. Sem apresentação.",
-          "A conversa ficou em espera."
+          "Vais-te embora a meio? Era a parte em que eu tinha razão!",
+          "Pronto, vai. Conto o resto ao candeeiro, que esse não foge."
         ],
         "slap1": [
           "Já levaste na boca!",
-          "A mão vinha sem assunto?"
+          "Ai! Essa mão pensa mais depressa do que tu."
         ],
         "slap2": [
           "Levaste na boca, boneco!",
-          "Outra vez? Faltou pontuação?"
+          "Outra?! A minha cara não é campainha!"
         ],
         "slap3": [
           "Ai, que tromba boa p'ra levar chapadões!",
-          "Já percebi. Agora dá espaço."
+          "Três?! Para a próxima trago capacete e advogado!"
         ],
         "bystander_laugh": [
           "A dignidade foi dar uma volta.",
-          "Foi ensaio. Espero eu."
+          "Ahahah! Essa até o chão sentiu!"
         ],
         "run_past": [
-          "A pressa vai à frente!",
-          "Levas a pausa contigo?"
+          "Vais tirar o pai da forca?",
+          "Eh lá! Passaste com tanta pressa que até me constipei."
         ],
         "jump": [
-          "O chão ficou ofendido.",
-          "Isso conta como escadas?"
+          "Saltinhos? Isso é ginástica ou picou-te alguma coisa?",
+          "Salta, salta, que depois os joelhos passam a fatura."
         ],
         "sit_beside": [
-          "Senta. Não cobro conversa.",
-          "Cabe aqui mais um silêncio."
+          "A conversa é grátis. O lugar é que é meu.",
+          "Senta-te, mas se ressonares, acordo-te à chapada."
         ],
         "gesture_rude": [
-          "A legenda ficou em manutenção.",
-          "Ó seu #%&@! Bip preventivo."
+          "Isso, em casa da minha avó, era chinelada!",
+          "Ó seu #%&@! Isso faz-se a uma pessoa de bem?"
         ],
         "golden": [
-          "Até a pressa ficou dourada.",
-          "Esta luz merece uma pausa."
+          "Que luz! Tira-me já uma foto, antes que eu volte ao normal.",
+          "Fim de tarde dourado. Até o caixote do lixo parece uma joia."
         ],
         "sunny": [
-          "A sombra chegou primeiro.",
-          "O sol está muito disponível."
+          "Está um calor de rachar e eu sem chapéu. Amanhã estou feito um camarão.",
+          "Que solão! Dava para estrelar um ovo no passeio."
         ],
         "storm": [
-          "O céu bateu a porta.",
-          "O toldo pediu transferência."
+          "Trovoada! Alguém lá em cima bateu com a porta.",
+          "Chove a potes! Até os patos foram buscar guarda-chuva."
         ],
         "rainbow": [
-          "O céu abriu a caixa.",
-          "Trouxe todas as cores hoje."
+          "Arco-íris! Aposto que o céu não pediu licença à Câmara.",
+          "Olha, um arco-íris! Se houver ouro no fim, fui eu que o vi primeiro!"
         ],
         "night": [
-          "Agora ouve-se melhor o silêncio.",
-          "Há luz para ficar mais pouco."
+          "À noite isto parece outro sítio. Mais escuro, sobretudo.",
+          "Já é de noite? E eu ainda nem jantei!"
         ],
         "talk": [
           "Foi falta. Ainda não aconteceu?",
@@ -2003,7 +2003,7 @@
         ],
         "human": [
           "Vou aos jogos pelo meu pai.",
-          "Obrigado por ficares um bocadinho."
+          "Obrigada por ficares um bocadinho."
         ]
       },
       "humanMoment": "Vou aos jogos pelo meu pai.",
@@ -2059,60 +2059,60 @@
       },
       "lines": {
         "ignored": [
-          "Estou aqui. Sem apresentação.",
-          "A conversa ficou em espera."
+          "Vais-te embora a meio? Era a parte em que eu tinha razão!",
+          "Pronto, vai. Conto o resto ao candeeiro, que esse não foge."
         ],
         "slap1": [
           "Já levaste na boca!",
-          "A mão vinha sem assunto?"
+          "Ai! Essa mão pensa mais depressa do que tu."
         ],
         "slap2": [
           "Levaste na boca, boneco!",
-          "Outra vez? Faltou pontuação?"
+          "Outra?! A minha cara não é campainha!"
         ],
         "slap3": [
           "Ai, que tromba boa p'ra levar chapadões!",
-          "Já percebi. Agora dá espaço."
+          "Três?! Para a próxima trago capacete e advogado!"
         ],
         "bystander_laugh": [
           "A dignidade foi dar uma volta.",
-          "Foi ensaio. Espero eu."
+          "Ahahah! Essa até o chão sentiu!"
         ],
         "run_past": [
-          "A pressa vai à frente!",
-          "Levas a pausa contigo?"
+          "Vais tirar o pai da forca?",
+          "Eh lá! Passaste com tanta pressa que até me constipei."
         ],
         "jump": [
-          "O chão ficou ofendido.",
-          "Isso conta como escadas?"
+          "Saltinhos? Isso é ginástica ou picou-te alguma coisa?",
+          "Salta, salta, que depois os joelhos passam a fatura."
         ],
         "sit_beside": [
-          "Senta. Não cobro conversa.",
-          "Cabe aqui mais um silêncio."
+          "A conversa é grátis. O lugar é que é meu.",
+          "Senta-te, mas se ressonares, acordo-te à chapada."
         ],
         "gesture_rude": [
-          "A legenda ficou em manutenção.",
-          "Ó seu #%&@! Bip preventivo."
+          "Isso, em casa da minha avó, era chinelada!",
+          "Ó seu #%&@! Isso faz-se a uma pessoa de bem?"
         ],
         "golden": [
-          "Até a pressa ficou dourada.",
-          "Esta luz merece uma pausa."
+          "Que luz! Tira-me já uma foto, antes que eu volte ao normal.",
+          "Fim de tarde dourado. Até o caixote do lixo parece uma joia."
         ],
         "sunny": [
-          "A sombra chegou primeiro.",
-          "O sol está muito disponível."
+          "Está um calor de rachar e eu sem chapéu. Amanhã estou feito um camarão.",
+          "Que solão! Dava para estrelar um ovo no passeio."
         ],
         "storm": [
-          "O céu bateu a porta.",
-          "O toldo pediu transferência."
+          "Trovoada! Alguém lá em cima bateu com a porta.",
+          "Chove a potes! Até os patos foram buscar guarda-chuva."
         ],
         "rainbow": [
-          "O céu abriu a caixa.",
-          "Trouxe todas as cores hoje."
+          "Arco-íris! Aposto que o céu não pediu licença à Câmara.",
+          "Olha, um arco-íris! Se houver ouro no fim, fui eu que o vi primeiro!"
         ],
         "night": [
-          "Agora ouve-se melhor o silêncio.",
-          "Há luz para ficar mais pouco."
+          "À noite isto parece outro sítio. Mais escuro, sobretudo.",
+          "Já é de noite? E eu ainda nem jantei!"
         ],
         "talk": [
           "Onde fica a saída da chegada?",
@@ -2120,7 +2120,7 @@
         ],
         "human": [
           "Perdi-me. Mas fui bem recebido.",
-          "Obrigado por ficares um bocadinho."
+          "Obrigada por ficares um bocadinho."
         ]
       },
       "humanMoment": "Perdi-me. Mas fui bem recebido.",
@@ -2197,7 +2197,7 @@
           "Também sei ficar calado. Quase sempre."
         ],
         "slap1": [
-          "A conversa era ali ao lado.",
+          "Eu só estava a ver! A chapada era para o do lado!",
           "Isso vinha acompanhado de argumento?"
         ],
         "slap2": [
@@ -2205,7 +2205,7 @@
           "Podes repetir, mas com palavras?"
         ],
         "slap3": [
-          "Dá-me espaço. A conversa espera.",
+          "Chega! Eu vinha ver, não vinha participar!",
           "Pronto. Já não estou só a ver."
         ],
         "bystander_laugh": [
@@ -2214,23 +2214,23 @@
           "Tens uma testa que parece um papo seco!"
         ],
         "run_past": [
-          "Vai devagar. A opinião não foge.",
+          "Corre, corre, que eu daqui comento a corrida toda.",
           "Eu fazia isso. Sentado."
         ],
         "jump": [
-          "Já viste? Agora também há altitude.",
-          "O chão pediu uma segunda oportunidade."
+          "Salto razoável. Dou-lhe um seis, por simpatia.",
+          "Já vi saltos melhores. Na televisão, mas vi."
         ],
         "sit_beside": [
           "Senta. Daqui vê-se sem atrapalhar.",
           "Queres conversa ou companhia?"
         ],
         "gesture_rude": [
-          "Essa opinião veio sem vogais.",
+          "Esse gesto? Até eu, que comento tudo, fico sem comentários.",
           "Ó seu #%&@! Pronto, passou."
         ],
         "golden": [
-          "Até o muro parece ter férias.",
+          "Que luz! Até esta camisola parece de marca.",
           "Esta luz faz parar a conversa."
         ],
         "sunny": [
@@ -2351,15 +2351,15 @@
           "Podemos experimentar uma conversa normal?"
         ],
         "slap3": [
-          "Está bem. Preciso de algum espaço.",
-          "Hoje fico fora dessa brincadeira."
+          "Chega! Vou dar um mergulho até a cara desinchar.",
+          "Três chapadas e piscina nem vê-la. Que dia!"
         ],
         "bystander_laugh": [
           "Eu fazia igual. Por acidente.",
           "Essa coreografia precisa de corrimão."
         ],
         "run_past": [
-          "A pressa também precisa de descanso.",
+          "Vais à praia? Leva-me contigo!",
           "O chão não vai a lado nenhum."
         ],
         "jump": [
@@ -2375,7 +2375,7 @@
           "Esse gesto fica por tua conta."
         ],
         "golden": [
-          "A luz sabe quando sair bem.",
+          "Que pôr do sol! Pena não haver mar para ele mergulhar.",
           "Ficava aqui até acabar esta cor."
         ],
         "sunny": [
@@ -2384,7 +2384,7 @@
         ],
         "storm": [
           "Já não preciso de procurar água.",
-          "A toalha pediu um telhado."
+          "Chuva! Afinal a toalha não veio de enfeite."
         ],
         "rainbow": [
           "Trouxeram o catálogo inteiro de cores.",
@@ -2495,11 +2495,11 @@
           "Olha este, é do mesmo tamanho sentado e de pé!"
         ],
         "run_past": [
-          "Leva um casaco para essa urgência.",
-          "O recado não precisa de fugir."
+          "Onde é o incêndio? Conta-me tudo, que eu espalho!",
+          "Vai, vai! Depois eu invento para onde ias."
         ],
         "jump": [
-          "Vi tudo. O teto não participou.",
+          "Vi tudo! Amanhã o bairro inteiro sabe que saltas.",
           "Isso conta como mudança de piso?"
         ],
         "sit_beside": [
@@ -2630,7 +2630,7 @@
           "Levas na boca, porko!"
         ],
         "slap3": [
-          "Reunião terminada. Preciso de espaço.",
+          "Reunião terminada! Isto vai direto para os recursos humanos.",
           "A próxima conversa fica para amanhã."
         ],
         "bystander_laugh": [

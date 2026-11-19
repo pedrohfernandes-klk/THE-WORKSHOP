@@ -287,7 +287,7 @@ export function createCombat(ctx,{camera,controls,world,npcModule,getPlayer,canA
   function begin(first,second,kind,allowSeated=false,venue=''){
     if(state.active||freeze()||quiet()||!canAct()||!first||!second)return false;
     a=first;b=second;donor=null;state.venue=venue;readVisitor();
-    if(kind==='visitor'&&(!canStart()||controls.seated)){toast(controls.seated?'Levanta-te para a porrada.':'Larga o papel primeiro.');a=b=null;return false;}
+    if(kind==='visitor'&&(!canStart()||controls.seated)){toast(controls.seated?'Levanta-te para a porrada.':'Larga a bola de papel. Isto é porrada, não é basquetebol.');a=b=null;return false;}
     if(kind==='visitor'){
       if(!eligible(b.n,allowSeated)){toast('Agora não dá para porrada.');a=b=null;return false;}
       if(Math.hypot(position.x-b.n.x,position.z-b.n.z)>GUARD_START||Math.abs(position.y-1.62-(b.n.baseY||0))>.8){toast('Chega mais perto do trombil.');a=b=null;return false;}

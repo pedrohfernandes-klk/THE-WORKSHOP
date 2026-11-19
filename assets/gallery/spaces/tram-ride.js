@@ -207,7 +207,7 @@ export function build(ctx){
   function configureRoute(){route=LEG_TABLES[stationIndex];routeLength=route.length;trackAt(route,0,trackPoint);facing=Math.sin(carrier.yaw)*trackPoint.tx+Math.cos(carrier.yaw)*trackPoint.tz>=0?1:-1;}
   function depart(){
     if(phase!=='docked'||!camera)return false;
-    readVisitorPosition();if(!contains(visitorPosition.x,visitorPosition.z)||Math.abs(visitorPosition.y-1.97)>1.6){ctx.ui?.toast?.('Entre pela porta aberta.');return false;}
+    readVisitorPosition();if(!contains(visitorPosition.x,visitorPosition.z)||Math.abs(visitorPosition.y-1.97)>1.6){ctx.ui?.toast?.('Entra pela porta aberta. À pendura não vale.');return false;}
     if(candidates)for(const n of candidates){if(passengers.indexOf(null)<0)break;if(!n.combatControlled&&!n.busy&&!n.S.seated)api.board(n);}
     nextStation=(stationIndex+1)%3;
     configureRoute();tripId++;phase='closing';phaseTime=0;travelTime=0;travelProgress=0;finalFrom=0;smallUntil=0;incident=climax=fightStarted=rideSurvived=false;visitorWasInside=true;score.arm();score.doorClose();tramMusic.mode='journey';announce(pick(DEPART[STOPS[nextStation].id],tripId));saidMid=0;passedCampus=false;lastDistance=0;speed=0;return true;
@@ -243,7 +243,7 @@ export function build(ctx){
       lastDistance=distance;
       if(duration>=40&&saidMid<2&&travelTime>(saidMid?42:22)){announce(pick(MID,tripId*2+saidMid));saidMid++;}
       if(!passedCampus&&stationIndex===2&&travelTime>4&&u<.5&&Math.abs(carrier.x-86)<1&&Math.abs(carrier.z-29)<3){passedCampus=true;bell();announce('Não paramos aqui. Já cá estiveram.');}
-      if(!incident&&travelTime>4){incident=true;smallUntil=frame.time+2;if(!quiet)ctx.ui?.toast?.('A mala pediu outro lugar.');}
+      if(!incident&&travelTime>4){incident=true;smallUntil=frame.time+2;if(!quiet)ctx.ui?.toast?.('Atenção: há uma mala a passear sem bilhete.');}
       if(!climax&&travelTime>7){climax=true;let a=null,b=null;for(let i=0;i<4;i++)if(passengers[i]){if(!a)a=passengers[i];else if(!b)b=passengers[i];}
         if(a&&b){const combat=ctx.scene.userData.combatAPI;lastCombatResult=combat?.getScriptedResult?.()?.sequence||0;fightStarted=!!combat?.startScripted?.(a.S.name,b.S.name,{duration:4,climax:true,allowSeated:true,inPlace:true,venue:'tram',tripId});}
         if(fightStarted&&tripId%5!==0){accelUntil=frame.time+4;announce('Por motivos de porrada, vamos acelerar.');if(!ctx.reducedMotion&&carrier.riding){impulse.sequence++;impulse.x=-facing*Math.sin(carrier.yaw)*.75;impulse.z=-facing*Math.cos(carrier.yaw)*.75;}}
