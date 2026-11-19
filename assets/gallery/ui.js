@@ -84,21 +84,21 @@ const VERBS = [
 const PT_SAY = new Map(Object.entries({
   take: 'Apanhar', look: 'Olhar', read: 'Ler', sit: 'Sentar', up: 'Subir', down: 'Descer', call: 'Chamar',
   watch: 'Ver', slap: 'Chapada', talk: 'Falar', use: 'Usar', open: 'Abrir', play: 'Jogar', throw: 'Atirar',
-  'look around': 'olhar', walk: 'andar', run: 'correr', jump: 'saltar', 'or hold to walk': 'ou mantém para andar',
-  'releases the mouse': 'solta o rato', seated: 'Sentado', 'or space to stand up': 'ou Espaço para levantar',
-  'the floor to stand': 'o chão para levantar', 'click to play': 'Clica para jogar',
-  click: 'Clique', tap: 'Toque', drag: 'Arrasta', space: 'Espaço', mouse: 'Rato',
+  'look around': 'olhar', walk: 'andar', run: 'correr', jump: 'saltar', 'or hold to walk': 'ou mantém premido para andar',
+  'releases the mouse': 'solta o rato', seated: 'Sentado', 'or space to stand up': 'ou Espaço para te levantares',
+  'the floor to stand': 'no chão para te levantares', 'click to play': 'Clica para jogar',
+  click: 'Clique', tap: 'Toca', drag: 'Arrasta', space: 'Espaço', mouse: 'Rato',
   // in-world notices (toasts)
-  'get closer': 'Chega-te mais perto', 'get closer to talk': 'Chega-te para falar',
-  'too far to slap': 'Longe demais para a chapada', 'get closer to sit': 'Chega-te para te sentares',
+  'get closer': 'Chega-te mais perto', 'get closer to talk': 'Chega-te mais perto para falar',
+  'too far to slap': 'O braço não estica tanto.', 'get closer to sit': 'Chega-te mais perto para te sentares',
   'the doors are open.': 'As portas estão abertas.', 'hold f, release to throw': 'Segura F e larga para atirar',
   // First-minute hints (first-minute.js)
   'walk up to a work to hear its story.': 'Aproxima-te de uma obra para ouvires a história dela.',
-  'people here answer back: click to slap, e to talk.': 'Aqui a malta responde: clica para dar chapada, E para conversar.',
+  'people here answer back: click to slap, e to talk.': 'Aqui a malta responde à letra: clica para dar uma chapada, E para conversar.',
   'the tram waits at the east platform: get in and press partir.': 'O elétrico espera na plataforma a nascente: entra e carrega em PARTIR.',
-  'hold q next to someone for a proper porrada. brio is your breath in a fight.': 'Mantém Q ao pé de alguém para porrada a sério. O BRIO é o teu fôlego na luta.',
-  'people here answer back: tap someone to talk.': 'Aqui a malta responde: toca em alguém para conversar.',
-  'tap 🥊 next to someone for a proper porrada. brio is your breath in a fight.': 'Toca em 🥊 ao pé de alguém para porrada a sério. O BRIO é o teu fôlego na luta.',
+  'hold q next to someone for a proper porrada. brio is your breath in a fight.': 'Segura Q ao pé de alguém para uma porrada a sério. O BRIO é o teu fôlego na luta.',
+  'people here answer back: tap someone to talk.': 'Aqui a malta responde à letra: toca em alguém para conversar.',
+  'tap 🥊 next to someone for a proper porrada. brio is your breath in a fight.': 'Toca em 🥊 ao pé de alguém para uma porrada a sério. O BRIO é o teu fôlego na luta.',
   'orgulho comes from missions and fights, and goes on intangible goods at the vending machine.': 'O ORGULHO ganha-se em missões e porradas e gasta-se em bens imateriais na máquina.',
 }));
 const say = (s) => (PT && PT_SAY.get(String(s).trim().toLowerCase())) || s;

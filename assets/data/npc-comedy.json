@@ -95,7 +95,7 @@
       "role": "primary",
       "url": "./comedy/horse.json",
       "signature": {
-        "text": "Não confundas entrada com aparição.",
+        "text": "Tu entras. Eu faço uma aparição.",
         "score": 4
       },
       "voice": {
@@ -251,7 +251,7 @@
       "role": "secondary",
       "url": "./comedy/arrumador.json",
       "signature": {
-        "text": "Mais atrás. O problema também.",
+        "text": "Vem, vem, vem… Pronto, já bateste. Está ótimo!",
         "score": 4
       },
       "voice": {
@@ -672,7 +672,7 @@
         },
         {
           "speaker": "cusco_roupao",
-          "text": "Nem uma coisa.",
+          "text": "Nadinha.",
           "pause": 0.6,
           "delivery": "dry",
           "score": 4
@@ -865,7 +865,7 @@
         },
         {
           "speaker": "influencer",
-          "text": "Ótimo. Ela trabalha de graça.",
+          "text": "Pois. E já está arrependida.",
           "pause": 0.8,
           "delivery": "dry",
           "score": 4
@@ -1296,7 +1296,7 @@
         },
         {
           "speaker": "walrus",
-          "text": "Então baixa-o. Está a bater na grelha.",
+          "text": "Então baixa-o. Está a desalinhar-me as sombras.",
           "pause": 0.8,
           "delivery": "dry",
           "score": 4
@@ -1323,7 +1323,7 @@
         },
         {
           "speaker": "coach_madrugada",
-          "text": "Eu também! A vender-te o teu direto!",
+          "text": "Eu também! A vender um curso de diretos, em direto!",
           "pause": 0.6,
           "delivery": "dry",
           "score": 4
@@ -1443,7 +1443,7 @@
       "lines": [
         {
           "speaker": "apanhados",
-          "text": "Apanhado! São oito da manhã e tu ainda a dormir!",
+          "text": "Apanhado! Já são oito da manhã! Adormeceste!",
           "pause": 0.5,
           "delivery": "rising",
           "score": 4
@@ -1782,7 +1782,7 @@
         },
         {
           "speaker": "influencer",
-          "text": "Não. O susto entrou cedo.",
+          "text": "Não. Ficou espontâneo demais.",
           "pause": 0.8,
           "delivery": "dry",
           "score": 4
@@ -1919,7 +1919,7 @@
         },
         {
           "speaker": "cat",
-          "text": "É a pessoa que estou à espera.",
+          "text": "É para ninguém. É a minha companhia preferida.",
           "pause": 0.8,
           "delivery": "flat",
           "score": 4
@@ -1951,7 +1951,7 @@
         },
         {
           "speaker": "pigeon",
-          "text": "Não gosto que comam sozinhas.",
+          "text": "Nenhuma migalha devia ser comida sozinha.",
           "pause": 0.8,
           "delivery": "dry",
           "score": 4
@@ -2017,7 +2017,7 @@
         },
         {
           "speaker": "rooster",
-          "text": "Estou adiantado ao facto.",
+          "text": "Pormenores. Eu já anunciei.",
           "pause": 0.8,
           "delivery": "dry",
           "score": 4
@@ -2196,7 +2196,7 @@
       "beats": [
         {
           "speaker": "forcado",
-          "text": "Veio cá um influencer pedir um collab para a pega.",
+          "text": "Veio cá um influencer pedir uma collab para a pega.",
           "pause": 0.6,
           "delivery": "dry",
           "score": 4
@@ -2232,21 +2232,21 @@
         "id": "m02_lugar_ensaio",
         "speaker": "horse",
         "event": "repeat_talk",
-        "text": "Em {ultimoLugar} isto ainda era um ensaio.",
+        "text": "Já fizemos esta cena em «{ultimoLugar}». Agora só em reposição.",
         "score": 4
       },
       {
         "id": "m03_contagem",
         "speaker": "pig",
         "event": "slap3",
-        "text": "{chapadas} chapadas. Nem a fita aguenta tanta inspeção.",
+        "text": "{chapadas} chapadas. Vou pôr uma fita à volta da minha cara.",
         "score": 4
       },
       {
         "id": "m04_discurso",
         "speaker": "cat",
         "event": "witness",
-        "text": "O {quemLevou} já recuperou. O discurso ainda não.",
+        "text": "Quem levou: {quemLevou}. Quem se importa: eu não.",
         "score": 4
       },
       {
@@ -2260,7 +2260,7 @@
         "id": "m06_chapadas_serie",
         "speaker": "tremoco_vegan",
         "event": "slap3",
-        "text": "{chapadas} chapadas! Isto já dá uma série de vídeos!",
+        "text": "{chapadas} chapadas! Já são mais do que os meus seguidores!",
         "score": 4
       }
     ],
